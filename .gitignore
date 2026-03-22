@@ -18,3 +18,6 @@ postgres_data/
 .vscode/
 .idea/
 .DS_Store
+
+# Файл-"маска" кода проекта (создан с помощью скрипта export_skeleton.py)
+scopus_project_mask.txt
