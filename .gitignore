@@ -1,0 +1,20 @@
+# Среды окружения Python
+.env
+.venv/
+venv/
+env/
+
+# Кэш Python и скомпилированные файлы
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# База данных
+*.sqlite3
+postgres_data/
+
+# Инструменты разработчика
+.vscode/
+.idea/
+.DS_Store
