@@ -3,9 +3,13 @@ name: Python tests
 # События, при которых запускается CI
 on:
   push:
-    branches:[ "main", "master" ]
+    branches:
+      - main
+      - master
   pull_request:
-    branches:[ "main", "master" ]
+    branches:
+      - main
+      - master
 
  # Выбираем операционную систему для виртуальной машины
 jobs:
@@ -14,13 +18,13 @@ jobs:
 
 # Задаем переменные окружения-заглушки для Pydantic Settings, чтобы приложение могло собраться в тестовом режиме
     env:
-      SCOPUS_API_KEY: "dummy_test_key"
+      SCOPUS_API_KEY: "dummy_key_for_tests"
       DB_HOST: "localhost"
       DB_PORT: 5432
       DB_USER: "postgres"
       DB_PASSWORD: "password"
       DB_NAME: "test_db"
-      SECRET_KEY: "ci_test_secretkey"
+      SECRET_KEY: "supersecretkey_for_ci_tests_only"
       ALGORITHM: "HS256"
       ACCESS_TOKEN_EXPIRE_MINUTES: 30
 
