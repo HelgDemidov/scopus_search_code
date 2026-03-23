@@ -1,5 +1,7 @@
 # Scopus Search API
 
+[![Python Tests](https://github.com/HelgDemidov/scopus_search_code/actions/workflows/tests.yml/badge.svg)](https://github.com/HelgDemidov/scopus_search_code/actions/workflows/tests.yml)
+
 Russian version: [README.ru.md](README.ru.md)
 
 A learning REST API service for searching, storing, and displaying scientific publications from the Scopus database.

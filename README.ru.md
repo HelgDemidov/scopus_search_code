@@ -1,5 +1,7 @@
 # Scopus Search API
 
+[![Python Tests](https://github.com/HelgDemidov/scopus_search_code/actions/workflows/tests.yml/badge.svg)](https://github.com/HelgDemidov/scopus_search_code/actions/workflows/tests.yml)
+
 Версия на английском: [README.md](README.md)
 
 Мой учебный REST API сервис для поиска научных публикаций в базе Scopus, их сохранения и отображения.
