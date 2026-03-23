@@ -1,0 +1,12 @@
+[run]
+# Исключаем абстрактные интерфейсы из подсчета покрытия
+omit =
+    app/services/interfaces/*
+    app/main.py
+
+[report]
+# Исключаем из отчета строки, которые являются служебными
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if TYPE_CHECKING:
