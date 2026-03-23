@@ -50,4 +50,4 @@ jobs:
     # 4. Запускаем Pytest
     - name: Run Pytest
       run: |
-        pytest tests -vv
+        python -m pytest tests -vv
