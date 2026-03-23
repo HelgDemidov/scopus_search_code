@@ -3,9 +3,9 @@ name: Python tests
 # События, при которых запускается CI
 on:
   push:
-    branches:["main", "master"]
+    branches:[ "main", "master" ]
   pull_request:
-    branches:["main", "master"]
+    branches:[ "main", "master" ]
 
  # Выбираем операционную систему для виртуальной машины
 jobs:
