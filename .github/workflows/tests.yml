@@ -39,7 +39,7 @@ jobs:
       with:
         python-version: "3.12"
         # Кэшируем pip-пакеты для ускорения следующих прогонов
-        cache: 'pip'
+        cache: pip
 
     # 3. Устанавливаем зависимости из requirements.txt
     - - name: Install dependencies
