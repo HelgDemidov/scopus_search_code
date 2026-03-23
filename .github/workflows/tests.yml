@@ -51,4 +51,4 @@ jobs:
     # 4. Запускаем Pytest c целевым покрытием в 75%
     - name: Run Pytest with Coverage
       run: |
-        python -m pytest tests -vv --cov=app --cov-report=term-missing --cov-fail-under=75
+        python -m pytest tests -vv --cov=app --cov-report=term-missing --cov-fail-under=80
