@@ -1,24 +1,26 @@
-import pytest
-import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from typing import AsyncGenerator
+
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from app.core.dependencies import get_db_session
+from app.core.security import create_access_token
+from app.infrastructure.database import Base
 
 # Импортируем наше приложение и базовый класс моделей
 from app.main import app
-from app.infrastructure.database import Base
-from app.core.dependencies import get_db_session
 
-# Импорт модели пользователя и функции создания JWT-токена для "бэкдор"-фикстуры. чтобы облегчить интеграционный тест test_articles_api
+# Импорт модели пользователя и функции создания JWT-токена для "бэкдор"-фикстуры
 from app.models.user import User
-from app.core.security import create_access_token
 
 # URL для асинхронной in-memory базы данных SQLite.
 # :memory: означает, что база живет только в оперативной памяти.
 SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 # Создаем движок базы данных для тестов
-# poolclass=NullPool отключает пулинг соединений, что решает много проблем при тестировании SQLite
+# poolclass=NullPool отключает пулинг соединений
+# Это решает много проблем при тестировании SQLite
 engine = create_async_engine(
     SQLALCHEMY_DATABASE_URL, 
     connect_args={"check_same_thread": False},
@@ -33,7 +35,8 @@ expire_on_commit=False
 
 @pytest_asyncio.fixture(scope="function")
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
-    # Фикстура, которая создает таблицы в In-Memory БД перед каждым тестом, выдает сессию, а после теста - удаляет таблицы
+    # Фикстура, которая создает таблицы в In-Memory БД перед каждым тестом,
+    # выдает сессию, а после теста - удаляет таблицы
 
     # Создаем таблицы (эквивалент alembic upgrade head, но быстрее и для SQLite)
     async with engine.begin() as conn:
@@ -50,7 +53,8 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
 
 @pytest_asyncio.fixture(scope="function")
 async def async_client(db_session: AsyncSession):
-    # Асинхронный клиент для эмуляции HTTP-запросов к FastAPI (ереопределяет зависимость базы данных, чтобы приложение писало в SQLite)
+    # Асинхронный клиент для эмуляции HTTP-запросов к FastAPI:
+    # переопределяет зависимость базы данных, чтобы приложение писало в SQLite
     
     # Функция для подмены оригинальной базы данных на нашу тестовую
     async def override_get_db():
@@ -67,11 +71,14 @@ async def async_client(db_session: AsyncSession):
     # Убираем подмену после теста
     app.dependency_overrides.clear()
 
-# "Бэкдор"-фикстура для ускорения интеграционного теста test_articles_api: выдает HTTP-клиент, который УЖЕ авторизован, минует тяжелые операции хеширования пароля.
+# "Бэкдор"-фикстура для ускорения интеграционного теста test_articles_api: 
+# выдает HTTP-клиент, который УЖЕ авторизован, минует тяжелые операции хеширования пароля
 @pytest_asyncio.fixture(scope="function")
 async def authenticated_client(async_client: AsyncClient, db_session: AsyncSession) -> AsyncClient:
 
-    # 1. Напрямую создаем пользователя в БД (пишем в поле hashed_password просто случайную строку, т.к. не планируем вызывать ручку /login, которая проверяет хеш.
+    # 1. Напрямую создаем пользователя в БД 
+    # Пишем в поле hashed_password просто случайную строку, 
+    # так как не планируем вызывать ручку /login, которая проверяет хеш
     test_user = User(
         username="fast_tester",
         email="fast@test.com",

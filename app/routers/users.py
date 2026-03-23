@@ -1,15 +1,21 @@
 # app/routers/users.py
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_db_session
-from app.core.security import decode_access_token, oauth2_scheme  # импортируем decode_access_token и oauth2_scheme
+from app.core.security import (  # импортируем decode_access_token и oauth2_scheme
+    decode_access_token,
+    oauth2_scheme,
+)
 from app.infrastructure.postgres_user_repo import PostgresUserRepository
+from app.models.user import User
 from app.schemas.user_schemas import (
-    UserRegisterRequest, UserResponse, UserLoginRequest,
-    TokenResponse, PasswordResetRequest
+    PasswordResetRequest,
+    TokenResponse,
+    UserRegisterRequest,
+    UserResponse,
 )
 from app.services.user_service import UserService
 
@@ -20,11 +26,11 @@ def get_user_service(session: AsyncSession = Depends(get_db_session)) -> UserSer
     return UserService(repo)
 
 
-# ВОТ ОН, ПЕРЕНЕСЁННЫЙ СЮДА ИЗ security.py
+# определение функции перенесено из security.py
 async def get_current_user(
     token: str = Depends(oauth2_scheme), 
     service: UserService = Depends(get_user_service)
-):
+) -> User:
     email = decode_access_token(token)
     if not email:
         raise HTTPException(
@@ -44,7 +50,7 @@ async def get_current_user(
 async def register(
     data: UserRegisterRequest,
     service: UserService = Depends(get_user_service)
-):
+) -> User:
     try:
         user = await service.register(data)
         return user
@@ -55,7 +61,7 @@ async def register(
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(), 
     service: UserService = Depends(get_user_service)
-):
+) -> TokenResponse:
     try:
         token = await service.login(form_data.username, form_data.password) 
         return TokenResponse(access_token=token, token_type="bearer")
@@ -67,13 +73,13 @@ async def login(
         )
 
 @router.get("/me", response_model=UserResponse)
-async def get_me(current_user = Depends(get_current_user)):
+async def get_me(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 @router.post("/password-reset-request", status_code=status.HTTP_200_OK)
 async def password_reset_request(
     data: PasswordResetRequest,
     service: UserService = Depends(get_user_service)
-):
+) -> dict[str, str]:
     message = await service.request_password_reset(data.email)
     return {"message": message}

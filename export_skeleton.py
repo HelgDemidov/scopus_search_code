@@ -1,6 +1,6 @@
-import os
 import ast
 from pathlib import Path
+
 
 class SkeletonTransformer(ast.NodeTransformer):
     """AST-трансформер, который удаляет тела функций и методов."""

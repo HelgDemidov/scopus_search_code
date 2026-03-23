@@ -1,7 +1,10 @@
-from app.infrastructure.database import Base
 from datetime import datetime
-from sqlalchemy import String, Integer, func  # + func
+
+from sqlalchemy import Integer, String, func  # + func
 from sqlalchemy.orm import Mapped, mapped_column
+
+from app.infrastructure.database import Base
+
 
 class User(Base):
     __tablename__ = "users"  # Имя таблицы в PostgreSQL
@@ -10,7 +13,8 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(50), nullable=True)
     email: Mapped[str] = mapped_column(String(254), unique=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())  # добавлено для отображения created_at в Swagger
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())  
+    # добавлено для отображения created_at в Swagger
 
     # Функция для вывода объекта при отладке: print(user)
     def __repr__(self) -> str:

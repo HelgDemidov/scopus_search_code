@@ -1,7 +1,10 @@
+from datetime import date
+
 import pytest
 from httpx import AsyncClient
-from datetime import date
+
 from app.models.article import Article
+
 
 # 1. Создаем заглушку для метода search внутри ScopusHTTPClient
 @pytest.fixture(autouse=True)
@@ -34,9 +37,9 @@ def mock_scopus_api(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_find_and_save_articles_integration(authenticated_client: AsyncClient):
-    # Установка (Arrange) больше не нужна: authenticated_client уже содержит JWT-токен в заголовках, а юзер уже есть в БД.
+    # Установка (Arrange) больше не нужна: authenticated_client содержит JWT-токен в заголовках, юзер есть в БД
 
-    # Act 1: Идем на эндпоинт поиска Scopus: Нам больше не нужно передавать headers=headers, они уже вшиты в клиент
+    # Act 1: Идем на эндпоинт поиска Scopus: теперь headers=headers уже вшиты в клиент, передавать не нужно
     find_response = await authenticated_client.get(
         "/articles/find", 
         params={"keyword": "AI"}

@@ -1,7 +1,7 @@
+
+from app.schemas.article_schemas import ArticleResponse, PaginatedArticleResponse
 from app.services.interfaces.article_repository import IArticleRepository
-from app.schemas.article_schemas import PaginatedArticleResponse, ArticleResponse
-from app.models.article import Article
-from typing import List
+
 
 class ArticleService:
     def __init__(self, article_repo: IArticleRepository):

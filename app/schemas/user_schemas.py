@@ -1,7 +1,9 @@
 import re
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from typing import Self
+
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+
 
 class UserRegisterRequest(BaseModel):
     # Пользовательские данные при регистрации

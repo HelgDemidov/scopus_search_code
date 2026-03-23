@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import List
+
 from app.models.article import Article
+
 
 class IArticleRepository(ABC):
     

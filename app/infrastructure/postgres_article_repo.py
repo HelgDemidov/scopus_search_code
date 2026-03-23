@@ -1,8 +1,11 @@
 from typing import List
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+
 from app.models.article import Article
 from app.services.interfaces.article_repository import IArticleRepository
+
 
 class PostgresArticleRepository(IArticleRepository):
     def __init__(self, session: AsyncSession):

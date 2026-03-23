@@ -1,6 +1,7 @@
 import pytest
 from httpx import AsyncClient
 
+
 # 1. Тест успешной регистрации пользователя
 @pytest.mark.asyncio
 async def test_register_user_integration(async_client: AsyncClient):

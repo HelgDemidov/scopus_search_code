@@ -1,10 +1,12 @@
+from app.core.security import create_access_token, hash_password, verify_password
 from app.models.user import User
 from app.schemas.user_schemas import UserRegisterRequest
 from app.services.interfaces.user_repository import IUserRepository
-from app.core.security import hash_password, verify_password, create_access_token
+
 
 class UserService:
-    # Dependency Inversion из SOLID: Dependency Injection: сервис получает репозиторий через __init__, а не создает его сам
+    # Dependency Inversion из SOLID: Dependency Injection: 
+    # сервис получает репозиторий через __init__, а не создает его сам
     def __init__(self, user_repo: IUserRepository):
         self.user_repo = user_repo
 
@@ -30,7 +32,7 @@ class UserService:
         # 1. Ищем пользователя в базе
         user = await self.user_repo.get_by_email(email)
 
-        # Best practice: одинаковая ошибка в обоих случаях (нет такого пользователя / неверный пароль)
+        # Best practice: одинаковая ошибка в обоих случаях (нет пользователя / неверный пароль)
         if not user or not verify_password(password, user.hashed_password):
             raise ValueError("Неверный email или пароль")
 

@@ -1,10 +1,11 @@
-import httpx
-from typing import List
 from datetime import date
+from typing import List
 
+import httpx
+
+from app.config import settings
 from app.models.article import Article
 from app.services.interfaces.search_client import ISearchClient
-from app.config import settings
 
 # Базовый URL Scopus Search API (актуальный endpoint)
 SCOPUS_BASE_URL = "https://api.elsevier.com/content/search/scopus"
@@ -22,7 +23,7 @@ class ScopusHTTPClient(ISearchClient):
 
     async def search(self, keyword: str, count: int = 10) -> List[Article]:
         # Формируем параметры запроса согласно документации Scopus Search API
-        params = {
+        params: dict[str, str | int] = {
             "query": f"TITLE-ABS-KEY({keyword})",  # Поиск по заголовку, реферату, ключевым словам
             "count": count,
             "field": SCOPUS_FIELDS,

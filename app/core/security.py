@@ -1,10 +1,10 @@
 # app/core/security.py
 
-import jwt
 from datetime import datetime, timedelta, timezone
-from pwdlib import PasswordHash
+
+import jwt
 from fastapi.security import OAuth2PasswordBearer
-from fastapi import HTTPException, status # Убрали Depends
+from pwdlib import PasswordHash
 
 from app.config import settings
 

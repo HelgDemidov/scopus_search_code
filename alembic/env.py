@@ -26,8 +26,6 @@ from app.config import settings
 from app.infrastructure.database import Base
 
 # Импортируем модели, чтобы Alembic прочитал их структуру
-from app.models.user import User
-from app.models.article import Article
 
 # 1. Передаем метаданные наших моделей
 target_metadata = Base.metadata

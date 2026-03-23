@@ -1,7 +1,8 @@
 from typing import List
-from app.services.interfaces.search_client import ISearchClient
-from app.services.interfaces.article_repository import IArticleRepository
+
 from app.models.article import Article
+from app.services.interfaces.article_repository import IArticleRepository
+from app.services.interfaces.search_client import ISearchClient
 
 
 class SearchService:

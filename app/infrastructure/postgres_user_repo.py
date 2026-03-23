@@ -1,7 +1,9 @@
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.user import User
 from app.services.interfaces.user_repository import IUserRepository
+
 
 class PostgresUserRepository(IUserRepository):
     # Через __init__ мы передаем сессию БД внутрь репозитория

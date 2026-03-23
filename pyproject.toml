@@ -1,0 +1,22 @@
+[tool.ruff]
+# Максимальная длина строки увеличина со стандартной (88) до 115
+line-length = 115
+# Версия Python для оптимизации кода
+target-version = "py312"
+# Исключаем alembic чтобы убрать ошибки по импорту модулей не в начале файла
+exclude = [
+    "alembic",
+]
+
+[tool.ruff.lint]
+# Включаем базовые правила: E (ошибки стиля), F (логические ошибки), I (сортировка импортов)
+select = ["E", "F", "I"]
+
+[tool.mypy]
+python_version = "3.12"
+# Запрещаем писать функции без указания типов (например: def foo(x: int) -> str:)
+disallow_untyped_defs = true
+# Игнорируем ошибки отсутствия типов во внешних библиотеках (чтобы не ругался на SQLAlchemy)
+ignore_missing_imports = true
+explicit_package_bases = true
+namespace_packages = true

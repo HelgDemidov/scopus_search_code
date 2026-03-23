@@ -21,3 +21,16 @@ postgres_data/
 
 # Файл-"маска" кода проекта (создан с помощью скрипта export_skeleton.py)
 scopus_project_mask.txt
+
+# Pytest
+.pytest_cache/
+
+# Mypy
+.mypy_cache/
+
+# Ruff 
+.ruff_cache/
+
+# Coverage
+.coverage
+htmlcov/
