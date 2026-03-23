@@ -42,11 +42,11 @@ jobs:
         cache: pip
 
     # 3. Устанавливаем зависимости из requirements.txt
-    - - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pytest-asyncio
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-asyncio
 
     # 4. Запускаем Pytest
     - name: Run Pytest
