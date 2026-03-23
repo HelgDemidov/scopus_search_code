@@ -9,6 +9,10 @@ from app.main import app
 from app.infrastructure.database import Base
 from app.core.dependencies import get_db_session
 
+# Импорт модели пользователя и функции создания JWT-токена для "бэкдор"-фикстуры. чтобы облегчить интеграционный тест test_articles_api
+from app.models.user import User
+from app.core.security import create_access_token
+
 # URL для асинхронной in-memory базы данных SQLite.
 # :memory: означает, что база живет только в оперативной памяти.
 SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -23,7 +27,8 @@ engine = create_async_engine(
 
 # Фабрика сессий для тестов
 TestingSessionLocal = async_sessionmaker(
-    autocommit=False, autoflush=False, bind=engine, class_=AsyncSession
+    autocommit=False, autoflush=False, bind=engine, class_=AsyncSession,
+expire_on_commit=False
 )
 
 @pytest_asyncio.fixture(scope="function")
@@ -61,3 +66,24 @@ async def async_client(db_session: AsyncSession):
 
     # Убираем подмену после теста
     app.dependency_overrides.clear()
+
+# "Бэкдор"-фикстура для ускорения интеграционного теста test_articles_api: выдает HTTP-клиент, который УЖЕ авторизован, минует тяжелые операции хеширования пароля.
+@pytest_asyncio.fixture(scope="function")
+async def authenticated_client(async_client: AsyncClient, db_session: AsyncSession) -> AsyncClient:
+
+    # 1. Напрямую создаем пользователя в БД (пишем в поле hashed_password просто случайную строку, т.к. не планируем вызывать ручку /login, которая проверяет хеш.
+    test_user = User(
+        username="fast_tester",
+        email="fast@test.com",
+        hashed_password="fake_dummy_hash_no_argon2_needed"
+    )
+    db_session.add(test_user)
+    await db_session.commit()
+    
+    # 2. Напрямую генерируем JWT-токен (это работает за микросекунды)
+    token = create_access_token(subject=test_user.email)
+    
+    # 3. Встраиваем токен по умолчанию во все будущие запросы этого клиента
+    async_client.headers.update({"Authorization": f"Bearer {token}"})
+    
+    return async_client

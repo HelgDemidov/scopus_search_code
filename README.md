@@ -202,11 +202,26 @@ uvicorn app.main:app --reload
 - [x] Swagger documentation
 - [x] Docker Compose setup
 - [x] README with setup and launch instructions
+- [x] Test coverage: write unit and integration tests using pytest
+---
 
+## Testing
+
+The project is covered by automated tests using `pytest` and `pytest-asyncio`. The testing strategy follows the testing pyramid and is divided into two levels:
+
+- **Unit Tests (`tests/unit/`)**: Isolated testing of business logic (`UserService`, `ArticleService`). External dependencies (repositories, password hashing functions) are replaced using Fake objects and mocks (`monkeypatch`), ensuring tests run in fractions of a millisecond.
+- **Integration Tests (`tests/integration/`)**: Testing of FastAPI HTTP endpoints (`/users`, `/articles`). Verifies the full request cycle: Pydantic validation -> Services -> Repositories. To isolate state, an In-memory `SQLite` database is used, which is automatically set up and torn down via fixtures for each test. Calls to the external Scopus API are mocked.
+
+**Running the tests:**
+
+```bash
+# Activate your virtual environment and run:
+pytest tests -vv
+
+```
 ---
 
 ## Planned Development
 
 - **Frontend client** — build a visual user interface (React or Vue.js) for convenient article search and browsing.
 - **Cloud deployment** — migrate the PostgreSQL database from the local environment to a managed cloud database solution and deploy the application to a cloud server.
-- **Test coverage** — write unit and integration tests using `pytest` to automate quality control before deployment.

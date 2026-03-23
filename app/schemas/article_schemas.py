@@ -8,6 +8,7 @@ class ArticleResponse(BaseModel):
     author: str | None
     date: date
     doi: str | None
+    keyword: str
 
     model_config = {"from_attributes": True}
 
