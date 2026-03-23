@@ -44,28 +44,60 @@
 ### Файловая структура
 
 ```
-scopus-search/
-│
-├── app/
-│   ├── core/               # DI-фабрика сессий БД, безопасность (JWT, хэширование паролей)
-│   ├── infrastructure/     # Подключение к БД, реализации репозиториев и API-клиента Scopus
-│   ├── models/             # ORM-модели SQLAlchemy (User, Article)
-│   ├── routers/            # HTTP-эндпоинты (users.py, articles.py)
-│   ├── schemas/            # Pydantic-схемы для валидации запросов и формирования ответов
-│   ├── services/           # Бизнес-логика
-│   │   └── interfaces/     # Абстрактные интерфейсы (IUserRepository, IArticleRepository, ISearchClient)
-│   ├── config.py           # Глобальные настройки приложения (pydantic-settings)
-│   └── main.py             # Точка входа, сборка приложения и управление Lifespan
-│
-├── alembic/                # Миграции базы данных
-├── tests/                  # Интеграционные и unit-тесты
-├── .env                    # Локальные переменные окружения (НЕ ВКЛЮЧАТЬ В Git)
-├── .env.example            # Шаблон переменных окружения для репозитория
-├── alembic.ini             # Настройки Alembic
-├── docker-compose.yml      # Оркестрация контейнеров (БД + Приложение)
-├── Dockerfile              # Сборка образа приложения
-├── requirements.txt        # Список Python-зависимостей
-└── README.md
+scopus_search_code/
+├── app/                             # Исходный код приложения
+│   ├── core/                        # Ядро: безопасность, инъекция зависимостей
+│   │   ├── dependencies.py          # Фабрики сессий БД и общие Depends
+│   │   └── security.py              # Настройки JWT, хэширование, oauth2_scheme
+│   ├── infrastructure/              # Реализация работы с внешними системами (БД, API)
+│   │   ├── database.py              # Настройка SQLAlchemy engine и async_session
+│   │   ├── postgres_article_repo.py # SQL-запросы для статей
+│   │   ├── postgres_user_repo.py    # SQL-запросы для пользователей
+│   │   └── scopus_client.py         # HTTP-клиент для Scopus (httpx)
+│   ├── models/                      # ORM-модели (схема базы данных)
+│   │   ├── article.py               # Модель Article (SQLAlchemy)
+│   │   └── user.py                  # Модель User (SQLAlchemy)
+│   ├── routers/                     # HTTP-эндпоинты (контроллеры)
+│   │   ├── articles.py              # Маршруты GET /articles, GET /articles/find
+│   │   └── users.py                 # Маршруты POST /register, /login, GET /me
+│   ├── schemas/                     # Pydantic-модели (валидация ввода/вывода)
+│   │   ├── article_schemas.py       # Схемы для статей (Response, Paginated)
+│   │   └── user_schemas.py          # Схемы для юзеров (Register, Login, Token)
+│   ├── services/                    # Бизнес-логика (не зависит от веба и БД)
+│   │   ├── interfaces/              # Абстрактные классы (для Dependency Inversion)
+│   │   │   ├── article_repository.py# IArticleRepository
+│   │   │   ├── search_client.py     # ISearchClient
+│   │   │   └── user_repository.py   # IUserRepository
+│   │   ├── article_service.py       # Логика работы со статьями (пагинация)
+│   │   ├── search_service.py        # Оркестрация поиска (Scopus -> БД)
+│   │   └── user_service.py          # Логика юзеров (регистрация, проверка паролей)
+│   ├── config.py                    # Глобальные настройки (pydantic-settings)
+│   └── main.py                      # Точка входа, сборка FastAPI-приложения
+├── tests/                           # Каталог для автоматизированных тестов
+│   ├── integration/                 # Интеграционные тесты (БД + HTTP)
+│   │   ├── __init__.py              # Пакет интеграционных тестов
+│   │   ├── test_articles_api.py     # Тесты эндпоинтов статей
+│   │   └── test_users_api.py        # Тесты эндпоинтов пользователей
+│   ├── unit/                        # Модульные тесты (Изолированная бизнес-логика)
+│   │   ├── __init__.py              # Пакет юнит-тестов
+│   │   ├── test_article_service.py  # Тестирование ArticleService с моками
+│   │   └── test_user_service.py     # Тестирование UserService с моками
+│   ├── __init__.py                  # Инициализация тестового пакета
+│   └── conftest.py                  # Общие фикстуры (TestClient, Mock БД)
+├── alembic/                         # Миграции базы данных (настроено Alembic)
+│   ├── versions/                    # Файлы ревизий миграций
+│   ├── env.py                       # Среда выполнения Alembic (связь с metadata)
+│   └── script.py.mako               # Шаблон для новых миграций
+├── .env                             # Локальные переменные окружения (игнорируется Git)
+├── .env.example                     # Шаблон переменных окружения
+├── .gitignore                       # Исключения для Git
+├── alembic.ini                      # Конфигурация Alembic
+├── docker-compose.yml               # Оркестрация Docker (App + DB)
+├── Dockerfile                       # Сборка образа приложения
+├── export_skeleton.py               # Утилита для экспорта "маски" проекта (AST)
+├── pytest.ini                       # Настройки запуска pytest
+├── README.md                        # Документация (на английском)
+└── requirements.txt                 # Зависимости Python
 ```
 
 ---

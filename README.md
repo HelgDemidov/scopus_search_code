@@ -44,28 +44,60 @@ The project is divided into four logical layers:
 ### File Structure
 
 ```
-scopus-search/
-│
-├── app/
-│   ├── core/               # DI session factory, security (JWT, password hashing)
-│   ├── infrastructure/     # DB connection, repository implementations, Scopus API client
-│   ├── models/             # SQLAlchemy ORM models (User, Article)
-│   ├── routers/            # HTTP endpoints (users.py, articles.py)
-│   ├── schemas/            # Pydantic schemas for request validation and response formatting
-│   ├── services/           # Business logic
-│   │   └── interfaces/     # Abstract interfaces (IUserRepository, IArticleRepository, ISearchClient)
-│   ├── config.py           # Global application settings (pydantic-settings)
-│   └── main.py             # Entry point, application assembly, Lifespan management
-│
-├── alembic/                # Database migrations
-├── tests/                  # Integration and unit tests
-├── .env                    # Local environment variables (do not commit to Git)
-├── .env.example            # Environment variable template for the repository
-├── alembic.ini             # Alembic configuration
-├── docker-compose.yml      # Container orchestration (DB + App)
-├── Dockerfile              # Application image build instructions
-├── requirements.txt        # Python dependencies
-└── README.md
+scopus_search_code/
+├── app/                             # Source code of the application
+│   ├── core/                        # Core components: security, dependency injection
+│   │   ├── dependencies.py          # DB session factories and common Depends
+│   │   └── security.py              # JWT settings, hashing, oauth2_scheme setup
+│   ├── infrastructure/              # Concrete implementations of external systems (DB, API)
+│   │   ├── database.py              # SQLAlchemy engine and async_session setup
+│   │   ├── postgres_article_repo.py # SQL queries for articles
+│   │   ├── postgres_user_repo.py    # SQL queries for users
+│   │   └── scopus_client.py         # HTTP client for Scopus (via httpx)
+│   ├── models/                      # ORM models (Database schema definition)
+│   │   ├── article.py               # Article model (SQLAlchemy)
+│   │   └── user.py                  # User model (SQLAlchemy)
+│   ├── routers/                     # HTTP endpoints (Controllers)
+│   │   ├── articles.py              # Routes for GET /articles, GET /articles/find
+│   │   └── users.py                 # Routes for POST /register, /login, GET /me
+│   ├── schemas/                     # Pydantic models (Input/Output validation)
+│   │   ├── article_schemas.py       # Schemas for articles (Response, Paginated)
+│   │   └── user_schemas.py          # Schemas for users (Register, Login, Token)
+│   ├── services/                    # Business logic (Agnostic of web/DB details)
+│   │   ├── interfaces/              # Abstract classes (for Dependency Inversion)
+│   │   │   ├── article_repository.py# IArticleRepository
+│   │   │   ├── search_client.py     # ISearchClient
+│   │   │   └── user_repository.py   # IUserRepository
+│   │   ├── article_service.py       # Article logic (e.g., pagination calculation)
+│   │   ├── search_service.py        # Search orchestration (Scopus -> DB)
+│   │   └── user_service.py          # User logic (registration, password verification)
+│   ├── config.py                    # Global application settings (pydantic-settings)
+│   └── main.py                      # Application entry point, FastAPI instance assembly
+├── tests/                           # Directory for automated tests
+│   ├── integration/                 # Integration tests (DB + HTTP layers combined)
+│   │   ├── __init__.py              # Integration test package
+│   │   ├── test_articles_api.py     # Endpoint tests for articles
+│   │   └── test_users_api.py        # Endpoint tests for users
+│   ├── unit/                        # Unit tests (Isolated business logic)
+│   │   ├── __init__.py              # Unit test package
+│   │   ├── test_article_service.py  # Tests for ArticleService using mocks
+│   │   └── test_user_service.py     # Tests for UserService using mocks
+│   ├── __init__.py                  # Test package initialization
+│   └── conftest.py                  # Shared pytest fixtures (TestClient, mock DBs)
+├── alembic/                         # Database migrations directory
+│   ├── versions/                    # Migration revision files
+│   ├── env.py                       # Alembic environment setup (metadata linkage)
+│   └── script.py.mako               # Template for generating new migrations
+├── .env                             # Local environment variables (Ignored by Git)
+├── .env.example                     # Environment variables template
+├── .gitignore                       # Git ignore rules
+├── alembic.ini                      # Alembic configuration file
+├── docker-compose.yml               # Docker orchestration config (App + DB)
+├── Dockerfile                       # Instructions to build the application image
+├── export_skeleton.py               # Utility to export codebase "mask" via AST
+├── pytest.ini                       # Pytest configuration settings
+├── README.md                        # Project documentation
+└── requirements.txt                 # Python dependencies
 ```
 
 ---
