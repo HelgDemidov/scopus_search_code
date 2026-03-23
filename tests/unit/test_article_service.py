@@ -1,0 +1,101 @@
+import pytest
+from typing import List
+from datetime import date
+
+from app.models.article import Article
+from app.services.article_service import ArticleService
+from app.services.interfaces.article_repository import IArticleRepository
+from app.schemas.article_schemas import PaginatedArticleResponse
+
+# 1. Создаем Fake-репозиторий (Заглушку) для статей
+class FakeArticleRepository(IArticleRepository):
+    def __init__(self):
+        # Имитируем базу данных с 25 статьями
+        self.db_articles = []
+        for i in range(1, 26):
+            article = Article(
+                id=i,
+                title=f"Test Article {i}",
+                author="Test Author",
+                date=date(2026, 1, 1),
+                doi=f"10.test/{i}",
+                keyword="test"
+            )
+            self.db_articles.append(article)
+            
+        # Эти переменные нужны для проверки (шпионажа), какие параметры передал сервис
+        self.last_limit_called = None
+        self.last_offset_called = None
+
+    async def save_many(self, articles: List[Article]) -> None:
+        # Для этого теста сохранение не нужно, просто ставим заглушку
+        pass
+
+    async def get_all(self, limit: int, offset: int) -> List[Article]:
+        # Шпионская логика: запоминаем, с какими аргументами сервис вызвал метод базы
+        self.last_limit_called = limit
+        self.last_offset_called = offset
+        
+        # Эмулируем SQL-запрос: SELECT * FROM articles LIMIT {limit} OFFSET {offset}
+        # В Питоне это делается через срезы списка (slicing)
+        return self.db_articles[offset : offset + limit]
+
+    async def get_total_count(self) -> int:
+        return len(self.db_articles)
+
+# 2. Фикстура для подготовки сервиса
+@pytest.fixture
+def article_service() -> tuple[ArticleService, FakeArticleRepository]:
+    # Возвращаем и кортеж и сервис, и сам фейковый репозиторий, чтобы проверять "шпионские" переменные репозитория
+    fake_repo = FakeArticleRepository()
+    service = ArticleService(article_repo=fake_repo)
+    return service, fake_repo
+
+# 3. Тест 1: Проверка первой страницы 
+@pytest.mark.asyncio
+async def test_get_articles_paginated_page_1(article_service):
+    # Установка
+    service, fake_repo = article_service
+    
+    # Действие: запрашиваем 1-ю страницу, 10 элементов на странице
+    result = await service.get_articles_paginated(page=1, size=10)
+    
+    # Проверка вычислений сервиса (через шпионаж за репозиторием)
+    assert fake_repo.last_limit_called == 10
+    assert fake_repo.last_offset_called == 0  # Для 1 страницы offset должен быть 0
+    
+    # Проверка схемы ответа
+    assert isinstance(result, PaginatedArticleResponse)
+    assert result.total == 25
+    assert len(result.articles) == 10
+    assert result.articles[0].title == "Test Article 1"
+    assert result.articles[9].title == "Test Article 10"
+
+# 4. Тест 2: Проверка третьей (неполной) страницы
+@pytest.mark.asyncio
+async def test_get_articles_paginated_page_3(article_service):
+    service, fake_repo = article_service
+    
+    # Действие: запрашиваем 3-ю страницу (где должны быть элементы с 21 по 25)
+    result = await service.get_articles_paginated(page=3, size=10)
+    
+    # Проверка вычислений
+    assert fake_repo.last_limit_called == 10
+    assert fake_repo.last_offset_called == 20 # (page - 1) * size = 2 * 10 = 20
+    
+    # Проверка ответа (должно вернуться только 5 оставшихся статей)
+    assert len(result.articles) == 5
+    assert result.articles[0].title == "Test Article 21"
+
+# 5. Тест 3: Проверка граничных (невалидных) значений
+@pytest.mark.asyncio
+async def test_get_articles_paginated_negative_page(article_service):
+    service, fake_repo = article_service
+    
+    # Действие: запрашиваем страницу 0 (или отрицательную), которую фронтенд может прислать по ошибке
+    # Сервис должен исправить это и превратить в page=1
+    result = await service.get_articles_paginated(page=-5, size=10)
+    
+    assert fake_repo.last_limit_called == 10
+    assert fake_repo.last_offset_called == 0  # Сервис должен был сбросить страницу до 1
+    assert len(result.articles) == 10

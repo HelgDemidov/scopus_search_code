@@ -4,11 +4,10 @@ from app.schemas.user_schemas import UserRegisterRequest
 from app.services.user_service import UserService
 from app.services.interfaces.user_repository import IUserRepository
 
-# 1. Фикстура с autouse=True для замены хэширования на заглушку
+# 1. Фикстура с autouse=True для замены хэширования на заглушку для сокращения времени выполения теста
 @pytest.fixture(autouse=True)
 def mock_password_hashing(monkeypatch):
-    # Подменяем импортированную функцию hash_password в модуле user_service
-    # на простую и мгновенную лямбда-функцию
+    # Подменяем импортированную функцию hash_password в модуле user_service на лямбда-функцию
     monkeypatch.setattr(
         "app.services.user_service.hash_password", 
         lambda password: f"mocked_hash_{password}"
