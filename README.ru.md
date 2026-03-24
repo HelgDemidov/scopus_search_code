@@ -88,34 +88,28 @@ scopus_search_code/
 ├── requirements.txt                  # Зависимости Python (FastAPI, SQLAlchemy async, asyncpg, pytest, mypy, ruff и др.)
 ├── README.md                         # Документация проекта (на русском)
 └── README.en.md                      # Документация проекта (на английском)
-
 ```
-
 ---
 
 ## Настройка окружения
 
 Перед запуском создайте файл `.env` в корне проекта на основе шаблона `.env.example`.
-
 Ключевые переменные:
-```env
 SCOPUS_API_KEY=your_scopus_api_key_here
-
----
-
+```
 # Единая строка подключения к базе данных.
 # Для локальной БД:
 # DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/testdb
 # Для Supabase (Session Pooler):
 # DATABASE_URL=postgresql+asyncpg://your_user:your_password@your_host.supabase.co:5432/your_database
 # DATABASE_URL=...
-
+```
 SECRET_KEY=your_super_secret_key_for_jwt_generation
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
-```
 
-```markdown
+---
+
 ## Запуск с Docker Compose
 
  - Docker Compose используется для упаковки приложения в контейнер. 
@@ -139,12 +133,15 @@ docker compose up --build
    - либо локальный PostgreSQL (создана база `testdb`),
    - либо облачная БД Supabase (создан проект и получена строка подключения).
 2. Создайте и активируйте виртуальное окружение:
-
 ```bash
 python -m venv .venv
-# Windows:
+```
+Windows:
+```bash
 .venv\Scripts\activate
-# macOS / Linux:
+```
+macOS / Linux:
+```bash
 source .venv/bin/activate
 ```
 3. Установите зависимости:
@@ -153,7 +150,6 @@ pip install -r requirements.txt
 ```
 4. Создайте файл .env на основе .env.example и укажите корректный DATABASE_URL.
 5. Примените миграции Alembic (таблицы будут созданы в той базе, на которую указывает DATABASE_URL):
-
 ```bash
 alembic upgrade head
 ```
@@ -162,9 +158,9 @@ alembic upgrade head
 uvicorn app.main:app --reload
 ```
 7. Откройте Swagger UI по адресу http://127.0.0.1:8000/docs и протестируйте ручки /users и /articles.
-```
 
-```
+---
+
 ## API Эндпоинты
 
 ### Аутентификация
