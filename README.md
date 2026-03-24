@@ -130,6 +130,7 @@ Before starting the stack, ensure that `DATABASE_URL` is configured in `.env` (e
 docker compose up --build
 ```
 The application will be available at http://localhost:8000.
+
 ---
 
 ## Local development without Docker
