@@ -21,7 +21,7 @@ class ScopusHTTPClient(ISearchClient):
     def __init__(self, http_client: httpx.AsyncClient):
         self.http_client = http_client
 
-    async def search(self, keyword: str, count: int = 10) -> List[Article]:
+    async def search(self, keyword: str, count: int = 25) -> List[Article]:
         # Формируем параметры запроса согласно документации Scopus Search API
         params: dict[str, str | int] = {
             "query": f"TITLE-ABS-KEY({keyword})",  # Поиск по заголовку, реферату, ключевым словам

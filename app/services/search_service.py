@@ -12,9 +12,9 @@ class SearchService:
         self.search_client = search_client
         self.article_repo = article_repo
 
-    async def find_and_save(self, keyword: str) -> List[Article]:
+    async def find_and_save(self, keyword: str, count: int = 25) -> List[Article]:
         # 1. Идем в Scopus и получаем список статей
-        articles = await self.search_client.search(keyword=keyword, count=10)
+        articles = await self.search_client.search(keyword=keyword, count=25)
 
         if not articles:
             return []

@@ -3,6 +3,7 @@
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Any
 
 from app.core.dependencies import get_db_session
 from app.infrastructure.postgres_article_repo import PostgresArticleRepository
@@ -40,9 +41,12 @@ async def get_articles(
 @router.get("/find", response_model=list[ArticleResponse])
 async def find_articles(
     keyword: str = Query(..., min_length=2, description="Ключевое слово для поиска"),
+    count: int = Query(25, ge=1, le=25, description="Сколько статей запросить из Scopus (макс 25)"), # <-- Новое
     service: SearchService = Depends(get_search_service),
     current_user: User = Depends(get_current_user),
-) -> list[ArticleResponse]:
+) -> Any:
+    # Передаем count в сервис
+    return await service.find_and_save(keyword, count=count)
     
     # Ищет статьи в Scopus по ключевому слову и сохраняет их в базу
     # Приватный эндпоинт: доступен только для авторизованных пользователей
