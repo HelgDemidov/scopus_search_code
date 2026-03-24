@@ -1,5 +1,5 @@
 from datetime import date
-from typing import List
+from typing import List, Optional
 
 import httpx
 
@@ -19,52 +19,56 @@ class ScopusHTTPClient(ISearchClient):
     # Клиент создается один раз при старте приложения (в Lifespan) и живет всегда.
     # Это эффективнее, чем создавать новое соединение на каждый запрос.
     def __init__(self, http_client: httpx.AsyncClient):
-        self.http_client = http_client
+        self._client = http_client
+        self.last_rate_limit: Optional[str] = None
+        self.last_rate_remaining: Optional[str] = None
+        self.last_rate_reset: Optional[str] = None
 
     async def search(self, keyword: str, count: int = 25) -> List[Article]:
-        # Формируем параметры запроса согласно документации Scopus Search API
-        params: dict[str, str | int] = {
-            "query": f"TITLE-ABS-KEY({keyword})",  # Поиск по заголовку, реферату, ключевым словам
-            "count": count,
+        page_size = min(count, 25)
+
+        params = {
+            "query": f"TITLE-ABS-KEY({keyword})",
+            "count": page_size,
             "field": SCOPUS_FIELDS,
-            "httpAccept": "application/json",
+            "apiKey": settings.SCOPUS_API_KEY,
         }
 
-        headers = {
-            "X-ELS-APIKey": settings.SCOPUS_API_KEY,
-            "Accept": "application/json",
-        }
+        response = await self._client.get(SCOPUS_BASE_URL, params=params)
 
-        response = await self.http_client.get(
-            SCOPUS_BASE_URL,
-            params=params,
-            headers=headers,
-            timeout=15.0  # Ждем максимум 15 секунд
-        )
+        # сохраняем лимиты из заголовков
+        self.last_rate_limit = response.headers.get("X-RateLimit-Limit")
+        self.last_rate_remaining = response.headers.get("X-RateLimit-Remaining")
+        self.last_rate_reset = response.headers.get("X-RateLimit-Reset")
 
-        # Если API вернул ошибку (401, 404, 429 и т.д.) — поднимаем исключение
         response.raise_for_status()
 
-        # Парсим JSON-ответ от Scopus
         data = response.json()
-        entries = data.get("search-results", {}).get("entry", [])
+        search_results = data.get("search-results", {})
+        entries = search_results.get("entry", []) or []
 
-        # Преобразуем каждую запись из JSON в наш ORM-объект Article
-        articles = []
+        articles: List[Article] = []
+
         for entry in entries:
-            raw_date = entry.get("prism:coverDate", "")
+            title = entry.get("prism:publicationName") or ""
+            creator = entry.get("dc:creator")
+            cover_date_str = entry.get("prism:coverDate")
+            doi = entry.get("prism:doi")
+
+            if not cover_date_str:
+                continue
+
             try:
-                parsed_date = date.fromisoformat(raw_date)
-            except (ValueError, TypeError):
-                # Если дата в неожиданном формате — ставим заглушку
-                parsed_date = date(1900, 1, 1)
+                cover_date = date.fromisoformat(cover_date_str)
+            except ValueError:
+                continue
 
             article = Article(
-                title=entry.get("prism:publicationName", "Unknown"),
-                author=entry.get("dc:creator", None),
-                date=parsed_date,
-                doi=entry.get("prism:doi", None),
-                keyword=keyword,
+                title=title[:500],
+                author=creator[:255] if creator else None,
+                date=cover_date,
+                doi=doi[:255] if doi else None,
+                keyword=keyword[:100],
             )
             articles.append(article)
 

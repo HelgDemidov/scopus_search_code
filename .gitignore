@@ -34,3 +34,6 @@ scopus_project_mask.txt
 # Coverage
 .coverage
 htmlcov/
+ 
+# Python-seeder
+seed_db.py
