@@ -34,6 +34,21 @@
 
 ---
 
+## Облачная база данных (Supabase)
+
+Изначально проект использовал локальный экземпляр PostgreSQL (через Docker Compose). 
+На текущем этапе база данных перенесена в управляемый облачный сервис Supabase 
+(PostgreSQL), при этом архитектура приложения и тестов осталась неизменной.
+
+Ключевые моменты:
+
+- Приложение подключается к базе данных по **единой строке подключения** `DATABASE_URL`.
+- Используется полностью асинхронный стек: SQLAlchemy async + драйвер `asyncpg`.
+- Для Supabase рекомендуется использовать **Session Pooler** (IPv4‑совместимый пулер соединений).
+- Юнит‑ и интеграционные тесты по‑прежнему используют **in‑memory SQLite** через `tests/conftest.py` и никак не затрагивают облачную БД.
+
+---
+
 ## Архитектура и структура проекта
 
 Проект разделён на четыре логических слоя:
@@ -47,137 +62,112 @@
 
 ```
 scopus_search_code/
-├── app/                             # Исходный код приложения
-│   ├── core/                        # Ядро: безопасность, инъекция зависимостей
-│   │   ├── dependencies.py          # Фабрики сессий БД и общие Depends
-│   │   └── security.py              # Настройки JWT, хэширование, oauth2_scheme
-│   ├── infrastructure/              # Реализация работы с внешними системами (БД, API)
-│   │   ├── database.py              # Настройка SQLAlchemy engine и async_session
-│   │   ├── postgres_article_repo.py # SQL-запросы для статей
-│   │   ├── postgres_user_repo.py    # SQL-запросы для пользователей
-│   │   └── scopus_client.py         # HTTP-клиент для Scopus (httpx)
-│   ├── models/                      # ORM-модели (схема базы данных)
-│   │   ├── article.py               # Модель Article (SQLAlchemy)
-│   │   └── user.py                  # Модель User (SQLAlchemy)
-│   ├── routers/                     # HTTP-эндпоинты (контроллеры)
-│   │   ├── articles.py              # Маршруты GET /articles, GET /articles/find
-│   │   └── users.py                 # Маршруты POST /register, /login, GET /me
-│   ├── schemas/                     # Pydantic-модели (валидация ввода/вывода)
-│   │   ├── article_schemas.py       # Схемы для статей (Response, Paginated)
-│   │   └── user_schemas.py          # Схемы для юзеров (Register, Login, Token)
-│   ├── services/                    # Бизнес-логика (не зависит от веба и БД)
-│   │   ├── interfaces/              # Абстрактные классы (для Dependency Inversion)
-│   │   │   ├── article_repository.py# IArticleRepository
-│   │   │   ├── search_client.py     # ISearchClient
-│   │   │   └── user_repository.py   # IUserRepository
-│   │   ├── article_service.py       # Логика работы со статьями (пагинация)
-│   │   ├── search_service.py        # Оркестрация поиска (Scopus -> БД)
-│   │   └── user_service.py          # Логика юзеров (регистрация, проверка паролей)
-│   ├── config.py                    # Глобальные настройки (pydantic-settings)
-│   └── main.py                      # Точка входа, сборка FastAPI-приложения
-├── tests/                           # Каталог для автоматизированных тестов
-│   ├── integration/                 # Интеграционные тесты (БД + HTTP)
-│   │   ├── __init__.py              # Пакет интеграционных тестов
-│   │   ├── test_articles_api.py     # Тесты эндпоинтов статей
-│   │   └── test_users_api.py        # Тесты эндпоинтов пользователей
-│   ├── unit/                        # Модульные тесты (Изолированная бизнес-логика)
-│   │   ├── __init__.py              # Пакет юнит-тестов
-│   │   ├── test_article_service.py  # Тестирование ArticleService с моками
-│   │   └── test_user_service.py     # Тестирование UserService с моками
-│   ├── __init__.py                  # Инициализация тестового пакета
-│   └── conftest.py                  # Общие фикстуры (TestClient, Mock БД)
-├── alembic/                         # Миграции базы данных (настроено Alembic)
-│   ├── versions/                    # Файлы ревизий миграций
-│   ├── env.py                       # Среда выполнения Alembic (связь с metadata)
-│   └── script.py.mako               # Шаблон для новых миграций
-├── .env                             # Локальные переменные окружения (игнорируется Git)
-├── .env.example                     # Шаблон переменных окружения
-├── .gitignore                       # Исключения для Git
-├── alembic.ini                      # Конфигурация Alembic
-├── docker-compose.yml               # Оркестрация Docker (App + DB)
-├── Dockerfile                       # Сборка образа приложения
-├── export_skeleton.py               # Утилита для экспорта "маски" проекта (AST)
-├── pytest.ini                       # Настройки запуска pytest
-├── README.md                        # Документация (на английском)
-└── requirements.txt                 # Зависимости Python
+├── app/                              # Исходный код приложения
+│   ├── core/                         # Ядро: безопасность, инъекция зависимостей
+│   ├── infrastructure/               # Инфраструктура: БД, репозитории, Scopus-клиент
+│   ├── models/                       # ORM-модели (схема базы данных)
+│   ├── routers/                      # HTTP-эндпоинты (контроллеры FastAPI)
+│   ├── schemas/                      # Pydantic-схемы (валидация ввода/вывода)
+│   └── services/                     # Бизнес-логика и её абстракции
+│       └── interfaces/               # Абстрактные интерфейсы (IUserRepository, IArticleRepository, ISearchClient)
+├── tests/                            # Каталог для автоматизированных тестов
+│   ├── integration/                  # Интеграционные тесты (API + БД + внешние клиенты)
+│   └── unit/                         # Юнит-тесты (изолированная бизнес-логика)
+├── alembic/                          # Миграции базы данных (Alembic, нацелен на Supabase Postgres)
+│   └── versions/                     # Файлы ревизий миграций
+├── .github/                          # CI/CD-конфигурация для GitHub
+│   └── workflows/                    # GitHub Actions (тесты, линтеры, coverage)
+├── .env                              # Локальные переменные окружения (DATABASE_URL для Supabase и др., не коммитить)
+├── .env.example                      # Шаблон переменных окружения (формат DATABASE_URL для локальной и облачной БД)
+├── .gitignore                        # Исключения для Git (кэш, виртуальное окружение, секреты и т.п.)
+├── alembic.ini                       # Конфигурация Alembic (использует DATABASE_URL из app.config)
+├── docker-compose.yml                # Оркестрация Docker (контейнер приложения; локальный Postgres теперь отключён/закомментирован)
+├── Dockerfile                        # Сборка Docker-образа FastAPI-приложения
+├── export_skeleton.py                # Утилита для экспорта "маски" проекта (AST-анализ)
+├── pytest.ini                        # Настройки pytest (опции запуска тестов)
+├── requirements.txt                  # Зависимости Python (FastAPI, SQLAlchemy async, asyncpg, pytest, mypy, ruff и др.)
+├── README.md                         # Документация проекта (на русском)
+└── README.en.md                      # Документация проекта (на английском)
+
 ```
 
 ---
 
-## Запуск через Docker Compose (рекомендуется)
+## Настройка окружения
 
-Это рекомендуемый способ запуска, гарантирующий идентичность окружения.
-Требуется установленный [Docker](https://docs.docker.com/get-docker/).
+Перед запуском создайте файл `.env` в корне проекта на основе шаблона `.env.example`.
 
-**Шаг 1. Настройка окружения**
+Ключевые переменные:
 
-Создайте файл `.env` в корне проекта (можно скопировать из `.env.example`) и заполните его:
+```env
+SCOPUS_API_KEY=your_scopus_api_key_here
 
 ```
-SCOPUS_API_KEY=ваш_ключ_от_scopus
+# Единая строка подключения к базе данных.
+# Для локальной БД:
+# DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/testdb
+# Для Supabase (Session Pooler):
+# DATABASE_URL=postgresql+asyncpg://your_user:your_password@your_host.supabase.co:5432/your_database
+# DATABASE_URL=...
 
-DB_HOST=db
-DB_PORT=5432
-DB_USER=scopus_db_user
-DB_PASSWORD=securepassword
-DB_NAME=scopus_db
+# SECRET_KEY=your_super_secret_key_for_jwt_generation
+# ALGORITHM=HS256
+# ACCESS_TOKEN_EXPIRE_MINUTES=30
 
-SECRET_KEY=supersecretkey_change_me_in_production
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-```
+```markdown
+## Запуск с Docker Compose
 
-Ключ Scopus API можно получить бесплатно для некоммерческого использования на [dev.elsevier.com](https://dev.elsevier.com).
+ - Docker Compose используется для упаковки приложения в контейнер. 
+ - Ранее в `docker-compose.yml` поднимался также локальный контейнер PostgreSQL, но после миграции на Supabase локальная БД не обязательна.
 
-**Шаг 2. Сборка и запуск**
+В `docker-compose.yml`:
+
+- сервис приложения `app` остаётся активным;
+- сервис локальной базы `db` может быть отключён (закомментирован в конфигурации).
+
+Перед запуском убедитесь, что в `.env` задан корректный `DATABASE_URL` (локальный PostgreSQL или облачная БД Supabase):
 
 ```bash
 docker compose up --build
 ```
+Приложение будет доступно по адресу http://localhost:8000.
 
-Миграции базы данных (Alembic) применяются автоматически при запуске контейнера с приложением.
+## Локальный запуск без Docker
 
-**Шаг 3. Проверка**
-
-- API: `http://localhost:8000`
-- Swagger-документация: `http://localhost:8000/docs`
-
----
-
-## Локальная разработка (без Docker)
-
-Для запуска проекта напрямую через Python:
-
-1. Убедитесь, что локальный сервер PostgreSQL запущен и база данных создана.
-2. В файле `.env` установите `DB_HOST=localhost`.
-3. Создайте и активируйте виртуальное окружение:
+1. Убедитесь, что у вас настроена база данных:
+   - либо локальный PostgreSQL (создана база `testdb`),
+   - либо облачная БД Supabase (создан проект и получена строка подключения).
+2. Создайте и активируйте виртуальное окружение:
 
 ```bash
 python -m venv .venv
-.venv\Scripts\activate        # Windows
-# source .venv/bin/activate   # macOS / Linux
+# Windows:
+.venv\Scripts\activate
+# macOS / Linux:
+source .venv/bin/activate
 ```
 
-4. Установите зависимости:
+3. Установите зависимости:
 
 ```bash
 pip install -r requirements.txt
 ```
+4. Создайте файл .env на основе .env.example и укажите корректный DATABASE_URL.
 
-5. Примените миграции:
+5. Примените миграции Alembic (таблицы будут созданы в той базе, на которую указывает DATABASE_URL):
 
 ```bash
 alembic upgrade head
 ```
-
-6. Запустите сервер:
+6. Запустите сервер разработки:
 
 ```bash
 uvicorn app.main:app --reload
 ```
+7. Откройте Swagger UI по адресу http://127.0.0.1:8000/docs и протестируйте ручки /users и /articles.
+```
 
----
-
+```
 ## API Эндпоинты
 
 ### Аутентификация
@@ -204,7 +194,7 @@ uvicorn app.main:app --reload
 - [x] Swagger-документация
 - [x] Запуск через Docker Compose
 - [x] README с инструкцией по настройке и запуску
-- [x] Покрытие тестами: unit- и интеграционные тесты на базе pytest
+- [x] Покрытие тестами: unit- и интеграционные тесты на базе pytest, обеспечение покрытия кода (coverage) тестами на 80%
 
 ---
 
@@ -214,6 +204,10 @@ uvicorn app.main:app --reload
 
 - **Unit-тесты (`tests/unit/`)**: Изолированное тестирование бизнес-логики (`UserService`, `ArticleService`). Внешние зависимости (репозитории, функции хеширования паролей) подменяются с помощью Fake-объектов и моков (`monkeypatch`), что обеспечивает выполнение тестов за доли миллисекунд.
 - **Интеграционные тесты (`tests/integration/`)**: Тестирование HTTP-эндпоинтов FastAPI (`/users`, `/articles`). Проверяется полный цикл запроса: валидация Pydantic -> Сервисы -> Репозитории. Для изоляции состояния используется In-memory база данных `SQLite`, которая поднимается и очищается автоматически через фикстуры для каждого теста. Вызовы к внешнему Scopus API замоканы.
+
+ - Примечание: тесты в CI (GitHub Actions) не подключаются к Supabase. 
+ - В workflow-файле используется фиктивный `DATABASE_URL`, а реальные тесты переопределяют подключение на in‑memory SQLite через `tests/conftest.py`. 
+ - Это гарантирует, что облачная база данных не будет изменена во время прогонов CI.
 
 **Запуск тестов:**
 ```bash
@@ -225,4 +219,3 @@ pytest tests -vv
 ## Планируемое развитие проекта
 
 - **Frontend-клиент** — разработка визуального пользовательского интерфейса (React или Vue.js) для удобного поиска и просмотра научных статей.
-- **Облачный деплой** — перенос базы данных PostgreSQL с локальной среды на управляемое облачное решение (Managed Cloud Database) и развёртывание приложения на облачном сервере.

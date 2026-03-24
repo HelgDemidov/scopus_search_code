@@ -1,50 +1,59 @@
 # Версия синтаксиса docker-compose (3.8 = современный стандарт)
+version: '3.8'
+
 services:
-
-  # --- СЕРВИС 1: База данных ---
-  db:
-    image: postgres:16-alpine
-    # Переменные окружения для первичной инициализации PostgreSQL
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
-    # Volume: данные базы сохраняются на диск, а не исчезают при перезапуске контейнера
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    # Проверка готовности: контейнер app не стартует, пока база не ответит на pg_isready
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    # Порт 5432 внутри Docker пробрасываем на порт 5432 локальной машины
-    ports:
-      - "5432:5432"
-
-  # --- СЕРВИС 2: Наше FastAPI-приложение ---
   app:
-    # Собираем образ из нашего Dockerfile в текущей папке
     build: .
     ports:
       - "8000:8000"
-    # Передаём переменные окружения из .env файла внутрь контейнера
     env_file:
       - .env
-    # Переопределяем DB_HOST: внутри Docker база доступна не по "localhost",
-    # а по имени сервиса "db" (Docker Compose создаёт внутреннюю сеть автоматически)
-    environment:
-      - DB_HOST=db
-    # Запускаемся только когда база полностью готова (прошла healthcheck)
-    depends_on:
-      db:
-        condition: service_healthy
-    # При падении — автоматически перезапускаемся
-    restart: on-failure
-    # Команда выполняется перед стартом uvicorn: применяем миграции Alembic
-    command: >
-      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
-# Объявляем именованный volume (Docker создаёт его автоматически при первом запуске)
-volumes:
-  postgres_data:
+  # --- СЕРВИС 1: База данных --- (ОТКЛЮЧЕНО в связи с миграцией на Supabase)
+  
+#   db:
+#     image: postgres:16-alpine
+#     # Переменные окружения для первичной инициализации PostgreSQL
+#     environment:
+#       POSTGRES_USER: ${DB_USER}
+#       POSTGRES_PASSWORD: ${DB_PASSWORD}
+#       POSTGRES_DB: ${DB_NAME}
+#     # Volume: данные базы сохраняются на диск, а не исчезают при перезапуске контейнера
+#     volumes:
+#       - postgres_data:/var/lib/postgresql/data
+#     # Проверка готовности: контейнер app не стартует, пока база не ответит на pg_isready
+#     healthcheck:
+#       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+#       interval: 5s
+#       timeout: 5s
+#       retries: 5
+#     # Порт 5432 внутри Docker пробрасываем на порт 5432 локальной машины
+#     ports:
+#       - "5432:5432"
+
+#   # --- СЕРВИС 2: Наше FastAPI-приложение ---
+#   app:
+#     # Собираем образ из нашего Dockerfile в текущей папке
+#     build: .
+#     ports:
+#       - "8000:8000"
+#     # Передаём переменные окружения из .env файла внутрь контейнера
+#     env_file:
+#       - .env
+#     # Переопределяем DB_HOST: внутри Docker база доступна не по "localhost",
+#     # а по имени сервиса "db" (Docker Compose создаёт внутреннюю сеть автоматически)
+#     environment:
+#       - DB_HOST=db
+#     # Запускаемся только когда база полностью готова (прошла healthcheck)
+#     depends_on:
+#       db:
+#         condition: service_healthy
+#     # При падении — автоматически перезапускаемся
+#     restart: on-failure
+#     # Команда выполняется перед стартом uvicorn: применяем миграции Alembic
+#     command: >
+#       sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+# # Объявляем именованный volume (Docker создаёт его автоматически при первом запуске)
+# volumes:
+#   postgres_data:

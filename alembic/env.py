@@ -31,7 +31,9 @@ from app.infrastructure.database import Base
 target_metadata = Base.metadata
 
 # 2. Подставляем URL базы данных из нашего .env файла (динамически)
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# Экранируем знак процента только для configparser Alembic'а
+alembic_url = settings.database_url_str.replace("%", "%%")
+config.set_main_option("sqlalchemy.url", alembic_url)
 
 
 def run_migrations_offline() -> None:

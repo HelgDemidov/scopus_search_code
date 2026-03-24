@@ -32,6 +32,20 @@ This project implements an API for a web application with the following function
 - **HTTP Client:** httpx (async)
 - **Infrastructure:** Docker, Docker Compose
 
+## Cloud Database (Supabase)
+
+The project initially used a local PostgreSQL instance (via Docker Compose). 
+It has now been migrated to a managed PostgreSQL instance on Supabase, 
+without changing the core architecture or the test setup.
+
+Key points:
+
+- The application connects to the database using a **single connection string** `DATABASE_URL`.
+- The stack is fully asynchronous: SQLAlchemy async + `asyncpg` driver.
+- For Supabase it is recommended to use the **Session Pooler** (IPv4‑compatible connection pool).
+- Unit and integration tests still rely on **in‑memory SQLite** via `tests/conftest.py` and 
+  never touch the cloud database.
+
 ---
 
 ## Architecture and Project Structure
@@ -47,133 +61,107 @@ The project is divided into four logical layers:
 
 ```
 scopus_search_code/
-├── app/                             # Source code of the application
-│   ├── core/                        # Core components: security, dependency injection
-│   │   ├── dependencies.py          # DB session factories and common Depends
-│   │   └── security.py              # JWT settings, hashing, oauth2_scheme setup
-│   ├── infrastructure/              # Concrete implementations of external systems (DB, API)
-│   │   ├── database.py              # SQLAlchemy engine and async_session setup
-│   │   ├── postgres_article_repo.py # SQL queries for articles
-│   │   ├── postgres_user_repo.py    # SQL queries for users
-│   │   └── scopus_client.py         # HTTP client for Scopus (via httpx)
-│   ├── models/                      # ORM models (Database schema definition)
-│   │   ├── article.py               # Article model (SQLAlchemy)
-│   │   └── user.py                  # User model (SQLAlchemy)
-│   ├── routers/                     # HTTP endpoints (Controllers)
-│   │   ├── articles.py              # Routes for GET /articles, GET /articles/find
-│   │   └── users.py                 # Routes for POST /register, /login, GET /me
-│   ├── schemas/                     # Pydantic models (Input/Output validation)
-│   │   ├── article_schemas.py       # Schemas for articles (Response, Paginated)
-│   │   └── user_schemas.py          # Schemas for users (Register, Login, Token)
-│   ├── services/                    # Business logic (Agnostic of web/DB details)
-│   │   ├── interfaces/              # Abstract classes (for Dependency Inversion)
-│   │   │   ├── article_repository.py# IArticleRepository
-│   │   │   ├── search_client.py     # ISearchClient
-│   │   │   └── user_repository.py   # IUserRepository
-│   │   ├── article_service.py       # Article logic (e.g., pagination calculation)
-│   │   ├── search_service.py        # Search orchestration (Scopus -> DB)
-│   │   └── user_service.py          # User logic (registration, password verification)
-│   ├── config.py                    # Global application settings (pydantic-settings)
-│   └── main.py                      # Application entry point, FastAPI instance assembly
-├── tests/                           # Directory for automated tests
-│   ├── integration/                 # Integration tests (DB + HTTP layers combined)
-│   │   ├── __init__.py              # Integration test package
-│   │   ├── test_articles_api.py     # Endpoint tests for articles
-│   │   └── test_users_api.py        # Endpoint tests for users
-│   ├── unit/                        # Unit tests (Isolated business logic)
-│   │   ├── __init__.py              # Unit test package
-│   │   ├── test_article_service.py  # Tests for ArticleService using mocks
-│   │   └── test_user_service.py     # Tests for UserService using mocks
-│   ├── __init__.py                  # Test package initialization
-│   └── conftest.py                  # Shared pytest fixtures (TestClient, mock DBs)
-├── alembic/                         # Database migrations directory
-│   ├── versions/                    # Migration revision files
-│   ├── env.py                       # Alembic environment setup (metadata linkage)
-│   └── script.py.mako               # Template for generating new migrations
-├── .env                             # Local environment variables (Ignored by Git)
-├── .env.example                     # Environment variables template
-├── .gitignore                       # Git ignore rules
-├── alembic.ini                      # Alembic configuration file
-├── docker-compose.yml               # Docker orchestration config (App + DB)
-├── Dockerfile                       # Instructions to build the application image
-├── export_skeleton.py               # Utility to export codebase "mask" via AST
-├── pytest.ini                       # Pytest configuration settings
-├── README.md                        # Project documentation
-└── requirements.txt                 # Python dependencies
-```
-
----
-
-## Running with Docker Compose (Recommended)
-
-This is the recommended way to run the project, ensuring environment consistency.
-Requires [Docker](https://docs.docker.com/get-docker/) to be installed.
-
-**Step 1. Configure environment variables**
-
-Create a `.env` file in the project root (you can copy the structure from `.env.example`) and fill it in:
+├── app/                              # Application source code
+│   ├── core/                         # Core utilities: security, dependency injection
+│   ├── infrastructure/               # Infrastructure layer: DB engine, repositories, Scopus client
+│   ├── models/                       # ORM models (database schema)
+│   ├── routers/                      # FastAPI routers (HTTP controllers)
+│   ├── schemas/                      # Pydantic schemas (request/response validation)
+│   └── services/                     # Business logic and abstractions
+│       └── interfaces/               # Abstract interfaces (IUserRepository, IArticleRepository, ISearchClient)
+├── tests/                            # Automated tests
+│   ├── integration/                  # Integration tests (API + DB + external clients)
+│   └── unit/                         # Unit tests (isolated business logic)
+├── alembic/                          # Database migrations (Alembic, targeting Supabase Postgres)
+│   └── versions/                     # Migration revision files
+├── .github/                          # CI/CD configuration for GitHub
+│   └── workflows/                    # GitHub Actions (tests, linters, coverage)
+├── .env                              # Local environment variables (Supabase DATABASE_URL, secrets, not committed)
+├── .env.example                      # Environment template (DATABASE_URL format for local and cloud DB)
+├── .gitignore                        # Git ignore rules (cache, virtualenv, secrets, etc.)
+├── alembic.ini                       # Alembic configuration (reads DATABASE_URL via app.config)
+├── docker-compose.yml                # Docker orchestration (app container; local Postgres service now disabled/commented)
+├── Dockerfile                        # Docker image build for the FastAPI application
+├── export_skeleton.py                # Utility for exporting the project "mask" (AST-based)
+├── pytest.ini                        # Pytest configuration (test run options)
+├── requirements.txt                  # Python dependencies (FastAPI, async SQLAlchemy, asyncpg, pytest, mypy, ruff, etc.)
+├── README.md                         # Project documentation in Russian
+└── README.en.md                      # Project documentation in English
 
 ```
-SCOPUS_API_KEY=your_scopus_api_key
 
-DB_HOST=db
-DB_PORT=5432
-DB_USER=scopus_db_user
-DB_PASSWORD=securepassword
-DB_NAME=scopus_db
+## Environment configuration
 
-SECRET_KEY=supersecretkey_change_me_in_production
+Before running the application, create a `.env` file in the project root based on `.env.example`.
+
+Key environment variables:
+
+```env
+SCOPUS_API_KEY=your_scopus_api_key_here
+```
+
+# Single database connection string.
+# Local PostgreSQL example:
+# DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/testdb
+# Supabase example (Session Pooler):
+# DATABASE_URL=postgresql+asyncpg://your_user:your_password@your_host.supabase.co:5432/your_database
+# DATABASE_URL=...
+
+SECRET_KEY=your_super_secret_key_for_jwt_generation
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
-```
 
-A free Scopus API key for non-commercial use is available at [dev.elsevier.com](https://dev.elsevier.com).
+Important: if your password contains special characters (#, %, @, +, $, ,, ?, etc.),
+they must be URL‑encoded, e.g. # → %23, + → %2B, $ → %24
 
-**Step 2. Build and start**
+## Running with Docker Compose
+
+Docker Compose is used to containerize the application. 
+Previously, `docker-compose.yml` also started a local PostgreSQL container, 
+but after migrating to Supabase the local database is no longer required.
+
+In `docker-compose.yml`:
+
+- the `app` service (FastAPI application) remains active;
+- the local `db` service can be disabled (it is commented out in the configuration).
+
+Before starting the stack, ensure that `DATABASE_URL` is configured in `.env` (either pointing to a local PostgreSQL instance or to the Supabase database):
 
 ```bash
 docker compose up --build
 ```
-
-Database migrations (Alembic) are applied automatically when the application container starts.
-
-**Step 3. Verify**
-
-- API: `http://localhost:8000`
-- Interactive Swagger documentation: `http://localhost:8000/docs`
-
+The application will be available at http://localhost:8000.
 ---
 
-## Local Development (Without Docker)
+## Local development without Docker
 
-To run the project directly via Python:
+1. Make sure you have a database available:
+   - either a local PostgreSQL instance (a database like `testdb` created),
+   - or a cloud Supabase database (project created and connection string obtained).
 
-1. Ensure a local PostgreSQL server is running and the database has been created.
-2. In the `.env` file, set `DB_HOST=localhost`.
-3. Create and activate a virtual environment:
-
+2. Create and activate a virtual environment:
 ```bash
 python -m venv .venv
-.venv\Scripts\activate        # Windows
-# source .venv/bin/activate   # macOS / Linux
+# Windows:
+.venv\Scripts\activate
+# macOS / Linux:
+source .venv/bin/activate
 ```
-
-4. Install dependencies:
-
+3. Install dependencies:
 ```bash
 pip install -r requirements.txt
-```
 
-5. Apply database migrations:
+4. Create a .env file from .env.example and set a valid DATABASE_URL.
 
+5. Apply Alembic migrations (tables will be created in the database pointed to by DATABASE_URL):
 ```bash
 alembic upgrade head
-```
 
 6. Start the development server:
-
 ```bash
 uvicorn app.main:app --reload
+
+7. Open Swagger UI at http://127.0.0.1:8000/docs and test the /users and /articles endpoints.
 ```
 
 ---
@@ -204,7 +192,7 @@ uvicorn app.main:app --reload
 - [x] Swagger documentation
 - [x] Docker Compose setup
 - [x] README with setup and launch instructions
-- [x] Test coverage: write unit and integration tests using pytest
+- [x] Test coverage: write unit and integration tests using pytest, code coverage 80%
 ---
 
 ## Testing
@@ -213,6 +201,11 @@ The project is covered by automated tests using `pytest` and `pytest-asyncio`. T
 
 - **Unit Tests (`tests/unit/`)**: Isolated testing of business logic (`UserService`, `ArticleService`). External dependencies (repositories, password hashing functions) are replaced using Fake objects and mocks (`monkeypatch`), ensuring tests run in fractions of a millisecond.
 - **Integration Tests (`tests/integration/`)**: Testing of FastAPI HTTP endpoints (`/users`, `/articles`). Verifies the full request cycle: Pydantic validation -> Services -> Repositories. To isolate state, an In-memory `SQLite` database is used, which is automatically set up and torn down via fixtures for each test. Calls to the external Scopus API are mocked.
+
+> Note: CI tests (GitHub Actions) do **not** connect to Supabase. 
+> The workflow file uses a dummy `DATABASE_URL`, and the actual tests override 
+> the database connection to use in‑memory SQLite via `tests/conftest.py`. 
+> This ensures that the cloud database is never modified during CI runs.
 
 **Running the tests:**
 
@@ -226,4 +219,3 @@ pytest tests -vv
 ## Planned Development
 
 - **Frontend client** — build a visual user interface (React or Vue.js) for convenient article search and browsing.
-- **Cloud deployment** — migrate the PostgreSQL database from the local environment to a managed cloud database solution and deploy the application to a cloud server.
