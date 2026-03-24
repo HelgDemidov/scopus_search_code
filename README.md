@@ -96,25 +96,23 @@ Before running the application, create a `.env` file in the project root based o
 
 Key environment variables:
 
-```env
 SCOPUS_API_KEY=your_scopus_api_key_here
 
 ---
-
+```
 # Single database connection string.
 # Local PostgreSQL example:
 # DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/testdb
 # Supabase example (Session Pooler):
 # DATABASE_URL=postgresql+asyncpg://your_user:your_password@your_host.supabase.co:5432/your_database
 # DATABASE_URL=...
-
+```
 SECRET_KEY=your_super_secret_key_for_jwt_generation
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 
 Important: if your password contains special characters (#, %, @, +, $, ,, ?, etc.), they must be URL‑encoded, e.g. # → %23, + → %2B, $ → %24
 
-```
 ## Running with Docker Compose
 
 Docker Compose is used to containerize the application. 
@@ -143,27 +141,30 @@ The application will be available at http://localhost:8000.
 2. Create and activate a virtual environment:
 ```bash
 python -m venv .venv
+```
 # Windows:
+```bash
 .venv\Scripts\activate
+```
 # macOS / Linux:
+```bash
 source .venv/bin/activate
 ```
 3. Install dependencies:
 ```bash
 pip install -r requirements.txt
-
+```
 4. Create a .env file from .env.example and set a valid DATABASE_URL.
 
 5. Apply Alembic migrations (tables will be created in the database pointed to by DATABASE_URL):
 ```bash
 alembic upgrade head
-
+```
 6. Start the development server:
 ```bash
 uvicorn app.main:app --reload
-
-7. Open Swagger UI at http://127.0.0.1:8000/docs and test the /users and /articles endpoints.
 ```
+7. Open Swagger UI at http://127.0.0.1:8000/docs and test the /users and /articles endpoints.
 
 ---
 
@@ -210,10 +211,9 @@ The project is covered by automated tests using `pytest` and `pytest-asyncio`. T
 
 **Running the tests:**
 
-```bash
 # Activate your virtual environment and run:
+```bash
 pytest tests -vv
-
 ```
 ---
 
