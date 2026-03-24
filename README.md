@@ -212,7 +212,7 @@ The project is covered by automated tests using `pytest` and `pytest-asyncio`. T
 
 **Running the tests:**
 
-# Activate your virtual environment and run:
+Activate your virtual environment and run:
 ```bash
 pytest tests -vv
 ```
