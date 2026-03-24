@@ -16,7 +16,7 @@ The project architecture is designed around **SOLID** principles: strict layer s
 This project implements an API for a web application with the following functionality:
 
 - **Authentication:** user registration and login (fields: name and email), retrieval of the currently authenticated user's profile.
-- **Scopus API integration:** a private `/find` endpoint for keyword-based article search. The service queries the Scopus API, retrieves the first 10 results, and stores the fields `publicationName`, `coverDate`, `creator`, and `doi` in a local database.
+- **Scopus API integration:** a private `/find` endpoint for keyword-based article search. The service queries the Scopus API, retrieves up to 25 first results, and stores the fields `publicationName`, `coverDate`, `creator`, and `doi` in a local database.
 - **Data retrieval:** a public `/articles` endpoint that returns stored results as JSON with pagination support and a total record count.
 - **Infrastructure:** PostgreSQL as the data store, Swagger documentation, Docker Compose setup, and this README.
 
