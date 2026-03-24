@@ -1,6 +1,7 @@
 from typing import List
 
 from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert  # <-- Правильный импорт для PostgreSQL
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.article import Article
@@ -19,7 +20,27 @@ class PostgresArticleRepository(IArticleRepository):
         return list(result.scalars().all())
 
     async def save_many(self, articles: List[Article]) -> None:
-        self.session.add_all(articles)
+        if not articles:
+            return
+        # Формируем значения для bulk insert
+        values = [
+            {
+                "title": a.title,
+                "author": a.author,
+                "date": a.date,
+                "doi": a.doi,
+                "keyword": a.keyword,
+            }
+            for a in articles
+        ]
+
+        stmt = (
+            insert(Article)
+            .values(values)
+            .on_conflict_do_nothing(index_elements=["doi"])  # <- ключевая строка
+        )
+
+        await self.session.execute(stmt)
         await self.session.commit()
 
     async def get_total_count(self) -> int:
