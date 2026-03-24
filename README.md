@@ -143,11 +143,11 @@ The application will be available at http://localhost:8000.
 ```bash
 python -m venv .venv
 ```
-# Windows:
+Windows:
 ```bash
 .venv\Scripts\activate
 ```
-# macOS / Linux:
+macOS / Linux:
 ```bash
 source .venv/bin/activate
 ```
