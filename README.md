@@ -4,7 +4,7 @@
 
 Russian version: [README.ru.md](README.ru.md)
 
-A learning REST API service for searching, storing, and displaying scientific publications from the Scopus database.
+My learning REST API service for searching, storing, and displaying scientific publications from the Scopus database.
 Built with Python, FastAPI, and PostgreSQL.
 
 The project architecture is designed around **SOLID** principles: strict layer separation, Repository pattern, Dependency Injection.
