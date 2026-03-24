@@ -98,7 +98,8 @@ Key environment variables:
 
 ```env
 SCOPUS_API_KEY=your_scopus_api_key_here
-```
+
+---
 
 # Single database connection string.
 # Local PostgreSQL example:
@@ -111,9 +112,9 @@ SECRET_KEY=your_super_secret_key_for_jwt_generation
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 
-Important: if your password contains special characters (#, %, @, +, $, ,, ?, etc.),
-they must be URL‑encoded, e.g. # → %23, + → %2B, $ → %24
+Important: if your password contains special characters (#, %, @, +, $, ,, ?, etc.), they must be URL‑encoded, e.g. # → %23, + → %2B, $ → %24
 
+```
 ## Running with Docker Compose
 
 Docker Compose is used to containerize the application. 

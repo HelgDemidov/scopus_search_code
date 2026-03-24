@@ -98,11 +98,11 @@ scopus_search_code/
 Перед запуском создайте файл `.env` в корне проекта на основе шаблона `.env.example`.
 
 Ключевые переменные:
-
 ```env
 SCOPUS_API_KEY=your_scopus_api_key_here
 
-```
+---
+
 # Единая строка подключения к базе данных.
 # Для локальной БД:
 # DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/testdb
@@ -110,9 +110,10 @@ SCOPUS_API_KEY=your_scopus_api_key_here
 # DATABASE_URL=postgresql+asyncpg://your_user:your_password@your_host.supabase.co:5432/your_database
 # DATABASE_URL=...
 
-# SECRET_KEY=your_super_secret_key_for_jwt_generation
-# ALGORITHM=HS256
-# ACCESS_TOKEN_EXPIRE_MINUTES=30
+SECRET_KEY=your_super_secret_key_for_jwt_generation
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+```
 
 ```markdown
 ## Запуск с Docker Compose
@@ -146,21 +147,17 @@ python -m venv .venv
 # macOS / Linux:
 source .venv/bin/activate
 ```
-
 3. Установите зависимости:
-
 ```bash
 pip install -r requirements.txt
 ```
 4. Создайте файл .env на основе .env.example и укажите корректный DATABASE_URL.
-
 5. Примените миграции Alembic (таблицы будут созданы в той базе, на которую указывает DATABASE_URL):
 
 ```bash
 alembic upgrade head
 ```
 6. Запустите сервер разработки:
-
 ```bash
 uvicorn app.main:app --reload
 ```
