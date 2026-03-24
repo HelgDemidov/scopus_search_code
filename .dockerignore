@@ -1,0 +1,40 @@
+# VCS
+.git
+.gitignore
+
+# Python environments
+.venv
+venv
+env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Build / dist artifacts
+build/
+dist/
+*.egg-info/
+
+# IDE / editor config
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS-specific junk
+.DS_Store
+Thumbs.db
+
+# Tests and artifacts
+tests/__pycache__/
+.coverage
+htmlcov/
+pytest_cache/
+
+# Docker-related local files
+docker-compose.yml
+.env
+.env.*
