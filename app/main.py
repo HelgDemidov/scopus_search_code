@@ -5,7 +5,7 @@ import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import articles, users
+from app.routers import articles, users, health
 
 # --- LIFESPAN: управление жизненным циклом приложения ---
 # asynccontextmanager превращает обычную async-функцию в менеджер контекста
@@ -55,6 +55,7 @@ app.add_middleware(
 # Теперь FastAPI знает о всех наших эндпоинтах и включит их в Swagger
 app.include_router(users.router)
 app.include_router(articles.router)
+app.include_router(health.router)
 
 
 # --- КОРНЕВОЙ ЭНДПОИНТ (Health Check) ---
