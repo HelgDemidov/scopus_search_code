@@ -23,7 +23,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from app.config import settings
-from app.infrastructure.database import Base
+from app.models.base import Base
 
 # Импортируем модели, чтобы Alembic прочитал их структуру
 

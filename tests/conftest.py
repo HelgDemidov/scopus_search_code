@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.core.dependencies import get_db_session
 from app.core.security import create_access_token
-from app.infrastructure.database import Base
+from app.models.base import Base
 
 # Импортируем наше приложение и базовый класс моделей
 from app.main import app

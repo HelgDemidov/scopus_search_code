@@ -6,7 +6,7 @@ import pytest
 from app.models.article import Article
 from app.schemas.article_schemas import PaginatedArticleResponse
 from app.services.article_service import ArticleService
-from app.services.interfaces.article_repository import IArticleRepository
+from app.interfaces.article_repository import IArticleRepository
 
 
 # 1. Создаем Fake-репозиторий (Заглушку) для статей

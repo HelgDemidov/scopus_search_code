@@ -1,6 +1,6 @@
 
 from app.schemas.article_schemas import ArticleResponse, PaginatedArticleResponse
-from app.services.interfaces.article_repository import IArticleRepository
+from app.interfaces.article_repository import IArticleRepository
 
 
 class ArticleService:

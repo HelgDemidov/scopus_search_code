@@ -5,7 +5,7 @@ from sqlalchemy.dialects.postgresql import insert  # <-- Правильный и
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.article import Article
-from app.services.interfaces.article_repository import IArticleRepository
+from app.interfaces.article_repository import IArticleRepository
 
 
 class PostgresArticleRepository(IArticleRepository):

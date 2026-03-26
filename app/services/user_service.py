@@ -1,7 +1,7 @@
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.user import User
 from app.schemas.user_schemas import UserRegisterRequest
-from app.services.interfaces.user_repository import IUserRepository
+from app.interfaces.user_repository import IUserRepository
 
 
 class UserService:

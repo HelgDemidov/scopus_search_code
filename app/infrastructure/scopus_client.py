@@ -5,7 +5,7 @@ import httpx
 
 from app.config import settings
 from app.models.article import Article
-from app.services.interfaces.search_client import ISearchClient
+from app.interfaces.search_client import ISearchClient
 
 # Базовый URL Scopus Search API (актуальный endpoint)
 SCOPUS_BASE_URL = "https://api.elsevier.com/content/search/scopus"

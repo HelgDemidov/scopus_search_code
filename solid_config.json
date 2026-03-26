@@ -1,0 +1,10 @@
+{
+  "package_root": "app",
+  "layers": {
+    "routers": "routers",
+    "services": "services",
+    "infrastructure": "infrastructure",
+    "models": "models"
+  },
+  "ignore_dirs": ["__pycache__", ".venv", "tests"]
+}

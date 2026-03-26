@@ -2,7 +2,7 @@ import pytest
 
 from app.models.user import User
 from app.schemas.user_schemas import UserRegisterRequest
-from app.services.interfaces.user_repository import IUserRepository
+from app.interfaces.user_repository import IUserRepository
 from app.services.user_service import UserService
 
 

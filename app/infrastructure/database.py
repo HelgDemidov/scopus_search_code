@@ -1,5 +1,4 @@
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase
 from app.config import settings
 
 # 1. Проверяем: если подключаемся к облачной БД (не localhost), требуем SSL
@@ -24,8 +23,3 @@ async_session_maker = async_sessionmaker(
     bind=engine,
     expire_on_commit=False
 )
-
-# 3. Базовый класс для всех моделей
-# Все классы User и Article будут наследоваться от него
-class Base(DeclarativeBase):
-    pass

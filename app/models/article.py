@@ -4,7 +4,7 @@ from sqlalchemy import Date, DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
-from app.infrastructure.database import Base
+from app.models.base import Base
 
 
 class Article(Base):

@@ -1,0 +1,20 @@
+# комментарий (ru): Файл конфигурации сборки проекта
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "solid_dashboard"
+version = "0.1.0"
+description = "Python Code Inventory & Architecture Dashboard"
+requires-python = ">=3.10"
+dependencies = [
+    "radon>=6.0.1",
+    "cohesion>=1.0.0",
+    "pydeps>=1.12.0",
+    "pydantic>=2.0.0",
+    "import-linter==2.11", # комментарий (ru): добавлена жесткая привязка к версии из-за использования Python API
+]
+
+[project.scripts]
+solid-dashboard = "solid_dashboard.__main__:main"
