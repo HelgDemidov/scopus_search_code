@@ -8,18 +8,19 @@ from .adapters.radon_adapter import RadonAdapter
 from .adapters.cohesion_adapter import CohesionAdapter
 from .adapters.import_graph_adapter import ImportGraphAdapter
 from .adapters.import_linter_adapter import ImportLinterAdapter
+from .adapters.pyan3_adapter import Pyan3Adapter
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="SOLID-Verifier Dashboard")
     parser.add_argument(
         "--target-dir",
         required=True,
-        help="Путь к анализируемому проекту (корень Python-пакета)",
+        help="Path to analyzed project (Python package root)",
     )
     parser.add_argument(
         "--config",
         required=False,
-        help="Путь к solid_config.json (по умолчанию ищется в текущем каталоге)",
+        help="Path to solid_config.json (search performed in current catalog by default)",
     )
 
     args = parser.parse_args()
@@ -33,11 +34,12 @@ def main() -> None:
         CohesionAdapter(),
         ImportGraphAdapter(),
         ImportLinterAdapter(),
+        Pyan3Adapter(),
     ]
 
     results = run_pipeline(args.target_dir, config, adapters)
 
-    print("\n=== Результат Pipeline ===")
+    print("\n=== Pipeline Result ===")
     print(json.dumps(results, indent=2, ensure_ascii=False))
 
 if __name__ == "__main__":
