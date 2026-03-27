@@ -46,11 +46,12 @@ def generate_project_mask(root_dir: str, output_file: str):
                 out.write("\n")
                 
             except Exception as e:
-                out.write(f"\n# Ошибка парсинга {py_file}: {e}\n")
+                out.write(f"\n# Parsing error {py_file}: {e}\n")
 
 if __name__ == "__main__":
     generate_project_mask(
         root_dir=".", 
-        output_file="scopus_project_mask.txt"
+        output_file="docs/scopus_project_mask.txt"
     )
-    print("Маска проекта успешно сохранена в scopus_project_mask.txt")
+    print("Success! Mask saved in docs/scopus_project_mask.txt")
+
