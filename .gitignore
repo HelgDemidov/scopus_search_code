@@ -20,8 +20,9 @@ postgres_data/
 .DS_Store
 
 # Файл-"маска" кода проекта (создан с помощью скрипта export_skeleton.py)
-scopus_project_mask.txt
+docs/scopus_project_mask.txt
 
+# Прочие файлы кэша:
 # Pytest
 .pytest_cache/
 
@@ -31,9 +32,13 @@ scopus_project_mask.txt
 # Ruff 
 .ruff_cache/
 
+#.import-linter_cache
+.import_linter_cache/
+
 # Coverage
 .coverage
 htmlcov/
  
 # Python-seeder
-seed_db.py
+scripts/seed_db.py
+
