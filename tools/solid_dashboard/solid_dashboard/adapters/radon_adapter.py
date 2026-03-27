@@ -97,7 +97,6 @@ class RadonAdapter:
                         if liz_func:
                             # Добавляем ТОЛЬКО уникальные метрики
                             item["parameter_count"] = liz_func.parameter_count
-                            item["max_nesting_depth"] = getattr(liz_func, "max_nesting_depth", None)
                     except Exception:
                         pass  # В случае любой ошибки поиска просто пропускаем этот item
         

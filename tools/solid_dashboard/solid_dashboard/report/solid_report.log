@@ -10,7 +10,8 @@
         "complexity": 9,
         "rank": "B",
         "lineno": 17,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\schemas\\user_schemas.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\schemas\\user_schemas.py",
+        "parameter_count": 2
       },
       {
         "name": "search",
@@ -18,7 +19,8 @@
         "complexity": 8,
         "rank": "B",
         "lineno": 27,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\infrastructure\\scopus_client.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\infrastructure\\scopus_client.py",
+        "parameter_count": 3
       },
       {
         "name": "find_articles",
@@ -26,7 +28,8 @@
         "complexity": 7,
         "rank": "B",
         "lineno": 45,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\articles.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\articles.py",
+        "parameter_count": 4
       },
       {
         "name": "get_articles_paginated",
@@ -34,7 +37,8 @@
         "complexity": 4,
         "rank": "A",
         "lineno": 10,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\services\\article_service.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\services\\article_service.py",
+        "parameter_count": 3
       },
       {
         "name": "save_many",
@@ -42,7 +46,8 @@
         "complexity": 3,
         "rank": "A",
         "lineno": 22,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\infrastructure\\postgres_article_repo.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\infrastructure\\postgres_article_repo.py",
+        "parameter_count": 2
       },
       {
         "name": "get_current_user",
@@ -50,7 +55,8 @@
         "complexity": 3,
         "rank": "A",
         "lineno": 30,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\users.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\users.py",
+        "parameter_count": 1
       },
       {
         "name": "login",
@@ -58,7 +64,8 @@
         "complexity": 3,
         "rank": "A",
         "lineno": 30,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\services\\user_service.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\services\\user_service.py",
+        "parameter_count": 3
       },
       {
         "name": "decode_access_token",
@@ -66,7 +73,8 @@
         "complexity": 2,
         "rank": "A",
         "lineno": 28,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\core\\security.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\core\\security.py",
+        "parameter_count": 1
       },
       {
         "name": "get_total_count",
@@ -74,7 +82,8 @@
         "complexity": 2,
         "rank": "A",
         "lineno": 46,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\infrastructure\\postgres_article_repo.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\infrastructure\\postgres_article_repo.py",
+        "parameter_count": 1
       },
       {
         "name": "register",
@@ -82,7 +91,8 @@
         "complexity": 2,
         "rank": "A",
         "lineno": 50,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\users.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\users.py",
+        "parameter_count": 2
       },
       {
         "name": "login",
@@ -90,7 +100,8 @@
         "complexity": 2,
         "rank": "A",
         "lineno": 61,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\users.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\users.py",
+        "parameter_count": 1
       },
       {
         "name": "passwords_match",
@@ -98,7 +109,8 @@
         "complexity": 2,
         "rank": "A",
         "lineno": 33,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\schemas\\user_schemas.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\schemas\\user_schemas.py",
+        "parameter_count": 1
       },
       {
         "name": "find_and_save",
@@ -106,7 +118,8 @@
         "complexity": 2,
         "rank": "A",
         "lineno": 15,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\services\\search_service.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\services\\search_service.py",
+        "parameter_count": 3
       },
       {
         "name": "register",
@@ -114,7 +127,8 @@
         "complexity": 2,
         "rank": "A",
         "lineno": 13,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\services\\user_service.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\services\\user_service.py",
+        "parameter_count": 2
       },
       {
         "name": "database_url_str",
@@ -122,7 +136,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 35,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\config.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\config.py",
+        "parameter_count": 1
       },
       {
         "name": "lifespan",
@@ -130,7 +145,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 15,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\main.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\main.py",
+        "parameter_count": 1
       },
       {
         "name": "root",
@@ -138,7 +154,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 65,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\main.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\main.py",
+        "parameter_count": 0
       },
       {
         "name": "get_db_session",
@@ -146,7 +163,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 8,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\core\\dependencies.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\core\\dependencies.py",
+        "parameter_count": 0
       },
       {
         "name": "hash_password",
@@ -154,7 +172,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 15,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\core\\security.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\core\\security.py",
+        "parameter_count": 1
       },
       {
         "name": "verify_password",
@@ -162,7 +181,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 18,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\core\\security.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\core\\security.py",
+        "parameter_count": 2
       },
       {
         "name": "create_access_token",
@@ -170,7 +190,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 21,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\core\\security.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\core\\security.py",
+        "parameter_count": 1
       },
       {
         "name": "__init__",
@@ -178,7 +199,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 12,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\infrastructure\\postgres_article_repo.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\infrastructure\\postgres_article_repo.py",
+        "parameter_count": 2
       },
       {
         "name": "get_all",
@@ -186,7 +208,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 15,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\infrastructure\\postgres_article_repo.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\infrastructure\\postgres_article_repo.py",
+        "parameter_count": 3
       },
       {
         "name": "__init__",
@@ -194,7 +217,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 10,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\infrastructure\\postgres_user_repo.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\infrastructure\\postgres_user_repo.py",
+        "parameter_count": 2
       },
       {
         "name": "create",
@@ -202,7 +226,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 13,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\infrastructure\\postgres_user_repo.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\infrastructure\\postgres_user_repo.py",
+        "parameter_count": 2
       },
       {
         "name": "get_by_email",
@@ -210,7 +235,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 19,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\infrastructure\\postgres_user_repo.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\infrastructure\\postgres_user_repo.py",
+        "parameter_count": 2
       },
       {
         "name": "__init__",
@@ -218,7 +244,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 21,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\infrastructure\\scopus_client.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\infrastructure\\scopus_client.py",
+        "parameter_count": 2
       },
       {
         "name": "save_many",
@@ -226,7 +253,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 10,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\interfaces\\article_repository.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\interfaces\\article_repository.py",
+        "parameter_count": 2
       },
       {
         "name": "get_all",
@@ -234,7 +262,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 15,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\interfaces\\article_repository.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\interfaces\\article_repository.py",
+        "parameter_count": 3
       },
       {
         "name": "get_total_count",
@@ -242,7 +271,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 24,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\interfaces\\article_repository.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\interfaces\\article_repository.py",
+        "parameter_count": 1
       },
       {
         "name": "search",
@@ -250,7 +280,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 13,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\interfaces\\search_client.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\interfaces\\search_client.py",
+        "parameter_count": 3
       },
       {
         "name": "create",
@@ -258,7 +289,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 10,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\interfaces\\user_repository.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\interfaces\\user_repository.py",
+        "parameter_count": 2
       },
       {
         "name": "get_by_email",
@@ -266,7 +298,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 15,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\interfaces\\user_repository.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\interfaces\\user_repository.py",
+        "parameter_count": 2
       },
       {
         "name": "__repr__",
@@ -274,7 +307,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 28,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\models\\article.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\models\\article.py",
+        "parameter_count": 1
       },
       {
         "name": "__repr__",
@@ -282,7 +316,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 20,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\models\\user.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\models\\user.py",
+        "parameter_count": 1
       },
       {
         "name": "get_article_service",
@@ -290,7 +325,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 19,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\articles.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\articles.py",
+        "parameter_count": 1
       },
       {
         "name": "get_scopus_client",
@@ -298,7 +334,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 23,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\articles.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\articles.py",
+        "parameter_count": 0
       },
       {
         "name": "get_search_service",
@@ -306,7 +343,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 27,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\articles.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\articles.py",
+        "parameter_count": 1
       },
       {
         "name": "get_articles",
@@ -314,7 +352,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 36,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\articles.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\articles.py",
+        "parameter_count": 3
       },
       {
         "name": "health_db",
@@ -322,7 +361,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 16,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\health.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\health.py",
+        "parameter_count": 1
       },
       {
         "name": "get_user_service",
@@ -330,7 +370,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 24,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\users.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\users.py",
+        "parameter_count": 1
       },
       {
         "name": "get_me",
@@ -338,7 +379,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 76,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\users.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\users.py",
+        "parameter_count": 1
       },
       {
         "name": "password_reset_request",
@@ -346,7 +388,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 80,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\users.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\users.py",
+        "parameter_count": 2
       },
       {
         "name": "__init__",
@@ -354,7 +397,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 7,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\services\\article_service.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\services\\article_service.py",
+        "parameter_count": 2
       },
       {
         "name": "__init__",
@@ -362,7 +406,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 11,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\services\\search_service.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\services\\search_service.py",
+        "parameter_count": 3
       },
       {
         "name": "__init__",
@@ -370,7 +415,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 10,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\services\\user_service.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\services\\user_service.py",
+        "parameter_count": 2
       },
       {
         "name": "get_current_user",
@@ -378,7 +424,8 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 42,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\services\\user_service.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\services\\user_service.py",
+        "parameter_count": 2
       },
       {
         "name": "request_password_reset",
@@ -386,9 +433,11 @@
         "complexity": 1,
         "rank": "A",
         "lineno": 46,
-        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\services\\user_service.py"
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\services\\user_service.py",
+        "parameter_count": 2
       }
-    ]
+    ],
+    "lizard_used": true
   },
   "cohesion": {
     "total_classes_analyzed": 0,
@@ -858,43 +907,191 @@
     ],
     "edges": [
       {
+        "from": "login",
+        "to": "TokenResponse"
+      },
+      {
+        "from": "Article",
+        "to": "Base"
+      },
+      {
+        "from": "get_article_service",
+        "to": "ArticleService"
+      },
+      {
+        "from": "app.config",
+        "to": "Settings"
+      },
+      {
+        "from": "login",
+        "to": "__init__"
+      },
+      {
+        "from": "app.services.user_service",
+        "to": "create_access_token"
+      },
+      {
+        "from": "register",
+        "to": "__init__"
+      },
+      {
+        "from": "get_user_service",
+        "to": "__init__"
+      },
+      {
         "from": "get_articles",
-        "to": "get_articles_paginated"
+        "to": "PaginatedArticleResponse"
+      },
+      {
+        "from": "app.infrastructure.postgres_article_repo",
+        "to": "IArticleRepository"
+      },
+      {
+        "from": "get_current_user",
+        "to": "User"
+      },
+      {
+        "from": "get_all",
+        "to": "Article"
+      },
+      {
+        "from": "find_articles",
+        "to": "ScopusHTTPClient"
       },
       {
         "from": "password_reset_request",
         "to": "UserService"
       },
       {
-        "from": "get_article_service",
-        "to": "__init__"
-      },
-      {
         "from": "get_articles_paginated",
-        "to": "get_total_count"
+        "to": "ArticleResponse"
       },
       {
-        "from": "find_articles",
+        "from": "app.services.article_service",
         "to": "ArticleResponse"
+      },
+      {
+        "from": "get_search_service",
+        "to": "get_scopus_client"
+      },
+      {
+        "from": "register",
+        "to": "create"
+      },
+      {
+        "from": "request_password_reset",
+        "to": "get_by_email"
+      },
+      {
+        "from": "app.services.search_service",
+        "to": "ISearchClient"
+      },
+      {
+        "from": "get_current_user",
+        "to": "get_current_user"
+      },
+      {
+        "from": "login",
+        "to": "get_by_email"
+      },
+      {
+        "from": "get_article_service",
+        "to": "get_db_session"
+      },
+      {
+        "from": "register",
+        "to": "hash_password"
+      },
+      {
+        "from": "find_and_save",
+        "to": "Article"
+      },
+      {
+        "from": "app.services.search_service",
+        "to": "IArticleRepository"
+      },
+      {
+        "from": "login",
+        "to": "create_access_token"
+      },
+      {
+        "from": "get_search_service",
+        "to": "SearchService"
+      },
+      {
+        "from": "app.services.user_service",
+        "to": "hash_password"
+      },
+      {
+        "from": "app.services.user_service",
+        "to": "verify_password"
+      },
+      {
+        "from": "__init__",
+        "to": "ISearchClient"
       },
       {
         "from": "get_article_service",
         "to": "PostgresArticleRepository"
       },
       {
-        "from": "register",
-        "to": "UserRegisterRequest"
-      },
-      {
         "from": "get_articles_paginated",
-        "to": "PaginatedArticleResponse"
+        "to": "__init__"
       },
       {
-        "from": "password_reset_request",
-        "to": "PasswordResetRequest"
+        "from": "app.interfaces.article_repository",
+        "to": "Article"
+      },
+      {
+        "from": "__init__",
+        "to": "IArticleRepository"
+      },
+      {
+        "from": "get_scopus_client",
+        "to": "__init__"
+      },
+      {
+        "from": "search",
+        "to": "__init__"
+      },
+      {
+        "from": "get_by_email",
+        "to": "User"
+      },
+      {
+        "from": "app.infrastructure.scopus_client",
+        "to": "ISearchClient"
+      },
+      {
+        "from": "PostgresArticleRepository",
+        "to": "IArticleRepository"
+      },
+      {
+        "from": "__init__",
+        "to": "IUserRepository"
+      },
+      {
+        "from": "login",
+        "to": "login"
+      },
+      {
+        "from": "login",
+        "to": "get_user_service"
+      },
+      {
+        "from": "get_user_service",
+        "to": "PostgresUserRepository"
+      },
+      {
+        "from": "register",
+        "to": "get_user_service"
       },
       {
         "from": "find_articles",
+        "to": "ArticleResponse"
+      },
+      {
+        "from": "get_search_service",
         "to": "ScopusHTTPClient"
       },
       {
@@ -902,240 +1099,36 @@
         "to": "User"
       },
       {
-        "from": "app.services.search_service",
-        "to": "Article"
-      },
-      {
-        "from": "app.main",
-        "to": "lifespan"
-      },
-      {
-        "from": "app.services.user_service",
-        "to": "IUserRepository"
-      },
-      {
-        "from": "get_current_user",
-        "to": "UserService"
-      },
-      {
-        "from": "app.services.user_service",
-        "to": "UserRegisterRequest"
-      },
-      {
-        "from": "register",
-        "to": "UserService"
-      },
-      {
-        "from": "PostgresUserRepository",
-        "to": "IUserRepository"
-      },
-      {
         "from": "find_articles",
-        "to": "get_search_service"
-      },
-      {
-        "from": "get_search_service",
-        "to": "get_scopus_client"
-      },
-      {
-        "from": "health_db",
-        "to": "get_db_session"
-      },
-      {
-        "from": "password_reset_request",
-        "to": "request_password_reset"
-      },
-      {
-        "from": "find_articles",
-        "to": "__init__"
-      },
-      {
-        "from": "get_search_service",
-        "to": "get_db_session"
-      },
-      {
-        "from": "get_user_service",
-        "to": "__init__"
-      },
-      {
-        "from": "login",
-        "to": "get_by_email"
-      },
-      {
-        "from": "get_articles",
-        "to": "ArticleService"
-      },
-      {
-        "from": "app.infrastructure.database",
-        "to": "database_url_str"
-      },
-      {
-        "from": "password_reset_request",
-        "to": "get_user_service"
-      },
-      {
-        "from": "get_search_service",
-        "to": "SearchService"
-      },
-      {
-        "from": "Article",
-        "to": "Base"
-      },
-      {
-        "from": "login",
-        "to": "TokenResponse"
-      },
-      {
-        "from": "get_article_service",
-        "to": "ArticleService"
-      },
-      {
-        "from": "app.infrastructure.postgres_article_repo",
-        "to": "Article"
-      },
-      {
-        "from": "find_articles",
-        "to": "get_current_user"
-      },
-      {
-        "from": "PaginatedArticleResponse",
-        "to": "ArticleResponse"
-      },
-      {
-        "from": "app.interfaces.article_repository",
-        "to": "Article"
-      },
-      {
-        "from": "register",
-        "to": "register"
-      },
-      {
-        "from": "app.infrastructure.scopus_client",
-        "to": "Article"
-      },
-      {
-        "from": "search",
-        "to": "__init__"
-      },
-      {
-        "from": "login",
-        "to": "__init__"
-      },
-      {
-        "from": "app.models.user",
-        "to": "Base"
-      },
-      {
-        "from": "get_all",
-        "to": "Article"
-      },
-      {
-        "from": "find_and_save",
-        "to": "save_many"
-      },
-      {
-        "from": "ScopusHTTPClient",
-        "to": "ISearchClient"
-      },
-      {
-        "from": "get_articles_paginated",
-        "to": "ArticleResponse"
-      },
-      {
-        "from": "get_current_user",
-        "to": "get_user_service"
-      },
-      {
-        "from": "register",
-        "to": "create"
-      },
-      {
-        "from": "register",
-        "to": "get_user_service"
-      },
-      {
-        "from": "app.services.article_service",
-        "to": "PaginatedArticleResponse"
-      },
-      {
-        "from": "app.services.article_service",
-        "to": "IArticleRepository"
+        "to": "find_and_save"
       },
       {
         "from": "password_strength",
         "to": "search"
       },
       {
-        "from": "find_articles",
-        "to": "find_and_save"
-      },
-      {
-        "from": "get_user_service",
-        "to": "PostgresUserRepository"
-      },
-      {
-        "from": "get_me",
+        "from": "app.interfaces.user_repository",
         "to": "User"
-      },
-      {
-        "from": "get_article_service",
-        "to": "get_db_session"
-      },
-      {
-        "from": "get_current_user",
-        "to": "User"
-      },
-      {
-        "from": "PostgresArticleRepository",
-        "to": "IArticleRepository"
-      },
-      {
-        "from": "app.services.search_service",
-        "to": "ISearchClient"
-      },
-      {
-        "from": "search",
-        "to": "Article"
-      },
-      {
-        "from": "get_articles_paginated",
-        "to": "__init__"
       },
       {
         "from": "get_articles",
-        "to": "PaginatedArticleResponse"
+        "to": "get_articles_paginated"
       },
       {
-        "from": "find_articles",
-        "to": "get_scopus_client"
+        "from": "app.models.user",
+        "to": "Base"
       },
       {
-        "from": "__init__",
-        "to": "ISearchClient"
-      },
-      {
-        "from": "create",
-        "to": "User"
-      },
-      {
-        "from": "get_by_email",
-        "to": "User"
-      },
-      {
-        "from": "login",
-        "to": "login"
-      },
-      {
-        "from": "find_and_save",
-        "to": "search"
+        "from": "get_current_user",
+        "to": "get_by_email"
       },
       {
         "from": "register",
-        "to": "hash_password"
+        "to": "register"
       },
       {
         "from": "get_me",
-        "to": "get_current_user"
+        "to": "User"
       },
       {
         "from": "User",
@@ -1143,159 +1136,215 @@
       },
       {
         "from": "login",
-        "to": "UserService"
-      },
-      {
-        "from": "find_articles",
-        "to": "SearchService"
-      },
-      {
-        "from": "app.services.user_service",
-        "to": "create_access_token"
-      },
-      {
-        "from": "get_current_user",
-        "to": "get_current_user"
-      },
-      {
-        "from": "get_current_user",
-        "to": "decode_access_token"
-      },
-      {
-        "from": "app.services.article_service",
-        "to": "ArticleResponse"
-      },
-      {
-        "from": "app.config",
-        "to": "Settings"
-      },
-      {
-        "from": "app.services.user_service",
-        "to": "hash_password"
-      },
-      {
-        "from": "app.infrastructure.scopus_client",
-        "to": "ISearchClient"
-      },
-      {
-        "from": "get_search_service",
-        "to": "ScopusHTTPClient"
-      },
-      {
-        "from": "app.services.search_service",
-        "to": "IArticleRepository"
-      },
-      {
-        "from": "register",
-        "to": "User"
-      },
-      {
-        "from": "get_current_user",
-        "to": "get_by_email"
-      },
-      {
-        "from": "register",
-        "to": "get_by_email"
-      },
-      {
-        "from": "save_many",
-        "to": "Article"
-      },
-      {
-        "from": "get_articles",
-        "to": "get_article_service"
-      },
-      {
-        "from": "login",
-        "to": "create_access_token"
-      },
-      {
-        "from": "__init__",
-        "to": "IArticleRepository"
-      },
-      {
-        "from": "app.services.user_service",
         "to": "verify_password"
       },
       {
-        "from": "app.models.article",
-        "to": "Base"
+        "from": "login",
+        "to": "UserService"
       },
       {
-        "from": "get_scopus_client",
-        "to": "ScopusHTTPClient"
+        "from": "register",
+        "to": "UserService"
+      },
+      {
+        "from": "get_search_service",
+        "to": "get_db_session"
+      },
+      {
+        "from": "search",
+        "to": "Article"
+      },
+      {
+        "from": "app.infrastructure.postgres_user_repo",
+        "to": "IUserRepository"
       },
       {
         "from": "get_user_service",
         "to": "UserService"
       },
       {
-        "from": "app.infrastructure.postgres_user_repo",
-        "to": "User"
+        "from": "find_articles",
+        "to": "get_current_user"
       },
       {
-        "from": "app.services.user_service",
-        "to": "User"
+        "from": "get_me",
+        "to": "get_current_user"
       },
       {
-        "from": "get_search_service",
+        "from": "find_articles",
         "to": "__init__"
+      },
+      {
+        "from": "app.main",
+        "to": "lifespan"
+      },
+      {
+        "from": "get_articles_paginated",
+        "to": "get_total_count"
       },
       {
         "from": "get_search_service",
         "to": "PostgresArticleRepository"
       },
       {
-        "from": "app.infrastructure.postgres_user_repo",
-        "to": "IUserRepository"
-      },
-      {
-        "from": "app.interfaces.search_client",
-        "to": "Article"
-      },
-      {
-        "from": "register",
+        "from": "get_article_service",
         "to": "__init__"
       },
       {
-        "from": "app.interfaces.user_repository",
+        "from": "register",
         "to": "User"
       },
       {
-        "from": "login",
+        "from": "get_articles_paginated",
+        "to": "PaginatedArticleResponse"
+      },
+      {
+        "from": "get_current_user",
         "to": "get_user_service"
       },
       {
-        "from": "__init__",
-        "to": "IUserRepository"
+        "from": "app.infrastructure.postgres_article_repo",
+        "to": "Article"
+      },
+      {
+        "from": "app.infrastructure.postgres_user_repo",
+        "to": "User"
+      },
+      {
+        "from": "health_db",
+        "to": "get_db_session"
+      },
+      {
+        "from": "get_articles",
+        "to": "ArticleService"
       },
       {
         "from": "get_user_service",
         "to": "get_db_session"
       },
       {
-        "from": "find_and_save",
-        "to": "Article"
+        "from": "app.infrastructure.database",
+        "to": "database_url_str"
       },
       {
-        "from": "get_scopus_client",
-        "to": "__init__"
+        "from": "PostgresUserRepository",
+        "to": "IUserRepository"
       },
       {
-        "from": "app.infrastructure.postgres_article_repo",
-        "to": "IArticleRepository"
-      },
-      {
-        "from": "login",
-        "to": "verify_password"
+        "from": "PaginatedArticleResponse",
+        "to": "ArticleResponse"
       },
       {
         "from": "get_articles_paginated",
         "to": "get_all"
       },
       {
-        "from": "request_password_reset",
+        "from": "get_current_user",
+        "to": "UserService"
+      },
+      {
+        "from": "register",
+        "to": "UserRegisterRequest"
+      },
+      {
+        "from": "get_articles",
+        "to": "get_article_service"
+      },
+      {
+        "from": "app.services.search_service",
+        "to": "Article"
+      },
+      {
+        "from": "app.services.user_service",
+        "to": "IUserRepository"
+      },
+      {
+        "from": "app.services.user_service",
+        "to": "UserRegisterRequest"
+      },
+      {
+        "from": "get_current_user",
+        "to": "decode_access_token"
+      },
+      {
+        "from": "get_scopus_client",
+        "to": "ScopusHTTPClient"
+      },
+      {
+        "from": "save_many",
+        "to": "Article"
+      },
+      {
+        "from": "find_articles",
+        "to": "get_scopus_client"
+      },
+      {
+        "from": "ScopusHTTPClient",
+        "to": "ISearchClient"
+      },
+      {
+        "from": "find_articles",
+        "to": "get_search_service"
+      },
+      {
+        "from": "get_search_service",
+        "to": "__init__"
+      },
+      {
+        "from": "app.services.article_service",
+        "to": "PaginatedArticleResponse"
+      },
+      {
+        "from": "password_reset_request",
+        "to": "PasswordResetRequest"
+      },
+      {
+        "from": "find_and_save",
+        "to": "search"
+      },
+      {
+        "from": "app.models.article",
+        "to": "Base"
+      },
+      {
+        "from": "find_and_save",
+        "to": "save_many"
+      },
+      {
+        "from": "app.interfaces.search_client",
+        "to": "Article"
+      },
+      {
+        "from": "app.services.user_service",
+        "to": "User"
+      },
+      {
+        "from": "app.services.article_service",
+        "to": "IArticleRepository"
+      },
+      {
+        "from": "find_articles",
+        "to": "SearchService"
+      },
+      {
+        "from": "register",
         "to": "get_by_email"
+      },
+      {
+        "from": "create",
+        "to": "User"
+      },
+      {
+        "from": "app.infrastructure.scopus_client",
+        "to": "Article"
+      },
+      {
+        "from": "password_reset_request",
+        "to": "request_password_reset"
+      },
+      {
+        "from": "password_reset_request",
+        "to": "get_user_service"
       }
     ],
     "dead_node_count": 20,

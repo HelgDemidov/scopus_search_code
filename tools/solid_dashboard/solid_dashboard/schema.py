@@ -10,7 +10,6 @@ class RadonFunctionMetrics(BaseModel):
     lineno: int
     # НОВЫЕ ПОЛЯ ИЗ LIZARD (опциональные, на случай если lizard упадет)
     parameter_count: Optional[int] = None
-    max_nesting_depth: Optional[int] = None
 
 class RadonResult(BaseModel):
     total_items: int
