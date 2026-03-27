@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: solid_dashboard
+Version: 0.1.0
+Summary: Python Code Inventory & Architecture Dashboard
+Requires-Python: >=3.10
+Requires-Dist: radon<7.0.0,>=6.0.1
+Requires-Dist: cohesion<2.0.0,>=1.2.0
+Requires-Dist: import-linter<3.0.0,>=2.11
+Requires-Dist: pyan3<3.0.0,>=2.2.2
+Requires-Dist: networkx<4.0.0,>=3.0.0
+Requires-Dist: pydantic<3.0.0,>=2.12.5
+Requires-Dist: Jinja2<4.0.0,>=3.1.6
