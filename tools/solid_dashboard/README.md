@@ -12,41 +12,41 @@ A config-driven CLI tool for analyzing Python projects against SOLID principles 
 
 - **Config-driven architecture**
   - Single `solid_config.json` describes the package root, logical layers, and ignored directories.
-  - Makes the verifier reusable across different Python projects.[file:435]
+  - Makes the verifier reusable across different Python projects.
 
 - **Cyclomatic complexity (Radon)**
   - Computes function/method complexity and ranks (A–F).
-  - Helps highlight potential SRP violations (overly complex methods).[file:435][file:504]
+  - Helps highlight potential SRP violations (overly complex methods).
 
 - **Class cohesion analysis**
   - Calculates cohesion metrics (LCOM-like) for classes.
-  - Flags low-cohesion classes that likely mix multiple responsibilities.[file:435]
+  - Flags low-cohesion classes that likely mix multiple responsibilities.
 
 - **AST import graph adapter**
   - Builds a graph of imports between modules.
-  - Assigns each module to a layer (routers, services, infrastructure, models, interfaces, other) and exposes internal dependency edges.[file:504]
+  - Assigns each module to a layer (routers, services, infrastructure, models, interfaces, other) and exposes internal dependency edges.
 
 - **Architecture contracts with import‑linter**
   - Uses the `import-linter` Python API and a `.importlinter` config in the host project.
-  - Enforces layered rules (e.g. routers → services → infrastructure → models; no reversed imports).[file:435][file:504]
+  - Enforces layered rules (e.g. routers → services → infrastructure → models; no reversed imports).
 
 - **Call graph analysis (Pyan3)**
   - Generates a static call graph, deduplicates edges, and filters out FastAPI router endpoints when needed.
-  - Enables dead-code detection and deeper reasoning about LSP/OCP in the future.[file:435][file:504]
+  - Enables dead-code detection and deeper reasoning about LSP/OCP in the future.
 
 ### Planned
 
 - **LLM adapter (AI analysis)**
   - Optional `--ai` / `--ai-strict` mode using OpenAI/Ollama-compatible APIs.
-  - Best-effort reasoning about OCP, LSP, ISP and DIP violations that static tools miss.[file:435]
+  - Best-effort reasoning about OCP, LSP, ISP and DIP violations that static tools miss.
 
 - **HTML dashboard**
   - Jinja2-based HTML report with vis.js graphs and Bootstrap UI.
-  - Visualizes complexity, cohesion, import graph, call graph, and AI findings with filters and drill-down.[file:435]
+  - Visualizes complexity, cohesion, import graph, call graph, and AI findings with filters and drill-down.
 
 - **Baseline diffing**
   - Ability to save a JSON baseline and compare future runs against it.
-  - Highlights architectural regressions between commits/branches.[file:435]
+  - Highlights architectural regressions between commits/branches.
 
 ---
 
@@ -100,7 +100,7 @@ python run_solid_dashboard.py
 ```
 This script:
 
-- Resolves the target directory (currently ./app) and the config file (./tools/solid_dashboard/solid_config.json).[file:504]
+- Resolves the target directory (currently ./app) and the config file (./tools/solid_dashboard/solid_config.json).
 
 - Invokes the internal CLI:
 
@@ -109,10 +109,10 @@ python -m tools.solid_dashboard.solid_dashboard \
     --target-dir ./app \
     --config ./tools/solid_dashboard/solid_config.json
 ```
-- Executes all configured adapters in sequence (Radon, Cohesion, Import Graph, Import Linter, Pyan3).[file:504]
+- Executes all configured adapters in sequence (Radon, Cohesion, Import Graph, Import Linter, Pyan3).
 
 - Prints the JSON result to stdout and writes it to:
 ```text
 tools/solid_dashboard/solid_dashboard/report/solid_report.log
 ```
-You can commit solid_config.json and .importlinter to any other Python project, copy the tools/solid_dashboard/ directory, and keep the same command contract. Once extracted into a standalone package, the entry point will become a global CLI (for example solid-dashboard) with the same flags and behavior.[file:435]
+You can commit solid_config.json and .importlinter to any other Python project, copy the tools/solid_dashboard/ directory, and keep the same command contract. Once extracted into a standalone package, the entry point will become a global CLI (for example solid-dashboard) with the same flags and behavior.
