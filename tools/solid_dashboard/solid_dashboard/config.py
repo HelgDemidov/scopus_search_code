@@ -5,14 +5,17 @@ from typing import Any, Dict
 def load_config(path: str | None) -> Dict[str, Any]:
     """
     Загружает конфиг верификатора из JSON-файла.
-    Если путь не передан, пытается найти solid_config.json в текущем рабочем каталоге.
+    Если путь не передан, ищет solid_config.json в той же директории, где лежит сам скрипт.
     """
     # Если путь явно указан через --config
     if path:
         config_path = Path(path).resolve()
     else:
-        # По умолчанию ищем solid_config.json в CWD
-        config_path = Path("solid_config.json").resolve()
+        # Получаем абсолютный путь к папке, где находится текущий файл (config.py)
+        # Привязываем поиск конфига к расположению исходного кода дашборда,
+        # а не к тому месту, откуда пользователь (или git hook) вызывает команду в терминале
+        base_dir = Path(__file__).resolve().parent
+        config_path = base_dir / "solid_config.json"
 
     if not config_path.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
