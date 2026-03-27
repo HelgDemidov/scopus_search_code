@@ -38,7 +38,3 @@ docs/scopus_project_mask.txt
 # Coverage
 .coverage
 htmlcov/
- 
-# Python-seeder
-scripts/seed_db.py
-
