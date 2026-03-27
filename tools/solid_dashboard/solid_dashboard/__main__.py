@@ -1,5 +1,6 @@
 import argparse
 import json
+from pathlib import Path
 
 from .pipeline import run_pipeline
 from .config import load_config
@@ -38,9 +39,27 @@ def main() -> None:
     ]
 
     results = run_pipeline(args.target_dir, config, adapters)
+    
+    # Форматируем результат в JSON строку
+    report_text = json.dumps(results, indent=2, ensure_ascii=False)
 
+    # Печатаем в консоль
     print("\n=== Pipeline Result ===")
-    print(json.dumps(results, indent=2, ensure_ascii=False))
+    print(report_text)
+    
+    # Сохраняем в файл report/solid_report.log
+    # Получаем путь к директории, где лежит текущий файл (__main__.py)
+    base_dir = Path(__file__).resolve().parent
+    report_dir = base_dir / "report"
+    
+    # Создаем папку report, если ее еще нет
+    report_dir.mkdir(exist_ok=True)
+    
+    report_path = report_dir / "solid_report.log"
+    with report_path.open("w", encoding="utf-8") as f:
+        f.write(report_text)
+        
+    print(f"\nReport successfully saved to: {report_path}")
 
 if __name__ == "__main__":
     main()
