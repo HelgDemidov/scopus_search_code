@@ -62,32 +62,37 @@ The project is divided into four logical layers:
 ```
 scopus_search_code/
 ├── app/                              # Application source code
-│   ├── core/                         # Core utilities: security, dependency injection
-│   ├── infrastructure/               # Infrastructure layer: DB engine, repositories, Scopus client
+│   ├── core/                         # Core: configuration, security, DI (dependencies)
+│   ├── infrastructure/               # Infrastructure: database, repositories, Scopus client
+│   ├── interfaces/                   # Domain abstractions: repositories and external clients
 │   ├── models/                       # ORM models (database schema)
-│   ├── routers/                      # FastAPI routers (HTTP controllers)
+│   ├── routers/                      # HTTP endpoints (FastAPI controllers)
 │   ├── schemas/                      # Pydantic schemas (request/response validation)
-│   └── services/                     # Business logic and abstractions
-│       └── interfaces/               # Abstract interfaces (IUserRepository, IArticleRepository, ISearchClient)
+│   └── services/                     # Business logic built on top of interfaces
+├── docs/                             # Documentation and analysis artifacts
+│   ├── export_skeleton.py            # Utility to export the project "skeleton" (AST-based analysis)
+│   └── scopus_project_mask.txt       # Generated codebase mask for LLM/context
+├── scripts/                          # Helper scripts for the service
+│   └── seed_db.py                    # Seeder: populates the DB with demo/test data
 ├── tests/                            # Automated tests
-│   ├── integration/                  # Integration tests (API + DB + external clients)
+│   ├── integration/                  # Integration tests (HTTP + DB + external clients)
 │   └── unit/                         # Unit tests (isolated business logic)
-├── alembic/                          # Database migrations (Alembic, targeting Supabase Postgres)
+├── alembic/                          # Database migrations (Alembic, Supabase Postgres)
 │   └── versions/                     # Migration revision files
-├── .github/                          # CI/CD configuration for GitHub
-│   └── workflows/                    # GitHub Actions (tests, linters, coverage)
-├── .env                              # Local environment variables (Supabase DATABASE_URL, secrets, not committed)
-├── .env.example                      # Environment template (DATABASE_URL format for local and cloud DB)
-├── .gitignore                        # Git ignore rules (cache, virtualenv, secrets, etc.)
-├── alembic.ini                       # Alembic configuration (reads DATABASE_URL via app.config)
-├── docker-compose.yml                # Docker orchestration (app container; local Postgres service now disabled/commented)
-├── Dockerfile                        # Docker image build for the FastAPI application
-├── export_skeleton.py                # Utility for exporting the project "mask" (AST-based)
-├── pytest.ini                        # Pytest configuration (test run options)
-├── requirements.txt                  # Python dependencies (FastAPI, async SQLAlchemy, asyncpg, pytest, mypy, ruff, etc.)
-├── README.md                         # Project documentation in Russian
-└── README.en.md                      # Project documentation in English
-
+├── .github/                          # GitHub CI/CD configuration
+│   └── workflows/                    # GitHub Actions (linters, tests, coverage)
+├── .env                              # Local environment variables (not committed)
+├── .env.example                      # Environment variables template
+├── .gitignore                        # Git ignore rules
+├── alembic.ini                       # Alembic configuration (database connection)
+├── docker-compose.yml                # Docker Compose (application container orchestration)
+├── Dockerfile                        # Docker image for the FastAPI application
+├── pytest.ini                        # Pytest configuration
+├── requirements.txt                  # Python dependencies
+├── run_export_skeleton.py            # Convenience entry-point to generate the project mask
+├── run_tests.py                      # Convenience entry-point to run the full test suite
+├── README.md                         # Project documentation (English version)
+└── README.ru.md                      # Project documentation (Russian version)
 ```
 
 ## Environment configuration

@@ -63,31 +63,37 @@
 ```
 scopus_search_code/
 ├── app/                              # Исходный код приложения
-│   ├── core/                         # Ядро: безопасность, инъекция зависимостей
+│   ├── core/                         # Ядро: конфиг, безопасность, DI (зависимости)
 │   ├── infrastructure/               # Инфраструктура: БД, репозитории, Scopus-клиент
+│   ├── interfaces/                   # Абстракции домена: репозитории и внешние клиенты
 │   ├── models/                       # ORM-модели (схема базы данных)
 │   ├── routers/                      # HTTP-эндпоинты (контроллеры FastAPI)
 │   ├── schemas/                      # Pydantic-схемы (валидация ввода/вывода)
-│   └── services/                     # Бизнес-логика и её абстракции
-│       └── interfaces/               # Абстрактные интерфейсы (IUserRepository, IArticleRepository, ISearchClient)
-├── tests/                            # Каталог для автоматизированных тестов
-│   ├── integration/                  # Интеграционные тесты (API + БД + внешние клиенты)
+│   └── services/                     # Бизнес-логика поверх интерфейсов
+├── docs/                             # Документация и артефакты анализа
+│   ├── export_skeleton.py            # Утилита выгрузки "маски" проекта (AST-анализ)
+│   └── scopus_project_mask.txt       # Сгенерированная маска кодовой базы для LLM
+├── scripts/                          # Вспомогательные скрипты сервиса
+│   └── seed_db.py                    # Сидер: наполнение БД тестовыми/демо-данными
+├── tests/                            # Автоматические тесты
+│   ├── integration/                  # Интеграционные тесты (HTTP + БД + внешние клиенты)
 │   └── unit/                         # Юнит-тесты (изолированная бизнес-логика)
-├── alembic/                          # Миграции базы данных (Alembic, нацелен на Supabase Postgres)
+├── alembic/                          # Миграции базы данных (Alembic, Supabase Postgres)
 │   └── versions/                     # Файлы ревизий миграций
-├── .github/                          # CI/CD-конфигурация для GitHub
-│   └── workflows/                    # GitHub Actions (тесты, линтеры, coverage)
-├── .env                              # Локальные переменные окружения (DATABASE_URL для Supabase и др., не коммитить)
-├── .env.example                      # Шаблон переменных окружения (формат DATABASE_URL для локальной и облачной БД)
-├── .gitignore                        # Исключения для Git (кэш, виртуальное окружение, секреты и т.п.)
-├── alembic.ini                       # Конфигурация Alembic (использует DATABASE_URL из app.config)
-├── docker-compose.yml                # Оркестрация Docker (контейнер приложения; локальный Postgres теперь отключён/закомментирован)
-├── Dockerfile                        # Сборка Docker-образа FastAPI-приложения
-├── export_skeleton.py                # Утилита для экспорта "маски" проекта (AST-анализ)
-├── pytest.ini                        # Настройки pytest (опции запуска тестов)
-├── requirements.txt                  # Зависимости Python (FastAPI, SQLAlchemy async, asyncpg, pytest, mypy, ruff и др.)
-├── README.md                         # Документация проекта (на русском)
-└── README.en.md                      # Документация проекта (на английском)
+├── .github/                          # CI/CD-конфигурация GitHub
+│   └── workflows/                    # GitHub Actions (линтеры, тесты, coverage)
+├── .env                              # Локальные переменные окружения (не коммитить)
+├── .env.example                      # Шаблон переменных окружения
+├── .gitignore                        # Правила исключения файлов из Git
+├── alembic.ini                       # Настройки Alembic (подключение к БД)
+├── docker-compose.yml                # Docker Compose (оркестрация контейнера приложения)
+├── Dockerfile                        # Docker-образ FastAPI-приложения
+├── pytest.ini                        # Конфигурация pytest
+├── requirements.txt                  # Зависимости Python
+├── run_export_skeleton.py            # Быстрый запуск генерации маски проекта
+├── run_tests.py                      # Быстрый запуск полного набора тестов
+├── README.md                         # Документация проекта (английская версия)
+└── README.ru.md                      # Документация проекта (русская версия)
 ```
 ---
 
