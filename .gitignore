@@ -38,3 +38,6 @@ docs/scopus_project_mask.txt
 # Coverage
 .coverage
 htmlcov/
+
+# solid_dashboard.egg-info
+**/*.egg-info/

@@ -1,18 +1,25 @@
 import subprocess
 import json
+import os
+from pathlib import Path
 from typing import Dict, Any
+
+lizard = None
+
+try:
+    import lizard as _lizard  # type: ignore[import]
+    lizard = _lizard
+    LIZARD_AVAILABLE = True
+except ImportError:
+    LIZARD_AVAILABLE = False
+
 
 class RadonAdapter:
     @property
     def name(self) -> str:
         return "radon"
 
-    def run(
-        self,
-        target_dir: str,
-        context: Dict[str, Any],
-        config: Dict[str, Any],
-    ) -> Dict[str, Any]:
+    def run(self, target_dir: str, context: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Any]:
         """
         Запускает утилиту radon для вычисления цикломатической сложности (Cyclomatic Complexity).
         Возвращает агрегированную статистику и список всех проанализированных функций/классов.
@@ -57,6 +64,43 @@ class RadonAdapter:
                         "filepath": filepath
                     })
 
+        # Интеграция LIZARD (Опциональное расширение)
+        if lizard is not None and items:
+            # 1. Анализируем ту же директорию через Lizard
+            lizard_results = lizard.analyze([target_dir])
+            
+            # 2. Строим индекс для быстрого поиска: { 'абсолютный_путь': { номер_строки: функция } }
+            lizard_index = {}
+            for file_info in lizard_results:
+                try:
+                    # Используем Path.resolve() для 100% точного сопоставления путей Radon и Lizard
+                    abs_path = str(Path(file_info.filename).resolve())
+                    if abs_path not in lizard_index:
+                        lizard_index[abs_path] = {}
+                    
+                    for func in file_info.function_list:
+                        lizard_index[abs_path][func.start_line] = func
+                except Exception:
+                    continue  # Игнорируем файлы, где не удалось прочитать путь
+            
+            # 3. Обогащаем метрики Radon данными из Lizard
+            for item in items:
+                filepath = item.get("filepath")
+                lineno = item.get("lineno")
+                
+                if filepath and lineno:
+                    try:
+                        abs_path = str(Path(filepath).resolve())
+                        # Ищем функцию в индексе Lizard по пути и строке начала
+                        liz_func = lizard_index.get(abs_path, {}).get(lineno)
+                        
+                        if liz_func:
+                            # Добавляем ТОЛЬКО уникальные метрики
+                            item["parameter_count"] = liz_func.parameter_count
+                            item["max_nesting_depth"] = getattr(liz_func, "max_nesting_depth", None)
+                    except Exception:
+                        pass  # В случае любой ошибки поиска просто пропускаем этот item
+        
         total_items = len(items)
         mean_cc = round(total_cc / total_items, 2) if total_items > 0 else 0.0
 
@@ -64,5 +108,6 @@ class RadonAdapter:
             "total_items": total_items,
             "mean_cc": mean_cc,
             "high_complexity_count": high_complexity_count,
-            "items": sorted(items, key=lambda x: x["complexity"], reverse=True) # Сортируем от самых сложных к простым
+            "items": sorted(items, key=lambda x: x["complexity"], reverse=True), # Сортируем от самых сложных к простым
+            "lizard_used": LIZARD_AVAILABLE # Флаг для отладки, показывает сработал ли Lizard
         }

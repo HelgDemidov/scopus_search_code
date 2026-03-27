@@ -1,12 +1,16 @@
 from typing import Any, List, Dict, Optional
 from pydantic import BaseModel
 
+
 class RadonFunctionMetrics(BaseModel):
     name: str
     type: str
     complexity: int
     rank: str
     lineno: int
+    # НОВЫЕ ПОЛЯ ИЗ LIZARD (опциональные, на случай если lizard упадет)
+    parameter_count: Optional[int] = None
+    max_nesting_depth: Optional[int] = None
 
 class RadonResult(BaseModel):
     total_items: int
