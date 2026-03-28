@@ -43,10 +43,11 @@ htmlcov/
 **/*.egg-info/
 
 # SOLID Verifier build artifacts
-tools/solid_dashboard/build/
+tools/solid_verifier/build/
 
 # SOLID Verifier logs
-tools/solid_dashboard/**/*.log
+tools/solid_verifier/**/*.log
+**/*.log
 
 # SOLID grimp_adapter cache
 **/*.grimp_cache
