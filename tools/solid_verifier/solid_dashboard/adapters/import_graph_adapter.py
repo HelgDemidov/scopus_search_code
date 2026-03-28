@@ -1,10 +1,8 @@
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
-
+from solid_dashboard.interfaces.analyzer import IAnalyzer
 import grimp
-
-from tools.solid_dashboard.solid_dashboard.interfaces.analyzer import IAnalyzer
 
 
 class ImportGraphAdapter(IAnalyzer):

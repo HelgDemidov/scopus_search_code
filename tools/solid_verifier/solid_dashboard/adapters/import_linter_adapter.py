@@ -3,7 +3,7 @@ import re  # разбор текста и ANSI-кодов
 import subprocess  # запуск lint-imports как отдельного процесса
 from typing import Any, Dict, List  # типы для аннотаций
 
-from tools.solid_dashboard.solid_dashboard.interfaces.analyzer import IAnalyzer  # базовый интерфейс адаптера
+from solid_dashboard.interfaces.analyzer import IAnalyzer  # базовый интерфейс адаптера
 
 # Регулярное выражение для очистки вывода от ANSI-кодов (цветной вывод, рамки и т.п.)
 ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")

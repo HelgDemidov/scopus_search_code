@@ -3,6 +3,7 @@ import os
 from dataclasses import dataclass, field  # Структуры данных для классов/методов
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
+from solid_dashboard.interfaces.analyzer import IAnalyzer  # явный импорт интерфейса
 
 
 # ================================
@@ -40,7 +41,7 @@ class ClassInfo:
 # ОСНОВНОЙ АДАПТЕР
 # ================================
 
-class CohesionAdapter:
+class CohesionAdapter(IAnalyzer):
     @property
     def name(self) -> str:
         return "cohesion"
