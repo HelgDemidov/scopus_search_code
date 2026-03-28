@@ -1,5 +1,4 @@
 radon>=6.0.1
-cohesion>=1.0.0
 pydeps>=1.12.0
 pydantic>=2.0.0
 import-linter==2.11 # Актуальная версия import-linter

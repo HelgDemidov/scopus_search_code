@@ -1,10 +1,15 @@
 {
   "package_root": "app",
   "layers": {
-    "routers": "routers",
-    "services": "services",
-    "infrastructure": "infrastructure",
-    "models": "models"
-  },
-  "ignore_dirs": ["__pycache__", ".venv", "tests"]
+  "routers": ["routers"],
+  "services": ["services"],
+  "infrastructure": ["infrastructure"],
+  "models": ["models"]
+},
+  "ignore_dirs": ["__pycache__", ".venv", "tests"],
+  "external_layers": {
+    "db_libs": ["sqlalchemy"],
+    "web_libs": ["fastapi", "starlette"]
+  }
 }
+

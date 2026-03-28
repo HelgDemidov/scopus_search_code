@@ -440,393 +440,215 @@
     "lizard_used": true
   },
   "cohesion": {
-    "total_classes_analyzed": 0,
-    "mean_cohesion": 0.0,
-    "low_cohesion_count": 0,
-    "classes": []
+    "total_classes_analyzed": 13,
+    "mean_cohesion_all": 1.31,
+    "mean_cohesion_multi_method": 1.67,
+    "analyzed_classes_count": 6,
+    "low_cohesion_count": 3,
+    "classes": [
+      {
+        "name": "Settings",
+        "methods_count": 1,
+        "cohesion_score": 1.0,
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\config.py",
+        "lineno": 5
+      },
+      {
+        "name": "PostgresArticleRepository",
+        "methods_count": 3,
+        "cohesion_score": 1.0,
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\infrastructure\\postgres_article_repo.py",
+        "lineno": 11
+      },
+      {
+        "name": "PostgresUserRepository",
+        "methods_count": 2,
+        "cohesion_score": 1.0,
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\infrastructure\\postgres_user_repo.py",
+        "lineno": 8
+      },
+      {
+        "name": "ScopusHTTPClient",
+        "methods_count": 1,
+        "cohesion_score": 1.0,
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\infrastructure\\scopus_client.py",
+        "lineno": 17
+      },
+      {
+        "name": "IArticleRepository",
+        "methods_count": 3,
+        "cohesion_score": 3.0,
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\interfaces\\article_repository.py",
+        "lineno": 7
+      },
+      {
+        "name": "ISearchClient",
+        "methods_count": 1,
+        "cohesion_score": 1.0,
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\interfaces\\search_client.py",
+        "lineno": 7
+      },
+      {
+        "name": "IUserRepository",
+        "methods_count": 2,
+        "cohesion_score": 2.0,
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\interfaces\\user_repository.py",
+        "lineno": 6
+      },
+      {
+        "name": "Article",
+        "methods_count": 1,
+        "cohesion_score": 1.0,
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\models\\article.py",
+        "lineno": 10
+      },
+      {
+        "name": "User",
+        "methods_count": 1,
+        "cohesion_score": 1.0,
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\models\\user.py",
+        "lineno": 9
+      },
+      {
+        "name": "UserRegisterRequest",
+        "methods_count": 2,
+        "cohesion_score": 2.0,
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\schemas\\user_schemas.py",
+        "lineno": 8
+      },
+      {
+        "name": "ArticleService",
+        "methods_count": 1,
+        "cohesion_score": 1.0,
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\services\\article_service.py",
+        "lineno": 6
+      },
+      {
+        "name": "SearchService",
+        "methods_count": 1,
+        "cohesion_score": 1.0,
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\services\\search_service.py",
+        "lineno": 8
+      },
+      {
+        "name": "UserService",
+        "methods_count": 4,
+        "cohesion_score": 1.0,
+        "filepath": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\services\\user_service.py",
+        "lineno": 7
+      }
+    ]
   },
   "import_graph": {
     "nodes": [
       {
-        "id": "app.config",
-        "label": "config",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\config.py",
-        "layer": "other"
+        "id": "routers",
+        "label": "routers",
+        "ca": 0,
+        "ce": 5,
+        "instability": 1.0
       },
       {
-        "id": "app.main",
-        "label": "main",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\main.py",
-        "layer": "other"
+        "id": "services",
+        "label": "services",
+        "ca": 1,
+        "ce": 1,
+        "instability": 0.5
       },
       {
-        "id": "app.__init__",
-        "label": "__init__",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\__init__.py",
-        "layer": "other"
+        "id": "infrastructure",
+        "label": "infrastructure",
+        "ca": 1,
+        "ce": 2,
+        "instability": 0.67
       },
       {
-        "id": "app.core.dependencies",
-        "label": "core.dependencies",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\core\\dependencies.py",
-        "layer": "other"
+        "id": "models",
+        "label": "models",
+        "ca": 3,
+        "ce": 1,
+        "instability": 0.25
       },
       {
-        "id": "app.core.security",
-        "label": "core.security",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\core\\security.py",
-        "layer": "other"
+        "id": "db_libs",
+        "label": "db_libs",
+        "ca": 3,
+        "ce": 0,
+        "instability": 0.0
       },
       {
-        "id": "app.core.__init__",
-        "label": "core.__init__",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\core\\__init__.py",
-        "layer": "other"
-      },
-      {
-        "id": "app.infrastructure.database",
-        "label": "infrastructure.database",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\infrastructure\\database.py",
-        "layer": "infrastructure"
-      },
-      {
-        "id": "app.infrastructure.postgres_article_repo",
-        "label": "infrastructure.postgres_article_repo",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\infrastructure\\postgres_article_repo.py",
-        "layer": "infrastructure"
-      },
-      {
-        "id": "app.infrastructure.postgres_user_repo",
-        "label": "infrastructure.postgres_user_repo",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\infrastructure\\postgres_user_repo.py",
-        "layer": "infrastructure"
-      },
-      {
-        "id": "app.infrastructure.scopus_client",
-        "label": "infrastructure.scopus_client",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\infrastructure\\scopus_client.py",
-        "layer": "infrastructure"
-      },
-      {
-        "id": "app.infrastructure.__init__",
-        "label": "infrastructure.__init__",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\infrastructure\\__init__.py",
-        "layer": "infrastructure"
-      },
-      {
-        "id": "app.interfaces.article_repository",
-        "label": "interfaces.article_repository",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\interfaces\\article_repository.py",
-        "layer": "other"
-      },
-      {
-        "id": "app.interfaces.search_client",
-        "label": "interfaces.search_client",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\interfaces\\search_client.py",
-        "layer": "other"
-      },
-      {
-        "id": "app.interfaces.user_repository",
-        "label": "interfaces.user_repository",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\interfaces\\user_repository.py",
-        "layer": "other"
-      },
-      {
-        "id": "app.interfaces.__init__",
-        "label": "interfaces.__init__",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\interfaces\\__init__.py",
-        "layer": "other"
-      },
-      {
-        "id": "app.models.article",
-        "label": "models.article",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\models\\article.py",
-        "layer": "models"
-      },
-      {
-        "id": "app.models.base",
-        "label": "models.base",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\models\\base.py",
-        "layer": "models"
-      },
-      {
-        "id": "app.models.user",
-        "label": "models.user",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\models\\user.py",
-        "layer": "models"
-      },
-      {
-        "id": "app.models.__init__",
-        "label": "models.__init__",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\models\\__init__.py",
-        "layer": "models"
-      },
-      {
-        "id": "app.routers.articles",
-        "label": "routers.articles",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\articles.py",
-        "layer": "routers"
-      },
-      {
-        "id": "app.routers.health",
-        "label": "routers.health",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\health.py",
-        "layer": "routers"
-      },
-      {
-        "id": "app.routers.users",
-        "label": "routers.users",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\users.py",
-        "layer": "routers"
-      },
-      {
-        "id": "app.routers.__init__",
-        "label": "routers.__init__",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\routers\\__init__.py",
-        "layer": "routers"
-      },
-      {
-        "id": "app.schemas.article_schemas",
-        "label": "schemas.article_schemas",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\schemas\\article_schemas.py",
-        "layer": "other"
-      },
-      {
-        "id": "app.schemas.user_schemas",
-        "label": "schemas.user_schemas",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\schemas\\user_schemas.py",
-        "layer": "other"
-      },
-      {
-        "id": "app.schemas.__init__",
-        "label": "schemas.__init__",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\schemas\\__init__.py",
-        "layer": "other"
-      },
-      {
-        "id": "app.services.article_service",
-        "label": "services.article_service",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\services\\article_service.py",
-        "layer": "services"
-      },
-      {
-        "id": "app.services.search_service",
-        "label": "services.search_service",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\services\\search_service.py",
-        "layer": "services"
-      },
-      {
-        "id": "app.services.user_service",
-        "label": "services.user_service",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\services\\user_service.py",
-        "layer": "services"
-      },
-      {
-        "id": "app.services.__init__",
-        "label": "services.__init__",
-        "path": "C:\\pet_projects\\scopus_search_project\\scopus_search_code\\app\\services\\__init__.py",
-        "layer": "services"
+        "id": "web_libs",
+        "label": "web_libs",
+        "ca": 1,
+        "ce": 0,
+        "instability": 0.0
       }
     ],
     "edges": [
       {
-        "from": "app.core.dependencies",
-        "to": "app.infrastructure.database",
-        "kind": "internal"
+        "source": "infrastructure",
+        "target": "db_libs"
       },
       {
-        "from": "app.core.security",
-        "to": "app.config",
-        "kind": "internal"
+        "source": "infrastructure",
+        "target": "models"
       },
       {
-        "from": "app.infrastructure.database",
-        "to": "app.config",
-        "kind": "internal"
+        "source": "models",
+        "target": "db_libs"
       },
       {
-        "from": "app.infrastructure.postgres_article_repo",
-        "to": "app.interfaces.article_repository",
-        "kind": "internal"
+        "source": "routers",
+        "target": "db_libs"
       },
       {
-        "from": "app.infrastructure.postgres_article_repo",
-        "to": "app.models.article",
-        "kind": "internal"
+        "source": "routers",
+        "target": "infrastructure"
       },
       {
-        "from": "app.infrastructure.postgres_user_repo",
-        "to": "app.interfaces.user_repository",
-        "kind": "internal"
+        "source": "routers",
+        "target": "models"
       },
       {
-        "from": "app.infrastructure.postgres_user_repo",
-        "to": "app.models.user",
-        "kind": "internal"
+        "source": "routers",
+        "target": "services"
       },
       {
-        "from": "app.infrastructure.scopus_client",
-        "to": "app.config",
-        "kind": "internal"
+        "source": "routers",
+        "target": "web_libs"
       },
       {
-        "from": "app.infrastructure.scopus_client",
-        "to": "app.interfaces.search_client",
-        "kind": "internal"
-      },
-      {
-        "from": "app.infrastructure.scopus_client",
-        "to": "app.models.article",
-        "kind": "internal"
-      },
-      {
-        "from": "app.interfaces.article_repository",
-        "to": "app.models.article",
-        "kind": "internal"
-      },
-      {
-        "from": "app.interfaces.search_client",
-        "to": "app.models.article",
-        "kind": "internal"
-      },
-      {
-        "from": "app.interfaces.user_repository",
-        "to": "app.models.user",
-        "kind": "internal"
-      },
-      {
-        "from": "app.models.article",
-        "to": "app.models.base",
-        "kind": "internal"
-      },
-      {
-        "from": "app.models.user",
-        "to": "app.models.base",
-        "kind": "internal"
-      },
-      {
-        "from": "app.routers.articles",
-        "to": "app.core.dependencies",
-        "kind": "internal"
-      },
-      {
-        "from": "app.routers.articles",
-        "to": "app.infrastructure.postgres_article_repo",
-        "kind": "internal"
-      },
-      {
-        "from": "app.routers.articles",
-        "to": "app.infrastructure.scopus_client",
-        "kind": "internal"
-      },
-      {
-        "from": "app.routers.articles",
-        "to": "app.models.user",
-        "kind": "internal"
-      },
-      {
-        "from": "app.routers.articles",
-        "to": "app.routers.users",
-        "kind": "internal"
-      },
-      {
-        "from": "app.routers.articles",
-        "to": "app.schemas.article_schemas",
-        "kind": "internal"
-      },
-      {
-        "from": "app.routers.articles",
-        "to": "app.services.article_service",
-        "kind": "internal"
-      },
-      {
-        "from": "app.routers.articles",
-        "to": "app.services.search_service",
-        "kind": "internal"
-      },
-      {
-        "from": "app.routers.health",
-        "to": "app.core.dependencies",
-        "kind": "internal"
-      },
-      {
-        "from": "app.routers.users",
-        "to": "app.core.dependencies",
-        "kind": "internal"
-      },
-      {
-        "from": "app.routers.users",
-        "to": "app.core.security",
-        "kind": "internal"
-      },
-      {
-        "from": "app.routers.users",
-        "to": "app.infrastructure.postgres_user_repo",
-        "kind": "internal"
-      },
-      {
-        "from": "app.routers.users",
-        "to": "app.models.user",
-        "kind": "internal"
-      },
-      {
-        "from": "app.routers.users",
-        "to": "app.schemas.user_schemas",
-        "kind": "internal"
-      },
-      {
-        "from": "app.routers.users",
-        "to": "app.services.user_service",
-        "kind": "internal"
-      },
-      {
-        "from": "app.services.article_service",
-        "to": "app.interfaces.article_repository",
-        "kind": "internal"
-      },
-      {
-        "from": "app.services.article_service",
-        "to": "app.schemas.article_schemas",
-        "kind": "internal"
-      },
-      {
-        "from": "app.services.search_service",
-        "to": "app.interfaces.article_repository",
-        "kind": "internal"
-      },
-      {
-        "from": "app.services.search_service",
-        "to": "app.interfaces.search_client",
-        "kind": "internal"
-      },
-      {
-        "from": "app.services.search_service",
-        "to": "app.models.article",
-        "kind": "internal"
-      },
-      {
-        "from": "app.services.user_service",
-        "to": "app.core.security",
-        "kind": "internal"
-      },
-      {
-        "from": "app.services.user_service",
-        "to": "app.interfaces.user_repository",
-        "kind": "internal"
-      },
-      {
-        "from": "app.services.user_service",
-        "to": "app.models.user",
-        "kind": "internal"
-      },
-      {
-        "from": "app.services.user_service",
-        "to": "app.schemas.user_schemas",
-        "kind": "internal"
+        "source": "services",
+        "target": "models"
       }
     ],
-    "errors": [],
-    "edges_count": 39
+    "debug_info": {
+      "package": "app",
+      "total_modules": 42,
+      "layer_prefixes_used": {
+        "routers": [
+          "app.routers"
+        ],
+        "services": [
+          "app.services"
+        ],
+        "infrastructure": [
+          "app.infrastructure"
+        ],
+        "models": [
+          "app.models"
+        ]
+      },
+      "external_layer_prefixes_used": {
+        "db_libs": [
+          "sqlalchemy"
+        ],
+        "web_libs": [
+          "fastapi",
+          "starlette"
+        ]
+      }
+    }
   },
   "import_linter": {
     "is_success": true,
@@ -834,8 +656,7 @@
     "broken_contracts": 0,
     "kept_contracts": 1,
     "violations": [],
-    "module_count": 30,
-    "raw_output": "---------\nContracts\n---------\n\nAnalyzed 30 files, 42 dependencies.\n-----------------------------------\n\nScopus API layered architecture KEPT\n\nContracts: 1 kept, 0 broken."
+    "raw_output": "=============\nImport Linter\n=============\n\n\n---------\nContracts\n---------\n\nAnalyzed 30 files, 42 dependencies.\n-----------------------------------\n\nScopus API layered architecture KEPT\n\nContracts: 1 kept, 0 broken."
   },
   "pyan3": {
     "is_success": true,
@@ -907,432 +728,24 @@
     ],
     "edges": [
       {
-        "from": "login",
-        "to": "TokenResponse"
-      },
-      {
-        "from": "Article",
-        "to": "Base"
-      },
-      {
-        "from": "get_article_service",
-        "to": "ArticleService"
-      },
-      {
-        "from": "app.config",
-        "to": "Settings"
-      },
-      {
-        "from": "login",
-        "to": "__init__"
-      },
-      {
-        "from": "app.services.user_service",
-        "to": "create_access_token"
+        "from": "find_articles",
+        "to": "User"
       },
       {
         "from": "register",
-        "to": "__init__"
+        "to": "get_by_email"
       },
       {
-        "from": "get_user_service",
-        "to": "__init__"
+        "from": "login",
+        "to": "get_user_service"
       },
       {
-        "from": "get_articles",
-        "to": "PaginatedArticleResponse"
+        "from": "app.services.article_service",
+        "to": "IArticleRepository"
       },
       {
         "from": "app.infrastructure.postgres_article_repo",
         "to": "IArticleRepository"
-      },
-      {
-        "from": "get_current_user",
-        "to": "User"
-      },
-      {
-        "from": "get_all",
-        "to": "Article"
-      },
-      {
-        "from": "find_articles",
-        "to": "ScopusHTTPClient"
-      },
-      {
-        "from": "password_reset_request",
-        "to": "UserService"
-      },
-      {
-        "from": "get_articles_paginated",
-        "to": "ArticleResponse"
-      },
-      {
-        "from": "app.services.article_service",
-        "to": "ArticleResponse"
-      },
-      {
-        "from": "get_search_service",
-        "to": "get_scopus_client"
-      },
-      {
-        "from": "register",
-        "to": "create"
-      },
-      {
-        "from": "request_password_reset",
-        "to": "get_by_email"
-      },
-      {
-        "from": "app.services.search_service",
-        "to": "ISearchClient"
-      },
-      {
-        "from": "get_current_user",
-        "to": "get_current_user"
-      },
-      {
-        "from": "login",
-        "to": "get_by_email"
-      },
-      {
-        "from": "get_article_service",
-        "to": "get_db_session"
-      },
-      {
-        "from": "register",
-        "to": "hash_password"
-      },
-      {
-        "from": "find_and_save",
-        "to": "Article"
-      },
-      {
-        "from": "app.services.search_service",
-        "to": "IArticleRepository"
-      },
-      {
-        "from": "login",
-        "to": "create_access_token"
-      },
-      {
-        "from": "get_search_service",
-        "to": "SearchService"
-      },
-      {
-        "from": "app.services.user_service",
-        "to": "hash_password"
-      },
-      {
-        "from": "app.services.user_service",
-        "to": "verify_password"
-      },
-      {
-        "from": "__init__",
-        "to": "ISearchClient"
-      },
-      {
-        "from": "get_article_service",
-        "to": "PostgresArticleRepository"
-      },
-      {
-        "from": "get_articles_paginated",
-        "to": "__init__"
-      },
-      {
-        "from": "app.interfaces.article_repository",
-        "to": "Article"
-      },
-      {
-        "from": "__init__",
-        "to": "IArticleRepository"
-      },
-      {
-        "from": "get_scopus_client",
-        "to": "__init__"
-      },
-      {
-        "from": "search",
-        "to": "__init__"
-      },
-      {
-        "from": "get_by_email",
-        "to": "User"
-      },
-      {
-        "from": "app.infrastructure.scopus_client",
-        "to": "ISearchClient"
-      },
-      {
-        "from": "PostgresArticleRepository",
-        "to": "IArticleRepository"
-      },
-      {
-        "from": "__init__",
-        "to": "IUserRepository"
-      },
-      {
-        "from": "login",
-        "to": "login"
-      },
-      {
-        "from": "login",
-        "to": "get_user_service"
-      },
-      {
-        "from": "get_user_service",
-        "to": "PostgresUserRepository"
-      },
-      {
-        "from": "register",
-        "to": "get_user_service"
-      },
-      {
-        "from": "find_articles",
-        "to": "ArticleResponse"
-      },
-      {
-        "from": "get_search_service",
-        "to": "ScopusHTTPClient"
-      },
-      {
-        "from": "find_articles",
-        "to": "User"
-      },
-      {
-        "from": "find_articles",
-        "to": "find_and_save"
-      },
-      {
-        "from": "password_strength",
-        "to": "search"
-      },
-      {
-        "from": "app.interfaces.user_repository",
-        "to": "User"
-      },
-      {
-        "from": "get_articles",
-        "to": "get_articles_paginated"
-      },
-      {
-        "from": "app.models.user",
-        "to": "Base"
-      },
-      {
-        "from": "get_current_user",
-        "to": "get_by_email"
-      },
-      {
-        "from": "register",
-        "to": "register"
-      },
-      {
-        "from": "get_me",
-        "to": "User"
-      },
-      {
-        "from": "User",
-        "to": "Base"
-      },
-      {
-        "from": "login",
-        "to": "verify_password"
-      },
-      {
-        "from": "login",
-        "to": "UserService"
-      },
-      {
-        "from": "register",
-        "to": "UserService"
-      },
-      {
-        "from": "get_search_service",
-        "to": "get_db_session"
-      },
-      {
-        "from": "search",
-        "to": "Article"
-      },
-      {
-        "from": "app.infrastructure.postgres_user_repo",
-        "to": "IUserRepository"
-      },
-      {
-        "from": "get_user_service",
-        "to": "UserService"
-      },
-      {
-        "from": "find_articles",
-        "to": "get_current_user"
-      },
-      {
-        "from": "get_me",
-        "to": "get_current_user"
-      },
-      {
-        "from": "find_articles",
-        "to": "__init__"
-      },
-      {
-        "from": "app.main",
-        "to": "lifespan"
-      },
-      {
-        "from": "get_articles_paginated",
-        "to": "get_total_count"
-      },
-      {
-        "from": "get_search_service",
-        "to": "PostgresArticleRepository"
-      },
-      {
-        "from": "get_article_service",
-        "to": "__init__"
-      },
-      {
-        "from": "register",
-        "to": "User"
-      },
-      {
-        "from": "get_articles_paginated",
-        "to": "PaginatedArticleResponse"
-      },
-      {
-        "from": "get_current_user",
-        "to": "get_user_service"
-      },
-      {
-        "from": "app.infrastructure.postgres_article_repo",
-        "to": "Article"
-      },
-      {
-        "from": "app.infrastructure.postgres_user_repo",
-        "to": "User"
-      },
-      {
-        "from": "health_db",
-        "to": "get_db_session"
-      },
-      {
-        "from": "get_articles",
-        "to": "ArticleService"
-      },
-      {
-        "from": "get_user_service",
-        "to": "get_db_session"
-      },
-      {
-        "from": "app.infrastructure.database",
-        "to": "database_url_str"
-      },
-      {
-        "from": "PostgresUserRepository",
-        "to": "IUserRepository"
-      },
-      {
-        "from": "PaginatedArticleResponse",
-        "to": "ArticleResponse"
-      },
-      {
-        "from": "get_articles_paginated",
-        "to": "get_all"
-      },
-      {
-        "from": "get_current_user",
-        "to": "UserService"
-      },
-      {
-        "from": "register",
-        "to": "UserRegisterRequest"
-      },
-      {
-        "from": "get_articles",
-        "to": "get_article_service"
-      },
-      {
-        "from": "app.services.search_service",
-        "to": "Article"
-      },
-      {
-        "from": "app.services.user_service",
-        "to": "IUserRepository"
-      },
-      {
-        "from": "app.services.user_service",
-        "to": "UserRegisterRequest"
-      },
-      {
-        "from": "get_current_user",
-        "to": "decode_access_token"
-      },
-      {
-        "from": "get_scopus_client",
-        "to": "ScopusHTTPClient"
-      },
-      {
-        "from": "save_many",
-        "to": "Article"
-      },
-      {
-        "from": "find_articles",
-        "to": "get_scopus_client"
-      },
-      {
-        "from": "ScopusHTTPClient",
-        "to": "ISearchClient"
-      },
-      {
-        "from": "find_articles",
-        "to": "get_search_service"
-      },
-      {
-        "from": "get_search_service",
-        "to": "__init__"
-      },
-      {
-        "from": "app.services.article_service",
-        "to": "PaginatedArticleResponse"
-      },
-      {
-        "from": "password_reset_request",
-        "to": "PasswordResetRequest"
-      },
-      {
-        "from": "find_and_save",
-        "to": "search"
-      },
-      {
-        "from": "app.models.article",
-        "to": "Base"
-      },
-      {
-        "from": "find_and_save",
-        "to": "save_many"
-      },
-      {
-        "from": "app.interfaces.search_client",
-        "to": "Article"
-      },
-      {
-        "from": "app.services.user_service",
-        "to": "User"
-      },
-      {
-        "from": "app.services.article_service",
-        "to": "IArticleRepository"
-      },
-      {
-        "from": "find_articles",
-        "to": "SearchService"
-      },
-      {
-        "from": "register",
-        "to": "get_by_email"
-      },
-      {
-        "from": "create",
-        "to": "User"
       },
       {
         "from": "app.infrastructure.scopus_client",
@@ -1343,8 +756,416 @@
         "to": "request_password_reset"
       },
       {
+        "from": "get_article_service",
+        "to": "PostgresArticleRepository"
+      },
+      {
+        "from": "get_scopus_client",
+        "to": "__init__"
+      },
+      {
+        "from": "app.config",
+        "to": "Settings"
+      },
+      {
+        "from": "Article",
+        "to": "Base"
+      },
+      {
+        "from": "PaginatedArticleResponse",
+        "to": "ArticleResponse"
+      },
+      {
+        "from": "find_and_save",
+        "to": "Article"
+      },
+      {
+        "from": "app.services.user_service",
+        "to": "create_access_token"
+      },
+      {
+        "from": "get_articles_paginated",
+        "to": "PaginatedArticleResponse"
+      },
+      {
+        "from": "get_articles",
+        "to": "ArticleService"
+      },
+      {
+        "from": "health_db",
+        "to": "get_db_session"
+      },
+      {
+        "from": "app.main",
+        "to": "lifespan"
+      },
+      {
+        "from": "get_articles",
+        "to": "PaginatedArticleResponse"
+      },
+      {
+        "from": "request_password_reset",
+        "to": "get_by_email"
+      },
+      {
+        "from": "find_and_save",
+        "to": "save_many"
+      },
+      {
+        "from": "login",
+        "to": "verify_password"
+      },
+      {
+        "from": "find_articles",
+        "to": "ScopusHTTPClient"
+      },
+      {
+        "from": "app.services.user_service",
+        "to": "verify_password"
+      },
+      {
+        "from": "app.infrastructure.postgres_user_repo",
+        "to": "IUserRepository"
+      },
+      {
+        "from": "get_articles",
+        "to": "get_articles_paginated"
+      },
+      {
+        "from": "login",
+        "to": "TokenResponse"
+      },
+      {
+        "from": "app.interfaces.user_repository",
+        "to": "User"
+      },
+      {
+        "from": "password_reset_request",
+        "to": "UserService"
+      },
+      {
+        "from": "get_search_service",
+        "to": "get_db_session"
+      },
+      {
+        "from": "find_and_save",
+        "to": "search"
+      },
+      {
+        "from": "ScopusHTTPClient",
+        "to": "ISearchClient"
+      },
+      {
+        "from": "app.services.user_service",
+        "to": "UserRegisterRequest"
+      },
+      {
+        "from": "get_articles_paginated",
+        "to": "get_total_count"
+      },
+      {
+        "from": "app.infrastructure.scopus_client",
+        "to": "ISearchClient"
+      },
+      {
+        "from": "get_search_service",
+        "to": "ScopusHTTPClient"
+      },
+      {
+        "from": "app.services.search_service",
+        "to": "Article"
+      },
+      {
+        "from": "find_articles",
+        "to": "SearchService"
+      },
+      {
+        "from": "app.services.article_service",
+        "to": "ArticleResponse"
+      },
+      {
+        "from": "get_current_user",
+        "to": "get_by_email"
+      },
+      {
+        "from": "get_current_user",
+        "to": "decode_access_token"
+      },
+      {
+        "from": "app.services.search_service",
+        "to": "IArticleRepository"
+      },
+      {
+        "from": "get_articles_paginated",
+        "to": "__init__"
+      },
+      {
+        "from": "get_search_service",
+        "to": "SearchService"
+      },
+      {
+        "from": "register",
+        "to": "User"
+      },
+      {
+        "from": "PostgresUserRepository",
+        "to": "IUserRepository"
+      },
+      {
+        "from": "login",
+        "to": "create_access_token"
+      },
+      {
+        "from": "get_current_user",
+        "to": "UserService"
+      },
+      {
+        "from": "login",
+        "to": "UserService"
+      },
+      {
+        "from": "register",
+        "to": "register"
+      },
+      {
+        "from": "app.services.user_service",
+        "to": "IUserRepository"
+      },
+      {
+        "from": "login",
+        "to": "__init__"
+      },
+      {
+        "from": "app.interfaces.search_client",
+        "to": "Article"
+      },
+      {
+        "from": "register",
+        "to": "get_user_service"
+      },
+      {
+        "from": "find_articles",
+        "to": "get_scopus_client"
+      },
+      {
+        "from": "get_user_service",
+        "to": "PostgresUserRepository"
+      },
+      {
+        "from": "app.infrastructure.postgres_user_repo",
+        "to": "User"
+      },
+      {
+        "from": "__init__",
+        "to": "IArticleRepository"
+      },
+      {
+        "from": "app.services.user_service",
+        "to": "hash_password"
+      },
+      {
+        "from": "app.services.search_service",
+        "to": "ISearchClient"
+      },
+      {
+        "from": "app.models.article",
+        "to": "Base"
+      },
+      {
+        "from": "get_me",
+        "to": "get_current_user"
+      },
+      {
+        "from": "get_scopus_client",
+        "to": "ScopusHTTPClient"
+      },
+      {
+        "from": "get_search_service",
+        "to": "get_scopus_client"
+      },
+      {
+        "from": "get_articles_paginated",
+        "to": "ArticleResponse"
+      },
+      {
+        "from": "__init__",
+        "to": "IUserRepository"
+      },
+      {
+        "from": "get_current_user",
+        "to": "get_current_user"
+      },
+      {
+        "from": "get_search_service",
+        "to": "__init__"
+      },
+      {
+        "from": "login",
+        "to": "get_by_email"
+      },
+      {
+        "from": "get_user_service",
+        "to": "get_db_session"
+      },
+      {
         "from": "password_reset_request",
         "to": "get_user_service"
+      },
+      {
+        "from": "User",
+        "to": "Base"
+      },
+      {
+        "from": "PostgresArticleRepository",
+        "to": "IArticleRepository"
+      },
+      {
+        "from": "find_articles",
+        "to": "find_and_save"
+      },
+      {
+        "from": "find_articles",
+        "to": "get_current_user"
+      },
+      {
+        "from": "get_article_service",
+        "to": "get_db_session"
+      },
+      {
+        "from": "app.infrastructure.database",
+        "to": "database_url_str"
+      },
+      {
+        "from": "save_many",
+        "to": "Article"
+      },
+      {
+        "from": "get_current_user",
+        "to": "User"
+      },
+      {
+        "from": "__init__",
+        "to": "ISearchClient"
+      },
+      {
+        "from": "register",
+        "to": "create"
+      },
+      {
+        "from": "app.services.user_service",
+        "to": "User"
+      },
+      {
+        "from": "search",
+        "to": "Article"
+      },
+      {
+        "from": "get_article_service",
+        "to": "ArticleService"
+      },
+      {
+        "from": "get_search_service",
+        "to": "PostgresArticleRepository"
+      },
+      {
+        "from": "login",
+        "to": "login"
+      },
+      {
+        "from": "register",
+        "to": "UserRegisterRequest"
+      },
+      {
+        "from": "get_current_user",
+        "to": "get_user_service"
+      },
+      {
+        "from": "find_articles",
+        "to": "__init__"
+      },
+      {
+        "from": "search",
+        "to": "__init__"
+      },
+      {
+        "from": "find_articles",
+        "to": "get_search_service"
+      },
+      {
+        "from": "get_by_email",
+        "to": "User"
+      },
+      {
+        "from": "get_articles_paginated",
+        "to": "get_all"
+      },
+      {
+        "from": "register",
+        "to": "UserService"
+      },
+      {
+        "from": "get_user_service",
+        "to": "UserService"
+      },
+      {
+        "from": "register",
+        "to": "__init__"
+      },
+      {
+        "from": "app.services.article_service",
+        "to": "PaginatedArticleResponse"
+      },
+      {
+        "from": "get_me",
+        "to": "User"
+      },
+      {
+        "from": "password_strength",
+        "to": "search"
+      },
+      {
+        "from": "get_user_service",
+        "to": "__init__"
+      },
+      {
+        "from": "get_all",
+        "to": "Article"
+      },
+      {
+        "from": "app.interfaces.article_repository",
+        "to": "Article"
+      },
+      {
+        "from": "app.models.user",
+        "to": "Base"
+      },
+      {
+        "from": "register",
+        "to": "hash_password"
+      },
+      {
+        "from": "get_article_service",
+        "to": "__init__"
+      },
+      {
+        "from": "get_articles",
+        "to": "get_article_service"
+      },
+      {
+        "from": "find_articles",
+        "to": "ArticleResponse"
+      },
+      {
+        "from": "password_reset_request",
+        "to": "PasswordResetRequest"
+      },
+      {
+        "from": "create",
+        "to": "User"
+      },
+      {
+        "from": "app.infrastructure.postgres_article_repo",
+        "to": "Article"
       }
     ],
     "dead_node_count": 20,

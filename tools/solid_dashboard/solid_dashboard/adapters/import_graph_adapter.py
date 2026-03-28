@@ -1,9 +1,20 @@
-import ast
-import os
-from typing import Dict, Any, List, Set, Tuple
+import sys
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set, Tuple
+
+import grimp
+
+from tools.solid_dashboard.solid_dashboard.interfaces.analyzer import IAnalyzer
 
 
-class ImportGraphAdapter:
+class ImportGraphAdapter(IAnalyzer):
+    """
+    Адаптер для построения графа архитектурных слоёв на основе grimp.
+
+    Использует тот же движок, что и import-linter. Это снижает риск
+    расхождения между визуальным графом и контрактной проверкой.
+    """
+
     @property
     def name(self) -> str:
         return "import_graph"
@@ -15,208 +26,304 @@ class ImportGraphAdapter:
         config: Dict[str, Any],
     ) -> Dict[str, Any]:
         """
-        Строит граф импортов между внутренними модулями проекта.
-        Слои и игнорируемые директории берутся из config.
+        Основной метод адаптера.
+
+        Делает три шага:
+        1. строит граф импортов через grimp;
+        2. сопоставляет модули с архитектурными слоями;
+        3. считает метрики устойчивости по слоям.
         """
-        # Читаем конфигурацию
-        package_root = config.get("package_root", "app")
-        ignore_dirs = set(config.get("ignore_dirs", []))
+        # определяем путь к анализируемому пакету и его корневое имя
+        target_path = Path(target_dir).resolve()
+        package_name = target_path.name
 
-        # Инициализация структур данных
-        internal_modules: Dict[str, str] = {}
-        errors: List[str] = []
-        import_relations: List[tuple[str, str]] = []
+        # читаем конфиг внутренних слоёв
+        layer_config: Dict[str, List[str]] = config.get("layers", {})
+        if not layer_config:
+            return {
+                "nodes": [],
+                "edges": [],
+                "error": "no layer configuration found in solidconfig.json",
+            }
 
-        # 1. Обход файловой системы и сбор всех внутренних модулей
-        for root, dirs, files in os.walk(target_dir):
-            # Фильтруем директории
-            dirs[:] = [d for d in dirs if d not in ignore_dirs]
+        # читаем необязательный конфиг внешних библиотек
+        # пример:
+        # "external_layers": {
+        #     "db_libs": ["sqlalchemy"],
+        #     "web_libs": ["fastapi", "starlette", "pydantic"]
+        # }
+        external_layer_config: Dict[str, List[str]] = config.get(
+            "external_layers", {}
+        )
 
-            for filename in files:
-                if not filename.endswith(".py"):
+        # нормализуем конфиг слоёв:
+        # "routers" -> "app.routers"
+        # "services" -> "app.services"
+        normalized_layers = self._normalize_layer_config(
+            layer_config, package_name
+        )
+
+        # временно добавляем родительскую директорию в sys.path,
+        # чтобы grimp гарантированно нашёл пакет
+        parent_dir = str(target_path.parent)
+        added_to_path = False
+        if parent_dir not in sys.path:
+            sys.path.insert(0, parent_dir)
+            added_to_path = True
+
+        try:
+            # строим граф импортов тем же движком, что использует import-linter
+            # include_external_packages нужен для учёта third-party зависимостей
+            graph = grimp.build_graph(
+                package_name,
+                include_external_packages=True,
+            )
+
+            # строим агрегированный граф слоёв и считаем stability-метрики
+            nodes, edges = self._build_layer_graph(
+                graph=graph,
+                layer_config=normalized_layers,
+                external_layer_config=external_layer_config,
+            )
+
+            return {
+                "nodes": nodes,
+                "edges": edges,
+                "debug_info": {
+                    "package": package_name,
+                    "total_modules": len(graph.modules),
+                    "layer_prefixes_used": normalized_layers,
+                    "external_layer_prefixes_used": external_layer_config,
+                },
+            }
+
+        except Exception as exc:
+            return {
+                "nodes": [],
+                "edges": [],
+                "error": str(exc),
+            }
+
+        finally:
+            # аккуратно откатываем sys.path к исходному состоянию
+            if added_to_path and parent_dir in sys.path:
+                sys.path.remove(parent_dir)
+
+    def _normalize_layer_config(
+        self,
+        layer_config: Dict[str, Any],
+        package_name: str,
+    ) -> Dict[str, List[str]]:
+        """
+        Нормализует конфиг внутренних слоёв.
+
+        Поддерживает оба формата:
+        - "routers": "routers"
+        - "routers": ["routers"]
+
+        На выходе всегда возвращает:
+        - "routers": ["app.routers"]
+        """
+        normalized: Dict[str, List[str]] = {}
+        package_prefix = f"{package_name}."
+
+        for layer_name, raw_value in layer_config.items():
+            # приводим значение слоя к списку строк
+            if isinstance(raw_value, str):
+                paths = [raw_value]
+            elif isinstance(raw_value, list):
+                paths = [p for p in raw_value if isinstance(p, str)]
+            else:
+                # некорректный тип silently пропускаем,
+                # чтобы не ломать весь адаптер
+                paths = []
+
+            fixed_paths: List[str] = []
+
+            for path in paths:
+                cleaned_path = path.strip()
+                if not cleaned_path:
                     continue
 
-                full_path = os.path.join(root, filename)
-                rel_path = os.path.relpath(full_path, start=target_dir)
+                # если путь уже полный, не меняем его
+                if (
+                    cleaned_path == package_name
+                    or cleaned_path.startswith(package_prefix)
+                ):
+                    fixed_paths.append(cleaned_path)
+                else:
+                    fixed_paths.append(f"{package_name}.{cleaned_path}")
 
-                try:
-                    module_name = self._module_name_from_path(rel_path, package_root)
-                    internal_modules[module_name] = full_path
-                except Exception as e:
-                    # Исправлено: добавляем строку, как ожидает List[str]
-                    errors.append(f"Failed to resolve module for {rel_path}: {e}")
+            normalized[layer_name] = fixed_paths
 
-        # Формируем множество всех внутренних модулей для быстрой проверки
-        internal_set: Set[str] = set(internal_modules.keys())
+        return normalized
 
-        # 2. AST-анализ: парсим каждый файл и ищем импорты
-        for module_name, file_path in internal_modules.items():
+    def _build_layer_graph(
+        self,
+        graph: grimp.ImportGraph,
+        layer_config: Dict[str, List[str]],
+        external_layer_config: Dict[str, List[str]],
+    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
+        """
+        Преобразует граф модулей в граф слоёв.
+
+        Возвращает:
+        - nodes: слои с метриками ca, ce, instability;
+        - edges: уникальные направленные связи между слоями.
+        """
+        # собираем полный список слоёв:
+        # сначала внутренние, затем внешние
+        all_layer_names: List[str] = list(layer_config.keys())
+        all_layer_names.extend(external_layer_config.keys())
+
+        # храним только уникальные межслоевые зависимости
+        layer_edges: Set[Tuple[str, str]] = set()
+
+        # обходим все найденные grimp модули
+        for module_name in graph.modules:
+            # импортирующий модуль должен принадлежать одному из наших слоёв
+            importer_layer = self._resolve_internal_layer(
+                module_name, layer_config
+            )
+            if not importer_layer:
+                continue
+
+            # получаем прямые импорты текущего модуля
             try:
-                with open(file_path, "r", encoding="utf-8") as f:
-                    source_code = f.read()
+                imported_modules = graph.find_modules_directly_imported_by(
+                    module_name
+                )
+            except Exception:
+                # защитный сценарий на случай краевых проблем grimp
+                continue
 
-                tree = ast.parse(source_code, filename=file_path)
+            for imported_module_name in imported_modules:
+                # сначала ищем внутренний слой
+                imported_layer = self._resolve_internal_layer(
+                    imported_module_name, layer_config
+                )
 
-                for node in ast.walk(tree):
-                    if isinstance(node, ast.Import):
-                        for alias in node.names:
-                            normalized = self._normalize_import_name(alias.name, package_root)
-                            import_relations.append((module_name, normalized))
+                # если не нашли, ищем внешний слой
+                if not imported_layer and external_layer_config:
+                    imported_layer = self._resolve_external_layer(
+                        imported_module_name,
+                        external_layer_config,
+                    )
 
-                    elif isinstance(node, ast.ImportFrom):
-                        resolved_names = self._resolve_import_from(module_name, node, package_root)
-                        for r_name in resolved_names:
-                            normalized = self._normalize_import_name(r_name, package_root)
-                            import_relations.append((module_name, normalized))
+                # если модуль не относится ни к одному известному слою,
+                # просто пропускаем его
+                if not imported_layer:
+                    continue
 
-            except Exception as e:
-                # Исправлено: добавляем строку, а не dict
-                errors.append(f"Parse error in {file_path}: {str(e)}")
+                # петли слой -> тот же слой не добавляем
+                if importer_layer != imported_layer:
+                    layer_edges.add((importer_layer, imported_layer))
 
-        # 3. Сборка графа (Nodes & Edges)
-        nodes: List[Dict[str, Any]] = []
-        for mod_name, path in internal_modules.items():
-            layer = self._detect_layer(mod_name, config)
-            # label — имя без package_root (например, routers.users)
-            label = ".".join(mod_name.split(".")[1:]) if "." in mod_name else mod_name
+        # после того как все рёбра собраны, считаем метрики устойчивости
+        nodes = self._build_nodes_with_stability(
+            layer_names=all_layer_names,
+            layer_edges=layer_edges,
+        )
 
-            nodes.append({
-                "id": mod_name,
-                "label": label,
-                "path": path,
-                "layer": layer,
-            })
-
-        # Устраняем дубликаты рёбер через множество
-        edge_set: Set[tuple[str, str]] = set()
-
-        for src, dst in import_relations:
-            # Оставляем только внутренние зависимости
-            if dst in internal_set and src != dst:
-                edge_set.add((src, dst))
-
-        edges: List[Dict[str, Any]] = [
-            {"from": src, "to": dst, "kind": "internal"}
-            for (src, dst) in sorted(edge_set)
+        # приводим рёбра к json-совместимому формату
+        edges = [
+            {"source": source, "target": target}
+            for source, target in sorted(layer_edges)
         ]
 
-        return {
-            "nodes": nodes,
-            "edges": edges,
-            "errors": errors,
-            "edges_count": len(edges),
-        }
+        return nodes, edges
 
-    def _module_name_from_path(self, rel_path: str, package_root: str) -> str:
-        """
-        Преобразует относительный путь вроде 'routers\\users.py' в 'app.routers.users'.
-        """
-        without_ext = os.path.splitext(rel_path)[0]
-        parts = without_ext.split(os.sep)
-        return ".".join([package_root] + parts)
-
-    def _normalize_import_name(self, name: str, package_root: str) -> str:
-        """
-        Приводит имя импорта к каноническому виду модуля:
-        - если начинается с package_root (app.routers.users) -> оставляем как есть;
-        - если начинается с 'app.' при другом названии корня -> корректируем префикс;
-        - иначе:
-            * если в имени есть точка, считаем его внешним (fastapi.FastAPI и т.п.)
-              и возвращаем как есть;
-            * если точек нет, считаем что это относительный импорт внутри пакета и
-              добавляем package_root.
-        Внешние пакеты всё равно отфильтруются по internal_set.
-        """
-        if name.startswith(f"{package_root}."):
-            return name
-        if name.startswith("app.") and package_root != "app":
-            return name.replace("app.", f"{package_root}.", 1)
-
-        # Если в имени есть точка, это, скорее всего, fully-qualified имя внешнего пакета
-        # (fastapi.FastAPI, httpx.AsyncClient и т.п.) — оставляем как есть.
-        if "." in name:
-            return name
-
-        # Иначе это короткое имя внутри нашего корня (routers, services, core...)
-        return f"{package_root}.{name}"
-
-    def _resolve_import_from(
+    def _build_nodes_with_stability(
         self,
-        current_module: str,
-        node: ast.ImportFrom,
-        package_root: str,
-    ) -> List[str]:
+        layer_names: List[str],
+        layer_edges: Set[Tuple[str, str]],
+    ) -> List[Dict[str, Any]]:
         """
-        Разрешает конструкции вида:
-        - from app.routers import articles         -> app.routers.articles
-        - from app.infrastructure.database import async_session_maker -> app.infrastructure.database
-        - from . import users                      -> app.routers.users (относительно current_module)
-        - from .services import user_service       -> app.services.user_service (упрощённо)
+        Считает для каждого слоя метрики stability.
+
+        ca:
+            сколько слоёв зависит от данного слоя
+        ce:
+            от скольких слоёв зависит данный слой
+        instability:
+            ce / (ca + ce), диапазон от 0.0 до 1.0
         """
-        results: List[str] = []
+        nodes: List[Dict[str, Any]] = []
 
-        current_parts = current_module.split(".")  # ['app', 'routers', 'users']
+        for layer_name in layer_names:
+            # ce = количество исходящих зависимостей слоя
+            ce = len(
+                {
+                    target
+                    for source, target in layer_edges
+                    if source == layer_name
+                }
+            )
 
-        # 1. Базовая часть: корень пакета
-        base_parts = [package_root]
+            # ca = количество входящих зависимостей слоя
+            ca = len(
+                {
+                    source
+                    for source, target in layer_edges
+                    if target == layer_name
+                }
+            )
 
-        # 2. Если указан node.module, используем его как основу
-        #    (без добавления package_root второй раз)
-        if node.module:
-            module_parts = node.module.split(".")
-            if module_parts[0] == package_root or module_parts[0] == "app":
-                # Полностью квалифицированное имя: app.routers
-                base_parts = module_parts
+            # instability по роберту мартину
+            if ca + ce > 0:
+                instability = round(ce / (ca + ce), 2)
             else:
-                # Что-то вроде 'routers' или 'infrastructure.database'
-                base_parts = [package_root] + module_parts
-        else:
-            # from . import users / from ..core import security
-            if node.level:
-                # Отбрасываем node.level частей справа от current_module
-                if node.level >= len(current_parts):
-                    base_parts = [package_root]
-                else:
-                    base_parts = current_parts[:-node.level]
-            else:
-                # from X import Y без module и без level — редкий кейс, оставляем корень
-                base_parts = [package_root]
+                instability = 0.0
 
-        for alias in node.names:
-            # Особый случай: node.module указывает уже на конкретный модуль,
-            # а alias — на объект внутри него (функция/класс).
-            # Пример: from app.infrastructure.database import async_session_maker
-            # Для графа импортов нас интересует сам модуль database, а не объект.
-            if node.module:
-                # Проверим, выглядит ли node.module как полный путь до модуля
-                # (в нашей архитектуре всё под package_root.* считается модулем)
-                module_name = ".".join(base_parts)
-                results.append(module_name)
-            else:
-                # Случай: from . import users  -> base_parts + ['users']
-                full_name = ".".join(base_parts + [alias.name])
-                results.append(full_name)
+            nodes.append(
+                {
+                    "id": layer_name,
+                    "label": layer_name,
+                    "ca": ca,
+                    "ce": ce,
+                    "instability": instability,
+                }
+            )
 
-        return results
+        return nodes
 
-    def _detect_layer(self, module_name: str, config: Dict[str, Any]) -> str:
+    def _resolve_internal_layer(
+        self,
+        module_name: str,
+        layer_config: Dict[str, List[str]],
+    ) -> Optional[str]:
         """
-        Определяет слой для модуля по его имени и конфигу.
-        Пример: module_name = "app.routers.users"
-        layers = {"routers": "routers", "services": "services", ...}
+        Ищет внутренний слой для модуля.
+
+        Пример:
+        - модуль "app.services.user_service"
+        - путь слоя "app.services"
+        - результат: "services"
         """
-        layers_cfg = config.get("layers", {})
-        # module_name без package_root: "routers.users"
-        parts = module_name.split(".")
-        # Ожидаем, что module_name уже включает package_root, например "app.routers.users"
-        if not layers_cfg or len(parts) < 2:
-            return "other"
+        for layer_name, paths in layer_config.items():
+            for path in paths:
+                if module_name == path or module_name.startswith(f"{path}."):
+                    return layer_name
+        return None
 
-        # Берем сегмент после корня пакета: "routers"|"services"|...
-        first_after_root = parts[1]
+    def _resolve_external_layer(
+        self,
+        module_name: str,
+        external_layer_config: Dict[str, List[str]],
+    ) -> Optional[str]:
+        """
+        Ищет внешний слой для third-party модуля.
 
-        for layer_name, dirname in layers_cfg.items():
-            if first_after_root == dirname:
-                return layer_name
-
-        return "other"
+        Пример:
+        - модуль "sqlalchemy.orm"
+        - внешний слой "db_libs": ["sqlalchemy"]
+        - результат: "db_libs"
+        """
+        for layer_name, package_prefixes in external_layer_config.items():
+            for package_prefix in package_prefixes:
+                if (
+                    module_name == package_prefix
+                    or module_name.startswith(f"{package_prefix}.")
+                ):
+                    return layer_name
+        return None
