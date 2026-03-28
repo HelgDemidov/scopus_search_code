@@ -45,6 +45,7 @@ htmlcov/
 # SOLID Verifier build artifacts
 tools/solid_verifier/build/
 
+
 # SOLID Verifier logs
 tools/solid_verifier/**/*.log
 **/*.log
