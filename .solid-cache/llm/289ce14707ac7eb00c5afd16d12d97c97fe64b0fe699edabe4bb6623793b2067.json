@@ -1,0 +1,5 @@
+{
+  "content": "{\n  \"OCP\": [],\n  \"LSP\": []\n}",
+  "tokens_used": 806,
+  "model": "openai/gpt-4o-mini"
+}

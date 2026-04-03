@@ -4,12 +4,24 @@
   "routers": ["routers"],
   "services": ["services"],
   "infrastructure": ["infrastructure"],
-  "models": ["models"]
+  "models": ["models"],
+  "interfaces": ["interfaces"]
 },
-  "ignore_dirs": ["__pycache__", ".venv", "tests"],
+  "ignore_dirs": [".git", ".venv", "__pycache__", ".mypy_cache", ".pytest_cache", ".idea",
+    ".vscode", "tests", "tools", "alembic", "scripts", "build", "dist"
+  ],
   "external_layers": {
     "db_libs": ["sqlalchemy"],
     "web_libs": ["fastapi", "starlette"]
+  },
+  "llm": {
+  "enabled": true,
+  "provider": "openrouter",
+  "model": "openai/gpt-4o-mini", 
+  "api_key": null,
+  "endpoint": null,
+  "max_tokens_per_run": 1500,
+  "cache_dir": ".solid-cache/llm",
+  "prompts_dir": "tools/solid_verifier/prompts"
   }
 }
-

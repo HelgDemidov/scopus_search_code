@@ -14,7 +14,7 @@ router = APIRouter(prefix="/health", tags=["Health"])
     status_code=status.HTTP_200_OK,
 )
 async def health_db(session: AsyncSession = Depends(get_db_session)) -> dict[str, str]:
-    # Лёгкая проверка доступности базы данных.
-    # Если база недоступна, здесь упадёт исключение, и сервис вернёт 5xx.
+    # Легкая проверка доступности базы данных.
+    # Если база недоступна, здесь упадет исключение, и сервис вернет 5xx.
     await session.execute(text("SELECT 1"))
     return {"status": "ok"}

@@ -1,21 +1,28 @@
-from pathlib import Path
+# Скрипт для запуска пайплайна анализа кода "в один клик"
+# Команда для запуска из корня (scopus_search_code): python run_solid_dashboard.py
+
 import subprocess
 import sys
+from pathlib import Path
 
 if __name__ == "__main__":
-    # комментарий (ru): вычисляем пути относительно корня, где лежит этот файл
-    project_root = Path(__file__).resolve().parent  # scopus_search_code
-    target_dir = project_root / "app"               # app/ как корень анализируемого пакета
-    config_path = project_root / "solid_config.json"  # конфиг теперь в корне проекта
+
+    # Корень проекта — там где лежит сам этот скрипт
+    project_root = Path(__file__).resolve().parent
+    
+    # target_dir указывает на корень проекта
+    target_dir = project_root
+    config_path = project_root / "solid_config.json"
+    
+    # Путь к директории с исходниками верификатора
+    verifier_dir = project_root / "tools" / "solid_verifier"
 
     cmd = [
         sys.executable,
-        "-m",
-        "tools.solid_verifier.solid_dashboard",
-        "--target-dir",
-        str(target_dir),
-        "--config",
-        str(config_path),
+        "-m", "solid_dashboard", # Теперь обращаемся напрямую к пакету
+        "--target-dir", str(target_dir),
+        "--config", str(config_path),
     ]
-    # комментарий (ru): пробрасываем код возврата адаптера наверх
-    raise SystemExit(subprocess.call(cmd))
+    
+    # запускаем из папки верификатора, чтобы Python видел внутренние импорты
+    raise SystemExit(subprocess.call(cmd, cwd=verifier_dir))

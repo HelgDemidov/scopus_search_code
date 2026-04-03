@@ -35,7 +35,7 @@ async def get_current_user(
     if not email:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Токен недействителен или истёк",
+            detail="Токен недействителен или истек",
             headers={"WWW-Authenticate": "Bearer"},
         )
 

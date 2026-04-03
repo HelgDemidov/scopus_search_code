@@ -7,7 +7,7 @@ from app.infrastructure.database import async_session_maker
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     
-    # Dependency: создаёт сессию БД на время одного запроса
+    # Dependency: создает сессию БД на время одного запроса
     # yield — ключевое слово: FastAPI получит сессию, выполнит запрос
     # Потом автоматически закроет сессию в блоке finally
     

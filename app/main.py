@@ -14,7 +14,7 @@ from app.routers import articles, users, health
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # --- STARTUP (выполняется один раз при запуске сервера) ---
-    # Создаём один глобальный HTTP-клиент для всех запросов к Scopus
+    # Создаем один глобальный HTTP-клиент для всех запросов к Scopus
     # Это гораздо эффективнее, чем создавать новое TCP-соединение на каждый запрос
 
     app.state.http_client = httpx.AsyncClient()
@@ -27,7 +27,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 # --- СОЗДАНИЕ ПРИЛОЖЕНИЯ ---
-# Передаём lifespan-функцию и метаданные для Swagger-документации
+# Передаем lifespan-функцию и метаданные для Swagger-документации
 app = FastAPI(
     title="Scopus Search API",
     description="Веб-сервис для поиска научных публикаций через Scopus API",
