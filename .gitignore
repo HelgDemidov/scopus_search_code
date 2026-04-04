@@ -23,8 +23,8 @@ postgres_data/
 docs/scopus_project_mask.txt
 
 # Прочие файлы кэша:
-# Pytest
 .pytest_cache/
+.solid-cache
 
 # Mypy
 .mypy_cache/
