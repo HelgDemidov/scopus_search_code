@@ -20,7 +20,7 @@
   "model": "openai/gpt-4o-mini", 
   "api_key": null,
   "endpoint": null,
-  "max_tokens_per_run": 1500,
+  "max_tokens_per_run": 3000,
   "cache_dir": ".solid-cache/llm",
   "prompts_dir": "tools/solid_verifier/prompts"
   }
