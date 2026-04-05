@@ -754,9 +754,9 @@ async def test_scopus_client_search_and_limits(monkeypatch):
 ============================================================
 FILE: tools\solid_verifier\.tmp_heuristics_tests\tmp_module.py
 ============================================================
-class Router:
+class Foo(get_base()):
 
-    def route(self, req):
+    def run(self):
         pass
 
 ============================================================
