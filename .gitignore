@@ -45,8 +45,8 @@ tools/solid_verifier/build/
 
 
 # SOLID Verifier logs
-tools/solid_verifier/**/*.log
 **/*.log
+!tools/solid_verifier/solid_dashboard/report/solid_report.log
 
 # SOLID grimp_adapter cache
 **/*.grimp_cache
