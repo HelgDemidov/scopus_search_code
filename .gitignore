@@ -21,7 +21,8 @@ postgres_data/
 
 # Прочие файлы кэша:
 .pytest_cache/
-.solid-cache
+.solid-cache/
+.tmp-heuristics_tests/
 
 # Mypy
 .mypy_cache/
