@@ -1139,6 +1139,7 @@ class ImportLinterAdapter(IAnalyzer):
 FILE: tools\solid_verifier\solid_dashboard\adapters\pyan3_adapter.py
 ============================================================
 from __future__ import annotations
+import warnings
 import os
 import re
 import subprocess
