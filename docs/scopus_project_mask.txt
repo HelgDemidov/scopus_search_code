@@ -907,6 +907,7 @@ class ClassInfo:
     lineno: int
     methods: List[MethodInfo] = field(default_factory=list)
     attributes: Set[str] = field(default_factory=set)
+    kind: str = 'concrete'
 
 class CohesionAdapter(IAnalyzer):
 
@@ -924,7 +925,20 @@ class CohesionAdapter(IAnalyzer):
         """Строит ClassInfo для одного ast.ClassDef:
 - имя класса, путь к файлу, строка объявления
 - список методов
-- множество атрибутов класса (уровень class body)"""
+- множество атрибутов класса (уровень class body)
+- kind: семантический тип класса (определяется через _classify_class)"""
+
+    def _classify_class(self, class_node: ast.ClassDef) -> str:
+        """Определяет семантический тип класса по AST-узлу.
+
+Возвращает одно из четырех значений:
+  "interface"  — все non-dunder методы абстрактны (только @abstractmethod / pass / raise)
+                 И класс наследуется от ABC или Protocol
+  "abstract"   — наследуется от ABC/Protocol, но есть хотя бы один конкретный метод
+  "dataclass"  — декоратор @dataclass ИЛИ базовый класс BaseModel / declarative Base
+  "concrete"   — всё остальное (дефолт)
+
+Порядок проверок важен: dataclass проверяется первым, затем ABC/Protocol-иерархия."""
 
     def _build_method_info(self, func_node: ast.AST) -> MethodInfo:
         """Строит MethodInfo для ast.FunctionDef или ast.AsyncFunctionDef.
