@@ -898,6 +898,7 @@ class MethodInfo:
     decorator_kinds: List[str] = field(default_factory=list)
     used_attributes: Set[str] = field(default_factory=set)
     called_methods: Set[str] = field(default_factory=set)
+    is_empty: bool = False
 
 @dataclass
 class ClassInfo:
@@ -944,7 +945,21 @@ class CohesionAdapter(IAnalyzer):
         """Строит MethodInfo для ast.FunctionDef или ast.AsyncFunctionDef.
 Определяет:
 - имя метода, async/sync
-- типы декораторов: property, classmethod, staticmethod"""
+- типы декораторов: property, classmethod, staticmethod
+- is_empty: True если тело метода тривиально (pass / ... / raise NotImplementedError / docstring)"""
+
+    @staticmethod
+    def _is_empty_method(func_node: ast.AST) -> bool:
+        """Определяет, является ли метод тривиальным — не несущим реальной логики.
+
+Тривиальные тела (в любой комбинации):
+  - pass
+  - ... (Ellipsis — типичная заглушка в интерфейсах/Protocol)
+  - raise NotImplementedError(...) или raise NotImplementedError
+  - строка-докстринг (ast.Expr с ast.Constant[str])
+
+Если тело состоит исключительно из таких инструкций — метод считается пустым
+и исключается из графа LCOM4, чтобы не искажать метрику связности."""
 
     def _classify_decorator(self, dec: ast.AST) -> Optional[str]:
         """Классифицирует декоратор в одно из значений:
@@ -986,8 +1001,11 @@ class CohesionAdapter(IAnalyzer):
         """Считает LCOM4 для данного класса.
 
 Алгоритм:
-- берем только методы, кроме __init__ (LCOM4-конвенция)
-  и property-методов (они не участвуют в связности классов)
+- берем только методы, исключая:
+    * __init__ (LCOM4-конвенция)
+    * property-методы (не участвуют в связности классов)
+    * пустые методы (is_empty=True: pass / ... / raise NotImplementedError / docstring)
+      — они не несут логики и не образуют реальных связей в графе
 - строим неориентированный граф:
   вершины = имена методов;
   ребра между A и B, если:
