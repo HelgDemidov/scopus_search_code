@@ -44,6 +44,14 @@ if __name__ == '__main__':
     raise SystemExit(subprocess.call(cmd, cwd=project_root, env=env))
 
 ============================================================
+FILE: .tmp_heuristics_tests\tmp_module.py
+============================================================
+class Foo(get_base()):
+
+    def run(self):
+        pass
+
+============================================================
 FILE: app\config.py
 ============================================================
 from pydantic_settings import BaseSettings, SettingsConfigDict
