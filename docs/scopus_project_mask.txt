@@ -1029,6 +1029,10 @@ class _MethodUsageVisitor(ast.NodeVisitor):
     - used_attributes: обращения к атрибутам класса/экземпляра
       (self.field, cls.field), если field есть в class_attributes
     - called_methods: вызовы методов класса (self.method(), cls.method(), method())
+
+    Важно: вложенные def/async def внутри метода намеренно НЕ обходятся.
+    Это предотвращает загрязнение графа LCOM4 атрибутами и вызовами из замыканий,
+    где первый аргумент (self/cls) принадлежит вложенной функции, а не классу.
     """
 
     def __init__(self, class_attributes: Set[str], method_names: Set[str]) -> None:
