@@ -1143,8 +1143,10 @@ import warnings
 import os
 import re
 import subprocess
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Set, Optional
 from solid_dashboard.interfaces.analyzer import IAnalyzer
+_VALID_PY_NAME = re.compile('^[A-Za-z_]\\w*(\\.[A-Za-z_]\\w*)*$')
+_PYAN3_DIAG_PREFIXES = ('WARNING:', 'ERROR:', 'INFO:', 'CRITICAL:')
 
 class Pyan3Adapter(IAnalyzer):
 
