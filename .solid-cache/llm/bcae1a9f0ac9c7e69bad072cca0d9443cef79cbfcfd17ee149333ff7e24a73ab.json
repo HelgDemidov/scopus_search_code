@@ -1,5 +1,0 @@
-{
-  "content": "{\n  \"OCP\": {\n    \"issue\": \"OCP-H-001\",\n    \"description\": \"The use of an if/elif chain with isinstance checks means that adding support for new types requires modifying the existing process method.\"\n  },\n  \"LSP\": {\n    \"issue\": \"LSP-H-001\",\n    \"description\": \"The overridden process method raises NotImplementedError for negative values, which may violate the expected behavior of the base class.\"\n  }\n}",
-  "tokens_used": 996,
-  "model": "openai/gpt-4o-mini"
-}
