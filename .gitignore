@@ -19,9 +19,6 @@ postgres_data/
 .idea/
 .DS_Store
 
-# Файл-"маска" кода проекта (создан с помощью скрипта export_skeleton.py)
-docs/scopus_project_mask.txt
-
 # Прочие файлы кэша:
 .pytest_cache/
 .solid-cache

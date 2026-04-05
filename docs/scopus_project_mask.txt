@@ -1,0 +1,3593 @@
+
+============================================================
+FILE: run_export_skeleton.py
+============================================================
+import sys
+import subprocess
+from pathlib import Path
+if __name__ == '__main__':
+    project_root = Path(__file__).resolve().parent
+    script_path = project_root / 'docs' / 'export_skeleton.py'
+    cmd = [sys.executable, str(script_path)]
+    raise SystemExit(subprocess.call(cmd))
+
+============================================================
+FILE: run_solid_dashboard.py
+============================================================
+import subprocess
+import sys
+from pathlib import Path
+if __name__ == '__main__':
+    project_root = Path(__file__).resolve().parent
+    target_dir = project_root
+    config_path = project_root / 'solid_config.json'
+    verifier_dir = project_root / 'tools' / 'solid_verifier'
+    cmd = [sys.executable, '-m', 'solid_dashboard', '--target-dir', str(target_dir), '--config', str(config_path)]
+    raise SystemExit(subprocess.call(cmd, cwd=verifier_dir))
+
+============================================================
+FILE: run_tests.py
+============================================================
+import subprocess
+import sys
+import os
+from pathlib import Path
+if __name__ == '__main__':
+    project_root = Path(__file__).resolve().parent
+    env = os.environ.copy()
+    verifier_path = str(project_root / 'tools' / 'solid_verifier')
+    if 'PYTHONPATH' in env:
+        env['PYTHONPATH'] = f"{verifier_path}{os.pathsep}{env['PYTHONPATH']}"
+    else:
+        env['PYTHONPATH'] = verifier_path
+    cmd = [sys.executable, '-m', 'pytest']
+    raise SystemExit(subprocess.call(cmd, cwd=project_root, env=env))
+
+============================================================
+FILE: .tmp_heuristics_tests\tmp_module.py
+============================================================
+class Foo(get_base()):
+
+    def run(self):
+        pass
+
+============================================================
+FILE: app\config.py
+============================================================
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import PostgresDsn
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8')
+    SCOPUS_API_KEY: str
+    DATABASE_URL: str | PostgresDsn
+    SECRET_KEY: str
+    ALGORITHM: str = 'HS256'
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+
+    @property
+    def database_url_str(self) -> str:
+        pass
+settings = Settings()
+
+============================================================
+FILE: app\main.py
+============================================================
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+import httpx
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.routers import articles, users, health
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    pass
+app = FastAPI(title='Scopus Search API', description='Веб-сервис для поиска научных публикаций через Scopus API', version='1.0.0', lifespan=lifespan)
+app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_credentials=True, allow_methods=['*'], allow_headers=['*'])
+app.include_router(users.router)
+app.include_router(articles.router)
+app.include_router(health.router)
+
+@app.get('/', tags=['Health'])
+async def root() -> dict[str, str]:
+    pass
+
+============================================================
+FILE: app\__init__.py
+============================================================
+
+
+============================================================
+FILE: scripts\seed_db.py
+============================================================
+import os
+import asyncio
+import httpx
+from colorama import Fore, Style, init
+init(autoreset=True)
+BASE_URL = 'https://scopus-search-code.up.railway.app'
+JWT_TOKEN = os.getenv('SEEDER_JWT_TOKEN', 'PASTE_YOUR_JWT_TOKEN_HERE')
+ARTICLES_PER_QUERY = 25
+DELAY_BETWEEN_REQUESTS = 2.0
+KEYWORDS = ['generative pretrained transformer', 'large language model training', 'instruction tuned language models', 'reinforcement learning from human feedback', 'in context learning mechanisms', 'retrieval augmented generation system', 'multimodal transformer architecture', 'parameter efficient fine tuning', 'low rank adaptation methods', 'prompt engineering strategies', 'chain of thought prompting', 'hallucination mitigation in llm', 'factual consistency llm outputs', 'safety alignment for llm', 'jailbreak detection techniques', 'synthetic data generation for llm', 'continual pretraining of transformers', 'curriculum learning for llm', 'tool using language models', 'code generation with transformers', 'generative adversarial network genomics', 'gan for genomic data augmentation', 'gan based variant calling', 'gan for gene expression synthesis', 'generative adversarial network bioinformatics', 'single cell transcriptomics gan', 'gan for dna sequence generation', 'gan for rna sequence analysis', 'protein structure generation gan', 'multimodal gan for biomedical data', 'adversarial learning in genomics', 'privacy preserving gan for health data', 'conditional gan for omics integration', 'anomaly detection in genomics using gan', 'adversarial training for genomic classifiers', 'neuromorphic computing for artificial intelligence', 'neuromorphic architecture for spiking networks', 'spiking neural network inference', 'event driven neuromorphic processing', 'memristor based neuromorphic computing', 'brain inspired neuromorphic hardware', 'analog neuromorphic accelerator', 'low power neuromorphic inference', 'edge intelligence with neuromorphic chips', 'reservoir computing on neuromorphic hardware', 'asynchronous neuromorphic circuits', 'on chip learning in neuromorphic systems', 'neuromorphic sensor fusion', 'hybrid neuromorphic deep learning', 'spiking transformer architecture', 'hardware accelerator for large language models', 'tensor processing unit architecture', 'gpu tensor core optimization', 'ai accelerator for transformer inference', 'systolic array for matrix multiplication', 'specialized inference engine for llm', 'model quantization for hardware efficiency', 'int8 inference for transformers', 'mixed precision inference techniques', 'sparsity exploitation in neural networks', 'structured pruning for faster inference', 'hardware aware neural architecture search', 'chiplet based ai accelerator', 'near memory computing for ai', 'in memory computing for neural networks', 'weight hardcoding in neural accelerators', 'weight stationary dataflow architecture', 'compute in memory crossbar array', 'analog weight storage for inference', 'resistive crossbar neural accelerator', 'fixed function neural network accelerator', 'compiled neural network to hardware', 'logic in memory accelerator design', 'on chip interconnect optimization for ai', 'topology aware mapping of neural networks', 'hardware software co design for llm', 'pipeline parallelism in transformer inference', 'memory bandwidth optimization for ai chips', 'hardware security for ai accelerators', 'fault tolerance in neural hardware', 'automated machine learning pipeline', 'self improving machine learning system', 'closed loop model improvement', 'online learning in production systems', 'active learning feedback loop', 'gradient based architecture search', 'meta learning for model adaptation', 'reinforcement learning based hyperparameter tuning', 'continuous deployment of machine learning models', 'mlops pipeline automation', 'monitoring drift in ml deployments', 'feedback loop for recommendation systems', 'self supervised pretraining and finetuning', 'multi agent learning system optimization', 'human in the loop model refinement', 'dynamic dataset curation with ml', 'automated label correction using models', 'bandit based model selection', 'iterative retraining with user feedback', 'autonomous machine learning lifecycle']
+
+async def seed_database():
+    pass
+if __name__ == '__main__':
+    asyncio.run(seed_database())
+
+============================================================
+FILE: tests\conftest.py
+============================================================
+from typing import AsyncGenerator
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from app.core.dependencies import get_db_session
+from app.core.security import create_access_token
+from app.models.base import Base
+from app.main import app
+from app.models.user import User
+SQLALCHEMY_DATABASE_URL = 'sqlite+aiosqlite:///:memory:'
+engine = create_async_engine(SQLALCHEMY_DATABASE_URL, connect_args={'check_same_thread': False}, poolclass=None)
+TestingSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=engine, class_=AsyncSession, expire_on_commit=False)
+
+@pytest_asyncio.fixture(scope='function')
+async def db_session() -> AsyncGenerator[AsyncSession, None]:
+    pass
+
+@pytest_asyncio.fixture(scope='function')
+async def async_client(db_session: AsyncSession):
+    pass
+
+@pytest_asyncio.fixture(scope='function')
+async def authenticated_client(async_client: AsyncClient, db_session: AsyncSession) -> AsyncClient:
+    pass
+
+============================================================
+FILE: tests\__init__.py
+============================================================
+
+
+============================================================
+FILE: app\core\dependencies.py
+============================================================
+from typing import AsyncGenerator
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.infrastructure.database import async_session_maker
+
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+    pass
+
+============================================================
+FILE: app\core\security.py
+============================================================
+from datetime import datetime, timedelta, timezone
+import jwt
+from fastapi.security import OAuth2PasswordBearer
+from pwdlib import PasswordHash
+from app.config import settings
+password_hash = PasswordHash.recommended()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl='users/login')
+
+def hash_password(plain_password: str) -> str:
+    pass
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    pass
+
+def create_access_token(subject: str) -> str:
+    pass
+
+def decode_access_token(token: str) -> str | None:
+    pass
+
+============================================================
+FILE: app\core\__init__.py
+============================================================
+
+
+============================================================
+FILE: app\demo\solid_llm_demo.py
+============================================================
+class BaseProcessor:
+
+    def process(self, value: int) -> str:
+        pass
+
+class BadProcessor(BaseProcessor):
+
+    def process(self, value: int) -> str:
+        pass
+
+============================================================
+FILE: app\demo\__init__.py
+============================================================
+
+
+============================================================
+FILE: app\infrastructure\database.py
+============================================================
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from app.config import settings
+is_cloud_db = 'supabase' in settings.database_url_str or 'localhost' not in settings.database_url_str
+connect_args = {}
+if is_cloud_db:
+    connect_args = {'ssl': 'require'}
+engine = create_async_engine(url=settings.database_url_str, echo=True, connect_args=connect_args)
+async_session_maker = async_sessionmaker(bind=engine, expire_on_commit=False)
+
+============================================================
+FILE: app\infrastructure\postgres_article_repo.py
+============================================================
+from typing import List
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.article import Article
+from app.interfaces.article_repository import IArticleRepository
+
+class PostgresArticleRepository(IArticleRepository):
+
+    def __init__(self, session: AsyncSession):
+        pass
+
+    async def get_all(self, limit: int, offset: int) -> List[Article]:
+        pass
+
+    async def save_many(self, articles: List[Article]) -> None:
+        pass
+
+    async def get_total_count(self) -> int:
+        pass
+
+============================================================
+FILE: app\infrastructure\postgres_user_repo.py
+============================================================
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.user import User
+from app.interfaces.user_repository import IUserRepository
+
+class PostgresUserRepository(IUserRepository):
+
+    def __init__(self, session: AsyncSession):
+        pass
+
+    async def create(self, user: User) -> User:
+        pass
+
+    async def get_by_email(self, email: str) -> User | None:
+        pass
+
+============================================================
+FILE: app\infrastructure\scopus_client.py
+============================================================
+from datetime import date
+from typing import List, Optional
+import httpx
+from app.config import settings
+from app.models.article import Article
+from app.interfaces.search_client import ISearchClient
+SCOPUS_BASE_URL = 'https://api.elsevier.com/content/search/scopus'
+SCOPUS_FIELDS = 'prism:publicationName,dc:creator,prism:coverDate,prism:doi'
+
+class ScopusHTTPClient(ISearchClient):
+
+    def __init__(self, http_client: httpx.AsyncClient):
+        pass
+
+    async def search(self, keyword: str, count: int=25) -> List[Article]:
+        pass
+
+============================================================
+FILE: app\infrastructure\__init__.py
+============================================================
+
+
+============================================================
+FILE: app\interfaces\article_repository.py
+============================================================
+from abc import ABC, abstractmethod
+from typing import List
+from app.models.article import Article
+
+class IArticleRepository(ABC):
+
+    @abstractmethod
+    async def save_many(self, articles: List[Article]) -> None:
+        """Сохраняет пачку (список) статей в базу данных за один раз"""
+
+    @abstractmethod
+    async def get_all(self, limit: int, offset: int) -> List[Article]:
+        """Возвращает статьи из базы с поддержкой пагинации.
+limit: сколько статей вернуть (размер страницы).
+offset: сколько статей пропустить с начала."""
+
+    @abstractmethod
+    async def get_total_count(self) -> int:
+        """Считает общее количество сохраненных статей в базе"""
+
+============================================================
+FILE: app\interfaces\search_client.py
+============================================================
+from abc import ABC, abstractmethod
+from typing import List
+from app.models.article import Article
+
+class ISearchClient(ABC):
+
+    @abstractmethod
+    async def search(self, keyword: str, count: int=25) -> List[Article]:
+        pass
+
+============================================================
+FILE: app\interfaces\user_repository.py
+============================================================
+from abc import ABC, abstractmethod
+from app.models.user import User
+
+class IUserRepository(ABC):
+
+    @abstractmethod
+    async def create(self, user: User) -> User:
+        pass
+
+    @abstractmethod
+    async def get_by_email(self, email: str) -> User | None:
+        pass
+
+============================================================
+FILE: app\interfaces\__init__.py
+============================================================
+
+
+============================================================
+FILE: app\models\article.py
+============================================================
+import datetime
+from sqlalchemy import Date, DateTime, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.sql import func
+from app.models.base import Base
+
+class Article(Base):
+    __tablename__ = 'articles'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    author: Mapped[str] = mapped_column(String(255), nullable=True)
+    date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
+    doi: Mapped[str] = mapped_column(String(255), unique=True, nullable=True)
+    keyword: Mapped[str] = mapped_column(String(100), nullable=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    def __repr__(self) -> str:
+        pass
+
+============================================================
+FILE: app\models\base.py
+============================================================
+from sqlalchemy.orm import DeclarativeBase
+
+class Base(DeclarativeBase):
+    pass
+
+============================================================
+FILE: app\models\user.py
+============================================================
+from datetime import datetime
+from sqlalchemy import Integer, String, func
+from sqlalchemy.orm import Mapped, mapped_column
+from app.models.base import Base
+
+class User(Base):
+    __tablename__ = 'users'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    username: Mapped[str] = mapped_column(String(50), nullable=True)
+    email: Mapped[str] = mapped_column(String(254), unique=True, nullable=False)
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    def __repr__(self) -> str:
+        pass
+
+============================================================
+FILE: app\models\__init__.py
+============================================================
+
+
+============================================================
+FILE: app\routers\articles.py
+============================================================
+from typing import AsyncGenerator
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Any
+from app.core.dependencies import get_db_session
+from app.infrastructure.postgres_article_repo import PostgresArticleRepository
+from app.infrastructure.scopus_client import ScopusHTTPClient
+from app.models.user import User
+from app.routers.users import get_current_user
+from app.schemas.article_schemas import ArticleResponse, PaginatedArticleResponse
+from app.services.article_service import ArticleService
+from app.services.search_service import SearchService
+router = APIRouter(prefix='/articles', tags=['Articles'])
+
+def get_article_service(session: AsyncSession=Depends(get_db_session)) -> ArticleService:
+    pass
+
+async def get_scopus_client() -> AsyncGenerator[ScopusHTTPClient, None]:
+    pass
+
+def get_search_service(session: AsyncSession=Depends(get_db_session), scopus_client: ScopusHTTPClient=Depends(get_scopus_client)) -> SearchService:
+    pass
+
+@router.get('/', response_model=PaginatedArticleResponse)
+async def get_articles(page: int=Query(1, ge=1, description='Номер страницы'), size: int=Query(10, ge=1, le=100, description='Количество статей на странице'), service: ArticleService=Depends(get_article_service)) -> PaginatedArticleResponse:
+    pass
+
+@router.get('/find', response_model=list[ArticleResponse])
+async def find_articles(response: Response, keyword: str=Query(..., min_length=2, description='Ключевое слово для поиска'), count: int=Query(25, ge=1, le=25, description='Сколько статей запросить из Scopus (макс 25)'), service: SearchService=Depends(get_search_service), scopus_client: ScopusHTTPClient=Depends(get_scopus_client), current_user: User=Depends(get_current_user)) -> Any:
+    pass
+
+============================================================
+FILE: app\routers\health.py
+============================================================
+from fastapi import APIRouter, Depends, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
+from app.core.dependencies import get_db_session
+router = APIRouter(prefix='/health', tags=['Health'])
+
+@router.api_route('/db', methods=['GET', 'HEAD'], status_code=status.HTTP_200_OK)
+async def health_db(session: AsyncSession=Depends(get_db_session)) -> dict[str, str]:
+    pass
+
+============================================================
+FILE: app\routers\users.py
+============================================================
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.dependencies import get_db_session
+from app.core.security import decode_access_token, oauth2_scheme
+from app.infrastructure.postgres_user_repo import PostgresUserRepository
+from app.models.user import User
+from app.schemas.user_schemas import PasswordResetRequest, TokenResponse, UserRegisterRequest, UserResponse
+from app.services.user_service import UserService
+router = APIRouter(prefix='/users', tags=['Users'])
+
+def get_user_service(session: AsyncSession=Depends(get_db_session)) -> UserService:
+    pass
+
+async def get_current_user(token: str=Depends(oauth2_scheme), service: UserService=Depends(get_user_service)) -> User:
+    pass
+
+@router.post('/register', response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def register(data: UserRegisterRequest, service: UserService=Depends(get_user_service)) -> User:
+    pass
+
+@router.post('/login', response_model=TokenResponse)
+async def login(form_data: OAuth2PasswordRequestForm=Depends(), service: UserService=Depends(get_user_service)) -> TokenResponse:
+    pass
+
+@router.get('/me', response_model=UserResponse)
+async def get_me(current_user: User=Depends(get_current_user)) -> User:
+    pass
+
+@router.post('/password-reset-request', status_code=status.HTTP_200_OK)
+async def password_reset_request(data: PasswordResetRequest, service: UserService=Depends(get_user_service)) -> dict[str, str]:
+    pass
+
+============================================================
+FILE: app\routers\__init__.py
+============================================================
+
+
+============================================================
+FILE: app\schemas\article_schemas.py
+============================================================
+from datetime import date
+from typing import List
+from pydantic import BaseModel
+
+class ArticleResponse(BaseModel):
+    title: str
+    author: str | None
+    date: date
+    doi: str | None
+    keyword: str
+    model_config = {'from_attributes': True}
+
+class PaginatedArticleResponse(BaseModel):
+    articles: List[ArticleResponse]
+    total: int
+
+============================================================
+FILE: app\schemas\user_schemas.py
+============================================================
+import re
+from datetime import datetime
+from typing import Self
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+
+class UserRegisterRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=50)
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=255)
+    password_confirm: str = Field(min_length=8, max_length=255)
+
+    @field_validator('password')
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        pass
+
+    @model_validator(mode='after')
+    def passwords_match(self) -> Self:
+        pass
+
+class UserLoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+class UserResponse(BaseModel):
+    id: int
+    username: str | None
+    email: str
+    created_at: datetime | None = None
+    model_config = {'from_attributes': True}
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = 'bearer'
+
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+============================================================
+FILE: app\schemas\__init__.py
+============================================================
+
+
+============================================================
+FILE: app\services\article_service.py
+============================================================
+from app.schemas.article_schemas import ArticleResponse, PaginatedArticleResponse
+from app.interfaces.article_repository import IArticleRepository
+
+class ArticleService:
+
+    def __init__(self, article_repo: IArticleRepository):
+        pass
+
+    async def get_articles_paginated(self, page: int, size: int) -> PaginatedArticleResponse:
+        pass
+
+============================================================
+FILE: app\services\search_service.py
+============================================================
+from typing import List
+from app.models.article import Article
+from app.interfaces.article_repository import IArticleRepository
+from app.interfaces.search_client import ISearchClient
+
+class SearchService:
+
+    def __init__(self, search_client: ISearchClient, article_repo: IArticleRepository):
+        pass
+
+    async def find_and_save(self, keyword: str, count: int=25) -> List[Article]:
+        pass
+
+============================================================
+FILE: app\services\user_service.py
+============================================================
+from app.core.security import create_access_token, hash_password, verify_password
+from app.models.user import User
+from app.schemas.user_schemas import UserRegisterRequest
+from app.interfaces.user_repository import IUserRepository
+
+class UserService:
+
+    def __init__(self, user_repo: IUserRepository):
+        pass
+
+    async def register(self, data: UserRegisterRequest) -> User:
+        pass
+
+    async def login(self, email: str, password: str) -> str:
+        pass
+
+    async def get_current_user(self, email: str) -> User | None:
+        pass
+
+    async def request_password_reset(self, email: str) -> str:
+        pass
+
+============================================================
+FILE: app\services\__init__.py
+============================================================
+
+
+============================================================
+FILE: tests\integration\test_articles_api.py
+============================================================
+from datetime import date
+import pytest
+from httpx import AsyncClient
+from app.models.article import Article
+
+@pytest.fixture(autouse=True)
+def mock_scopus_api(monkeypatch):
+    """Эта фикстура автоматически подменяет реальный метод поиска на наш фейковый."""
+
+@pytest.mark.asyncio
+async def test_find_and_save_articles_integration(authenticated_client: AsyncClient):
+    pass
+
+============================================================
+FILE: tests\integration\test_users_api.py
+============================================================
+import pytest
+from httpx import AsyncClient
+
+@pytest.mark.asyncio
+async def test_register_user_integration(async_client: AsyncClient):
+    pass
+
+@pytest.mark.asyncio
+async def test_register_duplicate_email_integration(async_client: AsyncClient):
+    pass
+
+@pytest.mark.asyncio
+async def test_login_integration(async_client: AsyncClient):
+    pass
+
+============================================================
+FILE: tests\integration\__init__.py
+============================================================
+
+
+============================================================
+FILE: tests\unit\test_article_service.py
+============================================================
+from datetime import date
+from typing import List
+import pytest
+from app.models.article import Article
+from app.schemas.article_schemas import PaginatedArticleResponse
+from app.services.article_service import ArticleService
+from app.interfaces.article_repository import IArticleRepository
+
+class FakeArticleRepository(IArticleRepository):
+
+    def __init__(self):
+        pass
+
+    async def save_many(self, articles: List[Article]) -> None:
+        pass
+
+    async def get_all(self, limit: int, offset: int) -> List[Article]:
+        pass
+
+    async def get_total_count(self) -> int:
+        pass
+
+@pytest.fixture
+def article_service() -> tuple[ArticleService, FakeArticleRepository]:
+    pass
+
+@pytest.mark.asyncio
+async def test_get_articles_paginated_page_1(article_service):
+    pass
+
+@pytest.mark.asyncio
+async def test_get_articles_paginated_page_3(article_service):
+    pass
+
+@pytest.mark.asyncio
+async def test_get_articles_paginated_negative_page(article_service):
+    pass
+
+============================================================
+FILE: tests\unit\test_user_service.py
+============================================================
+import pytest
+from app.models.user import User
+from app.schemas.user_schemas import UserRegisterRequest
+from app.interfaces.user_repository import IUserRepository
+from app.services.user_service import UserService
+
+@pytest.fixture(autouse=True)
+def mock_password_hashing(monkeypatch):
+    pass
+
+class FakeUserRepository(IUserRepository):
+
+    def __init__(self):
+        pass
+
+    async def create(self, user: User) -> User:
+        pass
+
+    async def get_by_email(self, email: str) -> User | None:
+        pass
+
+@pytest.fixture
+def user_service() -> UserService:
+    pass
+
+@pytest.mark.asyncio
+async def test_register_user_success(user_service: UserService):
+    pass
+
+@pytest.mark.asyncio
+async def test_register_user_duplicate_email(user_service: UserService):
+    pass
+
+============================================================
+FILE: tests\integration\tests\integration\test_articles_headers.py
+============================================================
+import pytest
+from httpx import AsyncClient
+from app.main import app
+from app.routers.articles import get_scopus_client
+from app.services.search_service import SearchService
+
+class FakeScopusClient:
+
+    def __init__(self):
+        pass
+
+async def override_get_scopus_client():
+    pass
+
+@pytest.mark.asyncio
+async def test_find_articles_rate_limits_headers(authenticated_client: AsyncClient, monkeypatch):
+    pass
+
+============================================================
+FILE: tests\unit\tests\unit\test_scopus_client.py
+============================================================
+import pytest
+import httpx
+from app.infrastructure.scopus_client import ScopusHTTPClient
+
+@pytest.mark.asyncio
+async def test_scopus_client_search_and_limits(monkeypatch):
+    pass
+
+============================================================
+FILE: tools\solid_verifier\.tmp_heuristics_tests\tmp_module.py
+============================================================
+class Router:
+
+    def route(self, req):
+        pass
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\config.py
+============================================================
+import os
+import json
+from pathlib import Path
+from typing import Any, Dict
+from .llm.types import LlmConfig
+
+def load_config(path: str | None) -> Dict[str, Any]:
+    """Загружает конфиг верификатора из JSON-файла.
+Если путь не передан, ищет solid_config.json в той же директории, где лежит сам скрипт."""
+
+def _resolve_path_from_config(raw_path: str, config_dir: Path) -> str:
+    """Преобразует путь из конфига в абсолютный путь.
+
+Правила:
+- абсолютный путь оставляем как есть
+- относительный путь трактуем относительно директории solid_config.json"""
+
+def load_llm_config(raw_config: Dict[str, Any]) -> LlmConfig:
+    """Строит LlmConfig из общего JSON-конфига solid_config.json.
+
+Ожидается секция вида:
+    "llm": {
+        "provider": "openrouter",
+        "model": "openai/gpt-4o-mini",
+        "api_key": null,
+        "endpoint": null,
+        "max_tokens_per_run": 1000,
+        "cache_dir": ".solid-cache/llm",
+        "prompts_dir": "tools/solid_verifier/prompts"
+    }
+
+Все файловые пути резолвятся относительно директории solid_config.json"""
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\pipeline.py
+============================================================
+import logging
+from typing import Dict, Any, List
+from pathlib import Path
+from .interfaces.analyzer import IAnalyzer
+from solid_dashboard.llm.llm_client.factory import create_llm_adapter
+from solid_dashboard.llm.types import LlmAnalysisInput
+from solid_dashboard.config import load_llm_config
+logger = logging.getLogger(__name__)
+
+def run_pipeline(target_dir: str, config: Dict[str, Any], adapters: List[IAnalyzer]) -> Dict[str, Any]:
+    pass
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\schema.py
+============================================================
+from typing import Any, List, Dict, Optional
+from pydantic import BaseModel
+
+class RadonFunctionMetrics(BaseModel):
+    name: str
+    type: str
+    complexity: int
+    rank: str
+    lineno: int
+    parameter_count: Optional[int] = None
+
+class RadonResult(BaseModel):
+    total_items: int
+    mean_cc: float
+    high_complexity_count: int
+    items: List[RadonFunctionMetrics]
+
+class CohesionClassMetrics(BaseModel):
+    name: str
+    methods_count: int
+    cohesion_score: float
+
+class CohesionResult(BaseModel):
+    total_classes_analyzed: int
+    mean_cohesion: float
+    low_cohesion_count: int
+    classes: List[CohesionClassMetrics]
+
+class PydepsResult(BaseModel):
+    nodes: List[Dict[str, Any]]
+    edges: List[Dict[str, Any]]
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\__init__.py
+============================================================
+
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\__main__.py
+============================================================
+import argparse
+import json
+import logging
+from pathlib import Path
+from typing import Any
+from dotenv import load_dotenv
+from dataclasses import asdict, is_dataclass
+from .pipeline import run_pipeline
+from .config import load_config
+from .adapters.radon_adapter import RadonAdapter
+from .adapters.cohesion_adapter import CohesionAdapter
+from .adapters.import_graph_adapter import ImportGraphAdapter
+from .adapters.import_linter_adapter import ImportLinterAdapter
+from .adapters.pyan3_adapter import Pyan3Adapter
+from .adapters.heuristics_adapter import HeuristicsAdapter
+
+def _to_jsonable(value: Any) -> Any:
+    pass
+
+def main() -> None:
+    pass
+if __name__ == '__main__':
+    main()
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\adapters\cohesion_adapter.py
+============================================================
+import ast
+import os
+import logging
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set
+from solid_dashboard.interfaces.analyzer import IAnalyzer
+
+@dataclass
+class MethodInfo:
+    """Информация о методе внутри класса."""
+    name: str
+    lineno: int
+    is_async: bool
+    decorator_kinds: List[str] = field(default_factory=list)
+    used_attributes: Set[str] = field(default_factory=set)
+    called_methods: Set[str] = field(default_factory=set)
+
+@dataclass
+class ClassInfo:
+    """Информация о классе: основа для расчета LCOM4."""
+    name: str
+    filepath: str
+    lineno: int
+    methods: List[MethodInfo] = field(default_factory=list)
+    attributes: Set[str] = field(default_factory=set)
+
+class CohesionAdapter(IAnalyzer):
+
+    @property
+    def name(self) -> str:
+        pass
+
+    def run(self, target_dir: str, context: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Any]:
+        pass
+
+    def _collect_classes(self, target_path: Path, ignore_dirs: set) -> List[ClassInfo]:
+        pass
+
+    def _build_class_info(self, class_node: ast.ClassDef, file_path: Path) -> ClassInfo:
+        """Строит ClassInfo для одного ast.ClassDef:
+- имя класса
+- путь к файлу
+- строка объявления
+- список методов
+- множество атрибутов класса (уровень class body)"""
+
+    def _build_method_info(self, func_node: ast.AST) -> MethodInfo:
+        """Строит MethodInfo для ast.FunctionDef или ast.AsyncFunctionDef.
+Определяет:
+- имя метода
+- async / sync
+- типы декораторов: property, classmethod, staticmethod."""
+
+    def _classify_decorator(self, dec: ast.AST) -> Optional[str]:
+        """Классифицирует декоратор в одно из значений:
+- "property"
+- "classmethod"
+- "staticmethod"
+Если это другой декоратор, возвращает None."""
+
+    def _extract_names_from_assign(self, node: ast.Assign) -> List[str]:
+        """Извлекает имена атрибутов из простого присваивания на уровне класса.
+Примеры:
+  foo = 1              -> ["foo"]
+  x, y = 1, 2          -> ["x", "y"]
+Все, что не является простым Name, игнорируется."""
+
+    def _extract_name_from_ann_assign(self, node: ast.AnnAssign) -> Optional[str]:
+        """Извлекает имя атрибута из аннотированного присваивания на уровне класса.
+Примеры:
+  name: str              -> "name"
+  age: int = 0           -> "age"
+  score: int = Field()   -> "score"
+Если target не является ast.Name (например, self.x), возвращаем None."""
+
+    def _collect_instance_attributes_from_init(self, class_info: ClassInfo, class_node: ast.ClassDef) -> None:
+        """Находит в __init__ присваивания вида self.xxx = ... и добавляет имена xxx
+в class_info.attributes, чтобы их можно было учитывать как поля экземпляра."""
+
+    def _extract_instance_attr_from_target(self, target: ast.AST) -> Optional[str]:
+        """Извлекает имя атрибута экземпляра из левой части присваивания:
+  self.xxx = ...
+  self.xxx: Type = ...
+Возвращает 'xxx' или None, если это не self.xxx/cls.xxx."""
+
+    def _populate_method_usage(self, class_info: ClassInfo, class_node: ast.ClassDef) -> None:
+        """Для каждого метода класса:
+- обходит тело метода;
+- заполняет used_attributes (какие атрибуты класса/экземпляра используются);
+- заполняет called_methods (какие методы данного класса вызываются)."""
+
+    def _compute_lcom4(self, class_info: ClassInfo) -> tuple[int, int]:
+        """Считает LCOM4 для данного класса.
+
+Алгоритм:
+- Берем только методы, кроме __init__ (по требованиям).
+- Строим неориентированный граф:
+  - вершины = имена методов;
+  - ребра между методами A и B, если:
+    * used_attributes(A) ∩ used_attributes(B) != ∅, или
+    * A вызывает B или B вызывает A.
+- LCOM4 = число связных компонент в этом графе.
+- Если после фильтрации нет методов, возвращаем (0, 0)."""
+
+class _MethodUsageVisitor(ast.NodeVisitor):
+    """
+    AST-посетитель для одного метода класса.
+    Собирает:
+    - used_attributes: обращения к атрибутам класса/экземпляра
+      (self.field, cls.field), если field есть в class_attributes.
+    - called_methods: вызовы методов класса (self.method(), cls.method(), method()).
+    """
+
+    def __init__(self, class_attributes: Set[str], method_names: Set[str]) -> None:
+        pass
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> Any:
+        pass
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> Any:
+        pass
+
+    def _register_self_like_names(self, node: ast.AST) -> None:
+        """Регистрируем имена, которые играют роль self/cls (первый параметр метода)."""
+
+    def visit_Attribute(self, node: ast.Attribute) -> Any:
+        """Обращения к атрибутам: self.field, cls.field.
+Если field есть в class_attributes и base_name является self/cls,
+считаем это использованием атрибута."""
+
+    def visit_Call(self, node: ast.Call) -> Any:
+        """Вызовы функций/методов: self.method(), cls.method(), method().
+Если имя совпадает с методом класса, считаем это вызовом метода класса."""
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\adapters\heuristics_adapter.py
+============================================================
+import os
+import logging
+from pathlib import Path
+from typing import Any, Dict, List
+from ..interfaces.analyzer import IAnalyzer
+from ..llm.analysis.ast_parser import build_project_map
+from ..llm.heuristics import identify_candidates
+logger = logging.getLogger(__name__)
+
+class HeuristicsAdapter(IAnalyzer):
+
+    @property
+    def name(self) -> str:
+        pass
+
+    def run(self, target_dir: str, context: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Any]:
+        pass
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\adapters\import_graph_adapter.py
+============================================================
+import sys
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set, Tuple
+from solid_dashboard.interfaces.analyzer import IAnalyzer
+import grimp
+
+class ImportGraphAdapter(IAnalyzer):
+    """
+    Адаптер для построения графа архитектурных слоев на основе grimp.
+
+    Использует тот же движок, что и import-linter. Это снижает риск
+    расхождения между визуальным графом и контрактной проверкой.
+    """
+
+    @property
+    def name(self) -> str:
+        pass
+
+    def run(self, target_dir: str, context: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Any]:
+        pass
+
+    def _is_ignored(self, module_name: str, ignore_dirs: List[str], package_name: str) -> bool:
+        """Проверяет, попадает ли модуль в игнорируемые директории.
+Пример: если module_name="app.tests.test_auth" и ignore_dirs=["tests"], вернет True."""
+
+    def _normalize_layer_config(self, layer_config: Dict[str, Any], package_name: str) -> Dict[str, List[str]]:
+        """Нормализует конфиг внутренних слоев.
+
+Поддерживает оба формата:
+- "routers": "routers"
+- "routers": ["routers"]
+
+На выходе всегда возвращает:
+- "routers": ["app.routers"]"""
+
+    def _build_layer_graph(self, graph: grimp.ImportGraph, layer_config: Dict[str, List[str]], external_layer_config: Dict[str, List[str]], ignore_dirs: List[str], package_name: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
+        pass
+
+    def _build_nodes_with_stability(self, layer_names: List[str], layer_edges: Set[Tuple[str, str]]) -> List[Dict[str, Any]]:
+        """Считает для каждого слоя метрики stability.
+
+ca:
+    сколько слоев зависит от данного слоя
+ce:
+    от скольких слоев зависит данный слой
+instability:
+    ce / (ca + ce), диапазон от 0.0 до 1.0"""
+
+    def _resolve_internal_layer(self, module_name: str, layer_config: Dict[str, List[str]]) -> Optional[str]:
+        '''Ищет внутренний слой для модуля.
+
+Пример:
+- модуль "app.services.user_service"
+- путь слоя "app.services"
+- результат: "services"'''
+
+    def _resolve_external_layer(self, module_name: str, external_layer_config: Dict[str, List[str]]) -> Optional[str]:
+        '''Ищет внешний слой для third-party модуля.
+
+Пример:
+- модуль "sqlalchemy.orm"
+- внешний слой "db_libs": ["sqlalchemy"]
+- результат: "db_libs"'''
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\adapters\import_linter_adapter.py
+============================================================
+import os
+import re
+import subprocess
+from typing import Any, Dict, List
+from solid_dashboard.interfaces.analyzer import IAnalyzer
+ANSI_ESCAPE = re.compile('\\x1B(?:[@-Z\\\\-_]|\\[[0-?]*[ -/]*[@-~])')
+
+class ImportLinterAdapter(IAnalyzer):
+
+    @property
+    def name(self) -> str:
+        pass
+
+    def run(self, target_dir: str, context: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Any]:
+        pass
+
+    def generate_synced_config(self, base_config_path: str, solid_config: Dict[str, Any], outpath: str, package_name: str, ignore_dirs: List[str]) -> None:
+        """Читает базовый .importlinter, заменяет root_packages на package_name, 
+заменяет слои на слои из solid_config, добавляет ignore_imports и сохраняет в outpath."""
+
+    @staticmethod
+    def _parse_contract_stats(output: str, linting_passed: bool) -> tuple[int, int]:
+        """Пытается вытащить из вывода строки вида 'Contracts: 1 kept, 0 broken.'
+или похожие вариации. В крайнем случае — fallback: 1 kept/1 broken."""
+
+    @staticmethod
+    def _error_message(msg: str) -> Dict[str, Any]:
+        pass
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\adapters\pyan3_adapter.py
+============================================================
+from __future__ import annotations
+import os
+import re
+import subprocess
+from typing import Any, Dict, List, Set
+from solid_dashboard.interfaces.analyzer import IAnalyzer
+
+class Pyan3Adapter(IAnalyzer):
+
+    @property
+    def name(self) -> str:
+        pass
+
+    def run(self, target_dir: str, context: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Any]:
+        pass
+
+    @staticmethod
+    def _error(message: str, raw_output: str='') -> Dict[str, Any]:
+        pass
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\adapters\radon_adapter.py
+============================================================
+import subprocess
+import json
+import os
+from pathlib import Path
+from typing import Dict, Any
+from solid_dashboard.interfaces.analyzer import IAnalyzer
+lizard = None
+try:
+    import lizard as _lizard
+    lizard = _lizard
+    LIZARD_AVAILABLE = True
+except ImportError:
+    LIZARD_AVAILABLE = False
+
+class RadonAdapter(IAnalyzer):
+
+    @property
+    def name(self) -> str:
+        pass
+
+    def run(self, target_dir: str, context: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Any]:
+        pass
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\adapters\__init__.py
+============================================================
+
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\interfaces\analyzer.py
+============================================================
+from typing import Protocol, runtime_checkable, Any, Dict
+
+@runtime_checkable
+class IAnalyzer(Protocol):
+
+    @property
+    def name(self) -> str:
+        """Человекочитаемое имя адаптера.
+
+Используется:
+- как ключ в results[name] итогового JSON-отчета;
+- как ключ в context[name] для обмена данными между адаптерами
+  внутри пайплайна."""
+
+    def run(self, target_dir: str, context: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Any]:
+        """Выполняет один шаг анализа над директориями/файлами в target_dir.
+
+Параметры:
+- target_dir: корень анализируемого проекта или его поддиректории
+  (например, монорепо + package_root).
+- context: общий контекст пайплайна, доступный для чтения и записи.
+  Адаптер может:
+    * читать результаты работы предыдущих адаптеров
+      (например, импорт-граф, ProjectMap, LSP-кандидаты);
+    * при необходимости записывать в context[self.name] «богатый»
+      runtime-объект (например, ProjectMap, графы, внутренние модели),
+      если этого требует внутренняя логика или downstream-этапы
+      (как в случае LLM-анализа OCP/LSP).
+  Пайплайн гарантирует, что если адаптер сам заполнил context[self.name],
+  этот объект не будет автоматически перезаписан возвращаемым результатом run().
+- config: JSON-подобная конфигурация всего инструмента (распарсенный
+  solid_config.json и другие настройки).
+
+Возвращаемое значение:
+- JSON-friendly dict с компактной сводкой результатов анализа
+  (только примитивы, списки и словари), пригодный для сериализации
+  в итоговый отчет (solidreport.log, HTML-дашборд).
+- Возвращаемый dict может быть «облегченной» версией по отношению
+  к данным, которые адаптер положил в context[self.name]. Таким образом:
+    * context используется как канал для обмена богатыми объектами
+      между адаптерами и LLM-слоем;
+    * возвращаемое значение run() используется для внешнего отчета."""
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\interfaces\__init__.py
+============================================================
+
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\llm\errors.py
+============================================================
+"""
+Ошибки LLM-провайдера для SOLID-верификатора.
+
+Этот модуль определяет контракт ошибок между HTTP-уровнем (провайдером)
+и LlmGateway. Логика классификации ошибок описана в
+http_client_tech_spec.md, раздел «Классификация HTTP-ошибок» [file:36].
+
+Правила:
+- Провайдер ВСЕГДА преобразует HTTP/сетевые ошибки в один из двух типов:
+  RetryableError или NonRetryableError.
+- LlmGateway НИКОГДА не анализирует HTTP-статусы напрямую, он работает
+  только с этими двумя классами.
+"""
+from __future__ import annotations
+from dataclasses import dataclass
+from typing import Optional
+
+@dataclass
+class LlmError(Exception):
+    """
+    Базовый тип ошибок LLM-провайдера.
+
+    Поля:
+        message: Человекочитаемое описание ошибки (для логов и отчетов).
+        status_code: HTTP-статус (если известен), иначе None.
+
+    Замечание:
+        Этот класс сам по себе не используется в логике retry.
+        LlmGateway различает только подклассы RetryableError и
+        NonRetryableError.
+    """
+    message: str
+    status_code: Optional[int] = None
+
+    def __str__(self) -> str:
+        pass
+
+@dataclass
+class RetryableError(LlmError):
+    """
+    Ошибка, для которой Gateway может попытаться повторить запрос.
+
+    Примеры (см. http_client_tech_spec.md):
+        - Таймауты (TimeoutException, ConnectError).
+        - HTTP 429 Too Many Requests.
+        - HTTP 5xx (500, 502, 503, 504).
+
+    Поведение LlmGateway:
+        - Выполняет до N повторов (по спецификации — еще 2 попытки)
+          с увеличивающимися задержками.
+        - Если все попытки исчерпаны, превращает ситуацию в
+          LlmUnavailableError (или аналогичный агрегирующий сигнал)
+          на своем уровне.
+    """
+    pass
+
+@dataclass
+class NonRetryableError(LlmError):
+    """
+    Ошибка, при которой повтор запроса смысла не имеет.
+
+    Примеры (см. http_client_tech_spec.md):
+        - HTTP 400 Bad Request (ошибка формата запроса).
+        - HTTP 401 Unauthorized, 403 Forbidden, 404 Not Found.
+        - Любой 2xx-ответ с невалидной структурой JSON
+          (неожиданный формат данных от провайдера).
+
+    Поведение LlmGateway:
+        - НЕ выполняет повторов.
+        - Немедленно фиксирует ошибку и переходит к деградации:
+          per-candidate warning, пропуск кандидата, или fail-fast
+          в зависимости от настроек деградации.
+    """
+    pass
+
+class BudgetExhaustedError(LlmError):
+    """
+    Доменная ошибка LLM-уровня: токен-бюджет на запуск исчерпан.
+
+    Генерируется Gateway до отправки запроса к провайдеру, если
+    контроллер бюджета сообщает об исчерпании лимита (max_tokens_per_run).
+
+    Это внутренняя ошибка инфраструктуры (Gateway), поэтому HTTP status_code
+    для нее всегда равен None.
+    """
+
+    def __init__(self, used: int | None=None, limit: int | None=None, message: str | None=None) -> None:
+        pass
+
+@dataclass
+class LlmUnavailableError(LlmError):
+    """
+    Провайдер так и не смог успешно ответить после нескольких retry.
+
+    Используется Gateway:
+      - когда исчерпаны все попытки на RetryableError;
+      - когда в результате деградации сервис остается недоступным.
+
+    Это «зонтичная» ошибка для внешнего мира: 
+    пайплайн видит, что LLM-сервис временно недоступен.
+    """
+
+    def __init__(self, message: str='LLM provider unavailable', status_code: Optional[int]=None) -> None:
+        pass
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\llm\types.py
+============================================================
+"""
+Контракты и типы данных для LLM-функционала SOLID-анализатора.
+
+Этот модуль содержит исключительно типы — никакой бизнес-логики.
+Все остальные модули (buildProjectMap, identifyCandidates, LlmGateway, LlmSolidAdapter)
+импортируют типы отсюда.
+"""
+from __future__ import annotations
+from dataclasses import dataclass, field
+from typing import Literal
+SourceType = Literal['static', 'heuristic', 'llm']
+CandidateType = Literal['ocp', 'lsp', 'both']
+SeverityLevel = Literal['error', 'warning', 'info']
+
+@dataclass
+class MethodSignature:
+    """Сигнатура метода класса (без тела)."""
+    name: str
+    parameters: str
+    return_type: str | None
+    is_override: bool = False
+    is_abstract: bool = False
+
+@dataclass
+class ClassInfo:
+    """
+    Полная информация о классе, извлеченная из AST.
+    source_code — полный исходный текст блока class, включая тело.
+    """
+    name: str
+    file_path: str
+    source_code: str
+    parent_classes: list[str]
+    implemented_interfaces: list[str]
+    methods: list[MethodSignature]
+    dependencies: list[str]
+
+@dataclass
+class InterfaceInfo:
+    """
+    Информация об абстрактном базовом классе или Protocol.
+    implementations — имена классов, наследующих этот интерфейс.
+    """
+    name: str
+    file_path: str
+    methods: list[MethodSignature]
+    implementations: list[str]
+
+@dataclass
+class ProjectMap:
+    """
+    Граф классов и интерфейсов проекта.
+    Строится единожды (Шаг 0) и передается во все последующие компоненты.
+    """
+    classes: dict[str, ClassInfo] = field(default_factory=dict)
+    interfaces: dict[str, InterfaceInfo] = field(default_factory=dict)
+
+@dataclass
+class LlmCandidate:
+    """
+    Класс-кандидат для LLM-анализа, отобранный эвристиками.
+    priority — чем выше, тем раньше обрабатывается при ограниченном бюджете.
+    """
+    class_name: str
+    file_path: str
+    source_code: str
+    candidate_type: CandidateType
+    heuristic_reasons: list[str]
+    priority: int
+
+@dataclass
+class HeuristicResult:
+    """
+    Выход функции identify_candidates().
+    findings идут напрямую в Report Aggregator (минуя LLM-адаптер).
+    candidates идут в LlmSolidAdapter (если LLM включен).
+    """
+    findings: list[Finding] = field(default_factory=list)
+    candidates: list[LlmCandidate] = field(default_factory=list)
+
+@dataclass
+class LlmConfig:
+    """
+    Конфигурация LLM-функционала из .solid_config.json
+    api_key может быть None для Ollama (локальный режим без аутентификации).
+    """
+    provider: str
+    model: str
+    api_key: str | None
+    endpoint: str | None
+    max_tokens_per_run: int
+    cache_dir: str
+    prompts_dir: str
+
+@dataclass
+class LlmAnalysisInput:
+    """
+    Вход LlmSolidAdapter.analyze()
+    Содержит только данные анализа: карту проекта и список кандидатов
+    Конфигурация LLM передается в адаптер через DI (LlmSolidAdapter.config)
+    """
+    project_map: ProjectMap
+    candidates: list[LlmCandidate]
+
+@dataclass
+class LlmMetadata:
+    """Метаданные выполнения LLM-анализа для summary в отчете."""
+    candidates_processed: int
+    candidates_skipped: int
+    tokens_used: int
+    cache_hits: int
+    parse_failures: int = 0
+    parse_partials: int = 0
+    parse_warnings: int = 0
+
+@dataclass
+class LlmAnalysisOutput:
+    """Выход LlmSolidAdapter.analyze()."""
+    findings: list[Finding] = field(default_factory=list)
+    metadata: LlmMetadata = field(default_factory=lambda: LlmMetadata(candidates_processed=0, candidates_skipped=0, tokens_used=0, cache_hits=0, parse_failures=0, parse_partials=0, parse_warnings=0))
+
+@dataclass
+class FindingDetails:
+    """
+    Расширенная информация для heuristic и llm findings.
+    Все поля опциональны — статические findings details не используют.
+    """
+    principle: str | None = None
+    explanation: str | None = None
+    suggestion: str | None = None
+    analyzed_with: list[str] | None = None
+    heuristic_corroboration: bool | None = None
+    method_name: str | None = None
+
+@dataclass
+class Finding:
+    """
+    Единый формат finding для всех источников анализа.
+
+    Именование rule:
+      Существующие:  SRP-001, ISP-001, DIP-001
+      Эвристики:     OCP-H-001, LSP-H-001 (см. архитектурный план)
+      LLM:           OCP-LLM-001, LSP-LLM-001
+
+    line=None для LLM-findings (LLM не может надежно указать строку).
+    """
+    rule: str
+    file: str
+    severity: SeverityLevel
+    message: str
+    source: SourceType
+    class_name: str | None = None
+    line: int | None = None
+    details: FindingDetails | None = None
+
+@dataclass(frozen=True)
+class LlmResponse:
+    """
+    Контрактная граница (ACL-A) между провайдером и Gateway.
+    Объект иммутабелен (frozen=True) и гарантированно содержит валидные данные.
+    Сырые данные (dict от провайдера) не пересекают эту границу.
+    """
+    content: str
+    tokens_used: int
+    model: str = ''
+ParseStatus = Literal['success', 'partial', 'failure']
+
+@dataclass
+class ParseResult:
+    """Результат безопасного извлечения findings из ответа LLM."""
+    findings: list[Finding]
+    warnings: list[str]
+    status: ParseStatus
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\llm\__init__.py
+============================================================
+from .types import MethodSignature, ClassInfo, InterfaceInfo, ProjectMap, LlmCandidate, HeuristicResult, LlmConfig, LlmAnalysisInput, LlmAnalysisOutput, LlmMetadata, Finding, FindingDetails, SourceType, CandidateType, SeverityLevel, LlmResponse, ParseStatus, ParseResult
+from .analysis.ast_parser import build_project_map
+__all__ = ['SourceType', 'CandidateType', 'SeverityLevel', 'ParseStatus', 'MethodSignature', 'ClassInfo', 'InterfaceInfo', 'ProjectMap', 'Finding', 'FindingDetails', 'HeuristicResult', 'LlmCandidate', 'LlmConfig', 'LlmAnalysisInput', 'LlmAnalysisOutput', 'LlmMetadata', 'LlmResponse', 'ParseResult', 'build_project_map']
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\report\differ.py
+============================================================
+
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\report\generator.py
+============================================================
+
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\report\solid_project_tree.py
+============================================================
+from pathlib import Path
+IGNORE_DIRS = {'.git', '.venv', '__pycache__', '.idea', '.mypy_cache', '.pytest_cache', '.solid-cache', '.grimp_cache', '.tmp_heuristics_tests'}
+IGNORE_FILES = {'.DS_Store', '.win-amd64'}
+
+def print_tree(root: Path, file_obj, prefix: str='') -> None:
+    pass
+if __name__ == '__main__':
+    report_dir = Path(__file__).resolve().parent
+    tools_dir = report_dir.parents[2]
+    output_file = report_dir / 'project_tree.txt'
+    with open(output_file, 'w', encoding='utf-8') as f:
+        f.write(f'{tools_dir.name}/\n')
+        print_tree(tools_dir, f)
+    print(f"Project tree for '{tools_dir}' has been saved to: {output_file}")
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\llm\analysis\ast_parser.py
+============================================================
+"""
+Построение ProjectMap — Шаг 0 пайплайна LLM-анализа.
+Использует только стандартный ast.parse(), никаких внешних зависимостей.
+"""
+import ast
+import logging
+from pathlib import Path
+from typing import List, Set, Union
+from collections.abc import Sequence
+from ..types import ClassInfo, InterfaceInfo, MethodSignature, ProjectMap
+logger = logging.getLogger(__name__)
+_INTERFACE_MARKERS = frozenset({'ABC', 'Protocol'})
+
+def _extract_class_source(source: str, node: ast.ClassDef) -> str:
+    """Возвращает полный текст блока class, включая тело."""
+
+def _extract_bases(node: ast.ClassDef) -> List[str]:
+    """Извлекает имена базовых классов.
+Динамические выражения (get_base()) → '<dynamic>'."""
+
+def _is_abstract_method(func: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    """Определяет, помечен ли метод как абстрактный через @abstractmethod.
+
+Поддерживаем:
+  - @abstractmethod
+  - @abc.abstractmethod
+  - @something.abstractmethod"""
+
+def _extract_method_signatures(node: ast.ClassDef, parent_method_names: Set[str]) -> List[MethodSignature]:
+    pass
+
+def _annotation_to_str(node: ast.expr | None) -> str:
+    """Преобразует AST-ноду аннотации типа в строку (best-effort)."""
+
+def _extract_top_level_imports(tree: ast.Module) -> List[str]:
+    """Собирает имена модулей из top-level import/from-import.
+Используется для заполнения ClassInfo.dependencies."""
+
+def _is_interface(bases: List[str]) -> bool:
+    """Класс считается интерфейсом, если среди его баз есть ABC или Protocol."""
+
+def build_project_map(files: Sequence[Union[str, Path]]) -> ProjectMap:
+    """Строит ProjectMap по списку Python-файлов или директорий.
+Директории рекурсивно сканируются на *.py файлы."""
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\llm\analysis\class_role.py
+============================================================
+import ast
+from enum import Enum, auto
+
+class ClassRole(Enum):
+    PURE_INTERFACE = auto()
+    INFRA_MODEL = auto()
+    CONFIG = auto()
+    DOMAIN = auto()
+_KNOWN_INFRA_BASES: frozenset[str] = frozenset({'BaseModel', 'GenericModel', 'BaseSettings', 'DeclarativeBase', 'DeclarativeBaseNoMeta', 'MappedAsDataclass'})
+_KNOWN_CONFIG_BASES: frozenset[str] = frozenset({'BaseSettings', 'Settings', 'Config', 'AppConfig', 'BaseConfig'})
+
+def _extract_base_names(class_node: ast.ClassDef) -> list[str]:
+    """Возвращает имена базовых классов из AST-ноды."""
+
+def _is_docstring_node(node: ast.stmt) -> bool:
+    pass
+
+def _is_trivial_body(body: list[ast.stmt]) -> bool:
+    pass
+
+def _is_pure_interface(class_node: ast.ClassDef) -> bool:
+    pass
+
+def _compute_infra_score(class_node: ast.ClassDef, base_names: list[str]) -> int:
+    pass
+
+def classify_class(class_node: ast.ClassDef, import_aliases: dict[str, str] | None=None) -> ClassRole:
+    pass
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\llm\analysis\__init__.py
+============================================================
+
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\llm\heuristics\lsp_h_001.py
+============================================================
+import ast
+from typing import List
+from ..types import ClassInfo, Finding, ProjectMap
+from ._shared import _is_abstract_class, _make_finding
+
+def check(class_node: ast.ClassDef, class_info: ClassInfo, project_map: ProjectMap) -> List[Finding]:
+    pass
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\llm\heuristics\lsp_h_002.py
+============================================================
+import ast
+from typing import List
+from ..types import ClassInfo, Finding, ProjectMap
+from ._shared import _is_abstract_class, _make_finding
+
+def check(class_node: ast.ClassDef, class_info: ClassInfo, project_map: ProjectMap) -> List[Finding]:
+    pass
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\llm\heuristics\lsp_h_003.py
+============================================================
+import ast
+from typing import List
+from ..types import ClassInfo, Finding, ProjectMap
+from ._shared import _make_finding
+
+def check(class_node: ast.ClassDef, class_info: ClassInfo, project_map: ProjectMap) -> List[Finding]:
+    pass
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\llm\heuristics\lsp_h_004.py
+============================================================
+import ast
+from typing import List
+from ..analysis.class_role import ClassRole, classify_class
+from ..types import ClassInfo, Finding, ProjectMap
+from ._shared import _make_finding, _parse_class_ast
+_LSP_H004_EXCLUDED_PARENTS: set[str] = {'object', 'ABC', 'Protocol', 'TypedDict', 'NamedTuple', 'BaseModel'}
+
+def _has_dataclass_decorator(class_node: ast.ClassDef) -> bool:
+    pass
+
+def _parent_is_pure_interface(parent_name: str, class_info: ClassInfo, project_map: ProjectMap, import_aliases: dict[str, str]) -> bool:
+    pass
+
+def check(class_node: ast.ClassDef, class_info: ClassInfo, project_map: ProjectMap, import_aliases: dict[str, str] | None=None) -> List[Finding]:
+    pass
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\llm\heuristics\ocp_h_001.py
+============================================================
+import ast
+from typing import List
+from ..analysis.class_role import ClassRole, classify_class
+from ..types import ClassInfo, Finding
+from ._shared import _count_elif_chain, _has_isinstance_call, _make_finding
+_OCP_H001_THRESHOLD: int = 3
+
+def _count_isinstance_branches(if_node: ast.If) -> int:
+    pass
+
+def check(class_node: ast.ClassDef, class_info: ClassInfo, import_aliases: dict[str, str] | None=None) -> List[Finding]:
+    pass
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\llm\heuristics\ocp_h_002.py
+============================================================
+import ast
+from typing import List, cast
+from ..analysis.class_role import ClassRole, classify_class
+from ..types import ClassInfo, Finding
+from ._shared import _make_finding
+_OCP_H002_THRESHOLD: int = 3
+
+def check(class_node: ast.ClassDef, class_info: ClassInfo, import_aliases: dict[str, str] | None=None) -> List[Finding]:
+    pass
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\llm\heuristics\ocp_h_004.py
+============================================================
+import ast
+from typing import List
+from ..analysis.class_role import ClassRole, classify_class
+from ..types import ClassInfo, Finding
+from ._shared import _compute_method_cc, _iter_method_nodes, _make_finding
+_OCP_H004_CC_THRESHOLD: int = 5
+
+def check(class_node: ast.ClassDef, class_info: ClassInfo, import_aliases: dict[str, str] | None=None) -> List[Finding]:
+    pass
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\llm\heuristics\_runner.py
+============================================================
+import ast
+import logging
+from collections import defaultdict
+from typing import List
+from ..analysis.class_role import ClassRole, classify_class
+from ..types import CandidateType, ClassInfo, Finding, HeuristicResult, LlmCandidate, ProjectMap
+from ._shared import _DEFAULT_EXCLUDE_PATTERNS, _parse_class_ast, _should_exclude_path
+from . import lsp_h_001, lsp_h_002, lsp_h_003, lsp_h_004
+from . import ocp_h_001, ocp_h_002, ocp_h_004
+logger = logging.getLogger(__name__)
+_FINDING_PRIORITY: dict[str, int] = {'OCP-H-001': 2, 'OCP-H-004': 1, 'LSP-H-001': 2, 'LSP-H-002': 1}
+
+def _deduplicate_findings(findings: list[Finding]) -> list[Finding]:
+    pass
+
+def _deduplicate_candidates(candidates: list[LlmCandidate]) -> list[LlmCandidate]:
+    pass
+
+def _compute_priority(reasons: List[str], inheritance_depth: int, interface_count: int) -> int:
+    pass
+
+def _determine_candidate_type(has_ocp_reasons: bool, has_lsp_reasons: bool, has_hierarchy: bool) -> CandidateType:
+    pass
+
+def _build_import_aliases(source_code: str) -> dict[str, str]:
+    pass
+
+def identify_candidates(project_map: ProjectMap, exclude_patterns: list[str] | None=None) -> HeuristicResult:
+    pass
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\llm\heuristics\_shared.py
+============================================================
+import ast
+import logging
+from typing import Generator
+from ..types import ClassInfo, Finding, FindingDetails, ProjectMap
+logger = logging.getLogger(__name__)
+_DEFAULT_EXCLUDE_PATTERNS: list[str] = ['tests/', 'test_', '_test.py', 'conftest.py', 'migrations/', '__pycache__/', '.venv/', 'venv/', 'node_modules/', 'setup.py', 'manage.py', 'config.py', 'settings.py', 'conf.py']
+_CC_NODE_TYPES = (ast.If, ast.For, ast.While, ast.ExceptHandler, ast.With, ast.Assert, ast.comprehension)
+_CC_BOOL_OPS = (ast.And, ast.Or)
+__all__ = ['_DEFAULT_EXCLUDE_PATTERNS', '_normalize_path_for_matching', '_should_exclude_path', '_parse_class_ast', '_make_finding', '_is_abstract_class', '_has_isinstance_call', '_count_elif_chain', '_iter_method_nodes', '_compute_method_cc']
+
+def _normalize_path_for_matching(path: str) -> str:
+    pass
+
+def _should_exclude_path(file_path: str, exclude_patterns: list[str] | None) -> bool:
+    pass
+
+def _parse_class_ast(source_code: str, class_name: str) -> ast.ClassDef | None:
+    pass
+
+def _make_finding(rule: str, class_info: ClassInfo, message: str, principle: str, explanation: str, suggestion: str, method_name: str | None=None) -> Finding:
+    pass
+
+def _is_abstract_class(class_info: ClassInfo, project_map: ProjectMap) -> bool:
+    pass
+
+def _has_isinstance_call(node: ast.expr) -> bool:
+    pass
+
+def _count_elif_chain(if_node: ast.If) -> int:
+    pass
+
+def _iter_method_nodes(func: ast.FunctionDef | ast.AsyncFunctionDef) -> Generator[ast.AST, None, None]:
+    pass
+
+def _compute_method_cc(func: ast.FunctionDef | ast.AsyncFunctionDef) -> int:
+    pass
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\llm\heuristics\__init__.py
+============================================================
+from ._runner import identify_candidates
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\llm\llm_client\budget.py
+============================================================
+from __future__ import annotations
+import logging
+logger = logging.getLogger(__name__)
+
+class TokenBudgetController:
+    """
+    Контроллер токен-бюджета для LLM.
+
+    Реализует протокол BudgetController, используемый в LlmGateway:
+    - хранит максимальный лимит токенов на один запуск CLI,
+    - накапливает фактически использованные токены,
+    - сообщает, исчерпан ли бюджет.
+
+    Важный момент: сам контроллер НЕ бросает исключений.
+    Решение о том, когда поднять BudgetExhaustedError, принимает LlmGateway.
+    """
+
+    def __init__(self, max_tokens: int) -> None:
+        pass
+
+    def is_exhausted(self) -> bool:
+        """Проверяет, превысил ли расход токенов установленный лимит.
+
+Контракт:
+- если max_tokens <= 0, бюджет считается неограниченным
+  (например, для локального провайдера вроде Ollama);
+- при достижении/превышении лимита логируется warning и возвращается True."""
+
+    def record_tokens(self, tokens: int) -> None:
+        """Регистрирует потраченные токены.
+
+Контракт:
+- отрицательные и нулевые значения игнорируются;
+- контроллер только обновляет счетчик и логирует debug-сообщение,
+  не поднимая исключений."""
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\llm\llm_client\cache.py
+============================================================
+from __future__ import annotations
+import json
+import logging
+from pathlib import Path
+from typing import Optional
+from ..types import LlmResponse
+logger = logging.getLogger(__name__)
+
+class FileCache:
+    """
+    Файловый кэш для LLM-ответов.
+    Реализует протокол LlmCache для LlmGateway.
+    Сохраняет ответы в виде JSON-файлов: <cache_dir>/<key>.json
+    """
+
+    def __init__(self, cache_dir: str | Path) -> None:
+        pass
+
+    def get(self, key: str) -> Optional[LlmResponse]:
+        """Пытается прочитать закэшированный ответ по ключу key.
+В случае любой проблемы с файлом/данными возвращает None,
+чтобы кэш не ронял основной пайплайн."""
+
+    def set(self, key: str, value: LlmResponse) -> None:
+        """Сохраняет ответ value в кэш под ключом key.
+Ошибки файловой системы не должны ронять пайплайн:
+в случае OSError просто логируем предупреждение."""
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\llm\llm_client\factory.py
+============================================================
+from __future__ import annotations
+import logging
+from .budget import TokenBudgetController
+from .cache import FileCache
+from ..errors import NonRetryableError
+from .gateway import LlmGateway
+from .llm_adapter import LlmSolidAdapter
+from .provider import OpenRouterProvider
+from ..types import LlmConfig
+logger = logging.getLogger(__name__)
+_SUPPORTED_PROVIDERS = frozenset({'openrouter'})
+
+def create_llm_adapter(config: LlmConfig) -> LlmSolidAdapter:
+    """Публичная точка сборки всего LLM-стека: пайплайн вызывает именно эту функцию и получает готовый адаптер
+Ни пайплайн, ни адаптер не знают о конкретных классах инфраструктуры.
+
+Цепочка сборки:
+    LlmConfig
+        → _validate_config(config)          # fail-fast
+        → OpenRouterProvider(api_key, endpoint)  # Transport Layer
+        → FileCache(cache_dir)               # Кэш
+        → TokenBudgetController(max_tokens)  # Бюджет
+        → LlmGateway(provider, cache, budget)
+        → LlmSolidAdapter(gateway, config)"""
+
+def _validate_config(config: LlmConfig) -> None:
+    """Fail-fast валидация LlmConfig при старте.
+(для не-Ollama провайдеров) — это ошибка конфигурации, пайплайн
+должен остановиться немедленно, не ждать первого вызова к API."""
+
+def _create_gateway(config: LlmConfig) -> LlmGateway:
+    pass
+
+def _create_provider(config: LlmConfig) -> OpenRouterProvider:
+    pass
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\llm\llm_client\gateway.py
+============================================================
+from __future__ import annotations
+import hashlib
+import json
+import logging
+import time
+from dataclasses import dataclass, asdict
+from typing import Sequence, Optional
+from .provider import LlmProvider, Message, LlmOptions
+from .interfaces import LlmCache
+from ..types import LlmResponse
+from .budget import TokenBudgetController
+from ..errors import BudgetExhaustedError, LlmUnavailableError, RetryableError, NonRetryableError
+logger = logging.getLogger(__name__)
+
+@dataclass
+class LlmGateway:
+    """
+    Оркестратор LLM-вызовов.
+
+    Отвечает за:
+      - кэширование по полному промпту,
+      - контроль токен-бюджета,
+      - retry-логику для временных ошибок провайдера.
+
+    Не знает ничего про httpx/HTTP — работает только через LlmProvider.
+    """
+    provider: LlmProvider
+    cache: Optional[LlmCache] = None
+    budget: Optional[TokenBudgetController] = None
+    _max_attempts: int = 3
+    _retry_delays: tuple[float, float] = (2.0, 5.0)
+
+    def analyze(self, messages: Sequence[Message], options: LlmOptions) -> LlmResponse:
+        """Высокоуровневый вызов LLM с учетом:
+- кэша (если он передан),
+- токен-бюджета (если он передан),
+- retry-логики для временных ошибок провайдера."""
+
+    def _build_cache_key(self, messages: Sequence[Message], options: LlmOptions) -> str:
+        """Строит ключ кэша как SHA256(full_prompt).
+
+full_prompt = детерминированный JSON:
+- список сообщений (Message → dict через asdict),
+- все публичные поля LlmOptions."""
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\llm\llm_client\interfaces.py
+============================================================
+from __future__ import annotations
+from typing import Protocol, Optional
+from ..types import LlmResponse
+
+class LlmCache(Protocol):
+    """
+    Протокол кэша для LlmGateway.
+
+    Любая реализация кэша (файловая, in-memory, redis и т.п.)
+    должна реализовать этот интерфейс, чтобы ее можно было
+    прозрачно подставить в LlmGateway.
+    """
+
+    def get(self, key: str) -> Optional[LlmResponse]:
+        """Вернуть закэшированный LlmResponse по ключу key
+или None, если записи нет или она недоступна.
+
+Контракт: метод не должен выбрасывать исключений наружу
+из-за внутренних ошибок хранения — кэш должен вести себя
+как «мягкая» оптимизация."""
+
+    def set(self, key: str, value: LlmResponse) -> None:
+        """Сохранить ответ value в кэш под ключом key.
+
+Контракт: при ошибках записи реализация может логировать
+предупреждения, но не должна ронять основной пайплайн."""
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\llm\llm_client\llm_adapter.py
+============================================================
+from __future__ import annotations
+from pathlib import Path
+import json
+import re
+import logging
+from dataclasses import dataclass
+from typing import List, Sequence
+from ..errors import RetryableError, NonRetryableError
+from .gateway import LlmGateway
+from .provider import Message, LlmOptions
+from ..types import LlmAnalysisInput, LlmAnalysisOutput, LlmMetadata, LlmConfig, LlmCandidate, Finding, ProjectMap, FindingDetails, ParseResult, ParseStatus
+logger = logging.getLogger(__name__)
+
+@dataclass
+class LlmSolidAdapter:
+    """
+    Ядро LLM-анализа.
+
+    Получает LlmGateway и LlmConfig через DI.
+    Здесь только оркестрация: контекст → промпт → Gateway → парсинг.
+    """
+    gateway: LlmGateway
+    config: LlmConfig
+
+    def analyze(self, analysis_input: LlmAnalysisInput) -> LlmAnalysisOutput:
+        pass
+
+    def _build_context(self, project_map: ProjectMap, candidate: LlmCandidate) -> dict:
+        """Минимальный контекст: только фокус-класс.
+Поля соответствуют LlmCandidate в types.py: class_name, file_path, source_code, candidate_type.
+
+В следующих шагах сюда будут добавлены связи из ProjectMap (родители, интерфейсы, соседние классы)."""
+
+    def _build_prompt_and_options(self, context: dict, candidate: 'LlmCandidate') -> tuple[Sequence[Message], LlmOptions]:
+        """Строит итоговый промпт для LLM, объединяя контекст и шаблоны из файловой системы.
+
+Использует:
+- system.md      — роль и общие правила анализа SOLID;
+- user_base.md   — базовый пользовательский промпт для одного класса;
+- user_ocp_section.md / user_lsp_section.md — доп. секции в зависимости от типа кандидата;
+- response_schema.json — описание ожидаемого JSON-ответа."""
+
+    def _extract_json_content(self, text: str) -> dict | None:
+        """Слой 1: Извлечение сырого JSON из текста ответа LLM.
+Пытается распарсить напрямую, очистить от markdown-тегов или найти блок { ... }."""
+
+    def _validate_structure(self, data: dict) -> list[dict] | None:
+        """Слой 2: Минимальная проверка ожидаемой структуры ответа."""
+
+    def _validate_finding(self, raw: dict, candidate: LlmCandidate) -> Finding | None:
+        """Слой 3: Валидация конкретной находки и маппинг в доменные
+Finding / FindingDetails."""
+
+    def _parse_response(self, response, candidate: LlmCandidate) -> ParseResult:
+        pass
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\llm\llm_client\provider.py
+============================================================
+"""
+Интерфейс LLM-провайдера и типы сообщений.
+
+Определяет:
+- Message, LlmOptions, LlmResponse — типы данных для LLM-вызовов
+- LlmProvider — Protocol, который реализуют конкретные провайдеры
+- OpenRouterProvider — реализация для OpenRouter API
+
+Правило проекта: import httpx допустим ТОЛЬКО в этом файле.
+"""
+from __future__ import annotations
+import logging
+from dataclasses import dataclass
+from typing import Literal, Protocol, runtime_checkable
+import httpx
+from ..types import LlmResponse
+from ..errors import RetryableError, NonRetryableError
+logger = logging.getLogger(__name__)
+
+@dataclass(frozen=True)
+class Message:
+    """Одно сообщение в LLM-диалоге."""
+    role: Literal['system', 'user', 'assistant']
+    content: str
+
+@dataclass(frozen=True)
+class LlmOptions:
+    """Параметры LLM-вызова.
+
+    Значения по умолчанию оптимизированы для анализа кода:
+    - temperature=0.2: низкая для детерминированности
+    - max_tokens=4096: достаточно для JSON-ответа с findings
+    """
+    model: str
+    temperature: float = 0.2
+    max_tokens: int = 4096
+    response_format: str | None = None
+
+@runtime_checkable
+class LlmProvider(Protocol):
+    """Интерфейс LLM-провайдера.
+
+    Каждый конкретный провайдер, доступный через OpenRouter API,
+    реализует этот протокол.
+
+    Raises:
+        RetryableError: timeout, 429 Too Many Requests, 5xx
+        NonRetryableError: 401 Unauthorized, 403 Forbidden, 400 Bad Request
+    """
+
+    def chat(self, messages: list[Message], options: LlmOptions) -> LlmResponse:
+        """Отправляет сообщения и возвращает ответ."""
+_DEFAULT_OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions'
+_DEFAULT_TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=10.0)
+_RETRYABLE_STATUS_CODES = frozenset({408, 429, 500, 502, 503, 504})
+_NON_RETRYABLE_STATUS_CODES = frozenset({400, 401, 403, 404})
+
+class OpenRouterProvider:
+
+    def __init__(self, api_key: str | None, endpoint: str | None=None, timeout: httpx.Timeout | None=None, client: httpx.Client | None=None) -> None:
+        """Инициализация провайдера.
+
+:param api_key: API ключ OpenRouter.
+:param endpoint: ПОЛНЫЙ URL Chat Completions API.
+                 Если None, берется _DEFAULT_OPENROUTER_ENDPOINT.
+:param timeout: Настройки таймаутов (если None, берется _DEFAULT_TIMEOUT).
+:param client: Кастомный httpx.Client (если None, создается внутренний)."""
+
+    def chat(self, messages: list[Message], options: LlmOptions) -> LlmResponse:
+        """Вызывает OpenRouter API и возвращает LlmResponse.
+
+Отвечает только за формирование запроса, HTTP-вызов и классификацию
+статус-кодов в Retryable/NonRetryable ошибки. Парсинг успешного JSON
+делегируется в _parse_success (ACL-A барьер)."""
+
+    def close(self) -> None:
+        """Закрывает HTTP-клиент, если он был создан провайдером."""
+
+    @staticmethod
+    def _build_payload(messages: list[Message], options: LlmOptions) -> dict:
+        """Формирует JSON-тело запроса для OpenRouter API."""
+
+    def _handle_response(self, http_response: httpx.Response) -> LlmResponse:
+        """Обрабатывает HTTP-ответ: извлекает данные или бросает ошибку."""
+
+    def _parse_success(self, data: dict) -> LlmResponse:
+        """Транспортный барьер (ACL-A) для безопасного извлечения данных из ответа OpenRouter.
+Алгоритм 9 шагов гарантирует:
+1. Ни KeyError, ни IndexError не покинут этот метод (Safe Extraction).
+2. Возвращается строго LlmResponse(frozen=True) или летит NonRetryableError.
+3. Сырой JSON (dict) не пересекает границу домена."""
+
+    @staticmethod
+    def _raise_retryable(resp: httpx.Response) -> None:
+        """Формирует RetryableError из HTTP-ответа."""
+
+    @staticmethod
+    def _raise_non_retryable(resp: httpx.Response) -> None:
+        """Формирует NonRetryableError из HTTP-ответа."""
+
+============================================================
+FILE: tools\solid_verifier\solid_dashboard\llm\llm_client\__init__.py
+============================================================
+
+
+============================================================
+FILE: tools\solid_verifier\tests\llm\conftest.py
+============================================================
+from dotenv import load_dotenv
+load_dotenv()
+
+============================================================
+FILE: tools\solid_verifier\tests\llm\mock_provider.py
+============================================================
+from __future__ import annotations
+from dataclasses import dataclass
+from typing import Callable, Sequence
+from solid_dashboard.llm.types import LlmResponse
+from solid_dashboard.llm.llm_client.provider import Message, LlmOptions
+ScenarioFunc = Callable[[int, Sequence[Message], LlmOptions], LlmResponse]
+
+@dataclass
+class MockProvider:
+    """
+    Тестовый провайдер для LlmGateway.
+
+    Поведение задается функцией-сценарием:
+    - на каждом вызове chat() увеличивает счетчик calls,
+    - передает номер вызова, messages и options в scenario,
+    - scenario может вернуть LlmResponse или бросить RetryableError/NonRetryableError.
+    """
+    scenario: ScenarioFunc
+    calls: int = 0
+
+    def chat(self, messages: list[Message], options: LlmOptions) -> LlmResponse:
+        pass
+
+============================================================
+FILE: tools\solid_verifier\tests\llm\test_analyze_mock_gateway.py
+============================================================
+import pytest
+from pathlib import Path
+from typing import cast
+from solid_dashboard.llm.llm_client.gateway import LlmGateway
+from solid_dashboard.llm.llm_client.llm_adapter import LlmSolidAdapter
+from solid_dashboard.llm.errors import RetryableError
+from solid_dashboard.llm.types import ProjectMap, LlmConfig, LlmAnalysisInput
+from .test_parse_llm_response import FakeResponse, _make_candidate
+
+@pytest.fixture
+def prompts_dir(tmp_path: Path) -> Path:
+    pass
+
+@pytest.fixture
+def llm_config(tmp_path: Path, prompts_dir: Path) -> LlmConfig:
+    pass
+
+class FakeGateway:
+
+    def __init__(self, responses):
+        pass
+
+    def analyze(self, messages, options):
+        pass
+
+def _make_adapter_with_gateway(gateway: FakeGateway, config: LlmConfig) -> LlmSolidAdapter:
+    pass
+
+def _make_project_map() -> ProjectMap:
+    pass
+
+def test_analyze_all_success(llm_config: LlmConfig):
+    pass
+
+def test_analyze_all_parse_failures(llm_config: LlmConfig):
+    pass
+
+def test_analyze_mixed_success_partial_failure(llm_config: LlmConfig):
+    pass
+
+def test_analyze_gateway_error_counts_as_skipped_without_parse_counters(llm_config: LlmConfig):
+    pass
+
+============================================================
+FILE: tools\solid_verifier\tests\llm\test_ast_parser.py
+============================================================
+"""
+Тесты Шага 2: build_project_map.
+Покрывают все тест-кейсы и edge cases из плана реализации.
+"""
+import textwrap
+import tempfile
+from pathlib import Path
+import pytest
+from solid_dashboard.llm.analysis.ast_parser import build_project_map
+
+@pytest.fixture
+def tmp_project(tmp_path):
+    """Возвращает фабрику, которая создает .py-файлы во временной директории."""
+
+class TestSimpleClass:
+
+    def test_class_in_map(self, tmp_project):
+        pass
+
+    def test_empty_parent_classes(self, tmp_project):
+        pass
+
+    def test_source_code_captured(self, tmp_project):
+        pass
+
+    def test_file_path_stored(self, tmp_project):
+        pass
+
+class TestInheritance:
+
+    def test_single_parent(self, tmp_project):
+        pass
+
+    def test_multiple_parents(self, tmp_project):
+        pass
+
+    def test_is_override_true(self, tmp_project):
+        pass
+
+    def test_is_override_false_for_new_method(self, tmp_project):
+        pass
+
+    def test_dynamic_base_marked(self, tmp_project):
+        pass
+
+class TestMethodSignatures:
+
+    def test_multiple_methods(self, tmp_project):
+        pass
+
+    def test_method_parameters(self, tmp_project):
+        pass
+
+    def test_method_return_type(self, tmp_project):
+        pass
+
+    def test_async_method_captured(self, tmp_project):
+        pass
+
+class TestFileWithoutClasses:
+
+    def test_empty_file(self, tmp_project):
+        pass
+
+    def test_only_functions(self, tmp_project):
+        pass
+
+    def test_only_constants(self, tmp_project):
+        pass
+
+class TestInterfaces:
+
+    def test_abc_base(self, tmp_project):
+        pass
+
+    def test_protocol_base(self, tmp_project):
+        pass
+
+    def test_interface_implementations_backlink(self, tmp_project):
+        pass
+
+    def test_implemented_interfaces_in_class_info(self, tmp_project):
+        pass
+
+class TestParseErrorHandling:
+
+    def test_syntax_error_skipped(self, tmp_project):
+        pass
+
+    def test_nonexistent_file_skipped(self, tmp_project):
+        pass
+
+    def test_non_python_file_skipped(self, tmp_project):
+        pass
+
+class TestEdgeCases:
+
+    def test_nested_class_ignored(self, tmp_project):
+        """Вложенные классы не должны попадать в top-level ProjectMap."""
+
+    def test_multiple_classes_in_one_file(self, tmp_project):
+        pass
+
+    def test_multiple_files(self, tmp_project):
+        pass
+
+    def test_class_with_decorator(self, tmp_project):
+        """Декораторы не должны мешать извлечению класса."""
+
+    def test_dependencies_extracted(self, tmp_project):
+        """Импорты файла попадают в dependencies классов из этого файла."""
+
+def test_integration_5_to_10_files_project(tmp_project):
+    """Проверка критерия готовности: тестовый набор из 6 связанных Python-файлов.
+Проверяем, что ProjectMap корректно связывает классы, интерфейсы и переопределения
+через границы файлов."""
+
+============================================================
+FILE: tools\solid_verifier\tests\llm\test_class_role.py
+============================================================
+import ast
+import textwrap
+import pytest
+from solid_dashboard.llm.analysis.class_role import ClassRole, classify_class, _is_pure_interface, _compute_infra_score
+
+def _parse_class(source: str) -> ast.ClassDef:
+    """Парсит исходник и возвращает первый ClassDef верхнего уровня."""
+
+class TestIsPureInterface:
+
+    def test_all_abstractmethod_decorators(self):
+        """Все методы с @abstractmethod — PURE_INTERFACE."""
+
+    def test_ellipsis_body(self):
+        """Методы с телом `...` считаются тривиальными."""
+
+    def test_pass_body(self):
+        """Методы с телом `pass` считаются тривиальными."""
+
+    def test_raise_not_implemented_body(self):
+        """Метод с `raise NotImplementedError` считается тривиальным."""
+
+    def test_raise_not_implemented_with_message(self):
+        """Метод с `raise NotImplementedError('msg')` — тривиальный."""
+
+    def test_docstring_only_body(self):
+        """Метод только с docstring считается тривиальным."""
+
+    def test_real_logic_returns_false(self):
+        """Метод с реальной логикой — НЕ PURE_INTERFACE."""
+
+    def test_mixed_abstract_and_real_returns_false(self):
+        """Один реальный метод среди абстрактных — НЕ PURE_INTERFACE."""
+
+    def test_empty_class_body_returns_false(self):
+        """Класс без методов (только pass) — НЕ PURE_INTERFACE."""
+
+    def test_only_class_variable_returns_false(self):
+        """Класс только с атрибутами класса — НЕ PURE_INTERFACE."""
+
+class TestComputeInfraScore:
+
+    def test_score_known_base_gives_two_points(self):
+        """Прямое наследование от BaseModel даёт +2 (самый сильный сигнал)."""
+
+    def test_score_tablename_gives_one_point(self):
+        """__tablename__ даёт +1 балл (SQLAlchemy ORM)."""
+
+    def test_score_model_config_gives_one_point(self):
+        """model_config даёт +1 балл (Pydantic v2)."""
+
+    def test_score_ann_assign_ratio_gives_one_point(self):
+        """Более 70% тела — AnnAssign даёт +1 балл."""
+
+    def test_score_orm_field_calls_gives_one_point(self):
+        """Вызов Column() в теле даёт +1 балл."""
+
+    def test_score_domain_class_zero(self):
+        """Обычный доменный класс набирает 0 баллов."""
+
+class TestClassifyClassPureInterface:
+
+    def test_abc_all_abstract(self):
+        """ABC-класс со всеми @abstractmethod -> PURE_INTERFACE."""
+
+    def test_no_abc_base_but_abstract_bodies(self):
+        """Без явного ABC, но все методы с pass — PURE_INTERFACE."""
+
+    def test_abc_with_real_init_is_domain(self):
+        """ABC с реальным __init__ — это НЕ PURE_INTERFACE, а DOMAIN."""
+
+class TestClassifyClassConfig:
+
+    def test_base_settings(self):
+        """Класс, наследующий BaseSettings -> CONFIG."""
+
+    def test_settings_base(self):
+        """Класс, наследующий Settings -> CONFIG."""
+
+    def test_base_config(self):
+        """Класс, наследующий BaseConfig -> CONFIG."""
+
+class TestClassifyClassInfraModel:
+
+    def test_pydantic_base_model(self):
+        """Класс на BaseModel -> INFRA_MODEL."""
+
+    def test_sqlalchemy_orm(self):
+        """SQLAlchemy-модель с __tablename__ -> INFRA_MODEL."""
+
+    def test_declarative_base(self):
+        """Класс на DeclarativeBase -> INFRA_MODEL."""
+
+class TestClassifyClassDomain:
+
+    def test_plain_service(self):
+        """Обычный сервисный класс без наследования -> DOMAIN."""
+
+    def test_subclass_with_logic(self):
+        """Подкласс с реальной логикой -> DOMAIN."""
+
+    def test_class_no_parents(self):
+        """Класс без наследования с реальными методами -> DOMAIN."""
+
+class TestImportAliases:
+
+    def test_alias_base_model_as_bm(self):
+        """from pydantic import BaseModel as BM — через алиас должно быть INFRA_MODEL."""
+
+    def test_alias_declarative_base(self):
+        """from sqlalchemy.orm import DeclarativeBase as DB — алиас разрешается."""
+
+    def test_no_aliases_unknown_base_is_domain(self):
+        """Неизвестная база без алиасов -> DOMAIN."""
+
+    def test_alias_base_settings_as_cfg(self):
+        """from pydantic_settings import BaseSettings as Cfg — CONFIG через алиас."""
+
+class TestClassifyClassEdgeCases:
+
+    def test_multiple_inheritance_one_infra(self):
+        """Одна из баз — BaseModel: INFRA_MODEL даже при множественном наследовании."""
+
+    def test_config_takes_priority_over_infra(self):
+        """BaseSettings входит и в CONFIG, и в INFRA_BASES — должен вернуться CONFIG."""
+
+    def test_empty_body_class_is_domain(self):
+        """Класс с только pass и без наследования -> DOMAIN."""
+
+    def test_pure_interface_takes_priority_over_domain(self):
+        """PURE_INTERFACE проверяется первым — до CONFIG и INFRA_MODEL."""
+
+    def test_import_aliases_none_does_not_crash(self):
+        """import_aliases=None не вызывает ошибки (fallback к пустому dict)."""
+
+============================================================
+FILE: tools\solid_verifier\tests\llm\test_gateway.py
+============================================================
+from __future__ import annotations
+from pathlib import Path
+from typing import Sequence
+import pytest
+from solid_dashboard.llm.llm_client.gateway import LlmGateway
+from solid_dashboard.llm.llm_client.cache import FileCache
+from solid_dashboard.llm.types import LlmResponse
+from solid_dashboard.llm.llm_client.provider import Message, LlmOptions
+from solid_dashboard.llm.llm_client.budget import TokenBudgetController
+from .mock_provider import MockProvider
+from solid_dashboard.llm.errors import BudgetExhaustedError, RetryableError, NonRetryableError, LlmUnavailableError
+
+def make_messages() -> list[Message]:
+    pass
+
+def make_options() -> LlmOptions:
+    pass
+
+def make_response(content: str='ok', tokens: int=10) -> LlmResponse:
+    """Удобная фабрика для LlmResponse.
+
+Оборачивает создание ответа LLM так, чтобы в тестах
+не дублировать конструктор LlmResponse вручную."""
+
+def test_cache_hit_returns_cached_response_and_skips_provider(tmp_path: Path) -> None:
+    """Сценарий:
+- создаем FileCache в temp-директории,
+- кладем туда заранее LlmResponse по ключу, который построит LlmGateway,
+- на вызове analyze() ожидаем возврат кэшированного ответа и отсутствие вызовов MockProvider."""
+
+def test_cache_miss_calls_provider_and_stores_in_cache(tmp_path: Path) -> None:
+    """Сценарий:
+- создаем FileCache в temp-директории (изначально пустой),
+- MockProvider возвращает LlmResponse при каждом вызове,
+- первый вызов analyze() должен:
+    * вызвать провайдера,
+    * сохранить ответ в кэш,
+- второй вызов с теми же messages/options должен:
+    * вернуть тот же ответ,
+    * НЕ вызывать провайдера повторно (cache hit)."""
+
+def test_without_budget_gateway_works_normally() -> None:
+    """B3. Если Gateway сконфигурирован без budget (None),
+вызовы проходят штатно, проверки лимитов не ломают пайплайн."""
+
+def test_budget_exhausted_before_call_raises_error() -> None:
+    """B4. Если лимит токенов уже исчерпан ДО вызова,
+Gateway должен выбросить BudgetExhaustedError и НЕ вызывать провайдера."""
+
+def test_budget_record_tokens_after_successful_call() -> None:
+    """B5. При успешном ответе провайдера, потраченные токены
+должны быть записаны в TokenBudgetController."""
+
+def test_retryable_error_then_success(monkeypatch) -> None:
+    """C6. При RetryableError на первой попытке и успехе на второй
+Gateway должен сделать ровно 2 вызова провайдера и вернуть успешный результат."""
+
+def test_retryable_error_exceeds_max_attempts_raises_llm_unavailable(monkeypatch) -> None:
+    """C7. Если на всех попытках провайдер бросает RetryableError,
+Gateway должен после исчерпания _max_attempts поднять LlmUnavailableError."""
+
+def test_non_retryable_error_not_retried(monkeypatch) -> None:
+    """C8. NonRetryableError не должен ретраиться:
+провайдер вызывается ровно один раз, ошибка пробрасывается сразу."""
+
+def test_cache_write_error_does_not_break_pipeline(tmp_path: Path, monkeypatch) -> None:
+    """D1. Ошибка при записи в кэш не должна ломать основной сценарий.
+
+Сценарий:
+- cache.get() всегда возвращает None (cache miss),
+- cache.set() бросает исключение (например, OSError),
+- провайдер возвращает валидный LlmResponse,
+- Gateway должен вернуть ответ провайдера и НЕ пробрасывать ошибку кэша."""
+
+def test_budget_unlimited_when_max_tokens_non_positive() -> None:
+    """D2. Если max_tokens <= 0, бюджет считается неограниченным:
+- is_exhausted() всегда False,
+- BudgetExhaustedError не возникает даже при большом расходе токенов."""
+
+============================================================
+FILE: tools\solid_verifier\tests\llm\test_open_router_manual.py
+============================================================
+import os
+import time
+import pytest
+import logging
+from pathlib import Path
+from solid_dashboard.llm.llm_client.factory import create_llm_adapter
+from solid_dashboard.llm.types import ProjectMap, ClassInfo, LlmCandidate, LlmConfig, LlmAnalysisInput
+logger = logging.getLogger(__name__)
+
+@pytest.mark.manual
+@pytest.mark.skipif(not os.environ.get('OPENROUTER_API_KEY'), reason='OPENROUTER_API_KEY is not set; manual OpenRouter integration test skipped.')
+def test_manual_openrouter_integration_end_to_end(tmp_path: Path) -> None:
+    pass
+
+============================================================
+FILE: tools\solid_verifier\tests\llm\test_parse_llm_response.py
+============================================================
+import pytest
+from typing import cast
+from solid_dashboard.llm.llm_client.gateway import LlmGateway
+from solid_dashboard.llm.llm_client.llm_adapter import LlmSolidAdapter
+from solid_dashboard.llm.types import LlmCandidate, LlmConfig, ParseResult, CandidateType
+
+class FakeResponse:
+
+    def __init__(self, content: str, tokens_used: int=10) -> None:
+        pass
+
+def _make_adapter() -> LlmSolidAdapter:
+    pass
+
+def _make_candidate(candidate_type: CandidateType='ocp') -> LlmCandidate:
+    pass
+
+def test_parse_response_success_empty_findings():
+    pass
+
+def test_parse_response_success_with_valid_finding():
+    pass
+
+def test_parse_response_failure_invalid_json():
+    pass
+
+def test_parse_response_failure_missing_findings_key():
+    pass
+
+def test_parse_response_partial_mixed_valid_and_invalid_items():
+    pass
+
+def test_parse_response_failure_all_items_invalid():
+    pass
+
+============================================================
+FILE: tools\solid_verifier\tests\llm\test_provider.py
+============================================================
+from __future__ import annotations
+import pytest
+import json
+import httpx
+import logging
+from solid_dashboard.llm.types import LlmResponse
+from solid_dashboard.llm.llm_client.provider import OpenRouterProvider, Message, LlmOptions
+from solid_dashboard.llm.errors import RetryableError, NonRetryableError
+_RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
+_NON_RETRYABLE_STATUS_CODES = frozenset({400, 401, 403, 404})
+
+@pytest.mark.parametrize('response_text, expected_message_substring', [('not-a-json', 'Invalid JSON in OpenRouter response'), (json.dumps({'wrong': 'schema'}), "Missing or invalid 'choices'"), (json.dumps({'choices': []}), 'Empty choices array')], ids=['invalid_json', 'wrong_schema', 'empty_choices'])
+def test_openrouter_provider_raises_non_retryable_error_for_malformed_200_ok(response_text: str, expected_message_substring: str) -> None:
+    """200 OK, но битый/невалидный payload всегда дает NonRetryableError без status_code.
+
+Контракт:
+- Исключение всегда NonRetryableError (retry не помогает).
+- status_code = None, т.к. проблема не в HTTP-уровне, а в структуре ответа.
+- Сообщение ошибки содержит указание на конкретный тип проблемы."""
+
+@pytest.mark.parametrize('exception_cls', [httpx.ReadTimeout, httpx.ConnectError])
+def test_openrouter_provider_wraps_timeouts_and_connect_errors_in_retryable_error(exception_cls: type[Exception]) -> None:
+    pass
+
+@pytest.mark.parametrize('status_code', [418, 422])
+def test_openrouter_provider_wraps_unexpected_4xx_in_non_retryable_error(status_code: int) -> None:
+    pass
+
+def test_openrouter_provider_non_retryable_error_message_contains_status_code() -> None:
+    pass
+
+@pytest.mark.parametrize('status_code', sorted(_NON_RETRYABLE_STATUS_CODES))
+def test_openrouter_provider_raises_non_retryable_error_for_client_error_status_codes(status_code: int) -> None:
+    pass
+
+@pytest.mark.parametrize('status_code', sorted(_RETRYABLE_STATUS_CODES))
+def test_openrouter_provider_raises_retryable_error_for_retryable_status_codes(status_code: int) -> None:
+    pass
+
+def test_openrouter_provider_parses_success_response() -> None:
+    pass
+VALID_BASE = {'choices': [{'message': {'content': 'test content'}, 'finish_reason': 'stop'}], 'usage': {'total_tokens': 42}, 'model': 'openai/gpt-4o-mini'}
+
+def test_parse_success_valid():
+    """Тест кейс 1: Полный валидный JSON корректно конвертируется в LlmResponse."""
+
+@pytest.mark.parametrize('payload, expected_err', [({'error': {'message': 'rate limit'}}, 'API error in response body'), ({'choices': []}, 'Empty choices array'), ({'choices': [{'message': {'content': ''}, 'finish_reason': 'content_filter'}]}, 'Content filtered'), ({'choices': [{'message': {'content': 'partial'}, 'finish_reason': 'content_filter'}]}, 'Content filtered'), ({'choices': [{'message': {'tool_calls': []}, 'finish_reason': 'tool_calls'}]}, 'Unexpected finish_reason: tool_calls'), ({'choices': [{'message': {'content': ''}}]}, 'Empty response, no finish_reason'), ({'foo': 'bar'}, "Missing or invalid 'choices'")])
+def test_parse_success_raises_non_retryable(payload, expected_err):
+    """Тестирование матрицы аномалий.
+Ожидаем, что любые нарушения структуры вызовут строго NonRetryableError."""
+
+def test_parse_success_warnings(caplog):
+    """Тестирование матрицы предупреждений.
+Кейсы, где ответ принимается, но логируется warning (length или unknown reason)."""
+
+def test_parse_success_defaults():
+    """Тестирование fallback-значений при частичном, но валидном ответе.
+Кейс 8 (null content), Кейс 9 (отсутствие usage), Кейс 10 (нет finish_reason, но есть content)."""
+
+@pytest.mark.parametrize('evil_payload', [[], 'string', {'choices': [[]]}, {'choices': [{}]}, {'choices': [{'message': []}]}])
+def test_no_keyerror_ever(evil_payload):
+    """Тест-контракт: алгоритм Safe Extraction не должен пропускать сырые Python-исключения.
+KeyError, IndexError, TypeError никогда не должны вылетать."""
+
+============================================================
+FILE: tools\solid_verifier\tests\llm\test_types.py
+============================================================
+"""
+Базовые тесты инстанциирования контрактов (Шаг 1).
+Цель: убедиться, что все типы импортируются, создаются и содержат ожидаемые значения.
+Бизнес-логика здесь не проверяется.
+"""
+import pytest
+from solid_dashboard.llm.types import MethodSignature, ClassInfo, InterfaceInfo, ProjectMap, LlmCandidate, HeuristicResult, LlmConfig, LlmAnalysisInput, LlmAnalysisOutput, LlmMetadata, Finding, FindingDetails
+
+@pytest.fixture
+def method_sig():
+    pass
+
+@pytest.fixture
+def class_info(method_sig):
+    pass
+
+@pytest.fixture
+def interface_info(method_sig):
+    pass
+
+@pytest.fixture
+def project_map(class_info, interface_info):
+    pass
+
+@pytest.fixture
+def llm_candidate():
+    pass
+
+@pytest.fixture
+def llm_config():
+    pass
+
+class TestMethodSignature:
+
+    def test_basic_creation(self, method_sig):
+        pass
+
+    def test_override_flag(self):
+        pass
+
+class TestClassInfo:
+
+    def test_basic_creation(self, class_info):
+        pass
+
+    def test_with_parents(self):
+        pass
+
+    def test_multiple_parents(self):
+        pass
+
+class TestInterfaceInfo:
+
+    def test_basic_creation(self, interface_info):
+        pass
+
+class TestProjectMap:
+
+    def test_empty_map(self):
+        pass
+
+    def test_with_data(self, project_map):
+        pass
+
+    def test_default_factory_isolation(self):
+        pass
+
+class TestLlmCandidate:
+
+    def test_candidate_types(self):
+        pass
+
+    def test_priority_is_int(self, llm_candidate):
+        pass
+
+class TestHeuristicResult:
+
+    def test_empty_result(self):
+        pass
+
+    def test_with_data(self, llm_candidate):
+        pass
+
+class TestLlmConfig:
+
+    def test_basic_creation(self, llm_config):
+        pass
+
+    def test_ollama_config(self):
+        pass
+
+class TestLlmAnalysisInput:
+
+    def test_creation(self, project_map, llm_candidate, llm_config):
+        pass
+
+class TestLlmAnalysisOutput:
+
+    def test_default_output(self):
+        pass
+
+    def test_with_metadata(self):
+        pass
+
+class TestFinding:
+
+    def test_static_finding(self):
+        pass
+
+    def test_heuristic_finding(self):
+        pass
+
+    def test_llm_finding(self):
+        pass
+
+    def test_severity_info_for_unconfirmed_llm(self):
+        pass
+
+    def test_finding_without_class_name(self):
+        pass
+
+class TestFindingDetails:
+
+    def test_all_none_defaults(self):
+        pass
+
+    def test_partial_fill(self):
+        pass
+from dataclasses import FrozenInstanceError
+import pytest
+from solid_dashboard.llm.types import LlmResponse, ParseResult
+
+def test_llm_response_is_immutable():
+    """Тест контракта ACL-A: LlmResponse должен быть заморожен (frozen=True)."""
+
+def test_llm_response_defaults():
+    """Тест дефолтных значений LlmResponse."""
+
+def test_parse_result_instantiation():
+    """Тест контракта ACL-B: ParseResult корректно инстанциируется."""
+
+============================================================
+FILE: tools\solid_verifier\tests\llm\__init__.py
+============================================================
+
+
+============================================================
+FILE: tools\solid_verifier\tests\llm\test_heuristics\conftest.py
+============================================================
+import textwrap
+import ast
+from pathlib import Path
+from solid_dashboard.llm.analysis.ast_parser import build_project_map
+from solid_dashboard.llm.types import ClassInfo, MethodSignature, ProjectMap
+
+def _pm_from_source(source: str, class_name: str, parent_classes: list[str] | None=None, override_methods: list[str] | None=None) -> ProjectMap:
+    """Строит ProjectMap с одним ClassInfo по исходнику.
+
+parent_classes: список имен базовых классов для ClassInfo.parent_classes.
+override_methods: список методов, помечаемых как is_override=True."""
+
+def _class_info_node_and_project_map_from_source(source: str, class_name: str, parent_classes: list[str] | None=None, override_methods: list[str] | None=None) -> tuple[ClassInfo, ast.ClassDef, ProjectMap]:
+    """Возвращает ClassInfo, AST-ноду класса и ProjectMap.
+
+Используется для прямого тестирования lsp_h_001.check() / lsp_h_002.check()
+без запуска оркестратора identify_candidates()."""
+
+============================================================
+FILE: tools\solid_verifier\tests\llm\test_heuristics\test_deduplication.py
+============================================================
+from solid_dashboard.llm.heuristics._runner import _deduplicate_findings, _deduplicate_candidates
+from solid_dashboard.llm.types import Finding, FindingDetails, LlmCandidate
+
+class TestDeduplicateFindings:
+    """
+    Проверяет слияние конфликтующих OCP findings для одного метода.
+    OCP-H-001 побеждает OCP-H-004 как более специфичный.
+    """
+
+    def test_ocp_h001_and_h004_on_same_method_are_merged(self):
+        """Оба OCP-finding на одном методе → остается один OCP-H-001,
+в explanation добавляется упоминание OCP-H-004."""
+
+class TestDeduplicateFindingsLSP:
+    """
+    Проверяет, что LSP-H-001 и LSP-H-002 на одном методе
+    не дублируются: LSP-H-001 побеждает.
+    """
+
+    def test_lsp_h001_and_h002_on_same_method_are_merged(self):
+        """Оба LSP-finding на одном методе → остается один LSP-H-001,
+в explanation добавляется упоминание LSP-H-002."""
+
+class TestDeduplicateCandidates:
+    """
+    Проверяет объединение нескольких кандидатов одного класса
+    в один LlmCandidate с агрегированными полями.
+    """
+
+    def test_candidates_for_same_class_are_merged(self):
+        """OCP- и LSP-кандидат одного класса → один кандидат
+с типом 'both', объединенными heuristic_reasons и max priority."""
+
+============================================================
+FILE: tools\solid_verifier\tests\llm\test_heuristics\test_heuristics_shared.py
+============================================================
+import ast
+import textwrap
+import pytest
+from solid_dashboard.llm.heuristics._shared import _should_exclude_path, _parse_class_ast, _make_finding, _is_abstract_class, _has_isinstance_call, _count_elif_chain, _iter_method_nodes, _compute_method_cc, _DEFAULT_EXCLUDE_PATTERNS
+from solid_dashboard.llm.types import ClassInfo, InterfaceInfo, MethodSignature, ProjectMap
+
+def _make_class_info(name: str='TestClass', file_path: str='app/service.py', parent_classes: list[str] | None=None, methods: list[MethodSignature] | None=None) -> ClassInfo:
+    pass
+
+def _make_interface_info(name: str, file_path: str='app/interfaces.py') -> InterfaceInfo:
+    pass
+
+def _make_project_map(classes: dict[str, ClassInfo] | None=None, interfaces: list[str] | None=None) -> ProjectMap:
+    pass
+
+def _parse_func(source: str, func_name: str) -> ast.FunctionDef:
+    """Парсит исходник и возвращает FunctionDef с указанным именем."""
+
+def _parse_expr(source: str) -> ast.expr:
+    """Парсит одиночное выражение и возвращает его AST-ноду."""
+
+def _parse_if(source: str) -> ast.If:
+    """Парсит исходник и возвращает первый ast.If."""
+
+class TestShouldExcludePath:
+
+    def test_excludes_tests_dir(self):
+        """Путь с 'tests/' исключается."""
+
+    def test_excludes_test_prefix(self):
+        """Файл 'test_foo.py' исключается."""
+
+    def test_excludes_test_suffix(self):
+        """Файл 'service_test.py' исключается."""
+
+    def test_excludes_migrations(self):
+        """Путь с 'migrations/' исключается."""
+
+    def test_excludes_config_py(self):
+        """config.py исключается."""
+
+    def test_excludes_settings_py(self):
+        """settings.py исключается."""
+
+    def test_does_not_exclude_domain_file(self):
+        """Обычный доменный файл НЕ исключается."""
+
+    def test_custom_patterns_override(self):
+        """Кастомные паттерны работают независимо от дефолтных."""
+
+    def test_empty_custom_patterns_excludes_nothing(self):
+        """Пустой список паттернов — ничего не исключается."""
+
+    def test_case_insensitive_matching(self):
+        """Сопоставление регистронезависимое."""
+
+    def test_windows_path_separator(self):
+        """Обратные слэши (Windows) нормализуются корректно."""
+
+class TestParseClassAst:
+
+    def test_returns_class_def_for_valid_source(self):
+        """Возвращает ClassDef при корректном исходнике и правильном имени."""
+
+    def test_returns_none_for_wrong_name(self):
+        """Возвращает None, если класс с указанным именем не найден."""
+
+    def test_returns_none_for_empty_source(self):
+        """Возвращает None при пустом исходнике."""
+
+    def test_returns_none_for_syntax_error(self):
+        """Возвращает None при SyntaxError в исходнике."""
+
+    def test_finds_class_among_multiple(self):
+        """Находит нужный класс среди нескольких в одном файле."""
+
+class TestMakeFinding:
+
+    def test_basic_fields(self):
+        """_make_finding создает Finding с корректными обязательными полями."""
+
+    def test_details_populated(self):
+        """FindingDetails заполняются корректно."""
+
+    def test_method_name_optional_none(self):
+        """method_name=None (по умолчанию) не вызывает ошибки."""
+
+    def test_line_is_none(self):
+        """Поле line всегда None (эвристики не дают точную строку)."""
+
+class TestIsAbstractClass:
+
+    def test_abc_in_parent_classes(self):
+        """Класс с ABC в parent_classes — абстрактный."""
+
+    def test_registered_interface_in_project_map(self):
+        """Класс, зарегистрированный как интерфейс в ProjectMap — абстрактный."""
+
+    def test_has_abstract_method(self):
+        """Класс с хотя бы одним is_abstract методом — абстрактный."""
+
+    def test_concrete_class_not_abstract(self):
+        """Конкретный класс без ABC и без абстрактных методов — не абстрактный."""
+
+class TestHasIsinstanceCall:
+
+    def test_simple_isinstance(self):
+        """Простое isinstance(x, Foo) — найдено."""
+
+    def test_isinstance_in_and_condition(self):
+        """isinstance внутри and-выражения — найдено."""
+
+    def test_no_isinstance(self):
+        """Выражение без isinstance — НЕ найдено."""
+
+    def test_nested_isinstance(self):
+        """isinstance внутри вложенного вызова — найдено."""
+
+    def test_similar_name_not_matched(self):
+        """Вызов issubclass() — НЕ является isinstance()."""
+
+class TestCountElifChain:
+
+    def test_single_if(self):
+        """Одиночный if без elif — длина 1."""
+
+    def test_if_elif(self):
+        """if + 1 elif — длина 2."""
+
+    def test_if_elif_elif_elif(self):
+        """if + 3 elif — длина 4."""
+
+    def test_if_else_not_counted_as_elif(self):
+        """if + else (без elif) — длина 1 (else не увеличивает счётчик)."""
+
+class TestIterMethodNodes:
+
+    def test_yields_top_level_nodes(self):
+        """Обходит узлы тела метода верхнего уровня."""
+
+    def test_does_not_enter_nested_function(self):
+        """Вложенная функция не обходится (пропускается целиком)."""
+
+    def test_does_not_enter_nested_class(self):
+        """Вложенный класс не обходится."""
+
+class TestComputeMethodCc:
+
+    def test_simple_method_cc_is_one(self):
+        """Метод без ветвлений — CC = 1."""
+
+    def test_single_if_cc_is_two(self):
+        """Один if добавляет +1 к CC."""
+
+    def test_for_loop_adds_to_cc(self):
+        """for-цикл добавляет +1 к CC."""
+
+    def test_try_except_adds_to_cc(self):
+        """ExceptHandler добавляет +1 к CC."""
+
+    def test_and_operator_adds_to_cc(self):
+        """Оператор and добавляет к CC."""
+
+    def test_ternary_adds_to_cc(self):
+        """Тернарный оператор добавляет +1 к CC."""
+
+    def test_complex_method_cc(self):
+        """Метод с несколькими ветвлениями — CC суммируется корректно."""
+
+    def test_nested_function_not_counted(self):
+        """Вложенная функция не увеличивает CC внешнего метода."""
+
+============================================================
+FILE: tools\solid_verifier\tests\llm\test_heuristics\test_integration_class_role.py
+============================================================
+"""
+Интеграционные тесты: классификатор ролей + логика фильтрации эвристик.
+
+Проверяет три реальных граничных случая, обнаруженных при анализе
+работы эвристик LSP и OCP на реальных кодовых базах:
+
+  Кейс A (LSP-H-004): ABC-интерфейс без собственного __init__ давал
+    false positive — легитимная конкретизация сигнатуры в подклассе.
+
+  Кейс B (OCP / INFRA_MODEL): Pydantic BaseModel и SQLAlchemy Base
+    создавали шум в кандидатах OCP; INFRA_MODEL должен исключаться.
+
+  Кейс C (OCP / CONFIG): Settings(BaseSettings) — конфигурационный
+    класс, не подходит для SOLID-анализа.
+
+Запуск:
+  pytest tools/solid_verifier/tests/llm/test_heuristics/test_integration_class_role.py -v
+"""
+import ast
+import textwrap
+import pytest
+from solid_dashboard.llm.analysis.class_role import ClassRole, classify_class
+pytestmark = pytest.mark.integration
+
+def _first_class(source: str) -> ast.ClassDef:
+    """Парсит исходник и возвращает первый ClassDef верхнего уровня."""
+
+def _should_skip_for_solid(class_node: ast.ClassDef, import_aliases: dict[str, str] | None=None) -> bool:
+    """Имитирует логику фильтрации на входе эвристик LSP/OCP.
+Возвращает True, если класс должен быть исключен из SOLID-анализа
+(не является DOMAIN-классом)."""
+
+class TestHeuristicsClassRoleIntegration:
+
+    def test_lsp_h004_abc_without_init_is_pure_interface(self):
+        """Кейс A-1: ABC с только @abstractmethod и без __init__
+должен получать роль PURE_INTERFACE, а не DOMAIN.
+LSP-эвристика должна пропускать таких кандидатов."""
+
+    def test_lsp_h004_abc_with_docstrings_only_is_pure_interface(self):
+        """Кейс A-2: ABC-методы с только docstring (без pass / ... / raise)
+тоже считаются тривиальными — PURE_INTERFACE."""
+
+    def test_lsp_h004_abc_with_real_init_is_domain(self):
+        """Кейс A-3: ABC с реальным __init__ — конкретный базовый класс,
+НЕ чистый интерфейс. LSP-эвристика должна его анализировать."""
+
+    def test_lsp_h004_concrete_subclass_without_override_is_domain(self):
+        """Кейс A-4: Конкретный подкласс ABC-интерфейса — DOMAIN.
+LSP-эвристика должна проверять именно таких кандидатов."""
+
+    def test_ocp_pydantic_base_model_is_infra_not_domain(self):
+        """Кейс B-1: Pydantic BaseModel — типичный источник шума в кандидатах OCP.
+Должен получать роль INFRA_MODEL и исключаться из SOLID-анализа."""
+
+    def test_ocp_pydantic_base_model_via_alias_is_infra(self):
+        """Кейс B-2: Pydantic BaseModel через алиас (from pydantic import BaseModel as BM).
+Без алиаса — DOMAIN; с алиасом — INFRA_MODEL."""
+
+    def test_ocp_sqlalchemy_orm_via_tablename_is_infra(self):
+        """Кейс B-3: SQLAlchemy ORM через Base (не в KNOWN_INFRA_BASES).
+Детектируется через InfraScore: __tablename__ (+1) + Column() (+1) >= 2."""
+
+    def test_ocp_domain_class_with_many_fields_is_still_domain(self):
+        """Кейс B-4: Доменный класс с большим количеством аннотированных атрибутов
+НЕ должен ошибочно попадать в INFRA_MODEL.
+Высокий AnnAssign-ratio сам по себе не даёт INFRA_MODEL (порог < 2)."""
+
+    def test_ocp_base_settings_is_config_not_domain(self):
+        """Кейс C-1: Прямой наследник BaseSettings получает роль CONFIG
+и должен исключаться из SOLID-анализа OCP/LSP."""
+
+    def test_ocp_settings_subclass_chain_is_config(self):
+        """Кейс C-2: Подкласс Settings (BaseSettings → Settings).
+Прямое наследование от Settings также должно давать CONFIG."""
+
+    def test_ocp_base_config_is_config(self):
+        """Кейс C-3: Pydantic BaseConfig / собственный BaseConfig проекта.
+Оба паттерна должны давать CONFIG и исключаться из анализа."""
+
+    def test_ocp_config_class_name_without_config_base_is_domain(self):
+        """Кейс C-4: Класс с 'Config' в имени, но без Config-базы —
+это НЕ конфигурационный класс. Классификация идёт по базам,
+а не по имени класса."""
+
+============================================================
+FILE: tools\solid_verifier\tests\llm\test_heuristics\test_integration_dedup_and_ocp_h002.py
+============================================================
+"""
+Интеграционные тесты изолированных механизмов:
+  - TestHeuristicsDedupIntegration: дедупликация findings и candidates
+    при одновременном срабатывании OCP-H-001 и OCP-H-004 на одном методе
+  - TestOcpH002Integration: эвристика OCP-H-002 (match/case, Python 3.10+)
+
+Оба класса используют локальные tmp_path-фикстуры и независимы
+от smelly_project_dir / heuristic_result из test_integration_pipeline.py.
+
+Запуск:
+  pytest tools/solid_verifier/tests/llm/test_heuristics/test_integration_dedup_and_ocp_h002.py -v
+"""
+import sys
+import textwrap
+from pathlib import Path
+import pytest
+from solid_dashboard.llm.analysis.ast_parser import build_project_map
+from solid_dashboard.llm.heuristics import identify_candidates
+pytestmark = pytest.mark.integration
+
+class TestHeuristicsDedupIntegration:
+    """
+    На одном и том же методе срабатывают OCP-H-001 и OCP-H-004.
+    Проверяем, что findings дедуплицированы: OCP-H-001 побеждает,
+    OCP-H-004 поглощается и отражается в explanation OCP-H-001.
+    """
+
+    def test_findings_and_candidates_are_deduplicated(self, tmp_path: Path):
+        pass
+
+@pytest.mark.skipif(sys.version_info < (3, 10), reason='match/case syntax requires Python 3.10+')
+class TestOcpH002Integration:
+
+    @pytest.fixture
+    def match_project_dir(self, tmp_path_factory):
+        """Временная директория с dispatcher.py — match/case с 3+ ветвями."""
+
+    def test_ocp_h002_finding_present(self, match_project_dir):
+        """EventDispatcher с 3+ match-ветвями должен давать finding OCP-H-002."""
+
+    def test_ocp_h002_candidate_registered(self, match_project_dir):
+        """EventDispatcher должен попасть в candidates."""
+
+============================================================
+FILE: tools\solid_verifier\tests\llm\test_heuristics\test_integration_pipeline.py
+============================================================
+"""
+Интеграционные тесты: сквозной пайплайн build_project_map → identify_candidates.
+
+Проверяет весь основной путь на реальных Python-файлах (smells.py / clean.py):
+  - все ожидаемые rule-коды присутствуют в findings
+  - чистый код не порождает false positives
+  - метаданные каждого Finding корректны
+  - список кандидатов сформирован правильно
+  - ProjectMap от парсера содержит корректные метаданные
+  - сырые LSP-эвристики и дедупликация не теряют findings до финального результата
+
+Запуск:
+  pytest tools/solid_verifier/tests/llm/test_heuristics/test_integration_pipeline.py -v
+"""
+import ast
+import textwrap
+import pytest
+from solid_dashboard.llm.types import HeuristicResult
+from solid_dashboard.llm.analysis.ast_parser import build_project_map
+from solid_dashboard.llm.heuristics import lsp_h_001, lsp_h_002, identify_candidates
+from solid_dashboard.llm.heuristics._runner import _deduplicate_findings
+pytestmark = pytest.mark.integration
+
+@pytest.fixture(scope='module')
+def smelly_project_dir(tmp_path_factory):
+    """Создает временную директорию с двумя Python-файлами:
+- smells.py — классы с намеренными нарушениями для каждой эвристики
+  (DOMAIN-классы, проходящие через весь пайплайн).
+- clean.py — классы без нарушений (для проверки отсутствия false positives).
+
+scope="module" — файлы создаются один раз для всего модуля тестов."""
+
+@pytest.fixture(scope='module')
+def heuristic_result(smelly_project_dir) -> HeuristicResult:
+    """Строит ProjectMap и запускает identify_candidates по smelly_project_dir."""
+
+class TestAllRulesPresent:
+    EXPECTED_RULES = {'LSP-H-001', 'LSP-H-002', 'LSP-H-004', 'OCP-H-001', 'OCP-H-004'}
+
+    def test_all_expected_rules_present(self, heuristic_result):
+        """Каждый ожидаемый rule-код должен встретиться хотя бы в одном finding."""
+
+    def test_no_unexpected_rule_codes(self, heuristic_result):
+        """В findings не должно появляться неизвестных rule-кодов."""
+
+class TestNoFalsePositivesOnCleanCode:
+
+    def test_clean_classes_produce_no_findings(self, smelly_project_dir):
+        """Классы из clean.py не должны давать ни одного finding."""
+
+    def test_clean_classes_not_in_candidates_as_findings(self, smelly_project_dir):
+        """Чистые классы не должны попадать в кандидаты по причинам эвристик."""
+
+class TestFindingMetadataIntegrity:
+
+    def test_all_findings_have_required_fields(self, heuristic_result):
+        """Каждый finding должен иметь все обязательные поля."""
+
+    def test_lsp_rules_have_lsp_principle(self, heuristic_result):
+        """Все findings с rule=LSP-H-* должны иметь details.principle == 'LSP'."""
+
+    def test_ocp_rules_have_ocp_principle(self, heuristic_result):
+        """Все findings с rule=OCP-H-* должны иметь details.principle == 'OCP'."""
+
+class TestCandidatesIntegrity:
+
+    def test_smelly_classes_are_candidates(self, heuristic_result):
+        """Все smell-классы из интеграционного sample должны попасть в candidates."""
+
+    def test_high_priority_class_ranked_first(self, heuristic_result):
+        """Класс с несколькими нарушениями должен быть среди верхних кандидатов."""
+
+    def test_candidates_have_valid_candidate_type(self, heuristic_result):
+        """Каждый кандидат должен иметь валидный агрегированный тип."""
+
+class TestIntegrationProjectMapDiagnostics:
+
+    def test_lsp_sample_classes_have_expected_parser_metadata(self, smelly_project_dir):
+        """Интеграционный sample строит корректный ProjectMap."""
+
+class TestLspPipelineDiagnostics:
+
+    def test_xml_and_silent_notifier_survive_full_lsp_pipeline(self, smelly_project_dir):
+        """Диагностика полного LSP-пути:
+1) классы есть в ProjectMap
+2) raw-check функции дают findings
+3) findings не теряются до финального HeuristicResult"""
+
+============================================================
+FILE: tools\solid_verifier\tests\llm\test_heuristics\test_lsp_h_001.py
+============================================================
+import pytest
+from solid_dashboard.llm.heuristics import lsp_h_001
+from solid_dashboard.llm.types import ClassInfo, ProjectMap
+from .conftest import _class_info_node_and_project_map_from_source
+
+class TestLspH001:
+
+    def test_positive_bare_raise(self):
+        """Переопределенный метод бросает NotImplementedError без аргументов."""
+
+    def test_positive_raise_with_message(self):
+        """Переопределенный метод бросает NotImplementedError с сообщением."""
+
+    def test_negative_non_override_method(self):
+        """Метод НЕ является переопределением — эвристика не срабатывает."""
+
+    def test_negative_other_exception(self):
+        """Бросает другое исключение — эвристика молчит."""
+
+    def test_finding_metadata(self):
+        """Finding содержит корректные метаданные."""
+
+    def test_abstract_method_without_abc_base_is_ignored(self):
+        """Класс с @abstractmethod и NotImplementedError не дает LSP-H-001."""
+
+============================================================
+FILE: tools\solid_verifier\tests\llm\test_heuristics\test_lsp_h_002.py
+============================================================
+import pytest
+from solid_dashboard.llm.heuristics import lsp_h_002
+from .conftest import _class_info_node_and_project_map_from_source
+
+class TestLspH002:
+
+    def test_positive_pass_body(self):
+        """Переопределенный метод содержит только pass."""
+
+    def test_positive_docstring_only_body(self):
+        """Переопределенный метод содержит только docstring."""
+
+    def test_negative_method_with_body(self):
+        """Переопределенный метод имеет реализацию — эвристика молчит."""
+
+    def test_negative_non_override_pass(self):
+        """Метод с pass, но НЕ является переопределением — эвристика молчит."""
+
+    def test_abstract_base_class_with_pass_is_ignored(self):
+        """Абстрактный класс с pass-телом не должен давать finding."""
+
+    def test_abstract_method_with_pass_is_ignored(self):
+        """Класс с @abstractmethod и pass-телом не дает LSP-H-002."""
+
+============================================================
+FILE: tools\solid_verifier\tests\llm\test_heuristics\test_lsp_h_003.py
+============================================================
+import textwrap
+from solid_dashboard.llm.analysis.ast_parser import build_project_map
+from solid_dashboard.llm.heuristics import identify_candidates
+
+class TestLspH003:
+
+    def test_positive_isinstance_on_annotated_base_param(self, tmp_path):
+        """Метод принимает базовый тип и использует isinstance на нем.
+Базовый тип должен быть в ProjectMap."""
+
+    def test_negative_isinstance_on_external_type(self, tmp_path):
+        """isinstance с типом, которого нет в ProjectMap (внешняя библиотека).
+Эвристика молчит — внешние типы не анализируются."""
+
+    def test_negative_no_annotation(self, tmp_path):
+        """Параметр без аннотации — эвристика молчит."""
+
+    def test_finding_contains_param_name(self, tmp_path):
+        """Finding упоминает имя параметра и базовый тип."""
+
+============================================================
+FILE: tools\solid_verifier\tests\llm\test_heuristics\test_lsp_h_004.py
+============================================================
+import ast
+import textwrap
+from solid_dashboard.llm.heuristics import lsp_h_004
+from solid_dashboard.llm.types import ClassInfo, ProjectMap
+from .conftest import _class_info_node_and_project_map_from_source
+
+class TestLspH004Updated:
+
+    def setup_method(self):
+        pass
+
+    def _get_class_node(self, code: str) -> ast.ClassDef:
+        pass
+
+    def test_positive_init_without_super(self):
+        """__init__ есть, но super().__init__() не вызывается."""
+
+    def test_negative_init_with_super(self):
+        """__init__ вызывает super().__init__() — эвристика молчит."""
+
+    def test_negative_no_init_at_all(self):
+        """Подкласс без __init__ — эвристика молчит (наследует от родителя)."""
+
+    def test_negative_standalone_class_with_init(self):
+        """Класс без родителей — проверка не применима, эвристика молчит."""
+
+    def test_negative_explicit_object_parent(self):
+        """Явное наследование от object не должно давать LSP-H-004."""
+
+    def test_negative_abc_parent(self):
+        """Наследование от ABC игнорируется."""
+
+    def test_negative_protocol_parent(self):
+        """Наследование от Protocol игнорируется."""
+
+    def test_lsp_h_004_ignores_simple_dataclass_decorator(self):
+        """ПРЕДОТВРАЩЕНИЕ FALSE POSITIVE: простой декоратор @dataclass."""
+
+    def test_lsp_h_004_ignores_dataclass_with_args_decorator(self):
+        """ПРЕДОТВРАЩЕНИЕ FALSE POSITIVE: @dataclass(kw_only=True)."""
+
+    def test_negative_dataclasses_dataclass_decorator_is_ignored(self):
+        """ПРЕДОТВРАЩЕНИЕ FALSE POSITIVE: @dataclasses.dataclass тоже игнорируется."""
+
+    def test_negative_pure_interface_class_is_ignored(self):
+        """Чистый интерфейс не дает LSP-H-004 даже с родителем ABC."""
+
+============================================================
+FILE: tools\solid_verifier\tests\llm\test_heuristics\test_ocp_h_001.py
+============================================================
+import ast
+import textwrap
+from solid_dashboard.llm.heuristics import ocp_h_001
+from solid_dashboard.llm.heuristics.ocp_h_001 import _count_isinstance_branches
+from solid_dashboard.llm.types import ClassInfo
+from .conftest import _pm_from_source
+
+def test_count_isinstance_branches_helper():
+    """Хелпер корректно считает только ветки с isinstance."""
+
+class TestOcpH001Updated:
+
+    def setup_method(self):
+        pass
+
+    def _get_class_node(self, code: str) -> ast.ClassDef:
+        pass
+
+    def test_pure_isinstance_chain_triggers(self):
+        """Классическая ситуация: 3 подряд isinstance."""
+
+    def test_guard_plus_isinstance_chain_triggers(self):
+        """ПРЕДОТВРАЩЕНИЕ FALSE NEGATIVE:
+Цепочка начинается с обычного условия (guard),
+дальше идут 3 isinstance — эвристика должна найти."""
+
+    def test_status_checks_with_one_isinstance_no_trigger(self):
+        """ПРЕДОТВРАЩЕНИЕ FALSE POSITIVE:
+Длинная цепочка (>=3), но isinstance только в одной ветке."""
+
+============================================================
+FILE: tools\solid_verifier\tests\llm\test_heuristics\test_ocp_h_002.py
+============================================================
+import ast as _ast
+import pytest
+from solid_dashboard.llm.heuristics import identify_candidates
+from .conftest import _pm_from_source
+
+class TestOcpH002:
+
+    def test_positive_three_case_branches(self):
+        """match/case с тремя ветвями на типы — эвристика срабатывает."""
+
+    def test_negative_two_case_branches(self):
+        """match/case с двумя ветвями — ниже порога, эвристика молчит."""
+
+    def test_finding_metadata_ocp_h002(self):
+        """Finding содержит корректные метаданные."""
+
+============================================================
+FILE: tools\solid_verifier\tests\llm\test_heuristics\test_ocp_h_004.py
+============================================================
+import ast
+import textwrap
+from solid_dashboard.llm.heuristics import ocp_h_004, identify_candidates
+from solid_dashboard.llm.types import ClassInfo
+from .conftest import _pm_from_source
+
+class TestOcpH004Updated:
+
+    def setup_method(self):
+        pass
+
+    def _get_class_node(self, code: str) -> ast.ClassDef:
+        pass
+
+    def test_ocp_h_004_nested_isinstance_ignored(self):
+        """ПРЕДОТВРАЩЕНИЕ FALSE POSITIVE:
+isinstance() внутри вложенной функции не засчитывается
+в CC внешнего метода."""
+
+    def test_ocp_h_004_direct_isinstance_triggers(self):
+        """isinstance() непосредственно в теле метода с высокой CC
+корректно триггерит OCP-H-004."""
+
+class TestCcNestedScopes:
+    """
+    Проверяет, что _compute_method_cc и OCP-H-004 не засчитывают ветвления
+    из вложенных функций и классов как часть CC внешнего метода.
+
+    Без корректного обхода OCP-H-004 выдавал бы ложные срабатывания на
+    любом методе с вложенной функцией с разветвленной логикой.
+    """
+
+    def test_nested_function_if_not_counted(self):
+        """Вложенная функция с if — не влияет на CC внешнего метода.
+process() имеет CC=2, не CC=3."""
+
+    def test_nested_async_function_not_counted(self):
+        """Async-вложенная функция с множеством ветвлений не влияет на CC."""
+
+    def test_nested_class_not_counted(self):
+        """Вложенный класс с методами не влияет на CC внешнего метода."""
+
+    def test_high_cc_in_outer_method_still_triggers(self):
+        """Внешний метод с высокой CC + isinstance срабатывает
+даже при наличии вложенной функции."""
+
+    def test_cc_counts_only_outer_elif_chain(self):
+        """elif-цепочка снаружи считается; elif-цепочка
+внутри вложенной функции — нет."""
+
+============================================================
+FILE: tools\solid_verifier\tests\llm\test_heuristics\test_orchestration.py
+============================================================
+import textwrap
+from solid_dashboard.llm.analysis.ast_parser import build_project_map
+from solid_dashboard.llm.heuristics import identify_candidates
+from solid_dashboard.llm.types import ProjectMap
+from .conftest import _pm_from_source
+
+class TestIdentifyCandidatesOrchestration:
+
+    def test_empty_project_map(self):
+        """Пустой ProjectMap → пустой HeuristicResult."""
+
+    def test_candidates_sorted_by_priority(self, tmp_path):
+        """Кандидат с большим числом нарушений имеет более высокий приоритет."""
+
+    def test_candidate_type_ocp_only(self):
+        """Только OCP-эвристика сработала → candidate_type == 'ocp'."""
+
+    def test_candidate_type_both_when_multiple_signals(self):
+        """И OCP, и LSP эвристики сработали → candidate_type == 'both'."""
+
+    def test_finding_source_is_heuristic(self):
+        """Все findings от эвристик имеют source='heuristic'."""
+
+    def test_dynamic_base_class_skipped(self):
+        """Класс с динамической базой пропускается эвристиками."""
+
+============================================================
+FILE: tools\solid_verifier\tests\llm\test_heuristics\__init__.py
+============================================================
+
