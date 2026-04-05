@@ -1143,6 +1143,7 @@ import warnings
 import os
 import re
 import subprocess
+from collections import Counter
 from typing import Any, Dict, List, Set, Optional
 from solid_dashboard.interfaces.analyzer import IAnalyzer
 _VALID_PY_NAME = re.compile('^[A-Za-z_]\\w*(\\.[A-Za-z_]\\w*)*$')
@@ -1160,6 +1161,13 @@ class Pyan3Adapter(IAnalyzer):
     @staticmethod
     def _error(message: str, raw_output: str='') -> Dict[str, Any]:
         pass
+
+def _detect_suspicious_blocks(raw_output: str) -> Set[str]:
+    """Первый проход по raw_output: возвращает множество имен блоков,
+в которых хотя бы одно [U]-имя встречается более одного раза (до де-дупликации).
+Это признак слияния нескольких сущностей в один text-блок (name collision pyan3).
+Self-loop имена (used == block_name) намеренно исключены из проверки —
+они фильтруются отдельно и не являются признаком cross-attribution."""
 
 ============================================================
 FILE: tools\solid_verifier\solid_dashboard\adapters\radon_adapter.py
