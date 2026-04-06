@@ -44,14 +44,6 @@ if __name__ == '__main__':
     raise SystemExit(subprocess.call(cmd, cwd=project_root, env=env))
 
 ============================================================
-FILE: .tmp_heuristics_tests\tmp_module.py
-============================================================
-class Foo(get_base()):
-
-    def run(self):
-        pass
-
-============================================================
 FILE: app\config.py
 ============================================================
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -760,14 +752,6 @@ async def test_scopus_client_search_and_limits(monkeypatch):
     pass
 
 ============================================================
-FILE: tools\solid_verifier\.tmp_heuristics_tests\tmp_module.py
-============================================================
-class Foo(get_base()):
-
-    def run(self):
-        pass
-
-============================================================
 FILE: tools\solid_verifier\solid_dashboard\config.py
 ============================================================
 import os
@@ -893,8 +877,9 @@ import os
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 from solid_dashboard.interfaces.analyzer import IAnalyzer
+logger = logging.getLogger(__name__)
 
 @dataclass
 class MethodInfo:
@@ -905,6 +890,7 @@ class MethodInfo:
     decorator_kinds: List[str] = field(default_factory=list)
     used_attributes: Set[str] = field(default_factory=set)
     called_methods: Set[str] = field(default_factory=set)
+    is_empty: bool = False
 
 @dataclass
 class ClassInfo:
@@ -914,6 +900,7 @@ class ClassInfo:
     lineno: int
     methods: List[MethodInfo] = field(default_factory=list)
     attributes: Set[str] = field(default_factory=set)
+    kind: str = 'concrete'
 
 class CohesionAdapter(IAnalyzer):
 
@@ -925,48 +912,118 @@ class CohesionAdapter(IAnalyzer):
         pass
 
     def _collect_classes(self, target_path: Path, ignore_dirs: set) -> List[ClassInfo]:
-        pass
+        """Двухпроходный сбор ClassInfo по всем Python-файлам в target_path.
+
+Pass 1 — парсинг файлов: для каждого ast.ClassDef создаем ClassInfo,
+         собираем атрибуты уровня класса и методы, строим глобальный
+         ClassDef-индекс (имя класса -> список (filepath, ast.ClassDef)).
+
+         Индекс хранит список, а не одно значение: если несколько файлов
+         содержат класс с одним именем, все варианты сохраняются.
+         Разрешение неоднозначности делегируется _resolve_classdef().
+
+Pass 2 — обогащение атрибутами предков: для каждого ClassInfo
+         вызываем _enrich_with_ancestor_attributes, которая рекурсивно
+         обходит MRO-цепочку по индексу и добавляет self.xxx из __init__
+         всех найденных предков."""
+
+    def _resolve_classdef(self, base_name: str, classdef_index: Dict[str, List[Tuple[str, ast.ClassDef]]], caller_filepath: str) -> Optional[ast.ClassDef]:
+        """Разрешает имя базового класса в единственный ast.ClassDef по индексу.
+
+Логика разрешения (по убыванию приоритета):
+1. Имя не найдено в индексе — возвращает None (предок внешний, не наш код).
+2. Ровно одно определение — возвращает его безусловно.
+3. Несколько определений — пытается выбрать то, что лежит
+   в том же файле, что и вызывающий класс (caller_filepath).
+   Это корректно для случая, когда base и derived определены
+   в одном модуле (наиболее частый сценарий).
+4. Если в том же файле нет подходящего — неоднозначность неразрешима;
+   логируем WARNING и возвращаем None (graceful degradation).
+
+Параметры:
+    base_name       — короткое имя базового класса (из ast.Name.id)
+    classdef_index  — индекс имя -> [(filepath, ClassDef), ...]
+    caller_filepath — абсолютный путь файла текущего (дочернего) класса"""
+
+    def _enrich_with_ancestor_attributes(self, class_info: ClassInfo, class_node: ast.ClassDef, classdef_index: Dict[str, List[Tuple[str, ast.ClassDef]]], caller_filepath: str, _visited: Optional[Set[str]]=None) -> None:
+        """Рекурсивно обходит MRO-цепочку класса по AST-индексу и добавляет
+в class_info.attributes все self.xxx, присвоенные в __init__ предков.
+
+Алгоритм:
+1. Извлечь имена базовых классов из class_node.bases.
+2. Для каждого имени вызвать _resolve_classdef: получить однозначный ClassDef
+   или None (внешняя зависимость / неразрешимая коллизия имен).
+3. Для найденного предка рекурсивно вызвать себя, затем собрать self.xxx
+   из __init__ этого предка.
+4. _visited предотвращает бесконечные циклы при diamond-наследовании.
+
+Параметр caller_filepath передается в _resolve_classdef для разрешения
+коллизий имен: предпочтение отдается определению из того же файла."""
 
     def _build_class_info(self, class_node: ast.ClassDef, file_path: Path) -> ClassInfo:
         """Строит ClassInfo для одного ast.ClassDef:
-- имя класса
-- путь к файлу
-- строка объявления
+- имя класса, путь к файлу, строка объявления
 - список методов
-- множество атрибутов класса (уровень class body)"""
+- множество атрибутов класса (уровень class body)
+- kind: семантический тип класса (определяется через _classify_class)"""
+
+    def _classify_class(self, class_node: ast.ClassDef) -> str:
+        """Определяет семантический тип класса по AST-узлу.
+
+Возвращает одно из четырех значений:
+  "interface"  — все non-dunder методы абстрактны (только @abstractmethod / pass / raise)
+                 И класс наследуется от ABC или Protocol
+  "abstract"   — наследуется от ABC/Protocol, но есть хотя бы один конкретный метод
+  "dataclass"  — декоратор @dataclass ИЛИ базовый класс BaseModel / declarative Base
+  "concrete"   — всё остальное (дефолт)
+
+Порядок проверок важен: dataclass проверяется первым, затем ABC/Protocol-иерархия."""
 
     def _build_method_info(self, func_node: ast.AST) -> MethodInfo:
         """Строит MethodInfo для ast.FunctionDef или ast.AsyncFunctionDef.
 Определяет:
-- имя метода
-- async / sync
-- типы декораторов: property, classmethod, staticmethod."""
+- имя метода, async/sync
+- типы декораторов: property, classmethod, staticmethod
+- is_empty: True если тело метода тривиально (pass / ... / raise NotImplementedError / docstring)"""
+
+    @staticmethod
+    def _is_empty_method(func_node: ast.AST) -> bool:
+        """Определяет, является ли метод тривиальным — не несущим реальной логики.
+
+Тривиальные тела (в любой комбинации):
+  - pass
+  - ... (Ellipsis — типичная заглушка в интерфейсах/Protocol)
+  - raise NotImplementedError(...) или raise NotImplementedError
+  - строка-докстринг (ast.Expr с ast.Constant[str])
+
+Если тело состоит исключительно из таких инструкций — метод считается пустым
+и исключается из графа LCOM4, чтобы не искажать метрику связности."""
 
     def _classify_decorator(self, dec: ast.AST) -> Optional[str]:
         """Классифицирует декоратор в одно из значений:
-- "property"
-- "classmethod"
-- "staticmethod"
+"property", "classmethod", "staticmethod".
 Если это другой декоратор, возвращает None."""
 
     def _extract_names_from_assign(self, node: ast.Assign) -> List[str]:
         """Извлекает имена атрибутов из простого присваивания на уровне класса.
 Примеры:
-  foo = 1              -> ["foo"]
-  x, y = 1, 2          -> ["x", "y"]
+  foo = 1           -> ["foo"]
+  x, y = 1, 2       -> ["x", "y"]
 Все, что не является простым Name, игнорируется."""
 
     def _extract_name_from_ann_assign(self, node: ast.AnnAssign) -> Optional[str]:
         """Извлекает имя атрибута из аннотированного присваивания на уровне класса.
 Примеры:
-  name: str              -> "name"
-  age: int = 0           -> "age"
-  score: int = Field()   -> "score"
-Если target не является ast.Name (например, self.x), возвращаем None."""
+  name: str           -> "name"
+  age: int = 0        -> "age"
+  score: int = Field() -> "score"
+Если target не является ast.Name, возвращаем None."""
 
     def _collect_instance_attributes_from_init(self, class_info: ClassInfo, class_node: ast.ClassDef) -> None:
         """Находит в __init__ присваивания вида self.xxx = ... и добавляет имена xxx
-в class_info.attributes, чтобы их можно было учитывать как поля экземпляра."""
+в class_info.attributes, чтобы их можно было учитывать как поля экземпляра.
+
+Используется как для текущего класса (Pass 1), так и для предков (Pass 2 / _enrich_with_ancestor_attributes)."""
 
     def _extract_instance_attr_from_target(self, target: ast.AST) -> Optional[str]:
         """Извлекает имя атрибута экземпляра из левой части присваивания:
@@ -978,31 +1035,61 @@ class CohesionAdapter(IAnalyzer):
         """Для каждого метода класса:
 - обходит тело метода;
 - заполняет used_attributes (какие атрибуты класса/экземпляра используются);
-- заполняет called_methods (какие методы данного класса вызываются)."""
+- заполняет called_methods (какие методы данного класса вызываются).
+
+Вызывается на Pass 1 — до обогащения атрибутами предков.
+После Pass 2 (_enrich_with_ancestor_attributes) унаследованные атрибуты
+добавляются в class_info.attributes, и _MethodUsageVisitor корректно
+их находит при следующем обходе через _repopulate_method_usage."""
+
+    def _repopulate_method_usage(self, class_info: ClassInfo, class_node: ast.ClassDef) -> None:
+        """Повторный проход _MethodUsageVisitor после Pass 2 (обогащения атрибутами предков).
+
+На Pass 1 _populate_method_usage уже запустился, но class_info.attributes тогда
+содержал только атрибуты самого класса — унаследованные self.xxx ещё не были добавлены.
+После _enrich_with_ancestor_attributes атрибуты предков попали в class_info.attributes,
+поэтому нужно перезапустить Visitor, чтобы used_attributes методов дочернего класса
+включили унаследованные поля как реальные связи в графе LCOM4.
+
+Вызывается из _collect_classes в конце Pass 2 — только для классов,
+у которых атрибуты действительно расширились (attrs_before != attrs_after)."""
 
     def _compute_lcom4(self, class_info: ClassInfo) -> tuple[int, int]:
         """Считает LCOM4 для данного класса.
 
 Алгоритм:
-- Берем только методы, кроме __init__ (по требованиям).
-- Строим неориентированный граф:
-  - вершины = имена методов;
-  - ребра между методами A и B, если:
+- берем только методы, исключая:
+    * __init__ (LCOM4-конвенция)
+    * property-методы (не участвуют в связности классов)
+    * пустые методы (is_empty=True: pass / ... / raise NotImplementedError / docstring)
+      — они не несут логики и не образуют реальных связей в графе
+- строим неориентированный граф:
+  вершины = имена методов;
+  ребра между A и B, если:
     * used_attributes(A) ∩ used_attributes(B) != ∅, или
-    * A вызывает B или B вызывает A.
-- LCOM4 = число связных компонент в этом графе.
-- Если после фильтрации нет методов, возвращаем (0, 0)."""
+    * A вызывает B или B вызывает A
+- LCOM4 = число связных компонент в этом графе
+- если после фильтрации нет методов, возвращаем (0, 0)"""
 
 class _MethodUsageVisitor(ast.NodeVisitor):
     """
     AST-посетитель для одного метода класса.
     Собирает:
     - used_attributes: обращения к атрибутам класса/экземпляра
-      (self.field, cls.field), если field есть в class_attributes.
-    - called_methods: вызовы методов класса (self.method(), cls.method(), method()).
+      (self.field, cls.field), если field есть в class_attributes
+    - called_methods: вызовы методов класса (self.method(), cls.method(), method())
+
+    Параметр is_static управляет регистрацией self-подобных имен:
+    - False (по умолчанию): первый параметр метода регистрируется как self/cls-подобное имя
+    - True (@staticmethod): регистрация пропускается — первый параметр не является
+      self/cls, его ложная регистрация приводила бы к spurious ребрам в графе LCOM4
+
+    Важно: вложенные def/async def внутри метода намеренно НЕ обходятся.
+    Это предотвращает загрязнение графа LCOM4 атрибутами и вызовами из замыканий,
+    где первый аргумент (self/cls) принадлежит вложенной функции, а не классу.
     """
 
-    def __init__(self, class_attributes: Set[str], method_names: Set[str]) -> None:
+    def __init__(self, class_attributes: Set[str], method_names: Set[str], is_static: bool=False) -> None:
         pass
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> Any:
