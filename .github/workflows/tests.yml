@@ -11,6 +11,10 @@ on:
       - main
       - master
 
+# Устанавливаем Node.js 24 для всех actions в этом workflow заранее официального дедлайна (02.06.2026)
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
  # Выбираем ОС для виртуальной машины
 jobs:
   test:
