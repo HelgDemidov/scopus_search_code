@@ -10,14 +10,15 @@ from app.interfaces.search_client import ISearchClient
 # Базовый URL Scopus Search API (актуальный endpoint)
 SCOPUS_BASE_URL = "https://api.elsevier.com/content/search/scopus"
 
-# Поля, которые мы запрашиваем у API (только то, что нам нужно — экономим трафик)
-SCOPUS_FIELDS = "prism:publicationName,dc:creator,prism:coverDate,prism:doi"
+# Поля ответа Scopus API:
+# dc:title              — название статьи
+# prism:publicationName — название журнала/издания
+SCOPUS_FIELDS = "dc:title,prism:publicationName,dc:creator,prism:coverDate,prism:doi"
 
 
 class ScopusHTTPClient(ISearchClient):
-    # Принимаем готовый httpx.AsyncClient снаружи (Dependency Injection).
-    # Клиент создается один раз при старте приложения (в Lifespan) и живет всегда.
-    # Это эффективнее, чем создавать новое соединение на каждый запрос.
+    # Принимаем готовый httpx.AsyncClient снаружи (Dependency Injection)
+    # Клиент создается один раз при старте приложения (в Lifespan) и живет всегда
     def __init__(self, http_client: httpx.AsyncClient):
         self._client = http_client
         self.last_rate_limit: Optional[str] = None
@@ -36,7 +37,7 @@ class ScopusHTTPClient(ISearchClient):
 
         response = await self._client.get(SCOPUS_BASE_URL, params=params)
 
-        # сохраняем лимиты из заголовков
+        # Сохраняем лимиты из заголовков
         self.last_rate_limit = response.headers.get("X-RateLimit-Limit")
         self.last_rate_remaining = response.headers.get("X-RateLimit-Remaining")
         self.last_rate_reset = response.headers.get("X-RateLimit-Reset")
@@ -50,7 +51,8 @@ class ScopusHTTPClient(ISearchClient):
         articles: List[Article] = []
 
         for entry in entries:
-            title = entry.get("prism:publicationName") or ""
+            title = entry.get("dc:title") or ""               # название самой статьи
+            journal = entry.get("prism:publicationName")       # название журнала/издания
             creator = entry.get("dc:creator")
             cover_date_str = entry.get("prism:coverDate")
             doi = entry.get("prism:doi")
@@ -65,6 +67,7 @@ class ScopusHTTPClient(ISearchClient):
 
             article = Article(
                 title=title[:500],
+                journal=journal[:500] if journal else None,
                 author=creator[:255] if creator else None,
                 date=cover_date,
                 doi=doi[:255] if doi else None,
