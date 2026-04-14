@@ -8,6 +8,11 @@ class Router:
         pass
 
 ============================================================
+FILE: app\__init__.py
+============================================================
+
+
+============================================================
 FILE: app\config.py
 ============================================================
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -27,82 +32,7 @@ class Settings(BaseSettings):
 settings = Settings()
 
 ============================================================
-FILE: app\main.py
-============================================================
-from contextlib import asynccontextmanager
-from typing import AsyncGenerator
-import httpx
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from app.routers import articles, users, health
-
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    pass
-app = FastAPI(title='Scopus Search API', description='Веб-сервис для поиска научных публикаций через Scopus API', version='1.0.0', lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_credentials=True, allow_methods=['*'], allow_headers=['*'])
-app.include_router(users.router)
-app.include_router(articles.router)
-app.include_router(health.router)
-
-@app.get('/', tags=['Health'])
-async def root() -> dict[str, str]:
-    pass
-
-============================================================
-FILE: app\__init__.py
-============================================================
-
-
-============================================================
-FILE: scripts\seed_db.py
-============================================================
-import os
-import asyncio
-import httpx
-from colorama import Fore, Style, init
-init(autoreset=True)
-BASE_URL = 'https://scopus-search-code.up.railway.app'
-JWT_TOKEN = os.getenv('SEEDER_JWT_TOKEN', 'PASTE_YOUR_JWT_TOKEN_HERE')
-ARTICLES_PER_QUERY = 25
-DELAY_BETWEEN_REQUESTS = 2.0
-KEYWORDS = ['generative pretrained transformer', 'large language model training', 'instruction tuned language models', 'reinforcement learning from human feedback', 'in context learning mechanisms', 'retrieval augmented generation system', 'multimodal transformer architecture', 'parameter efficient fine tuning', 'low rank adaptation methods', 'prompt engineering strategies', 'chain of thought prompting', 'hallucination mitigation in llm', 'factual consistency llm outputs', 'safety alignment for llm', 'jailbreak detection techniques', 'synthetic data generation for llm', 'continual pretraining of transformers', 'curriculum learning for llm', 'tool using language models', 'code generation with transformers', 'generative adversarial network genomics', 'gan for genomic data augmentation', 'gan based variant calling', 'gan for gene expression synthesis', 'generative adversarial network bioinformatics', 'single cell transcriptomics gan', 'gan for dna sequence generation', 'gan for rna sequence analysis', 'protein structure generation gan', 'multimodal gan for biomedical data', 'adversarial learning in genomics', 'privacy preserving gan for health data', 'conditional gan for omics integration', 'anomaly detection in genomics using gan', 'adversarial training for genomic classifiers', 'neuromorphic computing for artificial intelligence', 'neuromorphic architecture for spiking networks', 'spiking neural network inference', 'event driven neuromorphic processing', 'memristor based neuromorphic computing', 'brain inspired neuromorphic hardware', 'analog neuromorphic accelerator', 'low power neuromorphic inference', 'edge intelligence with neuromorphic chips', 'reservoir computing on neuromorphic hardware', 'asynchronous neuromorphic circuits', 'on chip learning in neuromorphic systems', 'neuromorphic sensor fusion', 'hybrid neuromorphic deep learning', 'spiking transformer architecture', 'hardware accelerator for large language models', 'tensor processing unit architecture', 'gpu tensor core optimization', 'ai accelerator for transformer inference', 'systolic array for matrix multiplication', 'specialized inference engine for llm', 'model quantization for hardware efficiency', 'int8 inference for transformers', 'mixed precision inference techniques', 'sparsity exploitation in neural networks', 'structured pruning for faster inference', 'hardware aware neural architecture search', 'chiplet based ai accelerator', 'near memory computing for ai', 'in memory computing for neural networks', 'weight hardcoding in neural accelerators', 'weight stationary dataflow architecture', 'compute in memory crossbar array', 'analog weight storage for inference', 'resistive crossbar neural accelerator', 'fixed function neural network accelerator', 'compiled neural network to hardware', 'logic in memory accelerator design', 'on chip interconnect optimization for ai', 'topology aware mapping of neural networks', 'hardware software co design for llm', 'pipeline parallelism in transformer inference', 'memory bandwidth optimization for ai chips', 'hardware security for ai accelerators', 'fault tolerance in neural hardware', 'automated machine learning pipeline', 'self improving machine learning system', 'closed loop model improvement', 'online learning in production systems', 'active learning feedback loop', 'gradient based architecture search', 'meta learning for model adaptation', 'reinforcement learning based hyperparameter tuning', 'continuous deployment of machine learning models', 'mlops pipeline automation', 'monitoring drift in ml deployments', 'feedback loop for recommendation systems', 'self supervised pretraining and finetuning', 'multi agent learning system optimization', 'human in the loop model refinement', 'dynamic dataset curation with ml', 'automated label correction using models', 'bandit based model selection', 'iterative retraining with user feedback', 'autonomous machine learning lifecycle']
-
-async def seed_database():
-    pass
-if __name__ == '__main__':
-    asyncio.run(seed_database())
-
-============================================================
-FILE: tests\conftest.py
-============================================================
-from typing import AsyncGenerator
-import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from app.core.dependencies import get_db_session
-from app.core.security import create_access_token
-from app.models.base import Base
-from app.main import app
-from app.models.user import User
-SQLALCHEMY_DATABASE_URL = 'sqlite+aiosqlite:///:memory:'
-engine = create_async_engine(SQLALCHEMY_DATABASE_URL, connect_args={'check_same_thread': False}, poolclass=None)
-TestingSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=engine, class_=AsyncSession, expire_on_commit=False)
-
-@pytest_asyncio.fixture(scope='function')
-async def db_session() -> AsyncGenerator[AsyncSession, None]:
-    pass
-
-@pytest_asyncio.fixture(scope='function')
-async def async_client(db_session: AsyncSession):
-    pass
-
-@pytest_asyncio.fixture(scope='function')
-async def authenticated_client(async_client: AsyncClient, db_session: AsyncSession) -> AsyncClient:
-    pass
-
-============================================================
-FILE: tests\__init__.py
+FILE: app\core\__init__.py
 ============================================================
 
 
@@ -140,7 +70,7 @@ def decode_access_token(token: str) -> str | None:
     pass
 
 ============================================================
-FILE: app\core\__init__.py
+FILE: app\demo\__init__.py
 ============================================================
 
 
@@ -158,7 +88,7 @@ class BadProcessor(BaseProcessor):
         pass
 
 ============================================================
-FILE: app\demo\__init__.py
+FILE: app\infrastructure\__init__.py
 ============================================================
 
 
@@ -238,7 +168,7 @@ class ScopusHTTPClient(ISearchClient):
         pass
 
 ============================================================
-FILE: app\infrastructure\__init__.py
+FILE: app\interfaces\__init__.py
 ============================================================
 
 
@@ -295,7 +225,30 @@ class IUserRepository(ABC):
         pass
 
 ============================================================
-FILE: app\interfaces\__init__.py
+FILE: app\main.py
+============================================================
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+import httpx
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.routers import articles, users, health
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    pass
+app = FastAPI(title='Scopus Search API', description='Веб-сервис для поиска научных публикаций через Scopus API', version='1.0.0', lifespan=lifespan)
+app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_credentials=True, allow_methods=['*'], allow_headers=['*'])
+app.include_router(users.router)
+app.include_router(articles.router)
+app.include_router(health.router)
+
+@app.get('/', tags=['Health'])
+async def root() -> dict[str, str]:
+    pass
+
+============================================================
+FILE: app\models\__init__.py
 ============================================================
 
 
@@ -349,7 +302,7 @@ class User(Base):
         pass
 
 ============================================================
-FILE: app\models\__init__.py
+FILE: app\routers\__init__.py
 ============================================================
 
 
@@ -438,7 +391,7 @@ async def password_reset_request(data: PasswordResetRequest, service: UserServic
     pass
 
 ============================================================
-FILE: app\routers\__init__.py
+FILE: app\schemas\__init__.py
 ============================================================
 
 
@@ -503,7 +456,7 @@ class PasswordResetRequest(BaseModel):
     email: EmailStr
 
 ============================================================
-FILE: app\schemas\__init__.py
+FILE: app\services\__init__.py
 ============================================================
 
 
@@ -563,7 +516,40 @@ class UserService:
         pass
 
 ============================================================
-FILE: app\services\__init__.py
+FILE: tests\__init__.py
+============================================================
+
+
+============================================================
+FILE: tests\conftest.py
+============================================================
+from typing import AsyncGenerator
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from app.core.dependencies import get_db_session
+from app.core.security import create_access_token
+from app.models.base import Base
+from app.main import app
+from app.models.user import User
+SQLALCHEMY_DATABASE_URL = 'sqlite+aiosqlite:///:memory:'
+engine = create_async_engine(SQLALCHEMY_DATABASE_URL, connect_args={'check_same_thread': False}, poolclass=None)
+TestingSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=engine, class_=AsyncSession, expire_on_commit=False)
+
+@pytest_asyncio.fixture(scope='function')
+async def db_session() -> AsyncGenerator[AsyncSession, None]:
+    pass
+
+@pytest_asyncio.fixture(scope='function')
+async def async_client(db_session: AsyncSession):
+    pass
+
+@pytest_asyncio.fixture(scope='function')
+async def authenticated_client(async_client: AsyncClient, db_session: AsyncSession) -> AsyncClient:
+    pass
+
+============================================================
+FILE: tests\integration\__init__.py
 ============================================================
 
 
@@ -602,9 +588,25 @@ async def test_login_integration(async_client: AsyncClient):
     pass
 
 ============================================================
-FILE: tests\integration\__init__.py
+FILE: tests\integration\tests\integration\test_articles_headers.py
 ============================================================
+import pytest
+from httpx import AsyncClient
+from app.main import app
+from app.routers.articles import get_scopus_client
+from app.services.search_service import SearchService
 
+class FakeScopusClient:
+
+    def __init__(self):
+        pass
+
+async def override_get_scopus_client():
+    pass
+
+@pytest.mark.asyncio
+async def test_find_articles_rate_limits_headers(authenticated_client: AsyncClient, monkeypatch):
+    pass
 
 ============================================================
 FILE: tests\unit\test_article_service.py
@@ -681,27 +683,6 @@ async def test_register_user_success(user_service: UserService):
 
 @pytest.mark.asyncio
 async def test_register_user_duplicate_email(user_service: UserService):
-    pass
-
-============================================================
-FILE: tests\integration\tests\integration\test_articles_headers.py
-============================================================
-import pytest
-from httpx import AsyncClient
-from app.main import app
-from app.routers.articles import get_scopus_client
-from app.services.search_service import SearchService
-
-class FakeScopusClient:
-
-    def __init__(self):
-        pass
-
-async def override_get_scopus_client():
-    pass
-
-@pytest.mark.asyncio
-async def test_find_articles_rate_limits_headers(authenticated_client: AsyncClient, monkeypatch):
     pass
 
 ============================================================
