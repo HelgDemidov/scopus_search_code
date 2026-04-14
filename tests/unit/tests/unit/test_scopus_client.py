@@ -6,7 +6,7 @@ from app.infrastructure.scopus_client import ScopusHTTPClient
 @pytest.mark.asyncio
 async def test_scopus_client_search_and_limits(monkeypatch):
     # Arrange: мокаем ответ httpx с заголовками rate-limit и телом,
-    # соответствующим реальной структуре COMPLETE-view Scopus Search API
+    # соответствующим реальной структуре STANDARD-view Scopus Search API
     class MockResponse:
         def __init__(self):
             self.status_code = 200
@@ -21,9 +21,9 @@ async def test_scopus_client_search_and_limits(monkeypatch):
                 "search-results": {
                     "entry": [
                         {
-                            # Название статьи — dc:title (не prism:publicationName)
+                            # Название статьи
                             "dc:title": "Test Article",
-                            # Название журнала (отдельное поле)
+                            # Название журнала
                             "prism:publicationName": "Journal of Testing",
                             # Первый автор
                             "dc:creator": "John Doe",
@@ -37,16 +37,10 @@ async def test_scopus_client_search_and_limits(monkeypatch):
                             "subtypeDescription": "Article",
                             # Открытый доступ (приходит строкой "0" / "1")
                             "openaccess": "1",
-                            # Ключевые слова авторов
-                            "authkeywords": "machine learning | deep learning",
                             # Аффилиация (вложенный объект)
                             "affiliation": {
                                 "affiliation-country": "United States"
                             },
-                            # Спонсор финансирования
-                            "fund-sponsor": "NSF",
-                            # Аннотация
-                            "dc:description": "A test abstract.",
                         }
                     ]
                 }
@@ -65,7 +59,7 @@ async def test_scopus_client_search_and_limits(monkeypatch):
         client = ScopusHTTPClient(http_client)
         articles = await client.search("machine learning", count=1)
 
-        # Assert: проверяем корректное извлечение полей из dc:title и dc:creator
+        # Assert: проверяем корректное извлечение всех полей STANDARD-view
         assert len(articles) == 1
         assert articles[0].title == "Test Article"
         assert articles[0].author == "John Doe"

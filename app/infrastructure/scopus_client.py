@@ -10,7 +10,7 @@ from app.interfaces.search_client import ISearchClient
 # Базовый URL Scopus Search API
 SCOPUS_BASE_URL = "https://api.elsevier.com/content/search/scopus"
 
-# Все запрашиваемые поля Scopus Search API (COMPLETE view, лимит 25 результатов за запрос):
+# Поля Scopus Search API, доступные при бесплатном API-ключе (STANDARD view):
 # dc:title              — название статьи
 # prism:publicationName — название журнала
 # dc:creator            — первый автор
@@ -19,14 +19,14 @@ SCOPUS_BASE_URL = "https://api.elsevier.com/content/search/scopus"
 # citedby-count         — число цитирований
 # subtypeDescription    — тип документа (Article, Review, Conference Paper...)
 # openaccess            — флаг открытого доступа (0 или 1)
-# authkeywords          — ключевые слова авторов
 # affiliation           — вложенный объект с организацией и страной автора
-# fund-sponsor          — спонсор финансирования
-# dc:description        — аннотация
+#
+# Поля ниже требуют view=COMPLETE (институциональный доступ) и с бесплатным
+# ключом не возвращаются — исключены из запроса:
+#   authkeywords, dc:description (abstract), fund-sponsor
 SCOPUS_FIELDS = (
     "dc:title,prism:publicationName,dc:creator,prism:coverDate,prism:doi,"
-    "citedby-count,subtypeDescription,openaccess,authkeywords,"
-    "affiliation,fund-sponsor,dc:description"
+    "citedby-count,subtypeDescription,openaccess,affiliation"
 )
 
 
@@ -72,9 +72,6 @@ class ScopusHTTPClient(ISearchClient):
             cover_date_str = entry.get("prism:coverDate")
             doi = entry.get("prism:doi")
             document_type = entry.get("subtypeDescription")
-            fund_sponsor = entry.get("fund-sponsor")
-            abstract = entry.get("dc:description")
-            author_keywords = entry.get("authkeywords")
 
             # citedby-count приходит как строка, преобразуем в целое число
             cited_by_raw = entry.get("citedby-count")
@@ -110,10 +107,7 @@ class ScopusHTTPClient(ISearchClient):
                 cited_by_count=cited_by_count,
                 document_type=document_type[:100] if document_type else None,
                 open_access=open_access,
-                author_keywords=author_keywords,
                 affiliation_country=affiliation_country[:100] if affiliation_country else None,
-                fund_sponsor=fund_sponsor[:255] if fund_sponsor else None,
-                abstract=abstract,
             )
             articles.append(article)
 
