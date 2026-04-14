@@ -26,12 +26,19 @@ class PostgresArticleRepository(IArticleRepository):
         # Формируем значения для bulk insert, включая все поля модели
         values = [
             {
-                "title":   a.title,
-                "journal": a.journal,
-                "author":  a.author,
-                "date":    a.date,
-                "doi":     a.doi,
-                "keyword": a.keyword,
+                "title":               a.title,
+                "journal":             a.journal,
+                "author":              a.author,
+                "publication_date":    a.publication_date,
+                "doi":                 a.doi,
+                "keyword":             a.keyword,
+                "cited_by_count":      a.cited_by_count,
+                "document_type":       a.document_type,
+                "open_access":         a.open_access,
+                "author_keywords":     a.author_keywords,
+                "affiliation_country": a.affiliation_country,
+                "fund_sponsor":        a.fund_sponsor,
+                "abstract":            a.abstract,
             }
             for a in articles
         ]
@@ -44,11 +51,18 @@ class PostgresArticleRepository(IArticleRepository):
             .on_conflict_do_update(
                 index_elements=["doi"],
                 set_={
-                    "title":   insert(Article).excluded.title,
-                    "journal": insert(Article).excluded.journal,
-                    "author":  insert(Article).excluded.author,
-                    "date":    insert(Article).excluded.date,
-                    "keyword": insert(Article).excluded.keyword,
+                    "title":               insert(Article).excluded.title,
+                    "journal":             insert(Article).excluded.journal,
+                    "author":              insert(Article).excluded.author,
+                    "publication_date":    insert(Article).excluded.publication_date,
+                    "keyword":             insert(Article).excluded.keyword,
+                    "cited_by_count":      insert(Article).excluded.cited_by_count,
+                    "document_type":       insert(Article).excluded.document_type,
+                    "open_access":         insert(Article).excluded.open_access,
+                    "author_keywords":     insert(Article).excluded.author_keywords,
+                    "affiliation_country": insert(Article).excluded.affiliation_country,
+                    "fund_sponsor":        insert(Article).excluded.fund_sponsor,
+                    "abstract":            insert(Article).excluded.abstract,
                 },
             )
         )
