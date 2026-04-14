@@ -3,112 +3,162 @@ import asyncio
 import httpx
 from colorama import Fore, Style, init
 
-# Инициализация библиотеки для красивого вывода в консоль
+# Импорт генератора ключевых фраз из соседнего модуля
+from keyword_generator import generate_keywords
+
 init(autoreset=True)
 
-# ----------------- НАСТРОЙКИ -----------------
-# Публичный URL на Railway
+# ================== КОНСТАНТЫ ==================
 BASE_URL = "https://scopus-search-code.up.railway.app"
+ARTICLES_PER_QUERY = 25  # Максимум статей за 1 запрос к Scopus
+DELAY_BETWEEN_REQUESTS = 2.0  # Секунд между запросами — защита от DDoS Railway и Scopus
+RATE_LIMIT_STOP_THRESHOLD = 500  # Остановиться, если Scopus осталось < 500 запросов
+KEYWORDS_TO_USE = 100  # Из 120 сгенерированных используем 100
 
-# Токен SWAGGER
-# Получаем токен из переменных окружения (если есть) или просим вставить вручную
-JWT_TOKEN = os.getenv("SEEDER_JWT_TOKEN", "PASTE_YOUR_JWT_TOKEN_HERE") 
 
-# Количество статей за 1 запрос (от 1 до 25)
-ARTICLES_PER_QUERY = 25 
+def _get_secrets() -> tuple[str, str, str]:
+    # Читаем секреты через os.environ[] — fail-fast: KeyError если переменная не задана
+    return (
+        os.environ["DATABASE_URL"],
+        os.environ["SEEDER_EMAIL"],
+        os.environ["SEEDER_PASSWORD"],
+    )
 
-# Пауза между запросами (в секундах) - не рекмоендутеся делать меньше 1, чтобы не положить Railway
-DELAY_BETWEEN_REQUESTS = 2.0 
 
-# Наши 100 уникальных фраз
-KEYWORDS = [
-    "generative pretrained transformer", "large language model training", "instruction tuned language models",
-    "reinforcement learning from human feedback", "in context learning mechanisms", "retrieval augmented generation system",
-    "multimodal transformer architecture", "parameter efficient fine tuning", "low rank adaptation methods",
-    "prompt engineering strategies", "chain of thought prompting", "hallucination mitigation in llm",
-    "factual consistency llm outputs", "safety alignment for llm", "jailbreak detection techniques",
-    "synthetic data generation for llm", "continual pretraining of transformers", "curriculum learning for llm",
-    "tool using language models", "code generation with transformers",
-    
-    "generative adversarial network genomics", "gan for genomic data augmentation", "gan based variant calling",
-    "gan for gene expression synthesis", "generative adversarial network bioinformatics", "single cell transcriptomics gan",
-    "gan for dna sequence generation", "gan for rna sequence analysis", "protein structure generation gan",
-    "multimodal gan for biomedical data", "adversarial learning in genomics", "privacy preserving gan for health data",
-    "conditional gan for omics integration", "anomaly detection in genomics using gan", "adversarial training for genomic classifiers",
+async def _get_jwt_token(client: httpx.AsyncClient, email: str, password: str) -> str:
+    # Автологин через эндпоинт FastAPI — пароль проходит bcrypt-верификацию на сервере
+    response = await client.post(
+        f"{BASE_URL}/users/login",
+        data={"username": email, "password": password},  # OAuth2PasswordRequestForm ждет form-data
+    )
+    if response.status_code != 200:
+        raise RuntimeError(f"Автологин не удался: {response.status_code} {response.text}")
+    token = response.json().get("access_token")
+    if not token:
+        raise RuntimeError("В ответе /users/login нет поля access_token")
+    print(f"{Fore.GREEN}Токен получен успешно.")
+    return token
 
-    "neuromorphic computing for artificial intelligence", "neuromorphic architecture for spiking networks",
-    "spiking neural network inference", "event driven neuromorphic processing", "memristor based neuromorphic computing",
-    "brain inspired neuromorphic hardware", "analog neuromorphic accelerator", "low power neuromorphic inference",
-    "edge intelligence with neuromorphic chips", "reservoir computing on neuromorphic hardware", "asynchronous neuromorphic circuits",
-    "on chip learning in neuromorphic systems", "neuromorphic sensor fusion", "hybrid neuromorphic deep learning",
-    "spiking transformer architecture",
 
-    "hardware accelerator for large language models", "tensor processing unit architecture", "gpu tensor core optimization",
-    "ai accelerator for transformer inference", "systolic array for matrix multiplication", "specialized inference engine for llm",
-    "model quantization for hardware efficiency", "int8 inference for transformers", "mixed precision inference techniques",
-    "sparsity exploitation in neural networks", "structured pruning for faster inference", "hardware aware neural architecture search",
-    "chiplet based ai accelerator", "near memory computing for ai", "in memory computing for neural networks",
+async def _fetch_used_keywords(db_url: str) -> tuple[list[str], dict[str, str]]:
+    # Читаем все ранее использованные фразы из seeder_keywords через asyncpg
+    import asyncpg
+    conn = await asyncpg.connect(db_url.replace("postgresql+asyncpg://", "postgresql://"))
+    try:
+        rows = await conn.fetch("SELECT keyword, cluster FROM seeder_keywords ORDER BY used_at ASC")
+        keywords = [row["keyword"] for row in rows]
+        cluster_map = {row["keyword"]: row["cluster"] for row in rows}
+        return keywords, cluster_map
+    finally:
+        await conn.close()
 
-    "weight hardcoding in neural accelerators", "weight stationary dataflow architecture", "compute in memory crossbar array",
-    "analog weight storage for inference", "resistive crossbar neural accelerator", "fixed function neural network accelerator",
-    "compiled neural network to hardware", "logic in memory accelerator design", "on chip interconnect optimization for ai",
-    "topology aware mapping of neural networks", "hardware software co design for llm", "pipeline parallelism in transformer inference",
-    "memory bandwidth optimization for ai chips", "hardware security for ai accelerators", "fault tolerance in neural hardware",
 
-    "automated machine learning pipeline", "self improving machine learning system", "closed loop model improvement",
-    "online learning in production systems", "active learning feedback loop", "gradient based architecture search",
-    "meta learning for model adaptation", "reinforcement learning based hyperparameter tuning",
-    "continuous deployment of machine learning models", "mlops pipeline automation", "monitoring drift in ml deployments",
-    "feedback loop for recommendation systems", "self supervised pretraining and finetuning", "multi agent learning system optimization",
-    "human in the loop model refinement", "dynamic dataset curation with ml", "automated label correction using models",
-    "bandit based model selection", "iterative retraining with user feedback", "autonomous machine learning lifecycle"
-]
+async def _save_keyword_result(
+    db_url: str, keyword: str, cluster: str, articles_found: int
+) -> None:
+    # Записываем результат запроса в seeder_keywords — уникальность по keyword защищает от дублей
+    import asyncpg
+    conn = await asyncpg.connect(db_url.replace("postgresql+asyncpg://", "postgresql://"))
+    try:
+        await conn.execute(
+            """
+            INSERT INTO seeder_keywords (keyword, cluster, articles_found, used_at)
+            VALUES ($1, $2, $3, now())
+            ON CONFLICT (keyword) DO UPDATE
+                SET articles_found = EXCLUDED.articles_found,
+                    used_at        = now()
+            """,
+            keyword, cluster, articles_found,
+        )
+    finally:
+        await conn.close()
 
-async def seed_database():
-    print(f"{Fore.CYAN}Начинаем наполнение базы данных...")
-    print(f"URL: {BASE_URL}")
-    print(f"Всего ключевых фраз: {len(KEYWORDS)}\n")
 
-    headers = {
-        "Authorization": f"Bearer {JWT_TOKEN}",
-        "Accept": "application/json"
-    }
+async def seed_database() -> None:
+    print(f"{Fore.CYAN}===== Сидер Scopus запущен =====")
+    print(f"BASE_URL: {BASE_URL}\n")
 
-    # Используем асинхронный клиент httpx
+    # Читаем секреты через os.environ[] — KeyError = немедленный fail-fast
+    db_url, email, password = _get_secrets()
+    openrouter_key = os.environ["OPENROUTER_API_KEY"]
+
     async with httpx.AsyncClient(timeout=30.0) as client:
-        for i, keyword in enumerate(KEYWORDS, 1):
-            print(f"[{i}/{len(KEYWORDS)}] Запрос по фразе: {Fore.YELLOW}'{keyword}'{Style.RESET_ALL}...", end=" ")
-            
+
+        # Шаг 1: автологин и получение JWT-токена
+        token = await _get_jwt_token(client, email, password)
+
+        # Шаг 2: загрузка истории использованных фраз из Supabase
+        print(f"{Fore.CYAN}Читаем историю из Supabase...")
+        used_keywords, _ = await _fetch_used_keywords(db_url)
+        print(f"Сохранено фраз в базе: {len(used_keywords)}\n")
+
+        # Шаг 3: генерация 120 фраз через OpenRouter, берем 100 уникальных
+        print(f"{Fore.CYAN}Генерируем ключевые фразы через OpenRouter...")
+        all_keywords, cluster = await generate_keywords(used_keywords, openrouter_key)
+        keywords = all_keywords[:KEYWORDS_TO_USE]
+        print(f"Кластер: {Fore.YELLOW}{cluster}{Style.RESET_ALL}")
+        print(f"Фраз для обработки: {len(keywords)}\n")
+
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json",
+        }
+
+        for i, keyword in enumerate(keywords, 1):
+            print(
+                f"[{i}/{len(keywords)}] {Fore.YELLOW}'{keyword}'{Style.RESET_ALL}...",
+                end=" "
+            )
+
             try:
-                # Делаем GET запрос к нашему API на Railway
                 response = await client.get(
                     f"{BASE_URL}/articles/find",
                     headers=headers,
-                    params={"keyword": keyword, "count": ARTICLES_PER_QUERY}
+                    params={"keyword": keyword, "count": ARTICLES_PER_QUERY},
                 )
-                
-                # Если токен протух или Railway лежит
+
+                # Токен протух — перелогиниваемся и повторяем запрос
                 if response.status_code == 401:
-                    print(f"{Fore.RED}Ошибка 401: Неверный или просроченный JWT токен. Обнови JWT_TOKEN.")
-                    break
-                elif response.status_code != 200:
-                    print(f"{Fore.RED}Ошибка {response.status_code}: {response.text}")
+                    print(f"{Fore.YELLOW}Токен протух, переполучаем...")
+                    token = await _get_jwt_token(client, email, password)
+                    headers["Authorization"] = f"Bearer {token}"
+                    response = await client.get(
+                        f"{BASE_URL}/articles/find",
+                        headers=headers,
+                        params={"keyword": keyword, "count": ARTICLES_PER_QUERY},
+                    )
+
+                if response.status_code != 200:
+                    print(f"{Fore.RED}Ошибка {response.status_code}: {response.text[:100]}")
                     continue
 
-                # Получаем ответ в виде JSON (список сохраненных статей)
                 data = response.json()
-                print(f"{Fore.GREEN}Успешно! Сохранено новых: ~{len(data)} шт.")
+                articles_found = len(data) if isinstance(data, list) else 0
+                print(f"{Fore.GREEN}Сохранено: {articles_found} шт.")
+
+                # Проверяем остаток лимита Scopus из заголовков ответа
+                rate_remaining = response.headers.get("X-RateLimit-Remaining")
+                if rate_remaining is not None and int(rate_remaining) < RATE_LIMIT_STOP_THRESHOLD:
+                    print(
+                        f"\n{Fore.RED}Aлерт! Остаток лимита Scopus: {rate_remaining} запросов. "
+                        f"Останавливаемся."
+                    )
+                    await _save_keyword_result(db_url, keyword, cluster, articles_found)
+                    break
+
+                # Записываем результат запроса в seeder_keywords (INSERT OR UPDATE через ON CONFLICT)
+                await _save_keyword_result(db_url, keyword, cluster, articles_found)
 
             except httpx.RequestError as e:
-                print(f"{Fore.RED}Сетевая ошибка при запросе: {e}")
+                print(f"{Fore.RED}Сетевая ошибка: {e}")
             except Exception as e:
                 print(f"{Fore.RED}Непредвиденная ошибка: {e}")
 
-            # Обязательная пауза, чтобы не дидосить Railway и Scopus
+            # Обязательная пауза — защита Railway и Scopus от перегрузки
             await asyncio.sleep(DELAY_BETWEEN_REQUESTS)
-            
-    print(f"\n{Fore.CYAN}Процесс наполнения завершен!")
-    print(f"Зайди в логи Railway, чтобы посмотреть остаток лимита: X-RateLimit-Remaining")
+
+    print(f"\n{Fore.CYAN}===== Сидер завершен =====")
+
 
 if __name__ == "__main__":
     asyncio.run(seed_database())
