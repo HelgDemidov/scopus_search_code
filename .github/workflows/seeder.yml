@@ -1,0 +1,37 @@
+name: Scheduled DB Seeder
+
+on:
+  # Ежедневный автоматический запуск в 03:00 UTC (05:00 CEST)
+  schedule:
+    - cron: "0 3 * * *"
+  # Ручной запуск одной кнопкой в вкладке Actions — удобно для тестирования
+  workflow_dispatch:
+
+jobs:
+  seed:
+    name: Run Scopus Seeder
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.6.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install seeder dependencies
+        # Устанавливаем онлайн пакеты — без requirements.txt чтобы не тянуть все зависимости основного сервиса
+        run: pip install httpx asyncpg colorama
+
+      - name: Run seeder
+        # Секреты передаются исключительно через env-блок — не в args, не в логах
+        env:
+          DATABASE_URL:       ${{ secrets.DATABASE_URL }}
+          SEEDER_EMAIL:       ${{ secrets.SEEDER_EMAIL }}
+          SEEDER_PASSWORD:    ${{ secrets.SEEDER_PASSWORD }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        working-directory: db_seeder/seeder__scripts
+        run: python seed_db.py
