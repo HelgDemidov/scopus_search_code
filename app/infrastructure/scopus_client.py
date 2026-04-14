@@ -7,13 +7,27 @@ from app.config import settings
 from app.models.article import Article
 from app.interfaces.search_client import ISearchClient
 
-# Базовый URL Scopus Search API (актуальный endpoint)
+# Базовый URL Scopus Search API
 SCOPUS_BASE_URL = "https://api.elsevier.com/content/search/scopus"
 
-# Поля ответа Scopus API:
+# Все запрашиваемые поля Scopus Search API (COMPLETE view, лимит 25 результатов за запрос):
 # dc:title              — название статьи
-# prism:publicationName — название журнала/издания
-SCOPUS_FIELDS = "dc:title,prism:publicationName,dc:creator,prism:coverDate,prism:doi"
+# prism:publicationName — название журнала
+# dc:creator            — первый автор
+# prism:coverDate       — дата публикации
+# prism:doi             — DOI статьи
+# citedby-count         — число цитирований
+# subtypeDescription    — тип документа (Article, Review, Conference Paper...)
+# openaccess            — флаг открытого доступа (0 или 1)
+# authkeywords          — ключевые слова авторов
+# affiliation           — вложенный объект с организацией и страной автора
+# fund-sponsor          — спонсор финансирования
+# dc:description        — аннотация
+SCOPUS_FIELDS = (
+    "dc:title,prism:publicationName,dc:creator,prism:coverDate,prism:doi,"
+    "citedby-count,subtypeDescription,openaccess,authkeywords,"
+    "affiliation,fund-sponsor,dc:description"
+)
 
 
 class ScopusHTTPClient(ISearchClient):
@@ -37,7 +51,7 @@ class ScopusHTTPClient(ISearchClient):
 
         response = await self._client.get(SCOPUS_BASE_URL, params=params)
 
-        # Сохраняем лимиты из заголовков
+        # Сохраняем лимиты из заголовков ответа
         self.last_rate_limit = response.headers.get("X-RateLimit-Limit")
         self.last_rate_remaining = response.headers.get("X-RateLimit-Remaining")
         self.last_rate_reset = response.headers.get("X-RateLimit-Reset")
@@ -51,11 +65,32 @@ class ScopusHTTPClient(ISearchClient):
         articles: List[Article] = []
 
         for entry in entries:
-            title = entry.get("dc:title") or ""               # название самой статьи
-            journal = entry.get("prism:publicationName")       # название журнала/издания
+            # Простые поля — единая строка в JSON
+            title = entry.get("dc:title") or ""
+            journal = entry.get("prism:publicationName")
             creator = entry.get("dc:creator")
             cover_date_str = entry.get("prism:coverDate")
             doi = entry.get("prism:doi")
+            document_type = entry.get("subtypeDescription")
+            fund_sponsor = entry.get("fund-sponsor")
+            abstract = entry.get("dc:description")
+            author_keywords = entry.get("authkeywords")
+
+            # citedby-count приходит как строка, преобразуем в целое число
+            cited_by_raw = entry.get("citedby-count")
+            cited_by_count = int(cited_by_raw) if cited_by_raw is not None else None
+
+            # openaccess приходит как "0" или "1", преобразуем в bool
+            open_access_raw = entry.get("openaccess")
+            open_access = bool(int(open_access_raw)) if open_access_raw is not None else None
+
+            # affiliation — вложенный объект, может быть списком или словарем
+            affiliation_raw = entry.get("affiliation")
+            affiliation_country = None
+            if isinstance(affiliation_raw, list) and affiliation_raw:
+                affiliation_country = affiliation_raw[0].get("affiliation-country")
+            elif isinstance(affiliation_raw, dict):
+                affiliation_country = affiliation_raw.get("affiliation-country")
 
             if not cover_date_str:
                 continue
@@ -69,9 +104,16 @@ class ScopusHTTPClient(ISearchClient):
                 title=title[:500],
                 journal=journal[:500] if journal else None,
                 author=creator[:255] if creator else None,
-                date=cover_date,
+                publication_date=cover_date,
                 doi=doi[:255] if doi else None,
                 keyword=keyword[:100],
+                cited_by_count=cited_by_count,
+                document_type=document_type[:100] if document_type else None,
+                open_access=open_access,
+                author_keywords=author_keywords,
+                affiliation_country=affiliation_country[:100] if affiliation_country else None,
+                fund_sponsor=fund_sponsor[:255] if fund_sponsor else None,
+                abstract=abstract,
             )
             articles.append(article)
 
