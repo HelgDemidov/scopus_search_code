@@ -1,0 +1,26 @@
+#!/bin/sh
+# pre-push hook: автоматически обновляет дерево файловой структуры проекта перед push.
+#
+# Установка (PowerShell, из корня репозитория):
+#   Copy-Item docs/project_tree/pre-push-hook .git/hooks/pre-push
+#
+# После установки хук будет запускаться автоматически при каждом git push.
+# Если скрипт завершится с ошибкой — push будет заблокирован.
+
+echo "Updating project tree..."
+python docs/project_tree/scopus_project_tree.py
+
+if [ $? -ne 0 ]; then
+    echo "Error while generating project tree! Push aborted."
+    exit 1
+fi
+
+# Автоматически добавляем и коммитим обновлённый файл дерева, если он изменился
+git diff --quiet docs/project_tree/scopus_project_tree.txt
+if [ $? -ne 0 ]; then
+    echo "Project tree updated, staging changes..."
+    git add docs/project_tree/scopus_project_tree.txt
+    git commit --no-verify -m "chore: auto-update project tree [skip ci]"
+fi
+
+exit 0
