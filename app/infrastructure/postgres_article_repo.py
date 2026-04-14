@@ -22,13 +22,15 @@ class PostgresArticleRepository(IArticleRepository):
     async def save_many(self, articles: List[Article]) -> None:
         if not articles:
             return
-        # Формируем значения для bulk insert
+
+        # Формируем значения для bulk insert, включая все поля модели
         values = [
             {
-                "title": a.title,
-                "author": a.author,
-                "date": a.date,
-                "doi": a.doi,
+                "title":   a.title,
+                "journal": a.journal,
+                "author":  a.author,
+                "date":    a.date,
+                "doi":     a.doi,
                 "keyword": a.keyword,
             }
             for a in articles
@@ -37,7 +39,18 @@ class PostgresArticleRepository(IArticleRepository):
         stmt = (
             insert(Article)
             .values(values)
-            .on_conflict_do_nothing(index_elements=["doi"])  # <- ключевая строка
+            # При конфликте по doi обновляем все мутабельные поля,
+            # чтобы повторные прогоны сидера исправляли неполные данные
+            .on_conflict_do_update(
+                index_elements=["doi"],
+                set_={
+                    "title":   insert(Article).excluded.title,
+                    "journal": insert(Article).excluded.journal,
+                    "author":  insert(Article).excluded.author,
+                    "date":    insert(Article).excluded.date,
+                    "keyword": insert(Article).excluded.keyword,
+                },
+            )
         )
 
         await self.session.execute(stmt)
@@ -47,4 +60,3 @@ class PostgresArticleRepository(IArticleRepository):
         stmt = select(func.count(Article.id))
         result = await self.session.execute(stmt)
         return result.scalar() or 0
-
