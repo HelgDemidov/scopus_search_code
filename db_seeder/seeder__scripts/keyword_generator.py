@@ -14,7 +14,7 @@ CLUSTERS = [
 ]
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL = "google/gemini-flash-1.5"
+MODEL = "google/gemini-2.0-flash-001"  # Обновлено: gemini-flash-1.5 удалена с OpenRouter
 
 
 def _get_todays_cluster() -> str:
