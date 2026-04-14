@@ -41,9 +41,12 @@ async def _get_jwt_token(client: httpx.AsyncClient, email: str, password: str) -
 
 
 async def _fetch_used_keywords(db_url: str) -> tuple[list[str], dict[str, str]]:
-    # Читаем все ранее использованные фразы из seeder_keywords через asyncpg
+    # statement_cache_size=0 — обязательно для Supabase Session Pooler (PgBouncer transaction mode)
     import asyncpg
-    conn = await asyncpg.connect(db_url.replace("postgresql+asyncpg://", "postgresql://"))
+    conn = await asyncpg.connect(
+        db_url.replace("postgresql+asyncpg://", "postgresql://"),
+        statement_cache_size=0,
+    )
     try:
         rows = await conn.fetch("SELECT keyword, cluster FROM seeder_keywords ORDER BY used_at ASC")
         keywords = [row["keyword"] for row in rows]
@@ -56,9 +59,12 @@ async def _fetch_used_keywords(db_url: str) -> tuple[list[str], dict[str, str]]:
 async def _save_keyword_result(
     db_url: str, keyword: str, cluster: str, articles_found: int
 ) -> None:
-    # Записываем результат запроса в seeder_keywords — уникальность по keyword защищает от дублей
+    # statement_cache_size=0 — обязательно для Supabase Session Pooler (PgBouncer transaction mode)
     import asyncpg
-    conn = await asyncpg.connect(db_url.replace("postgresql+asyncpg://", "postgresql://"))
+    conn = await asyncpg.connect(
+        db_url.replace("postgresql+asyncpg://", "postgresql://"),
+        statement_cache_size=0,
+    )
     try:
         await conn.execute(
             """
