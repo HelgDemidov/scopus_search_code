@@ -1,0 +1,716 @@
+
+============================================================
+FILE: .tmp_heuristics_tests\tmp_module.py
+============================================================
+class Router:
+
+    def route(self, req):
+        pass
+
+============================================================
+FILE: app\config.py
+============================================================
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import PostgresDsn
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8')
+    SCOPUS_API_KEY: str
+    DATABASE_URL: str | PostgresDsn
+    SECRET_KEY: str
+    ALGORITHM: str = 'HS256'
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+
+    @property
+    def database_url_str(self) -> str:
+        pass
+settings = Settings()
+
+============================================================
+FILE: app\main.py
+============================================================
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+import httpx
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.routers import articles, users, health
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    pass
+app = FastAPI(title='Scopus Search API', description='Веб-сервис для поиска научных публикаций через Scopus API', version='1.0.0', lifespan=lifespan)
+app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_credentials=True, allow_methods=['*'], allow_headers=['*'])
+app.include_router(users.router)
+app.include_router(articles.router)
+app.include_router(health.router)
+
+@app.get('/', tags=['Health'])
+async def root() -> dict[str, str]:
+    pass
+
+============================================================
+FILE: app\__init__.py
+============================================================
+
+
+============================================================
+FILE: scripts\seed_db.py
+============================================================
+import os
+import asyncio
+import httpx
+from colorama import Fore, Style, init
+init(autoreset=True)
+BASE_URL = 'https://scopus-search-code.up.railway.app'
+JWT_TOKEN = os.getenv('SEEDER_JWT_TOKEN', 'PASTE_YOUR_JWT_TOKEN_HERE')
+ARTICLES_PER_QUERY = 25
+DELAY_BETWEEN_REQUESTS = 2.0
+KEYWORDS = ['generative pretrained transformer', 'large language model training', 'instruction tuned language models', 'reinforcement learning from human feedback', 'in context learning mechanisms', 'retrieval augmented generation system', 'multimodal transformer architecture', 'parameter efficient fine tuning', 'low rank adaptation methods', 'prompt engineering strategies', 'chain of thought prompting', 'hallucination mitigation in llm', 'factual consistency llm outputs', 'safety alignment for llm', 'jailbreak detection techniques', 'synthetic data generation for llm', 'continual pretraining of transformers', 'curriculum learning for llm', 'tool using language models', 'code generation with transformers', 'generative adversarial network genomics', 'gan for genomic data augmentation', 'gan based variant calling', 'gan for gene expression synthesis', 'generative adversarial network bioinformatics', 'single cell transcriptomics gan', 'gan for dna sequence generation', 'gan for rna sequence analysis', 'protein structure generation gan', 'multimodal gan for biomedical data', 'adversarial learning in genomics', 'privacy preserving gan for health data', 'conditional gan for omics integration', 'anomaly detection in genomics using gan', 'adversarial training for genomic classifiers', 'neuromorphic computing for artificial intelligence', 'neuromorphic architecture for spiking networks', 'spiking neural network inference', 'event driven neuromorphic processing', 'memristor based neuromorphic computing', 'brain inspired neuromorphic hardware', 'analog neuromorphic accelerator', 'low power neuromorphic inference', 'edge intelligence with neuromorphic chips', 'reservoir computing on neuromorphic hardware', 'asynchronous neuromorphic circuits', 'on chip learning in neuromorphic systems', 'neuromorphic sensor fusion', 'hybrid neuromorphic deep learning', 'spiking transformer architecture', 'hardware accelerator for large language models', 'tensor processing unit architecture', 'gpu tensor core optimization', 'ai accelerator for transformer inference', 'systolic array for matrix multiplication', 'specialized inference engine for llm', 'model quantization for hardware efficiency', 'int8 inference for transformers', 'mixed precision inference techniques', 'sparsity exploitation in neural networks', 'structured pruning for faster inference', 'hardware aware neural architecture search', 'chiplet based ai accelerator', 'near memory computing for ai', 'in memory computing for neural networks', 'weight hardcoding in neural accelerators', 'weight stationary dataflow architecture', 'compute in memory crossbar array', 'analog weight storage for inference', 'resistive crossbar neural accelerator', 'fixed function neural network accelerator', 'compiled neural network to hardware', 'logic in memory accelerator design', 'on chip interconnect optimization for ai', 'topology aware mapping of neural networks', 'hardware software co design for llm', 'pipeline parallelism in transformer inference', 'memory bandwidth optimization for ai chips', 'hardware security for ai accelerators', 'fault tolerance in neural hardware', 'automated machine learning pipeline', 'self improving machine learning system', 'closed loop model improvement', 'online learning in production systems', 'active learning feedback loop', 'gradient based architecture search', 'meta learning for model adaptation', 'reinforcement learning based hyperparameter tuning', 'continuous deployment of machine learning models', 'mlops pipeline automation', 'monitoring drift in ml deployments', 'feedback loop for recommendation systems', 'self supervised pretraining and finetuning', 'multi agent learning system optimization', 'human in the loop model refinement', 'dynamic dataset curation with ml', 'automated label correction using models', 'bandit based model selection', 'iterative retraining with user feedback', 'autonomous machine learning lifecycle']
+
+async def seed_database():
+    pass
+if __name__ == '__main__':
+    asyncio.run(seed_database())
+
+============================================================
+FILE: tests\conftest.py
+============================================================
+from typing import AsyncGenerator
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from app.core.dependencies import get_db_session
+from app.core.security import create_access_token
+from app.models.base import Base
+from app.main import app
+from app.models.user import User
+SQLALCHEMY_DATABASE_URL = 'sqlite+aiosqlite:///:memory:'
+engine = create_async_engine(SQLALCHEMY_DATABASE_URL, connect_args={'check_same_thread': False}, poolclass=None)
+TestingSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=engine, class_=AsyncSession, expire_on_commit=False)
+
+@pytest_asyncio.fixture(scope='function')
+async def db_session() -> AsyncGenerator[AsyncSession, None]:
+    pass
+
+@pytest_asyncio.fixture(scope='function')
+async def async_client(db_session: AsyncSession):
+    pass
+
+@pytest_asyncio.fixture(scope='function')
+async def authenticated_client(async_client: AsyncClient, db_session: AsyncSession) -> AsyncClient:
+    pass
+
+============================================================
+FILE: tests\__init__.py
+============================================================
+
+
+============================================================
+FILE: app\core\dependencies.py
+============================================================
+from typing import AsyncGenerator
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.infrastructure.database import async_session_maker
+
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+    pass
+
+============================================================
+FILE: app\core\security.py
+============================================================
+from datetime import datetime, timedelta, timezone
+import jwt
+from fastapi.security import OAuth2PasswordBearer
+from pwdlib import PasswordHash
+from app.config import settings
+password_hash = PasswordHash.recommended()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl='users/login')
+
+def hash_password(plain_password: str) -> str:
+    pass
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    pass
+
+def create_access_token(subject: str) -> str:
+    pass
+
+def decode_access_token(token: str) -> str | None:
+    pass
+
+============================================================
+FILE: app\core\__init__.py
+============================================================
+
+
+============================================================
+FILE: app\demo\solid_llm_demo.py
+============================================================
+class BaseProcessor:
+
+    def process(self, value: int) -> str:
+        pass
+
+class BadProcessor(BaseProcessor):
+
+    def process(self, value: int) -> str:
+        pass
+
+============================================================
+FILE: app\demo\__init__.py
+============================================================
+
+
+============================================================
+FILE: app\infrastructure\database.py
+============================================================
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from app.config import settings
+is_cloud_db = 'supabase' in settings.database_url_str or 'localhost' not in settings.database_url_str
+connect_args = {}
+if is_cloud_db:
+    connect_args = {'ssl': 'require'}
+engine = create_async_engine(url=settings.database_url_str, echo=True, connect_args=connect_args)
+async_session_maker = async_sessionmaker(bind=engine, expire_on_commit=False)
+
+============================================================
+FILE: app\infrastructure\postgres_article_repo.py
+============================================================
+from typing import List
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.article import Article
+from app.interfaces.article_repository import IArticleRepository
+
+class PostgresArticleRepository(IArticleRepository):
+
+    def __init__(self, session: AsyncSession):
+        pass
+
+    async def get_all(self, limit: int, offset: int) -> List[Article]:
+        pass
+
+    async def save_many(self, articles: List[Article]) -> None:
+        pass
+
+    async def get_total_count(self) -> int:
+        pass
+
+============================================================
+FILE: app\infrastructure\postgres_user_repo.py
+============================================================
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.user import User
+from app.interfaces.user_repository import IUserRepository
+
+class PostgresUserRepository(IUserRepository):
+
+    def __init__(self, session: AsyncSession):
+        pass
+
+    async def create(self, user: User) -> User:
+        pass
+
+    async def get_by_email(self, email: str) -> User | None:
+        pass
+
+============================================================
+FILE: app\infrastructure\scopus_client.py
+============================================================
+from datetime import date
+from typing import List, Optional
+import httpx
+from app.config import settings
+from app.models.article import Article
+from app.interfaces.search_client import ISearchClient
+SCOPUS_BASE_URL = 'https://api.elsevier.com/content/search/scopus'
+SCOPUS_FIELDS = 'prism:publicationName,dc:creator,prism:coverDate,prism:doi'
+
+class ScopusHTTPClient(ISearchClient):
+
+    def __init__(self, http_client: httpx.AsyncClient):
+        pass
+
+    async def search(self, keyword: str, count: int=25) -> List[Article]:
+        pass
+
+============================================================
+FILE: app\infrastructure\__init__.py
+============================================================
+
+
+============================================================
+FILE: app\interfaces\article_repository.py
+============================================================
+from abc import ABC, abstractmethod
+from typing import List
+from app.models.article import Article
+
+class IArticleRepository(ABC):
+
+    @abstractmethod
+    async def save_many(self, articles: List[Article]) -> None:
+        """Сохраняет пачку (список) статей в базу данных за один раз"""
+
+    @abstractmethod
+    async def get_all(self, limit: int, offset: int) -> List[Article]:
+        """Возвращает статьи из базы с поддержкой пагинации.
+limit: сколько статей вернуть (размер страницы).
+offset: сколько статей пропустить с начала."""
+
+    @abstractmethod
+    async def get_total_count(self) -> int:
+        """Считает общее количество сохраненных статей в базе"""
+
+============================================================
+FILE: app\interfaces\search_client.py
+============================================================
+from abc import ABC, abstractmethod
+from typing import List
+from app.models.article import Article
+
+class ISearchClient(ABC):
+
+    @abstractmethod
+    async def search(self, keyword: str, count: int=25) -> List[Article]:
+        pass
+
+============================================================
+FILE: app\interfaces\user_repository.py
+============================================================
+from abc import ABC, abstractmethod
+from app.models.user import User
+
+class IUserRepository(ABC):
+
+    @abstractmethod
+    async def create(self, user: User) -> User:
+        pass
+
+    @abstractmethod
+    async def get_by_email(self, email: str) -> User | None:
+        pass
+
+============================================================
+FILE: app\interfaces\__init__.py
+============================================================
+
+
+============================================================
+FILE: app\models\article.py
+============================================================
+import datetime
+from sqlalchemy import Date, DateTime, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.sql import func
+from app.models.base import Base
+
+class Article(Base):
+    __tablename__ = 'articles'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    author: Mapped[str] = mapped_column(String(255), nullable=True)
+    date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
+    doi: Mapped[str] = mapped_column(String(255), unique=True, nullable=True)
+    keyword: Mapped[str] = mapped_column(String(100), nullable=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    def __repr__(self) -> str:
+        pass
+
+============================================================
+FILE: app\models\base.py
+============================================================
+from sqlalchemy.orm import DeclarativeBase
+
+class Base(DeclarativeBase):
+    pass
+
+============================================================
+FILE: app\models\user.py
+============================================================
+from datetime import datetime
+from sqlalchemy import Integer, String, func
+from sqlalchemy.orm import Mapped, mapped_column
+from app.models.base import Base
+
+class User(Base):
+    __tablename__ = 'users'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    username: Mapped[str] = mapped_column(String(50), nullable=True)
+    email: Mapped[str] = mapped_column(String(254), unique=True, nullable=False)
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    def __repr__(self) -> str:
+        pass
+
+============================================================
+FILE: app\models\__init__.py
+============================================================
+
+
+============================================================
+FILE: app\routers\articles.py
+============================================================
+from typing import AsyncGenerator
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Any
+from app.core.dependencies import get_db_session
+from app.infrastructure.postgres_article_repo import PostgresArticleRepository
+from app.infrastructure.scopus_client import ScopusHTTPClient
+from app.models.user import User
+from app.routers.users import get_current_user
+from app.schemas.article_schemas import ArticleResponse, PaginatedArticleResponse
+from app.services.article_service import ArticleService
+from app.services.search_service import SearchService
+router = APIRouter(prefix='/articles', tags=['Articles'])
+
+def get_article_service(session: AsyncSession=Depends(get_db_session)) -> ArticleService:
+    pass
+
+async def get_scopus_client() -> AsyncGenerator[ScopusHTTPClient, None]:
+    pass
+
+def get_search_service(session: AsyncSession=Depends(get_db_session), scopus_client: ScopusHTTPClient=Depends(get_scopus_client)) -> SearchService:
+    pass
+
+@router.get('/', response_model=PaginatedArticleResponse)
+async def get_articles(page: int=Query(1, ge=1, description='Номер страницы'), size: int=Query(10, ge=1, le=100, description='Количество статей на странице'), service: ArticleService=Depends(get_article_service)) -> PaginatedArticleResponse:
+    pass
+
+@router.get('/find', response_model=list[ArticleResponse])
+async def find_articles(response: Response, keyword: str=Query(..., min_length=2, description='Ключевое слово для поиска'), count: int=Query(25, ge=1, le=25, description='Сколько статей запросить из Scopus (макс 25)'), service: SearchService=Depends(get_search_service), scopus_client: ScopusHTTPClient=Depends(get_scopus_client), current_user: User=Depends(get_current_user)) -> Any:
+    pass
+
+============================================================
+FILE: app\routers\health.py
+============================================================
+from fastapi import APIRouter, Depends, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
+from app.core.dependencies import get_db_session
+router = APIRouter(prefix='/health', tags=['Health'])
+
+@router.api_route('/db', methods=['GET', 'HEAD'], status_code=status.HTTP_200_OK)
+async def health_db(session: AsyncSession=Depends(get_db_session)) -> dict[str, str]:
+    pass
+
+============================================================
+FILE: app\routers\users.py
+============================================================
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.dependencies import get_db_session
+from app.core.security import decode_access_token, oauth2_scheme
+from app.infrastructure.postgres_user_repo import PostgresUserRepository
+from app.models.user import User
+from app.schemas.user_schemas import PasswordResetRequest, TokenResponse, UserRegisterRequest, UserResponse
+from app.services.user_service import UserService
+router = APIRouter(prefix='/users', tags=['Users'])
+
+def get_user_service(session: AsyncSession=Depends(get_db_session)) -> UserService:
+    pass
+
+async def get_current_user(token: str=Depends(oauth2_scheme), service: UserService=Depends(get_user_service)) -> User:
+    pass
+
+@router.post('/register', response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def register(data: UserRegisterRequest, service: UserService=Depends(get_user_service)) -> User:
+    pass
+
+@router.post('/login', response_model=TokenResponse)
+async def login(form_data: OAuth2PasswordRequestForm=Depends(), service: UserService=Depends(get_user_service)) -> TokenResponse:
+    pass
+
+@router.get('/me', response_model=UserResponse)
+async def get_me(current_user: User=Depends(get_current_user)) -> User:
+    pass
+
+@router.post('/password-reset-request', status_code=status.HTTP_200_OK)
+async def password_reset_request(data: PasswordResetRequest, service: UserService=Depends(get_user_service)) -> dict[str, str]:
+    pass
+
+============================================================
+FILE: app\routers\__init__.py
+============================================================
+
+
+============================================================
+FILE: app\schemas\article_schemas.py
+============================================================
+from datetime import date
+from typing import List
+from pydantic import BaseModel
+
+class ArticleResponse(BaseModel):
+    title: str
+    author: str | None
+    date: date
+    doi: str | None
+    keyword: str
+    model_config = {'from_attributes': True}
+
+class PaginatedArticleResponse(BaseModel):
+    articles: List[ArticleResponse]
+    total: int
+
+============================================================
+FILE: app\schemas\user_schemas.py
+============================================================
+import re
+from datetime import datetime
+from typing import Self
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+
+class UserRegisterRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=50)
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=255)
+    password_confirm: str = Field(min_length=8, max_length=255)
+
+    @field_validator('password')
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        pass
+
+    @model_validator(mode='after')
+    def passwords_match(self) -> Self:
+        pass
+
+class UserLoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+class UserResponse(BaseModel):
+    id: int
+    username: str | None
+    email: str
+    created_at: datetime | None = None
+    model_config = {'from_attributes': True}
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = 'bearer'
+
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+============================================================
+FILE: app\schemas\__init__.py
+============================================================
+
+
+============================================================
+FILE: app\services\article_service.py
+============================================================
+from app.schemas.article_schemas import ArticleResponse, PaginatedArticleResponse
+from app.interfaces.article_repository import IArticleRepository
+
+class ArticleService:
+
+    def __init__(self, article_repo: IArticleRepository):
+        pass
+
+    async def get_articles_paginated(self, page: int, size: int) -> PaginatedArticleResponse:
+        pass
+
+============================================================
+FILE: app\services\search_service.py
+============================================================
+from typing import List
+from app.models.article import Article
+from app.interfaces.article_repository import IArticleRepository
+from app.interfaces.search_client import ISearchClient
+
+class SearchService:
+
+    def __init__(self, search_client: ISearchClient, article_repo: IArticleRepository):
+        pass
+
+    async def find_and_save(self, keyword: str, count: int=25) -> List[Article]:
+        pass
+
+============================================================
+FILE: app\services\user_service.py
+============================================================
+from app.core.security import create_access_token, hash_password, verify_password
+from app.models.user import User
+from app.schemas.user_schemas import UserRegisterRequest
+from app.interfaces.user_repository import IUserRepository
+
+class UserService:
+
+    def __init__(self, user_repo: IUserRepository):
+        pass
+
+    async def register(self, data: UserRegisterRequest) -> User:
+        pass
+
+    async def login(self, email: str, password: str) -> str:
+        pass
+
+    async def get_current_user(self, email: str) -> User | None:
+        pass
+
+    async def request_password_reset(self, email: str) -> str:
+        pass
+
+============================================================
+FILE: app\services\__init__.py
+============================================================
+
+
+============================================================
+FILE: tests\integration\test_articles_api.py
+============================================================
+from datetime import date
+import pytest
+from httpx import AsyncClient
+from app.models.article import Article
+
+@pytest.fixture(autouse=True)
+def mock_scopus_api(monkeypatch):
+    """Эта фикстура автоматически подменяет реальный метод поиска на наш фейковый."""
+
+@pytest.mark.asyncio
+async def test_find_and_save_articles_integration(authenticated_client: AsyncClient):
+    pass
+
+============================================================
+FILE: tests\integration\test_users_api.py
+============================================================
+import pytest
+from httpx import AsyncClient
+
+@pytest.mark.asyncio
+async def test_register_user_integration(async_client: AsyncClient):
+    pass
+
+@pytest.mark.asyncio
+async def test_register_duplicate_email_integration(async_client: AsyncClient):
+    pass
+
+@pytest.mark.asyncio
+async def test_login_integration(async_client: AsyncClient):
+    pass
+
+============================================================
+FILE: tests\integration\__init__.py
+============================================================
+
+
+============================================================
+FILE: tests\unit\test_article_service.py
+============================================================
+from datetime import date
+from typing import List
+import pytest
+from app.models.article import Article
+from app.schemas.article_schemas import PaginatedArticleResponse
+from app.services.article_service import ArticleService
+from app.interfaces.article_repository import IArticleRepository
+
+class FakeArticleRepository(IArticleRepository):
+
+    def __init__(self):
+        pass
+
+    async def save_many(self, articles: List[Article]) -> None:
+        pass
+
+    async def get_all(self, limit: int, offset: int) -> List[Article]:
+        pass
+
+    async def get_total_count(self) -> int:
+        pass
+
+@pytest.fixture
+def article_service() -> tuple[ArticleService, FakeArticleRepository]:
+    pass
+
+@pytest.mark.asyncio
+async def test_get_articles_paginated_page_1(article_service):
+    pass
+
+@pytest.mark.asyncio
+async def test_get_articles_paginated_page_3(article_service):
+    pass
+
+@pytest.mark.asyncio
+async def test_get_articles_paginated_negative_page(article_service):
+    pass
+
+============================================================
+FILE: tests\unit\test_user_service.py
+============================================================
+import pytest
+from app.models.user import User
+from app.schemas.user_schemas import UserRegisterRequest
+from app.interfaces.user_repository import IUserRepository
+from app.services.user_service import UserService
+
+@pytest.fixture(autouse=True)
+def mock_password_hashing(monkeypatch):
+    pass
+
+class FakeUserRepository(IUserRepository):
+
+    def __init__(self):
+        pass
+
+    async def create(self, user: User) -> User:
+        pass
+
+    async def get_by_email(self, email: str) -> User | None:
+        pass
+
+@pytest.fixture
+def user_service() -> UserService:
+    pass
+
+@pytest.mark.asyncio
+async def test_register_user_success(user_service: UserService):
+    pass
+
+@pytest.mark.asyncio
+async def test_register_user_duplicate_email(user_service: UserService):
+    pass
+
+============================================================
+FILE: tests\integration\tests\integration\test_articles_headers.py
+============================================================
+import pytest
+from httpx import AsyncClient
+from app.main import app
+from app.routers.articles import get_scopus_client
+from app.services.search_service import SearchService
+
+class FakeScopusClient:
+
+    def __init__(self):
+        pass
+
+async def override_get_scopus_client():
+    pass
+
+@pytest.mark.asyncio
+async def test_find_articles_rate_limits_headers(authenticated_client: AsyncClient, monkeypatch):
+    pass
+
+============================================================
+FILE: tests\unit\tests\unit\test_scopus_client.py
+============================================================
+import pytest
+import httpx
+from app.infrastructure.scopus_client import ScopusHTTPClient
+
+@pytest.mark.asyncio
+async def test_scopus_client_search_and_limits(monkeypatch):
+    pass
