@@ -32,11 +32,11 @@ jobs:
     steps:
     # 1. Скачиваем код из репозитория на виртуальную машину
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v4.2.2
 
     # 2. Устанавливаем Python 3.12
     - name: set up Python 3.12
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v5.6.0
       with:
         python-version: "3.12"
         # Кэшируем pip-пакеты для ускорения следующих прогонов
