@@ -23,7 +23,7 @@ class PostgresArticleRepository(IArticleRepository):
         if not articles:
             return
 
-        # Формируем значения для bulk insert, включая все поля модели
+        # Формируем значения для bulk insert — только поля, доступные в Scopus free-tier
         values = [
             {
                 "title":               a.title,
@@ -35,10 +35,7 @@ class PostgresArticleRepository(IArticleRepository):
                 "cited_by_count":      a.cited_by_count,
                 "document_type":       a.document_type,
                 "open_access":         a.open_access,
-                "author_keywords":     a.author_keywords,
                 "affiliation_country": a.affiliation_country,
-                "fund_sponsor":        a.fund_sponsor,
-                "abstract":            a.abstract,
             }
             for a in articles
         ]
@@ -59,10 +56,7 @@ class PostgresArticleRepository(IArticleRepository):
                     "cited_by_count":      insert(Article).excluded.cited_by_count,
                     "document_type":       insert(Article).excluded.document_type,
                     "open_access":         insert(Article).excluded.open_access,
-                    "author_keywords":     insert(Article).excluded.author_keywords,
                     "affiliation_country": insert(Article).excluded.affiliation_country,
-                    "fund_sponsor":        insert(Article).excluded.fund_sponsor,
-                    "abstract":            insert(Article).excluded.abstract,
                 },
             )
         )
