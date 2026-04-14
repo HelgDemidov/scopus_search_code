@@ -1,0 +1,26 @@
+#!/bin/sh
+# pre-push hook: автоматически обновляет AST-маску проекта перед push.
+#
+# Установка (PowerShell, из корня репозитория):
+#   Copy-Item docs/project_mask/pre-push-hook .git/hooks/pre-push
+#
+# После установки хук будет запускаться автоматически при каждом git push.
+# Если скрипт завершится с ошибкой — push будет заблокирован.
+
+echo "Updating project mask..."
+python docs/project_mask/export_skeleton.py
+
+if [ $? -ne 0 ]; then
+    echo "Error while generating project mask! Push aborted."
+    exit 1
+fi
+
+# Автоматически добавляем и коммитим обновлённый файл маски, если он изменился
+git diff --quiet docs/project_mask/scopus_project_mask.txt
+if [ $? -ne 0 ]; then
+    echo "Project mask updated, staging changes..."
+    git add docs/project_mask/scopus_project_mask.txt
+    git commit --no-verify -m "chore: auto-update project mask [skip ci]"
+fi
+
+exit 0
