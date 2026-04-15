@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     SEEDER_EMAIL: str = ''
     SEEDER_PASSWORD: str = ''
     OPENROUTER_API_KEY: str = ''
+    GOOGLE_CLIENT_ID: str = ''
+    GOOGLE_CLIENT_SECRET: str = ''
+    OAUTH_REDIRECT_URI: str = 'http://localhost:8000/auth/google/callback'
+    SESSION_SECRET_KEY: str = ''
 
     @property
     def database_url_str(self) -> str:
@@ -85,7 +89,7 @@ async_session_maker = async_sessionmaker(bind=engine, expire_on_commit=False)
 FILE: app\infrastructure\postgres_article_repo.py
 ============================================================
 from typing import List
-from sqlalchemy import func, select
+from sqlalchemy import desc, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.article import Article
@@ -103,6 +107,9 @@ class PostgresArticleRepository(IArticleRepository):
         pass
 
     async def get_total_count(self) -> int:
+        pass
+
+    async def get_stats(self) -> dict:
         pass
 
 ============================================================
@@ -172,6 +179,10 @@ offset: сколько статей пропустить с начала."""
     async def get_total_count(self) -> int:
         """Считает общее количество сохраненных статей в базе"""
 
+    @abstractmethod
+    async def get_stats(self) -> dict:
+        """Возвращает агрегированную статистику по сидированным статьям (is_seeded=True)"""
+
 ============================================================
 FILE: app\interfaces\search_client.py
 ============================================================
@@ -209,13 +220,18 @@ from typing import AsyncGenerator
 import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
+from app.config import settings
 from app.routers import articles, users, health
+from app.routers import auth
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     pass
 app = FastAPI(title='Scopus Search API', description='Веб-сервис для поиска научных публикаций через Scopus API', version='1.0.0', lifespan=lifespan)
+app.add_middleware(SessionMiddleware, secret_key=settings.SESSION_SECRET_KEY)
 app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_credentials=True, allow_methods=['*'], allow_headers=['*'])
+app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(articles.router)
 app.include_router(health.router)
@@ -251,6 +267,7 @@ class Article(Base):
     document_type: Mapped[str] = mapped_column(String(100), nullable=True)
     open_access: Mapped[bool] = mapped_column(Boolean, nullable=True)
     affiliation_country: Mapped[str] = mapped_column(String(100), nullable=True)
+    is_seeded: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default='false')
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     def __repr__(self) -> str:
@@ -311,17 +328,16 @@ FILE: app\routers\__init__.py
 ============================================================
 FILE: app\routers\articles.py
 ============================================================
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Any
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Any
 from app.core.dependencies import get_db_session
 from app.infrastructure.postgres_article_repo import PostgresArticleRepository
 from app.infrastructure.scopus_client import ScopusHTTPClient
 from app.models.user import User
 from app.routers.users import get_current_user
-from app.schemas.article_schemas import ArticleResponse, PaginatedArticleResponse
+from app.schemas.article_schemas import ArticleResponse, PaginatedArticleResponse, StatsResponse, CountByField
 from app.services.article_service import ArticleService
 from app.services.search_service import SearchService
 router = APIRouter(prefix='/articles', tags=['Articles'])
@@ -335,12 +351,41 @@ async def get_scopus_client() -> AsyncGenerator[ScopusHTTPClient, None]:
 def get_search_service(session: AsyncSession=Depends(get_db_session), scopus_client: ScopusHTTPClient=Depends(get_scopus_client)) -> SearchService:
     pass
 
+@router.get('/stats', response_model=StatsResponse, tags=['Analytics'])
+async def get_stats(service: ArticleService=Depends(get_article_service)) -> StatsResponse:
+    pass
+
 @router.get('/', response_model=PaginatedArticleResponse)
 async def get_articles(page: int=Query(1, ge=1, description='Номер страницы'), size: int=Query(10, ge=1, le=100, description='Количество статей на странице'), service: ArticleService=Depends(get_article_service)) -> PaginatedArticleResponse:
     pass
 
 @router.get('/find', response_model=list[ArticleResponse])
 async def find_articles(response: Response, keyword: str=Query(..., min_length=2, description='Ключевое слово для поиска'), count: int=Query(25, ge=1, le=25, description='Сколько статей запросить из Scopus (макс 25)'), service: SearchService=Depends(get_search_service), scopus_client: ScopusHTTPClient=Depends(get_scopus_client), current_user: User=Depends(get_current_user)) -> Any:
+    pass
+
+============================================================
+FILE: app\routers\auth.py
+============================================================
+import secrets
+from authlib.integrations.starlette_client import OAuth
+from fastapi import APIRouter, Depends
+from fastapi.responses import JSONResponse, RedirectResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
+from app.config import settings
+from app.core.dependencies import get_db_session
+from app.infrastructure.postgres_user_repo import PostgresUserRepository
+from app.services.user_service import UserService
+router = APIRouter(prefix='/auth', tags=['Auth'])
+oauth = OAuth()
+oauth.register(name='google', client_id=settings.GOOGLE_CLIENT_ID, client_secret=settings.GOOGLE_CLIENT_SECRET, server_metadata_url='https://accounts.google.com/.well-known/openid-configuration', client_kwargs={'scope': 'openid email profile'})
+
+@router.get('/google/login')
+async def google_login(request: Request) -> RedirectResponse:
+    pass
+
+@router.get('/google/callback')
+async def google_callback(request: Request, session: AsyncSession=Depends(get_db_session)) -> JSONResponse:
     pass
 
 ============================================================
@@ -421,6 +466,21 @@ class PaginatedArticleResponse(BaseModel):
     articles: List[ArticleResponse]
     total: int
 
+class CountByField(BaseModel):
+    label: str
+    count: int
+
+class StatsResponse(BaseModel):
+    total_articles: int
+    total_journals: int
+    total_countries: int
+    open_access_count: int
+    by_year: List[CountByField]
+    by_journal: List[CountByField]
+    by_country: List[CountByField]
+    by_doc_type: List[CountByField]
+    top_keywords: List[CountByField]
+
 ============================================================
 FILE: app\schemas\user_schemas.py
 ============================================================
@@ -481,6 +541,9 @@ class ArticleService:
     async def get_articles_paginated(self, page: int, size: int) -> PaginatedArticleResponse:
         pass
 
+    async def get_stats(self) -> dict:
+        pass
+
 ============================================================
 FILE: app\services\search_service.py
 ============================================================
@@ -500,6 +563,7 @@ class SearchService:
 ============================================================
 FILE: app\services\user_service.py
 ============================================================
+import secrets as secrets_module
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.user import User
 from app.schemas.user_schemas import UserRegisterRequest
@@ -520,6 +584,9 @@ class UserService:
         pass
 
     async def request_password_reset(self, email: str) -> str:
+        pass
+
+    async def get_or_create_by_google(self, email: str, name: str) -> str:
         pass
 
 ============================================================
