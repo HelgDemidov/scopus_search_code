@@ -226,6 +226,7 @@ Swagger UI is available at http://127.0.0.1:8000/docs.
 
 - `GET /articles/find?keyword={kw}` — search Scopus for articles by keyword, save results to the database, return up to 25 records
 - `GET /articles/?page=1&size=10` — retrieve stored articles from the database with pagination (public endpoint)
+- `GET /articles/stats` — aggregated stats for seeded articles (public endpoint)
 
 ---
 

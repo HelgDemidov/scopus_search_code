@@ -100,13 +100,13 @@ class PostgresArticleRepository(IArticleRepository):
     def __init__(self, session: AsyncSession):
         pass
 
-    async def get_all(self, limit: int, offset: int) -> List[Article]:
+    async def get_all(self, limit: int, offset: int, keyword: str | None=None) -> List[Article]:
         pass
 
     async def save_many(self, articles: List[Article]) -> None:
         pass
 
-    async def get_total_count(self) -> int:
+    async def get_total_count(self, keyword: str | None=None) -> int:
         pass
 
     async def get_stats(self) -> dict:
@@ -170,14 +170,18 @@ class IArticleRepository(ABC):
         """Сохраняет пачку (список) статей в базу данных за один раз"""
 
     @abstractmethod
-    async def get_all(self, limit: int, offset: int) -> List[Article]:
-        """Возвращает статьи из базы с поддержкой пагинации.
+    async def get_all(self, limit: int, offset: int, keyword: str | None=None) -> List[Article]:
+        """Возвращает статьи из базы с поддержкой пагинации и опциональным фильтром.
 limit: сколько статей вернуть (размер страницы).
-offset: сколько статей пропустить с начала."""
+offset: сколько статей пропустить с начала.
+keyword: если передан — фильтрует по точному совпадению с полем keyword;
+         если None — возвращает все статьи без фильтрации."""
 
     @abstractmethod
-    async def get_total_count(self) -> int:
-        """Считает общее количество сохраненных статей в базе"""
+    async def get_total_count(self, keyword: str | None=None) -> int:
+        """Считает общее количество статей в базе.
+keyword: если передан — считает только статьи с этим ключевым словом;
+         если None — считает все статьи."""
 
     @abstractmethod
     async def get_stats(self) -> dict:
@@ -356,7 +360,7 @@ async def get_stats(service: ArticleService=Depends(get_article_service)) -> Sta
     pass
 
 @router.get('/', response_model=PaginatedArticleResponse)
-async def get_articles(page: int=Query(1, ge=1, description='Номер страницы'), size: int=Query(10, ge=1, le=100, description='Количество статей на странице'), service: ArticleService=Depends(get_article_service)) -> PaginatedArticleResponse:
+async def get_articles(page: int=Query(1, ge=1, description='Номер страницы'), size: int=Query(10, ge=1, le=100, description='Количество статей на странице'), keyword: str | None=Query(None, min_length=2, description='Фильтр по ключевому слову сидера (точное совпадение)'), service: ArticleService=Depends(get_article_service)) -> PaginatedArticleResponse:
     pass
 
 @router.get('/find', response_model=list[ArticleResponse])
@@ -538,7 +542,7 @@ class ArticleService:
     def __init__(self, article_repo: IArticleRepository):
         pass
 
-    async def get_articles_paginated(self, page: int, size: int) -> PaginatedArticleResponse:
+    async def get_articles_paginated(self, page: int, size: int, keyword: str | None=None) -> PaginatedArticleResponse:
         pass
 
     async def get_stats(self) -> dict:
