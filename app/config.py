@@ -23,6 +23,13 @@ class Settings(BaseSettings):
     SEEDER_PASSWORD: str = ""
     OPENROUTER_API_KEY: str = ""
 
+    # 5. Google OAuth 2.0 — получить в Google Cloud Console
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    OAUTH_REDIRECT_URI: str = "http://localhost:8000/auth/google/callback"
+    # Секрет для подписи OAuth state в cookie (SessionMiddleware)
+    SESSION_SECRET_KEY: str = ""
+
     @property
     def database_url_str(self) -> str:
         return str(self.DATABASE_URL)
