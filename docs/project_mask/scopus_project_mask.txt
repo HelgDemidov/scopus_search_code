@@ -65,24 +65,6 @@ def decode_access_token(token: str) -> str | None:
     pass
 
 ============================================================
-FILE: app\demo\__init__.py
-============================================================
-
-
-============================================================
-FILE: app\demo\solid_llm_demo.py
-============================================================
-class BaseProcessor:
-
-    def process(self, value: int) -> str:
-        pass
-
-class BadProcessor(BaseProcessor):
-
-    def process(self, value: int) -> str:
-        pass
-
-============================================================
 FILE: app\infrastructure\__init__.py
 ============================================================
 
@@ -152,7 +134,7 @@ from app.config import settings
 from app.models.article import Article
 from app.interfaces.search_client import ISearchClient
 SCOPUS_BASE_URL = 'https://api.elsevier.com/content/search/scopus'
-SCOPUS_FIELDS = 'prism:publicationName,dc:creator,prism:coverDate,prism:doi'
+SCOPUS_FIELDS = 'dc:title,prism:publicationName,dc:creator,prism:coverDate,prism:doi,citedby-count,subtypeDescription,openaccess,affiliation'
 
 class ScopusHTTPClient(ISearchClient):
 
@@ -251,7 +233,7 @@ FILE: app\models\__init__.py
 FILE: app\models\article.py
 ============================================================
 import datetime
-from sqlalchemy import Date, DateTime, Integer, String
+from sqlalchemy import Boolean, Date, DateTime, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 from app.models.base import Base
@@ -260,10 +242,15 @@ class Article(Base):
     __tablename__ = 'articles'
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(String(500), nullable=False)
+    journal: Mapped[str] = mapped_column(String(500), nullable=True)
     author: Mapped[str] = mapped_column(String(255), nullable=True)
-    date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
+    publication_date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
     doi: Mapped[str] = mapped_column(String(255), unique=True, nullable=True)
     keyword: Mapped[str] = mapped_column(String(100), nullable=False)
+    cited_by_count: Mapped[int] = mapped_column(Integer, nullable=True)
+    document_type: Mapped[str] = mapped_column(String(100), nullable=True)
+    open_access: Mapped[bool] = mapped_column(Boolean, nullable=True)
+    affiliation_country: Mapped[str] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     def __repr__(self) -> str:
@@ -419,10 +406,15 @@ from pydantic import BaseModel
 
 class ArticleResponse(BaseModel):
     title: str
+    journal: str | None
     author: str | None
-    date: date
+    publication_date: date
     doi: str | None
     keyword: str
+    cited_by_count: int | None
+    document_type: str | None
+    open_access: bool | None
+    affiliation_country: str | None
     model_config = {'from_attributes': True}
 
 class PaginatedArticleResponse(BaseModel):
@@ -539,7 +531,7 @@ from datetime import date
 import httpx
 CLUSTERS = ['Large Language Models', 'Generative Adversarial Networks', 'Neuromorphic Computing', 'AI Hardware Accelerators', 'AutoML and Self-Improving Systems']
 OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
-MODEL = 'google/gemini-flash-1.5'
+MODEL = 'google/gemini-2.0-flash-001'
 
 def _get_todays_cluster() -> str:
     pass
@@ -637,25 +629,7 @@ async def test_find_and_save_articles_integration(authenticated_client: AsyncCli
     pass
 
 ============================================================
-FILE: tests\integration\test_users_api.py
-============================================================
-import pytest
-from httpx import AsyncClient
-
-@pytest.mark.asyncio
-async def test_register_user_integration(async_client: AsyncClient):
-    pass
-
-@pytest.mark.asyncio
-async def test_register_duplicate_email_integration(async_client: AsyncClient):
-    pass
-
-@pytest.mark.asyncio
-async def test_login_integration(async_client: AsyncClient):
-    pass
-
-============================================================
-FILE: tests\integration\tests\integration\test_articles_headers.py
+FILE: tests\integration\test_articles_headers.py
 ============================================================
 import pytest
 from httpx import AsyncClient
@@ -673,6 +647,24 @@ async def override_get_scopus_client():
 
 @pytest.mark.asyncio
 async def test_find_articles_rate_limits_headers(authenticated_client: AsyncClient, monkeypatch):
+    pass
+
+============================================================
+FILE: tests\integration\test_users_api.py
+============================================================
+import pytest
+from httpx import AsyncClient
+
+@pytest.mark.asyncio
+async def test_register_user_integration(async_client: AsyncClient):
+    pass
+
+@pytest.mark.asyncio
+async def test_register_duplicate_email_integration(async_client: AsyncClient):
+    pass
+
+@pytest.mark.asyncio
+async def test_login_integration(async_client: AsyncClient):
     pass
 
 ============================================================
@@ -717,6 +709,17 @@ async def test_get_articles_paginated_negative_page(article_service):
     pass
 
 ============================================================
+FILE: tests\unit\test_scopus_client.py
+============================================================
+import pytest
+import httpx
+from app.infrastructure.scopus_client import ScopusHTTPClient
+
+@pytest.mark.asyncio
+async def test_scopus_client_search_and_limits(monkeypatch):
+    pass
+
+============================================================
 FILE: tests\unit\test_user_service.py
 ============================================================
 import pytest
@@ -750,15 +753,4 @@ async def test_register_user_success(user_service: UserService):
 
 @pytest.mark.asyncio
 async def test_register_user_duplicate_email(user_service: UserService):
-    pass
-
-============================================================
-FILE: tests\unit\tests\unit\test_scopus_client.py
-============================================================
-import pytest
-import httpx
-from app.infrastructure.scopus_client import ScopusHTTPClient
-
-@pytest.mark.asyncio
-async def test_scopus_client_search_and_limits(monkeypatch):
     pass
