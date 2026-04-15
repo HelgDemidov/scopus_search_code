@@ -1,7 +1,7 @@
 """add is_seeded to articles
 
 Revision ID: 0002_add_is_seeded
-Revises: 0001
+Revises: a1b2c3d4e5f6
 Create Date: 2026-04-15
 """
 from typing import Union
@@ -11,7 +11,7 @@ from alembic import op
 
 # Идентификаторы миграции
 revision: str = "0002_add_is_seeded"
-down_revision: Union[str, None] = None  # заменить на актуальный revision ID предыдущей миграции
+down_revision: Union[str, None] = "a1b2c3d4e5f6"  # предыдущая: create seeder_keywords table
 branch_labels = None
 depends_on = None
 
