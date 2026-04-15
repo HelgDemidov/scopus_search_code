@@ -5,14 +5,15 @@
 **Дата:** 2026-04-15
 **Репозиторий:** `https://github.com/HelgDemidov/scopus_search_code`
 **Рабочая ветка:** `web-frontend-development`
-**Статус:** Draft — один блок требует финального решения (отмечен ⚠️)
+**Статус:** Draft — все основные решения приняты ✅
 
 **История версий:**
 
 | Версия | Дата | Изменения |
 |---|---|---|
 | 1.0 | 2026-04-15 | Первичная структура документа |
-| 2.0 | 2026-04-15 | Зафиксирован стек React + Vite + Zustand + Recharts; заполнен раздел 7.1; обновлены разделы 1, 4.1, 7.2, 8, 9 |
+| 2.0 | 2026-04-15 | Зафиксирован стек React + Vite + Zustand + Tremor; заполнен раздел 7.1; обновлены разделы 1, 4.1, 7.2, 8, 9 |
+| 2.1 | 2026-04-15 | §7.2 РЕШЕНО: цветовая схема, акцент, типографика, чарты (Tremor), плотность UI |
 
 ---
 
@@ -29,7 +30,7 @@ Scopus Research Search — веб-сервис для поиска и просм
 - **State management:** Zustand 5
 - **UI-компоненты:** shadcn/ui (поверх Radix UI)
 - **Стили:** Tailwind CSS v4
-- **Графики:** Recharts 2
+- **Графики:** Tremor (поверх Recharts — финальное решение, см. §7.2)
 - **HTTP-клиент:** axios 1.x с interceptors
 - **Роутинг:** React Router v7
 - **Хостинг:** Vercel (бесплатный tier, поддомен `<project>.vercel.app`)
@@ -254,25 +255,25 @@ call to action». Все данные из одного запроса `GET /art
 **Реализация:** анимация счётчиков через `useCountUp` хук
 (библиотека `react-countup` или кастомная реализация через `requestAnimationFrame`).
 
-#### Графики (⚠️ визуальный дизайн не определён — см. раздел 7.2)
+#### Графики
 
-**Библиотека графиков: Recharts 2** (финальное решение).
+**Библиотека графиков: Tremor** (поверх Recharts, финальное решение — см. §7.2).
 
-| Блок | Тип графика | Recharts-компонент | Данные |
+| Блок | Тип графика | Tremor-компонент | Данные |
 |---|---|---|---|
-| Publications by Year | Line chart | `<LineChart>` + `<Line>` | `by_year` |
+| Publications by Year | Line chart | `<LineChart>` | `by_year` |
 | Top 10 Journals | Horizontal bar | `<BarChart layout="vertical">` | `by_journal` |
-| Open Access Ratio | Donut chart | `<PieChart>` + `<Pie innerRadius>` | `open_access_count` vs остальное |
+| Open Access Ratio | Donut chart | `<DonutChart>` | `open_access_count` vs остальное |
 | Top Countries | Bar chart | `<BarChart>` | `by_country` |
-| Document Types | Donut | `<PieChart>` + `<Pie innerRadius>` | `by_doc_type` |
+| Document Types | Donut | `<DonutChart>` | `by_doc_type` |
 | Top Research Topics | Horizontal bar | `<BarChart layout="vertical">` | `top_keywords` |
 
 **Общие требования к графикам:**
-- `<ResponsiveContainer width="100%" height={300}>` для адаптивности
-- `<Tooltip>` с кастомным `formatter` для числовых меток
-- `<Legend>` для многорядных чартов
-- Скелетон-заглушки при загрузке данных (серые прямоугольники той же высоты)
-- Цветовая палитра чартов определяется в разделе 7.2
+- Tremor автоматически обеспечивает адаптивность — `ResponsiveContainer` не нужен
+- `showTooltip` включён на всех чартах
+- `showLegend` для многорядных чартов
+- Скелетон-заглушки при загрузке данных (shadcn `<Skeleton>`)
+- Цветовая палитра чартов определена в `src/constants/chartColors.ts` (см. §7.2)
 
 **Управление состоянием дашборда:** отдельный `useStatsStore` (Zustand):
 
@@ -286,9 +287,8 @@ interface StatsStore {
 ```
 
 Данные запрашиваются один раз при монтировании страницы.
-Recharts-компоненты получают данные напрямую из `stats` — без
-промежуточных трансформаций (формат `{label, count}` совпадает
-с Recharts `dataKey`-соглашением).
+Tremor-компоненты получают данные напрямую через prop `data` —
+формат `{label, count}` передаётся через `index="label"` / `categories={["count"]}`.
 
 #### CTA-блок
 После графиков — баннер:
@@ -431,7 +431,7 @@ interface AuthStore {
   дашборда, **375px** для `/auth` и карточек
 - Sidebar фильтров на мобильном сворачивается в drawer/sheet
   — shadcn/ui `<Sheet>`
-- Все Recharts-компоненты обёрнуты в `<ResponsiveContainer>`
+- Все Tremor chart-компоненты адаптивны из коробки
 
 ---
 
@@ -463,7 +463,7 @@ interface AuthStore {
 | Критерий | Вес | Обоснование |
 |---|---|---|
 | AI-покрытие + зрелость экосистемы | 25% | React — наибольший объём обучающих данных в LLM-моделях (~40% фронтенд-проектов, State of JS 2024); максимальное покрытие Stack Overflow / GitHub примеров |
-| Инфографика vs легковесность | 25% | Recharts из коробки; Vite bundle ~150–200 KB gzip; полная интерактивность без архитектурных компромиссов |
+| Инфографика vs легковесность | 25% | Tremor/Recharts из коробки; Vite bundle ~150–200 KB gzip; полная интерактивность без архитектурных компромиссов |
 | Бесплатный хостинг + домен | 20% | Vercel: бесплатный tier навсегда, `<project>.vercel.app`, CDN в 100+ регионах, автодеплой из GitHub за 30 сек |
 | Zero-cost + производительность | 15% | MIT-лицензии всего стека; Vite HMR < 50ms; React 19 concurrent rendering; Lighthouse 95+ |
 | Совместимость с FastAPI / JWT / OAuth | 15% | Чистый SPA без мнений об авторизации; JWT в localStorage — стандартная практика; OAuth-редирект через бэкенд без конфликтов |
@@ -479,7 +479,7 @@ interface AuthStore {
 | UI-компоненты | shadcn/ui | latest | MIT |
 | Примитивы UI | Radix UI | latest | MIT |
 | Стили | Tailwind CSS | v4 | MIT |
-| Графики | Recharts | 2 | MIT |
+| Графики | Tremor | latest | Apache 2.0 |
 | Роутинг | React Router | v7 | MIT |
 | HTTP-клиент | axios | 1.x | MIT |
 | Формы | React Hook Form | 7 | MIT |
@@ -505,11 +505,13 @@ interface AuthStore {
 - Позволяет кастомизировать под любую дизайн-систему без версионных конфликтов
 - Инициализация: `npx shadcn@latest init` при создании проекта
 
-**Графики (Recharts):**
+**Графики (Tremor):**
 - Каждый chart-компонент выделен в отдельный файл в `src/components/charts/`
-- Все обёрнуты в `<ResponsiveContainer>` для адаптивности
+- Все используют Tremor's built-in responsiveness (нет необходимости в `<ResponsiveContainer>`)
 - Скелетон-заглушки при `isLoading=true` (shadcn `<Skeleton>`)
 - Цветовая палитра чартов централизована в `src/constants/chartColors.ts`
+- Tremor использует собственную систему цветовых имён — кастомные цвета
+  передаются через `customTooltipFormatter` или CSS переменные Tailwind
 
 #### Структура репозитория (фронтенд)
 
@@ -525,7 +527,7 @@ frontend/
 │   │   └── users.ts            # GET /users/me
 │   ├── components/
 │   │   ├── ui/                 # shadcn/ui компоненты (генерируются)
-│   │   ├── charts/             # Recharts-компоненты дашборда
+│   │   ├── charts/             # Tremor chart-компоненты дашборда
 │   │   │   ├── PublicationsByYearChart.tsx
 │   │   │   ├── TopJournalsChart.tsx
 │   │   │   ├── OpenAccessDonut.tsx
@@ -553,7 +555,7 @@ frontend/
 │   ├── types/
 │   │   └── api.ts              # TypeScript-интерфейсы ArticleResponse, StatsResponse и др.
 │   ├── constants/
-│   │   └── chartColors.ts      # Централизованная палитра для Recharts
+│   │   └── chartColors.ts      # Централизованная палитра для Tremor-чартов
 │   ├── App.tsx                 # Router + token hydration
 │   └── main.tsx
 ├── index.html
@@ -581,24 +583,291 @@ frontend/
 
 ---
 
-### 7.2 Визуальный дизайн
+### 7.2 Визуальный дизайн ✅ РЕШЕНО
 
-**Решение не принято.** Требуется определить:
+Все решения приняты и зафиксированы ниже.
 
-- **Цветовая схема:** светлая / тёмная / обе с переключателем
-- **Акцентный цвет:** нейтральный технический (синий, серый) vs
-  выразительный научный (индиго, терракота)
-- **Типографика:** display-шрифт для hero + body-шрифт для карточек
-  (рекомендации: Fontshare Satoshi или General Sans для body;
-  Instrument Serif или Cabinet Grotesk для display)
-- **Визуализации:** цветовая палитра чартов Recharts
-  (определяется в `src/constants/chartColors.ts`)
-- **Плотность интерфейса:** компактная (таблица/список) vs карточная
-  (grid с превью)
+---
 
-До принятия этих решений разработка ведётся с нейтральной базовой
-системой Tailwind-токенов (shadcn/ui defaults), которая заменяется
-по итогам дизайн-сессии.
+#### 7.2.1 Цветовая схема и режимы
+
+**Принятое решение:** светлая + тёмная темы с переключателем (toggle в хедере).
+
+**Light-mode (основной режим):**
+
+| Роль | Tailwind-класс | HEX | Контраст на белом |
+|---|---|---|---|
+| Акцентный / Primary | `blue-800` | `#1e40af` | **7.1:1 — AAA** ✅ |
+| Текст основной | `slate-900` | `#0f172a` | — |
+| Текст вторичный | `slate-600` | `#475569` | — |
+| Текст третичный / мьютед | `slate-400` | `#94a3b8` | — |
+| Поверхность страницы (bg) | `white` | `#ffffff` | — |
+| Поверхность карточки | `slate-50` | `#f8fafc` | — |
+| Поверхность sidebar | `slate-100` | `#f1f5f9` | — |
+| Бордер / разделитель | `slate-200` | `#e2e8f0` | — |
+| Бордер акцентный (focus) | `blue-800` | `#1e40af` | — |
+
+**Dark-mode (Tailwind slate-стек):**
+
+| Роль | Tailwind-класс | HEX |
+|---|---|---|
+| Поверхность страницы (bg) | `slate-900` | `#0f172a` |
+| Поверхность карточки | `slate-800` | `#1e293b` |
+| Поверхность sidebar / elevated | `slate-700` | `#334155` |
+| Бордер | `slate-700` | `#334155` |
+| Текст основной | `slate-100` | `#f1f5f9` |
+| Текст вторичный | `slate-400` | `#94a3b8` |
+| Акцентный / Primary | `blue-500` | `#3b82f6` |
+| Акцент hover | `blue-400` | `#60a5fa` |
+
+**Реализация переключателя:** Tailwind `darkMode: 'class'` в `tailwind.config.ts`
+(класс `.dark` на `<html>`). Состояние темы хранится в `localStorage` + JS-переменной.
+
+---
+
+#### 7.2.2 Семантические цветовые токены
+
+Все роли централизованы в `tailwind.config.ts` и используются через утилиты.
+Ниже — «умные» семантические псевдонимы поверх slate/blue:
+
+```typescript
+// tailwind.config.ts — extend.colors
+colors: {
+  brand: {
+    DEFAULT:  '#1e40af', // blue-800, light mode primary
+    hover:    '#1d3a9e', // blue-900-ish, чуть темнее
+    active:   '#1e3a8a', // blue-900
+    light:    '#dbeafe', // blue-100, фон badge/highlight
+    dark:     '#3b82f6', // blue-500, dark mode primary
+    'dark-hover': '#60a5fa', // blue-400, dark mode hover
+  },
+  surface: {
+    DEFAULT:  '#ffffff',
+    card:     '#f8fafc', // slate-50
+    sidebar:  '#f1f5f9', // slate-100
+    border:   '#e2e8f0', // slate-200
+  },
+  // Dark-mode поверхности через Tailwind dark: prefix — не дублируются здесь
+}
+```
+
+**Семантические цвета статусов** (оптимизированы под акцент blue-800,
+повышена насыщенность для достаточного контраста):
+
+| Роль | Light HEX | Tailwind | Dark HEX | Tailwind |
+|---|---|---|---|---|
+| Success (зелёный) | `#047857` | `emerald-700` | `#34d399` | `emerald-400` |
+| Warning (янтарный) | `#b45309` | `amber-700` | `#fbbf24` | `amber-400` |
+| Error / Danger | `#be123c` | `rose-700` | `#fb7185` | `rose-400` |
+| Info (нейтральный) | `#1e40af` | `blue-800` | `#60a5fa` | `blue-400` |
+| Open Access badge | `#047857` | `emerald-700` | `#34d399` | `emerald-400` |
+
+> **Принцип выбора:** для light-mode использованы `-700`-ступени Tailwind
+> (вместо стандартных `-500`), что обеспечивает соотношение контраста
+> ≥ 4.5:1 на белом фоне без дополнительных проверок.
+> Для dark-mode — `-400`-ступени на `slate-800/900` поверхностях.
+
+---
+
+#### 7.2.3 Типографика
+
+**Принятое решение:**
+
+| Роль | Шрифт | Источник | Применение |
+|---|---|---|---|
+| Body / UI | **Plus Jakarta Sans** | Google Fonts | Всё тело страницы, карточки, кнопки, навигация, формы |
+| Display / Hero | **Instrument Serif** | Google Fonts | Hero-заголовок на главной странице, крупные секционные заголовки `/explore` |
+
+**Обоснование пары:**
+- Plus Jakarta Sans — геометрический гротеск с высоким x-height и открытыми
+  счётчиками; оптимальная читаемость при 14–16px; ассоциируется с Framer, Supabase.
+- Instrument Serif — элегантный академический антиква; создаёт контраст
+  с sans-serif телом; визуально отсылает к серьёзному научному изданию.
+  Применяется **только** для display-размеров (≥ 24px / `text-2xl`+).
+
+**Подключение (Google Fonts):**
+
+```html
+<!-- index.html <head> -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@300..700&display=swap" rel="stylesheet">
+```
+
+**CSS-переменные в `tailwind.config.ts`:**
+
+```typescript
+theme: {
+  extend: {
+    fontFamily: {
+      sans:    ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      display: ['"Instrument Serif"', 'Georgia', 'ui-serif', 'serif'],
+    },
+  },
+}
+```
+
+**Применение в компонентах:**
+- `font-sans` — Tailwind default, применяется глобально через `body`
+- `font-display` — явно указывается только на hero-заголовке и крупных
+  секционных заголовках дашборда
+
+---
+
+#### 7.2.4 Библиотека визуализаций: Tremor
+
+**Принятое решение:** Tremor (поверх Recharts) вместо bare Recharts.
+
+**Обоснование:**
+- Tremor предоставляет готовые React-компоненты с встроенными
+  tooltip, legend, responsive behaviour — без ручной сборки из примитивов
+- Tailwind-совместимый дизайн: темизация через CSS-переменные и классы
+- Shadcn/ui-совместимость: оба строятся на Tailwind, конфликтов нет
+- Встроенная dark mode поддержка через Tailwind `dark:` prefix
+- Референсная галерея: https://www.tremor.so/charts
+
+**Установка:**
+
+```bash
+npm install @tremor/react
+```
+
+**Импорт в компонентах:**
+
+```typescript
+import { LineChart, BarChart, DonutChart } from '@tremor/react'
+```
+
+---
+
+#### 7.2.5 Цветовая палитра чартов
+
+**Принятое решение:** оптимизированная палитра с повышенной контрастностью
+(avg Lightness снижен с 52.5% → 36.5%, прирост контраста ~16%)
+при сохранении академической элегантности.
+
+**Палитра `src/constants/chartColors.ts`:**
+
+```typescript
+// Централизованная палитра Tremor-чартов
+// Якорь: blue-800 (#1e40af, AAA 7.1:1)
+// Avg L=36.5% — на 16% контрастнее стандартных Tailwind-500
+
+export const CHART_COLORS = [
+  '#1e40af', // primary-blue  — blue-800     (H 226°, S 71%, L 40%)
+  '#0f766e', // teal-deep     — teal-700     (H 175°, S 77%, L 26%)
+  '#6d28d9', // violet-deep   — violet-700   (H 263°, S 70%, L 50%)
+  '#b45309', // amber-deep    — amber-700    (H  26°, S 90%, L 37%)
+  '#be123c', // rose-deep     — rose-700     (H 345°, S 83%, L 41%)
+  '#047857', // emerald-deep  — emerald-700  (H 163°, S 94%, L 24%)
+] as const;
+
+// Для dark-mode: используем на 1–2 ступени светлее
+export const CHART_COLORS_DARK = [
+  '#3b82f6', // blue-500
+  '#14b8a6', // teal-500
+  '#8b5cf6', // violet-500
+  '#f59e0b', // amber-500
+  '#f43f5e', // rose-500
+  '#22c55e', // green-500
+] as const;
+
+// Удобные псевдонимы для смысловых ролей
+export const CHART_COLOR_PRIMARY   = CHART_COLORS[0]; // синяя серия (основная)
+export const CHART_COLOR_SECONDARY = CHART_COLORS[1]; // альтернативная серия
+export const CHART_COLOR_OA_YES    = CHART_COLORS[5]; // Open Access — зелёный
+export const CHART_COLOR_OA_NO     = '#94a3b8';        // Non-OA — нейтральный серый
+```
+
+**Передача палитры в Tremor:**
+
+```typescript
+// Пример: Publications by Year
+<LineChart
+  data={stats.by_year}
+  index="label"
+  categories={["count"]}
+  colors={["blue"]}          // Tremor color name OR кастомный через className
+  showLegend={false}
+  showTooltip={true}
+/>
+
+// Для многоцветных чартов (доната, несколько серий):
+// Tremor принимает массив: colors={["blue", "teal", "violet", "amber"]}
+// Кастомные HEX пробрасываются через customTooltipFormatter или
+// CSS override: style={{ "--tremor-color-chart-1": "#1e40af" }}
+```
+
+> **Практическое замечание:** Tremor v3+ поддерживает передачу HEX напрямую
+> через prop `colors` в виде строк — проверить при интеграции; при необходимости
+> использовать CSS custom properties override.
+
+---
+
+#### 7.2.6 Плотность интерфейса
+
+**Принятое решение:** «умеренный функциональный минимализм» —
+2-column карточная сетка, высота карточки 80–100px.
+
+**Описание:**
+- Список статей на главной: CSS Grid `grid-cols-2`, gap `gap-3` (12px)
+- Карточка статьи: `min-h-[80px] max-h-[100px]` — достаточно для
+  заголовка, автора, журнала и 2–3 badge
+- KPI-карточки на `/explore` (headline stats): `grid-cols-4`, высота ~72px
+- Chart-карточки на `/explore`: `grid-cols-2`, высота auto (300px chart + padding)
+- На мобильном (< 768px): все сетки схлопываются в `grid-cols-1`
+
+**Tailwind-пример карточки статьи:**
+
+```typescript
+// ArticleCard.tsx — скелет разметки
+<div className="
+  bg-slate-50 dark:bg-slate-800
+  border border-slate-200 dark:border-slate-700
+  rounded-lg p-3
+  min-h-[80px]
+  flex flex-col gap-1
+  hover:border-blue-800 dark:hover:border-blue-500
+  transition-colors
+">
+  <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 line-clamp-2">
+    {title}
+  </h3>
+  <p className="text-xs text-slate-500 dark:text-slate-400">
+    {author} · <em>{journal}</em> · {year}
+  </p>
+  <div className="flex gap-1 mt-auto flex-wrap">
+    {/* badges: document_type, open_access */}
+  </div>
+</div>
+```
+
+---
+
+#### 7.2.7 Итоговые изменения в команды установки
+
+По сравнению с §8 — единственное изменение: `recharts` заменяется на `@tremor/react`:
+
+```bash
+# Было:
+npm install recharts
+
+# Стало:
+npm install @tremor/react
+```
+
+Все остальные команды из §8 остаются без изменений.
+
+---
+
+#### 7.2.8 Итоговые изменения в shadcn init
+
+При инициализации shadcn выбрать:
+- **Base color:** `slate` (совпадает с выбранной поверхностной палитрой)
+- **CSS variables:** yes
+
+Это обеспечит автоматическую генерацию CSS-переменных, совместимых
+с нашим slate/blue-800 дизайн-токенами.
 
 ---
 
@@ -622,10 +891,11 @@ npm install react-router-dom
 # axios + React Hook Form + Zod
 npm install axios react-hook-form zod @hookform/resolvers
 
-# Recharts
-npm install recharts
+# Tremor (графики — заменяет recharts)
+npm install @tremor/react
 
 # shadcn/ui (интерактивная инициализация)
+# При запросе "Which color would you like to use as base color?" → выбрать slate
 npx shadcn@latest init
 
 # Добавить компоненты shadcn по мере необходимости:
