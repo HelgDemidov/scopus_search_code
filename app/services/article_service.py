@@ -6,8 +6,13 @@ class ArticleService:
     def __init__(self, article_repo: IArticleRepository):
         self.article_repo = article_repo
 
-    async def get_articles_paginated(self, page: int, size: int) -> PaginatedArticleResponse:
-        # Бизнес-логика пагинации
+    async def get_articles_paginated(
+        self,
+        page: int,
+        size: int,
+        keyword: str | None = None,
+    ) -> PaginatedArticleResponse:
+        # Бизнес-логика пагинации с опциональным фильтром по ключевому слову
 
         # Защита от отрицательных значений
         if page < 1:
@@ -18,9 +23,9 @@ class ArticleService:
         limit = size
         offset = (page - 1) * size
 
-        # 1. Получаем ORM-объекты из БД
-        db_articles = await self.article_repo.get_all(limit=limit, offset=offset)
-        total = await self.article_repo.get_total_count()
+        # 1. Получаем ORM-объекты из БД; keyword=None означает без фильтра
+        db_articles = await self.article_repo.get_all(limit=limit, offset=offset, keyword=keyword)
+        total = await self.article_repo.get_total_count(keyword=keyword)
 
         # 2. Конвертируем ORM-объекты (Article) в Pydantic-схемы (ArticleResponse)
         article_responses = [

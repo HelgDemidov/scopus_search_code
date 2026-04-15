@@ -62,9 +62,10 @@ async def get_stats(
 async def get_articles(
     page: int = Query(1, ge=1, description="Номер страницы"),
     size: int = Query(10, ge=1, le=100, description="Количество статей на странице"),
+    keyword: str | None = Query(None, min_length=2, description="Фильтр по ключевому слову сидера (точное совпадение)"),
     service: ArticleService = Depends(get_article_service),
 ) -> PaginatedArticleResponse:
-    return await service.get_articles_paginated(page=page, size=size)
+    return await service.get_articles_paginated(page=page, size=size, keyword=keyword)
 
 
 @router.get("/find", response_model=list[ArticleResponse])

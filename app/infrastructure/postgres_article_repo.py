@@ -12,9 +12,13 @@ class PostgresArticleRepository(IArticleRepository):
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_all(self, limit: int, offset: int) -> List[Article]:
-        # SQL: SELECT * FROM articles LIMIT {limit} OFFSET {offset};
-        stmt = select(Article).limit(limit).offset(offset)
+    async def get_all(self, limit: int, offset: int, keyword: str | None = None) -> List[Article]:
+        # SQL: SELECT * FROM articles [WHERE keyword = :kw] LIMIT {limit} OFFSET {offset}
+        # keyword — управляемое значение из таблицы seeder_keywords, ILIKE не нужен
+        stmt = select(Article)
+        if keyword is not None:
+            stmt = stmt.where(Article.keyword == keyword)
+        stmt = stmt.limit(limit).offset(offset)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
@@ -64,8 +68,11 @@ class PostgresArticleRepository(IArticleRepository):
         await self.session.execute(stmt)
         await self.session.commit()
 
-    async def get_total_count(self) -> int:
+    async def get_total_count(self, keyword: str | None = None) -> int:
+        # Считает все статьи или только с заданным keyword при фильтрации
         stmt = select(func.count(Article.id))
+        if keyword is not None:
+            stmt = stmt.where(Article.keyword == keyword)
         result = await self.session.execute(stmt)
         return result.scalar() or 0
 
