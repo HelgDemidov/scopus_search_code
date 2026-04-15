@@ -1,15 +1,19 @@
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Any
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Any
 
 from app.core.dependencies import get_db_session
 from app.infrastructure.postgres_article_repo import PostgresArticleRepository
 from app.infrastructure.scopus_client import ScopusHTTPClient
-from app.models.user import User  # если нужна типизация current_user
+from app.models.user import User
 from app.routers.users import get_current_user
-from app.schemas.article_schemas import ArticleResponse, PaginatedArticleResponse
+from app.schemas.article_schemas import (
+    ArticleResponse,
+    PaginatedArticleResponse,
+    StatsResponse,
+    CountByField,
+)
 from app.services.article_service import ArticleService
 from app.services.search_service import SearchService
 
@@ -20,9 +24,11 @@ def get_article_service(session: AsyncSession = Depends(get_db_session)) -> Arti
     repo = PostgresArticleRepository(session)
     return ArticleService(article_repo=repo)
 
-async def get_scopus_client() -> AsyncGenerator[ScopusHTTPClient, None]: # <-- Изменение здесь
+
+async def get_scopus_client() -> AsyncGenerator[ScopusHTTPClient, None]:
     async with httpx.AsyncClient(timeout=30.0) as client:
         yield ScopusHTTPClient(client)
+
 
 def get_search_service(
     session: AsyncSession = Depends(get_db_session),
@@ -30,6 +36,26 @@ def get_search_service(
 ) -> SearchService:
     repo = PostgresArticleRepository(session)
     return SearchService(search_client=scopus_client, article_repo=repo)
+
+
+@router.get("/stats", response_model=StatsResponse, tags=["Analytics"])
+async def get_stats(
+    service: ArticleService = Depends(get_article_service),
+) -> StatsResponse:
+    # Публичный эндпоинт — JWT не требуется
+    # Возвращает агрегаты только по сидированным статьям (is_seeded=True)
+    data = await service.get_stats()
+    return StatsResponse(
+        total_articles=data["total_articles"],
+        total_journals=data["total_journals"],
+        total_countries=data["total_countries"],
+        open_access_count=data["open_access_count"],
+        by_year=[CountByField(**r) for r in data["by_year"]],
+        by_journal=[CountByField(**r) for r in data["by_journal"]],
+        by_country=[CountByField(**r) for r in data["by_country"]],
+        by_doc_type=[CountByField(**r) for r in data["by_doc_type"]],
+        top_keywords=[CountByField(**r) for r in data["top_keywords"]],
+    )
 
 
 @router.get("/", response_model=PaginatedArticleResponse)
@@ -43,13 +69,13 @@ async def get_articles(
 
 @router.get("/find", response_model=list[ArticleResponse])
 async def find_articles(
-    response: Response,  
+    response: Response,
     keyword: str = Query(..., min_length=2, description="Ключевое слово для поиска"),
     count: int = Query(25, ge=1, le=25, description="Сколько статей запросить из Scopus (макс 25)"),
     service: SearchService = Depends(get_search_service),
     scopus_client: ScopusHTTPClient = Depends(get_scopus_client),
     current_user: User = Depends(get_current_user),
-) -> Any:  # <-- ключевое изменение
+) -> Any:
     articles = await service.find_and_save(keyword, count=count)
 
     # Пробрасываем лимиты Scopus в заголовки ответа
@@ -61,16 +87,3 @@ async def find_articles(
         response.headers["X-RateLimit-Reset"] = scopus_client.last_rate_reset
 
     return [ArticleResponse.model_validate(a) for a in articles]
-    
-    # Ищет статьи в Scopus по ключевому слову и сохраняет их в базу
-    # Приватный эндпоинт: доступен только для авторизованных пользователей
-    # current_user гарантированно существует и прошел проверку токена
-    
-    try:
-        articles = await service.find_and_save(keyword=keyword)
-        return [ArticleResponse.model_validate(a) for a in articles]
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Ошибка Scopus API: {e.response.status_code}",
-        )

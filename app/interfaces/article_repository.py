@@ -5,7 +5,7 @@ from app.models.article import Article
 
 
 class IArticleRepository(ABC):
-    
+
     @abstractmethod
     async def save_many(self, articles: List[Article]) -> None:
         """Сохраняет пачку (список) статей в базу данных за один раз"""
@@ -23,4 +23,9 @@ class IArticleRepository(ABC):
     @abstractmethod
     async def get_total_count(self) -> int:
         """Считает общее количество сохраненных статей в базе"""
+        pass
+
+    @abstractmethod
+    async def get_stats(self) -> dict:
+        """Возвращает агрегированную статистику по сидированным статьям (is_seeded=True)"""
         pass

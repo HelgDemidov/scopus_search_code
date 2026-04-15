@@ -24,3 +24,23 @@ class PaginatedArticleResponse(BaseModel):
     # Схема ответа для пагинации согласно ТЗ
     articles: List[ArticleResponse]
     total: int
+
+
+class CountByField(BaseModel):
+    # Универсальная схема для агрегатов вида {label, count}
+    label: str
+    count: int
+
+
+class StatsResponse(BaseModel):
+    # Схема публичного эндпоинта GET /articles/stats
+    # Возвращает агрегированную статистику только по сидированным статьям (is_seeded=True)
+    total_articles: int
+    total_journals: int
+    total_countries: int
+    open_access_count: int
+    by_year: List[CountByField]      # Распределение публикаций по годам
+    by_journal: List[CountByField]   # Топ-10 журналов по числу статей
+    by_country: List[CountByField]   # Топ-10 стран по числу статей
+    by_doc_type: List[CountByField]  # Распределение по типу документа
+    top_keywords: List[CountByField] # Топ ключевых слов сидера

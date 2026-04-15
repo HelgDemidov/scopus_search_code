@@ -24,6 +24,14 @@ class Article(Base):
     open_access: Mapped[bool] = mapped_column(Boolean, nullable=True)                  # openaccess — флаг открытого доступа
     affiliation_country: Mapped[str] = mapped_column(String(100), nullable=True)       # affiliation[0].affiliation-country
 
+    # Флаг: статья добавлена автоматическим сидером (True) или пользовательским поиском (False)
+    is_seeded: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false"
+    )
+
     # Метка времени создания записи
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True),

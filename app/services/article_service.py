@@ -1,4 +1,3 @@
-
 from app.schemas.article_schemas import ArticleResponse, PaginatedArticleResponse
 from app.interfaces.article_repository import IArticleRepository
 
@@ -8,9 +7,8 @@ class ArticleService:
         self.article_repo = article_repo
 
     async def get_articles_paginated(self, page: int, size: int) -> PaginatedArticleResponse:
-        
         # Бизнес-логика пагинации
-        
+
         # Защита от отрицательных значений
         if page < 1:
             page = 1
@@ -26,7 +24,7 @@ class ArticleService:
 
         # 2. Конвертируем ORM-объекты (Article) в Pydantic-схемы (ArticleResponse)
         article_responses = [
-            ArticleResponse.model_validate(article) 
+            ArticleResponse.model_validate(article)
             for article in db_articles
         ]
 
@@ -35,3 +33,7 @@ class ArticleService:
             articles=article_responses,
             total=total
         )
+
+    async def get_stats(self) -> dict:
+        # Делегируем агрегацию репозиторию — сервис не знает о SQL
+        return await self.article_repo.get_stats()
