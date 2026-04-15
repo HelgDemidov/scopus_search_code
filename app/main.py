@@ -8,6 +8,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import settings
 from app.routers import articles, users, health
+from app.routers import auth
 
 
 @asynccontextmanager
@@ -30,7 +31,7 @@ app = FastAPI(
 # Она подписывает OAuth state в cookie, защищая от CSRF
 app.add_middleware(SessionMiddleware, secret_key=settings.SESSION_SECRET_KEY)
 
-# CORS: браузерная защита, разрешаем запросы с любого домена (allow_origins=["*"] для dev)
+# CORS: браузерная защита, разрешаем запросы с любого домена
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -40,6 +41,7 @@ app.add_middleware(
 )
 
 # Подключаем роутеры
+app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(articles.router)
 app.include_router(health.router)
