@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
+from starlette.status import HTTP_302_FOUND
 
 from app.config import settings
 from app.core.dependencies import get_db_session
@@ -36,7 +37,7 @@ async def google_login(request: Request) -> RedirectResponse:
 async def google_callback(
     request: Request,
     session: AsyncSession = Depends(get_db_session),
-) -> JSONResponse:
+) -> RedirectResponse:
     # Обмениваем code на токен Google и извлекаем userinfo
     token = await oauth.google.authorize_access_token(request)
     user_info = token.get("userinfo") or {}
@@ -48,5 +49,8 @@ async def google_callback(
     service = UserService(user_repo=repo)
     jwt_token = await service.get_or_create_by_google(email=email, name=name)
 
-    # Возвращаем тот же JWT-формат, что и POST /users/login
-    return JSONResponse({"access_token": jwt_token, "token_type": "bearer"})
+    # Вариант A (§4.3): редиректим фронтенд на /auth/callback?token=<jwt>
+    # FRONTEND_URL читается из переменной среды (settings.FRONTEND_URL)
+    frontend_url = settings.FRONTEND_URL.rstrip("/")
+    redirect_url = f"{frontend_url}/auth/callback?token={jwt_token}"
+    return RedirectResponse(url=redirect_url, status_code=HTTP_302_FOUND)
