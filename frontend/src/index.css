@@ -108,9 +108,14 @@
     --font-sans: 'Geist Variable', sans-serif;
   }
 
-  /* Глобальный сброс border-color и outline для всех элементов */
+  /* Глобальный сброс border-color для всех элементов.
+     outline-color задаётся нативным color-mix() вместо @apply outline-ring/50:
+     Tailwind v3 не умеет применять opacity modifier (/50) к значениям вида
+     var(--css-variable), так как не может статически разобрать их во время
+     компиляции PostCSS. color-mix() решает это на уровне браузера в runtime. */
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
+    outline-color: color-mix(in oklch, var(--ring) 50%, transparent);
   }
 
   body {
