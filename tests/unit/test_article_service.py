@@ -21,7 +21,8 @@ class FakeArticleRepository(IArticleRepository):
                 author="Test Author",
                 publication_date=date(2026, 1, 1),
                 doi=f"10.test/{i}",
-                keyword="test"
+                keyword="test",
+                is_seeded=False,
             )
             self.db_articles.append(article)
 
@@ -33,7 +34,7 @@ class FakeArticleRepository(IArticleRepository):
         # Для этого теста сохранение не нужно, просто ставим заглушку
         pass
 
-    async def get_all(self, limit: int, offset: int) -> List[Article]:
+    async def get_all(self, limit: int, offset: int, keyword: str | None = None) -> List[Article]:
         # Шпионская логика: запоминаем, с какими аргументами сервис вызвал метод базы
         self.last_limit_called = limit
         self.last_offset_called = offset
@@ -41,8 +42,12 @@ class FakeArticleRepository(IArticleRepository):
         # Эмулируем SQL-запрос: SELECT * FROM articles LIMIT {limit} OFFSET {offset}
         return self.db_articles[offset : offset + limit]
 
-    async def get_total_count(self) -> int:
+    async def get_total_count(self, keyword: str | None = None) -> int:
         return len(self.db_articles)
+
+    async def get_stats(self) -> dict:
+        # Заглушка: get_stats не нужен для тестов пагинации, возвращаем пустой dict
+        return {}
 
 
 # 2. Фикстура для подготовки сервиса
