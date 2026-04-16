@@ -10,6 +10,8 @@ import { PaginationControls } from '../components/ui/PaginationControls';
 import { usePagination } from '../hooks/usePagination';
 import type { ArticleResponse } from '../types/api';
 
+const PAGE_SIZE = 20;
+
 // Клиентская сортировка по цитированиям (Sorted within current page — §4.1)
 function sortArticles(
   articles: ArticleResponse[],
@@ -21,7 +23,7 @@ function sortArticles(
   );
 }
 
-// Применяем активные фильтры к client-side — по спеку фильтры серверные,
+// Применяем активные фильтры к client-side — по спеку фильтры серверные,
 // но для UX без перезагрузки применяем их поверх на данных текущей страницы
 function applyClientFilters(
   articles: ArticleResponse[],
@@ -56,11 +58,11 @@ function AnonHero({ onSearch }: { onSearch: (q: string) => void }) {
           Search Scopus publications
         </h1>
         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-          Preview results below. 
+          Preview results below.{' '}
           <Link to="/auth" className="text-blue-800 dark:text-blue-400 hover:underline">
             Sign in
           </Link>
-           to unlock full search.
+          {' '}to unlock full search.
         </p>
       </div>
       <div className="w-full max-w-md">
@@ -73,8 +75,11 @@ function AnonHero({ onSearch }: { onSearch: (q: string) => void }) {
 // Блок результатов + сайдбар фильтров для авторизованных
 export default function HomePage() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const { articles, isLoading, filters, findArticles } = useArticleStore();
+  const { articles, isLoading, filters, setFilters, fetchArticles } = useArticleStore();
   const [sortBy, setSortBy] = useState<'date' | 'citations'>('date');
+
+  // Локальная страница для client-side пагинации по отфильтрованным данным
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Применяем client-side фильтры поверх данных страницы
   const filteredArticles = useMemo(
@@ -96,12 +101,20 @@ export default function HomePage() {
     [filteredArticles, sortBy],
   );
 
-  // Пагинация по sortedArticles
-  const { page, setPage, totalPages, pageItems } = usePagination(sortedArticles);
+  // Client-side нарезка на страницы
+  const pageItems = useMemo(
+    () => sortedArticles.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [sortedArticles, currentPage],
+  );
 
-  // Триггер поиска от SearchBar или anon-hero
+  // usePagination по реальной сигнатуре: (total, page, size)
+  const { totalPages } = usePagination(sortedArticles.length, currentPage, PAGE_SIZE);
+
+  // Сброс на первую страницу при смене фильтров или сортировки
   function handleSearch(query: string) {
-    findArticles({ keyword: query });
+    setFilters({ keyword: query });
+    setCurrentPage(1);
+    fetchArticles();
   }
 
   return (
@@ -154,9 +167,11 @@ export default function HomePage() {
               />
               {totalPages > 1 && (
                 <PaginationControls
-                  page={page}
+                  page={currentPage}
                   totalPages={totalPages}
-                  onPageChange={setPage}
+                  onPageChange={setCurrentPage}
+                  total={sortedArticles.length}
+                  size={PAGE_SIZE}
                 />
               )}
             </div>

@@ -32,6 +32,9 @@ export interface LabelCount {
   count: number;
 }
 
+// Алиас для обратной совместимости с chart-компонентами
+export type StatsItem = LabelCount;
+
 export interface StatsResponse {
   total_articles: number;
   total_journals: number;

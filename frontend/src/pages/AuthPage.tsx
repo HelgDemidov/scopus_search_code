@@ -8,7 +8,6 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { useAuthStore } from '../stores/authStore';
 import { login, register as registerUser } from '../api/auth';
-import apiClient from '../api/client';
 
 // Zod-схема для формы входа
 const loginSchema = z.object({
@@ -47,8 +46,8 @@ function SignInForm() {
   async function onSubmit(data: LoginFormData) {
     setServerError(null);
     try {
-      // Формат form-data: ключ username=email (§2.1, §4.3)
-      const { access_token } = await login(data.email, data.password);
+      // Передаем объект LoginCredentials по реальной сигнатуре api/auth.ts
+      const { access_token } = await login({ email: data.email, password: data.password });
       setToken(access_token);
       await fetchUser();
       navigate('/');
@@ -125,8 +124,8 @@ function CreateAccountForm() {
         password_confirm: data.password_confirm,
       });
 
-      // Шаг 2: автологин — form-data (тот же URLSearchParams-паттерн, что и Sign In) §4.3
-      const { access_token } = await login(data.email, data.password);
+      // Шаг 2: автологин по реальной сигнатуре api/auth.ts
+      const { access_token } = await login({ email: data.email, password: data.password });
       setToken(access_token);
       await fetchUser();
       navigate('/');
@@ -218,13 +217,11 @@ function PasswordInput({
         className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
       >
         {show ? (
-          // Глаз зачеркнутый
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4" aria-hidden="true">
             <path d="M3 3l14 14M10 4C5.5 4 2 10 2 10s1 1.5 2.5 2.5M17.5 7.5C18.5 9 18 10 18 10c-1 1.5-4 5.5-8 5.5a6.5 6.5 0 0 1-2.5-.5" strokeLinecap="round" />
             <circle cx="10" cy="10" r="2" />
           </svg>
         ) : (
-          // Глаз открытый
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-4 h-4" aria-hidden="true">
             <path d="M2 10s3.5-6 8-6 8 6 8 6-3.5 6-8 6-8-6-8-6Z" />
             <circle cx="10" cy="10" r="2.5" />
@@ -264,7 +261,6 @@ export default function AuthPage() {
           onClick={() => { window.location.href = '/api/auth/google/login'; }}
           className="mb-4 flex w-full items-center justify-center gap-2.5 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
         >
-          {/* Google логотип SVG */}
           <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden="true">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
             <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>

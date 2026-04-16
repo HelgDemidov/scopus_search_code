@@ -1,28 +1,22 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useCountUp } from '../hooks/useCountUp';
 import { useStatsStore } from '../stores/statsStore';
 import { useAuthStore } from '../stores/authStore';
-import { DocTypePieChart } from '../components/charts/DocTypePieChart';
-import { CountryBarChart } from '../components/charts/CountryBarChart';
-import { YearLineChart } from '../components/charts/YearLineChart';
-import { QuartileScatterChart } from '../components/charts/QuartileScatterChart';
+import { DocumentTypesChart } from '../components/charts/DocumentTypesChart';
+import { TopCountriesChart } from '../components/charts/TopCountriesChart';
+import { PublicationsByYearChart } from '../components/charts/PublicationsByYearChart';
 import { Skeleton } from '../components/ui/skeleton';
 
-// Одна KPI-карточка с анимацией числа
+// Одна KPI-карточка; без useCountUp — прямое отображение значения
 function KpiCard({
   label,
   value,
-  unit,
   isLoading,
 }: {
   label: string;
   value: number;
-  unit?: string;
   isLoading: boolean;
 }) {
-  const displayed = useCountUp(isLoading ? 0 : value);
-
   return (
     <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 flex flex-col gap-1">
       {isLoading ? (
@@ -33,8 +27,7 @@ function KpiCard({
       ) : (
         <>
           <p className="text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-100">
-            {displayed.toLocaleString()}
-            {unit && <span className="ml-1 text-sm font-normal text-slate-500 dark:text-slate-400">{unit}</span>}
+            {value.toLocaleString()}
           </p>
           <p className="text-sm text-slate-500 dark:text-slate-400">{label}</p>
         </>
@@ -53,10 +46,9 @@ export default function ExplorePage() {
   }, [fetchStats]);
 
   // Агрегация KPI-значений из stats
-  const totalArticles = stats?.by_year.reduce((acc, d) => acc + d.count, 0) ?? 0;
-  const totalCountries = stats?.by_country.length ?? 0;
-  const openAccessCount =
-    stats?.by_doc_type.find((d) => d.label.toLowerCase().includes('open'))?.count ?? 0;
+  const totalArticles = stats?.total_articles ?? 0;
+  const totalCountries = stats?.total_countries ?? 0;
+  const openAccessCount = stats?.open_access_count ?? 0;
   const totalDocTypes = stats?.by_doc_type.length ?? 0;
 
   return (
@@ -87,10 +79,10 @@ export default function ExplorePage() {
         </div>
       ) : stats ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <YearLineChart data={stats.by_year} />
-          <DocTypePieChart data={stats.by_doc_type} />
-          <CountryBarChart data={stats.by_country} />
-          <QuartileScatterChart data={stats.by_quartile ?? []} />
+          <PublicationsByYearChart data={stats.by_year} isLoading={false} />
+          <DocumentTypesChart data={stats.by_doc_type} isLoading={false} />
+          <TopCountriesChart data={stats.by_country} isLoading={false} />
+          <TopCountriesChart data={stats.by_journal} isLoading={false} />
         </div>
       ) : null}
 
