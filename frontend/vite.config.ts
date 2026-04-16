@@ -27,6 +27,13 @@ export default defineConfig({
   },
 
   build: {
+    // vendor-charts (Tremor + Recharts + D3) весит ~850 kB raw / 233 kB gzip —
+    // это стабильный vendor-чанк, меняется только при обновлении библиотек,
+    // а не при каждом деплое. Браузер кэширует его надолго. Порог поднят до
+    // 1000 kB, чтобы Rollup не выдавал ложное предупреждение для vendor-bundle.
+    // Перед public beta — рассмотреть замену Tremor на shadcn/ui Charts (Вариант 2).
+    chunkSizeWarningLimit: 1000,
+
     rollupOptions: {
       output: {
         // Функциональная форма manualChunks предпочтительнее объектной:
