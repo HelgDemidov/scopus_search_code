@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { RouterProvider, createBrowserRouter } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Toaster } from './components/ui/sonner';
 import { Header } from './components/layout/Header';
 import { PrivateRoute } from './components/layout/PrivateRoute';
@@ -92,6 +93,7 @@ export default function App() {
       {/* Глобальный контейнер для toast-уведомлений через shadcn Sonner */}
       <Toaster richColors position="top-right" />
       <Analytics />
+      <SpeedInsights />
     </>
   );
 }
