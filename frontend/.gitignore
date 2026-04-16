@@ -1,0 +1,30 @@
+# Зависимости
+node_modules/
+
+# Артефакты сборки Vite
+dist/
+dist-ssr/
+
+# Переменные окружения — никогда не коммитить
+# .env.local — локальная разработка (VITE_API_BASE_URL=http://localhost:8000)
+# .env.production — локальная prod-сборка (не попадает в Vercel автоматически)
+# Vercel-переменные задаются в Vercel Dashboard → Settings → Environment Variables
+.env.local
+.env.production
+.env*.local
+
+# Кеш инструментов
+.vite/
+
+# TypeScript
+*.tsbuildinfo
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
