@@ -1,7 +1,7 @@
 # Frontend Technical Specification
 ## Scopus Research Search — Web Interface
 
-**Версия:** 5.0
+**Версия:** 5.1
 **Дата:** 2026-04-16
 **Репозиторий:** `https://github.com/HelgDemidov/scopus_search_code`
 **Рабочая ветка:** `web-frontend-development`
@@ -16,6 +16,7 @@
 | 2.1 | 2026-04-15 | §7.2 РЕШЕНО: цветовая схема, акцент, типографика, чарты (Tremor), плотность UI |
 | 3.0 | 2026-04-16 | Закрыты все 17 замечаний adversarial-анализа: Tailwind v3, Tremor v3, OAuth popup flow, keyword-фильтр, UserResponse.created_at, ArticleFilters, StatsStore/ArticleStore split, localStorage XSS-примечание, деплой-чеклист |
 | 5.0 | 2026-04-16 | Закрыты все 13 замечаний финальной проверки: исправлен OAuth redirect flow (§3, §4.3), диаграмма, пометка Варианта B, tailwind.config.ts init, источник данных фильтров, сортировка client-side, CJS/ESM postcss, .env.production/Vercel, автологин form-data |
+| 5.1 | 2026-04-16 | React понижен с 19 до 18.3.1 — несовместимость с Tremor v3 (peer dependency `react@^18`, breaking changes в React 19) |
 
 ---
 
@@ -27,7 +28,7 @@ Scopus Research Search — веб-сервис для поиска и просм
 (React + Vite), взаимодействующий с бэкендом исключительно через HTTP REST API.
 
 **Технологический стек фронтенда (финальное решение):**
-- **Фреймворк:** React 19 + Vite 6
+- **Фреймворк:** React 18.3.1 + Vite 6
 - **Язык:** TypeScript 5
 - **State management:** Zustand 5
 - **UI-компоненты:** shadcn/ui (поверх Radix UI)
@@ -37,10 +38,9 @@ Scopus Research Search — веб-сервис для поиска и просм
 - **Роутинг:** React Router v7 (`react-router-dom`)
 - **Хостинг:** Vercel (бесплатный tier, поддомен `<project>.vercel.app`)
 
-> **⚠️ Tailwind v3, не v4.** shadcn/ui и Tremor v3 не поддерживают Tailwind v4
-> (отсутствует `tailwind.config.ts`, иной механизм тем). Использование v4
-> сломает генерацию shadcn-компонентов и Tremor-темизацию. Фиксируем v3
-> на весь жизненный цикл этой версии фронтенда.
+> **⚠️ Tailwind v3, не v4.** shadcn/ui и Tremor v3 не поддерживают Tailwind v4 (отсутствует `tailwind.config.ts`, иной механизм тем). Использование v4 сломает генерацию shadcn-компонентов и Tremor-темизацию. Фиксируем v3 на весь жизненный цикл этой версии фронтенда.
+> **⚠️ React 18.3.1, не 19.** Tremor v3 тестировался только на React 18 и имеет peer dependency `react@^18`. React 19 вводит breaking changes (удалены `defaultProps`, новый reconciler), с которыми Tremor v3 несовместим.
+> Фиксируем `react@18.3.1` и `react-dom@18.3.1` на весь жизненный цикл этой версии фронтенда. При установке зависимостей **не использовать** `--legacy-peer-deps` — это маскирует конфликт, не устраняя его.
 
 **Цели фронтенда:**
 - Предоставить публичный browsing накопленной базы статей без регистрации
@@ -621,7 +621,7 @@ const displayName = user.username ?? user.email.split('@')[0];
 
 ### 7.1 Выбор фронтенд-фреймворка
 
-**Принятое решение:** React 19 + Vite 6 + TypeScript 5 (SPA).
+**Принятое решение:** React 18.3.1 + Vite 6 + TypeScript 5 (SPA).
 
 #### Обоснование
 
@@ -633,14 +633,14 @@ const displayName = user.username ?? user.email.split('@')[0];
 | AI-покрытие + зрелость экосистемы | 25% | React — наибольший объём обучающих данных в LLM-моделях (~40% фронтенд-проектов, State of JS 2024); максимальное покрытие Stack Overflow / GitHub примеров |
 | Инфографика vs легковесность | 25% | Tremor/Recharts из коробки; Vite bundle ~150–200 KB gzip; полная интерактивность без архитектурных компромиссов |
 | Бесплатный хостинг + домен | 20% | Vercel: бесплатный tier навсегда, `<project>.vercel.app`, CDN в 100+ регионах, автодеплой из GitHub за 30 сек |
-| Zero-cost + производительность | 15% | MIT-лицензии всего стека; Vite HMR < 50ms; React 19 concurrent rendering; Lighthouse 95+ |
+| Zero-cost + производительность | 15% | MIT-лицензии всего стека; Vite HMR < 50ms; React 18.3.1 concurrent rendering; Lighthouse 95+ |
 | Совместимость с FastAPI / JWT / OAuth | 15% | Чистый SPA без мнений об авторизации; JWT в localStorage — стандартная практика; OAuth через бэкенд без конфликтов |
 
 #### Финальный стек
 
 | Слой | Технология | Версия | Пакет | Лицензия |
 |---|---|---|---|---|
-| Фреймворк | React | 19 | `react` | MIT |
+| Фреймворк | React | 18.3.1 | `react` | MIT |
 | Сборщик | Vite | 6 | `vite` | MIT |
 | Язык | TypeScript | 5 | `typescript` | Apache 2.0 |
 | State management | Zustand | 5 | `zustand` | MIT |
@@ -896,9 +896,7 @@ const config: Config = {
 export default config
 ```
 
-> **Ключевой момент:** `node_modules/@tremor/react/**/*.{js,ts,jsx,tsx}` в `content[]`
-> обязателен — иначе Tailwind v3 purge удалит CSS-классы, используемые Tremor внутри
-> своих компонентов, и графики потеряют стили в production-сборке.
+> **Ключевой момент:** `node_modules/@tremor/react/**/*.{js,ts,jsx,tsx}` в `content[]` обязателен — иначе Tailwind v3 purge удалит CSS-классы, используемые Tremor внутри своих компонентов, и графики потеряют стили в production-сборке.
 
 ---
 
