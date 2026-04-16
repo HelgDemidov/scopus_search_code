@@ -25,4 +25,31 @@ export default defineConfig({
       },
     },
   },
+
+  build: {
+    rollupOptions: {
+      output: {
+        // Функциональная форма manualChunks предпочтительнее объектной:
+        // Rollup сам резолвит все транзитивные зависимости без перечисления entry points
+        manualChunks(id) {
+          // Tremor, Recharts и D3 (депенденция Recharts) → отдельный чанк
+          // Кэшируется браузером независимо от изменений в коде страниц
+          if (
+            id.includes('node_modules/@tremor') ||
+            id.includes('node_modules/recharts') ||
+            id.includes('node_modules/d3-')
+          ) {
+            return 'vendor-charts';
+          }
+          // react-dom и react-router — в отдельный чанк (React core уже есть в Vite prelude)
+          if (
+            id.includes('node_modules/react-dom') ||
+            id.includes('node_modules/react-router')
+          ) {
+            return 'vendor-react';
+          }
+        },
+      },
+    },
+  },
 })
