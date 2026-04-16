@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     # Секрет для подписи OAuth state в cookie (SessionMiddleware)
     SESSION_SECRET_KEY: str = ""
 
+    # 6. FRONTEND_URL (developer mode)
+    FRONTEND_URL: str = "http://localhost:5173"
+
     @property
     def database_url_str(self) -> str:
         return str(self.DATABASE_URL)

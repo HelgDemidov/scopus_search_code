@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: str = ''
     OAUTH_REDIRECT_URI: str = 'http://localhost:8000/auth/google/callback'
     SESSION_SECRET_KEY: str = ''
+    FRONTEND_URL: str = 'http://localhost:5173'
 
     @property
     def database_url_str(self) -> str:
@@ -376,6 +377,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
+from starlette.status import HTTP_302_FOUND
 from app.config import settings
 from app.core.dependencies import get_db_session
 from app.infrastructure.postgres_user_repo import PostgresUserRepository
@@ -389,7 +391,7 @@ async def google_login(request: Request) -> RedirectResponse:
     pass
 
 @router.get('/google/callback')
-async def google_callback(request: Request, session: AsyncSession=Depends(get_db_session)) -> JSONResponse:
+async def google_callback(request: Request, session: AsyncSession=Depends(get_db_session)) -> RedirectResponse:
     pass
 
 ============================================================
