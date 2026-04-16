@@ -20,8 +20,9 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
 
-    /* Алиасы путей — синхронизированы с vite.config.ts resolve.alias */
-    "baseUrl": ".",
+    /* Алиасы путей — синхронизированы с vite.config.ts resolve.alias.
+       baseUrl намеренно убран: в режиме moduleResolution: bundler
+       явные относительные пути в paths не требуют якоря baseUrl. */
     "paths": {
       "@/*": ["./src/*"]
     }
