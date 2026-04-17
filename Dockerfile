@@ -13,5 +13,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Теперь копируем весь код проекта внутрь контейнера
 COPY . .
 
-# Говорим контейнеру, какую команду запускать при старте
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Делаем entrypoint исполняемым
+RUN chmod +x entrypoint.sh
+
+# Запускаем entrypoint: он применяет миграции, затем стартует uvicorn
+CMD ["./entrypoint.sh"]
