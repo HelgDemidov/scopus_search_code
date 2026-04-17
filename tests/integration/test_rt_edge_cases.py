@@ -71,16 +71,18 @@ async def test_refresh_with_revoked_token(
     rt_v1 = logged_in["rt_cookie"]
 
     # Первый refresh — легитимный, RT_v1 ротируется
+    # headers={Cookie} вместо cookies={}: избегаем httpx DeprecationWarning,
+    # raw-заголовок не обновляет jar — rt_v1 гарантированно уходит на оба запроса
     first_resp = await client.post(
         "/auth/refresh",
-        cookies={"refresh_token": rt_v1},
+        headers={"Cookie": f"refresh_token={rt_v1}"},
     )
     assert first_resp.status_code == 200, f"Первый refresh провалился: {first_resp.text}"
 
     # Второй refresh с тем же (уже отозванным) RT_v1
     replay_resp = await client.post(
         "/auth/refresh",
-        cookies={"refresh_token": rt_v1},
+        headers={"Cookie": f"refresh_token={rt_v1}"},
     )
     assert replay_resp.status_code == 401
     detail = replay_resp.json()["detail"].lower()
@@ -102,7 +104,7 @@ async def test_refresh_with_expired_token(
 
     resp = await client.post(
         "/auth/refresh",
-        cookies={"refresh_token": expired_rt},
+        headers={"Cookie": f"refresh_token={expired_rt}"},
     )
     assert resp.status_code == 401
     detail = resp.json()["detail"].lower()
@@ -124,7 +126,7 @@ async def test_logout_idempotent(
     # Первый logout — RT отзывается
     first_resp = await client.post(
         "/auth/logout",
-        cookies={"refresh_token": rt},
+        headers={"Cookie": f"refresh_token={rt}"},
     )
     assert first_resp.status_code == 200
     assert first_resp.json() == {"ok": True}
@@ -132,7 +134,7 @@ async def test_logout_idempotent(
     # Второй logout с тем же RT — должен вернуть 200, не 500
     second_resp = await client.post(
         "/auth/logout",
-        cookies={"refresh_token": rt},
+        headers={"Cookie": f"refresh_token={rt}"},
     )
     assert second_resp.status_code == 200, (
         f"Повторный logout должен быть идемпотентным, получили: {second_resp.status_code}"

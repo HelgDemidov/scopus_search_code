@@ -37,9 +37,11 @@ async def test_full_refresh_token_lifecycle(
     assert me_resp.json()["email"] == "test@example.com"
 
     # --- Шаг 3: обмен RT_v1 → AT_v2 + RT_v2 ---
+    # headers={Cookie} вместо cookies={}: избегаем httpx DeprecationWarning,
+    # raw-заголовок не обновляет jar — диагностика replay-атаки сохранена
     refresh_resp = await client.post(
         "/auth/refresh",
-        cookies={"refresh_token": rt_v1},
+        headers={"Cookie": f"refresh_token={rt_v1}"},
     )
     assert refresh_resp.status_code == 200, f"/auth/refresh failed: {refresh_resp.text}"
 
@@ -54,7 +56,7 @@ async def test_full_refresh_token_lifecycle(
     # --- Шаг 4: RT_v1 должен быть отозван после ротации ---
     replay_resp = await client.post(
         "/auth/refresh",
-        cookies={"refresh_token": rt_v1},
+        headers={"Cookie": f"refresh_token={rt_v1}"},
     )
     assert replay_resp.status_code == 401, (
         "Отозванный RT должен отклоняться (защита от replay-атак)"
@@ -71,7 +73,7 @@ async def test_full_refresh_token_lifecycle(
     # --- Шаг 6: logout — отзываем RT_v2 на сервере ---
     logout_resp = await client.post(
         "/auth/logout",
-        cookies={"refresh_token": rt_v2},
+        headers={"Cookie": f"refresh_token={rt_v2}"},
     )
     assert logout_resp.status_code == 200
     assert logout_resp.json() == {"ok": True}
@@ -79,7 +81,7 @@ async def test_full_refresh_token_lifecycle(
     # --- Шаг 7: RT_v2 после logout должен быть отклонен ---
     post_logout_resp = await client.post(
         "/auth/refresh",
-        cookies={"refresh_token": rt_v2},
+        headers={"Cookie": f"refresh_token={rt_v2}"},
     )
     assert post_logout_resp.status_code == 401, (
         "RT после logout должен быть отклонен"
