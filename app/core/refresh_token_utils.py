@@ -38,8 +38,16 @@ async def get_valid_refresh_token(
 
     if rt is None or rt.revoked:
         return None
-    # Сравниваем timezone-aware datetime
-    if rt.expires_at < datetime.now(timezone.utc):
+
+    # Нормализуем expires_at к UTC: SQLite возвращает naive datetime (tzinfo=None),
+    # PostgreSQL возвращает aware datetime. Прямое сравнение двух типов — TypeError.
+    # replace(tzinfo=UTC) безопасен для naive: не сдвигает значение, только добавляет метку.
+    expires_at_utc = (
+        rt.expires_at.replace(tzinfo=timezone.utc)
+        if rt.expires_at.tzinfo is None
+        else rt.expires_at
+    )
+    if expires_at_utc < datetime.now(timezone.utc):
         return None
     return rt
 
