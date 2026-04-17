@@ -27,6 +27,7 @@ from app.models.base import Base
 from app.models.user import User  # noqa: F401
 from app.models.article import Article  # noqa: F401
 from app.models.seeder_keyword import SeederKeyword  # noqa: F401
+from app.models.refresh_token import RefreshToken  # noqa: F401  — fix Risk 6
 
 # Передаем метаданные всех зарегистрированных моделей
 target_metadata = Base.metadata

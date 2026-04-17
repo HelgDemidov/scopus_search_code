@@ -1,11 +1,14 @@
 # app/routers/users.py
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
 
 from app.core.dependencies import get_db_session
-from app.core.security import (  # импортируем decode_access_token и oauth2_scheme
+from app.core.refresh_token_utils import create_refresh_token
+from app.core.security import (
     decode_access_token,
     oauth2_scheme,
 )
@@ -21,14 +24,19 @@ from app.services.user_service import UserService
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
+# Константы cookie — дублируем из auth.py для независимости модуля
+_RT_COOKIE_NAME = "refresh_token"
+_RT_COOKIE_MAX_AGE = 30 * 24 * 3600
+
+
 def get_user_service(session: AsyncSession = Depends(get_db_session)) -> UserService:
     repo = PostgresUserRepository(session)
     return UserService(repo)
 
 
-# определение функции перенесено из security.py
+# Определение функции перенесено из security.py
 async def get_current_user(
-    token: str = Depends(oauth2_scheme), 
+    token: str = Depends(oauth2_scheme),
     service: UserService = Depends(get_user_service)
 ) -> User:
     email = decode_access_token(token)
@@ -57,24 +65,43 @@ async def register(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
-@router.post("/login", response_model=TokenResponse)
+
+@router.post("/login")
 async def login(
-    form_data: OAuth2PasswordRequestForm = Depends(), 
-    service: UserService = Depends(get_user_service)
-) -> TokenResponse:
+    request: Request,
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    service: UserService = Depends(get_user_service),
+    session: AsyncSession = Depends(get_db_session),
+) -> JSONResponse:
     try:
-        token = await service.login(form_data.username, form_data.password) 
-        return TokenResponse(access_token=token, token_type="bearer")
+        at_token, user_id = await service.login(form_data.username, form_data.password)
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, 
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e),
             headers={"WWW-Authenticate": "Bearer"}
         )
 
+    # Создаем refresh token и устанавливаем его в httpOnly cookie
+    rt_value = await create_refresh_token(user_id=user_id, session=session)
+
+    response = JSONResponse({"access_token": at_token, "token_type": "bearer"})
+    response.set_cookie(
+        key=_RT_COOKIE_NAME,
+        value=rt_value,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=_RT_COOKIE_MAX_AGE,
+        path="/",
+    )
+    return response
+
+
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)) -> User:
     return current_user
+
 
 @router.post("/password-reset-request", status_code=status.HTTP_200_OK)
 async def password_reset_request(

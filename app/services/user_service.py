@@ -1,4 +1,5 @@
 import secrets as secrets_module
+from typing import Tuple
 
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.user import User
@@ -24,13 +25,13 @@ class UserService:
         )
         return await self.user_repo.create(new_user)
 
-    async def login(self, email: str, password: str) -> str:
-        # Аутентифицирует пользователя и возвращает JWT-токен
+    async def login(self, email: str, password: str) -> Tuple[str, int]:
+        # Аутентифицирует пользователя — возвращает (AT, user_id) для создания RT в роутере
         user = await self.user_repo.get_by_email(email)
         # Best practice: одинаковая ошибка в обоих случаях
         if not user or not verify_password(password, user.hashed_password):
             raise ValueError("Неверный email или пароль")
-        return create_access_token(subject=user.email)
+        return create_access_token(subject=user.email), user.id
 
     async def get_current_user(self, email: str) -> User | None:
         # Возвращает объект пользователя по email из JWT-токена
@@ -38,11 +39,11 @@ class UserService:
 
     async def request_password_reset(self, email: str) -> str:
         # Инициирует процедуру сброса пароля
-        # Best practice: не разкрываем наличие аккаунта в базе
+        # Best practice: не раскрываем наличие аккаунта в базе
         await self.user_repo.get_by_email(email)
         return "Если этот email зарегистрирован, инструкции по сбросу пароля высланы на него."
 
-    async def get_or_create_by_google(self, email: str, name: str) -> str:
+    async def get_or_create_by_google(self, email: str, name: str) -> Tuple[str, int]:
         # Альтернативный путь аутентификации через Google OAuth
         # Ищем существующего пользователя по email
         user = await self.user_repo.get_by_email(email)
@@ -56,5 +57,5 @@ class UserService:
                 hashed_password=hash_password(random_password),
             )
             user = await self.user_repo.create(user)
-        # Возвращаем тот же JWT, что и при обычном логине — фронтенд не знает разницы
-        return create_access_token(subject=user.email)
+        # Возвращаем (AT, user_id) — роутер создаст RT отдельно
+        return create_access_token(subject=user.email), user.id

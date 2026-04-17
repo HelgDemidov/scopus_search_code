@@ -7,9 +7,9 @@
 // если токен присутствует в localStorage.
 //
 // Response interceptor: при получении 401 Unauthorized
-// очищает токен и перенаправляет пользователя на /auth.
-// Редирект выполняется через window.location, а не React Router,
-// чтобы избежать циклической зависимости (client.ts ← store ← client.ts).
+// пытается тихо обновить AT через RT cookie (silent refresh).
+// Если RT тоже истёк — выполняет полный logout и редиректит на /auth.
+// Очередь параллельных запросов ждет завершения refresh и повторяется с новым AT.
 
 import axios from 'axios';
 
@@ -37,25 +37,80 @@ apiClient.interceptors.request.use((config) => {
 });
 
 // ---------------------------------------------------------------------------
-// Response interceptor — обработка 401
+// Silent refresh state — флаг и очередь ожидающих запросов
+// ---------------------------------------------------------------------------
+
+// Флаг предотвращает параллельные вызовы /auth/refresh
+let isRefreshing = false;
+
+// Очередь запросов, которые пришли пока шел refresh — повторятся с новым AT
+let refreshQueue: Array<(token: string) => void> = [];
+
+function processQueue(newToken: string): void {
+  refreshQueue.forEach((cb) => cb(newToken));
+  refreshQueue = [];
+}
+
+// ---------------------------------------------------------------------------
+// Response interceptor — обработка 401 с silent refresh
 // ---------------------------------------------------------------------------
 
 apiClient.interceptors.response.use(
   // Успешный ответ — пропускаем без изменений
   (response) => response,
 
-  // Ошибка ответа
-  (error) => {
-    if (error.response?.status === 401) {
-      // Удаляем токен из хранилища
-      localStorage.removeItem('access_token');
+  async (error) => {
+    const originalRequest = error.config;
 
-      // Перенаправляем на страницу авторизации,
-      // если пользователь не находится на ней уже
-      if (!window.location.pathname.startsWith('/auth')) {
-        window.location.href = '/auth';
+    // Обрабатываем только 401 и только один раз (_retry защита от цикла)
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      if (!isRefreshing) {
+        // Мы первый — запускаем refresh
+        isRefreshing = true;
+        try {
+          // Динамический импорт разрывает циклическую зависимость
+          // client.ts → auth.ts → client.ts
+          const { refreshAccessToken } = await import('./auth');
+          const newToken = await refreshAccessToken();
+
+          // Сохраняем новый AT в localStorage
+          localStorage.setItem('access_token', newToken);
+
+          // Уведомляем authStore через CustomEvent — избегаем прямого импорта стора
+          window.dispatchEvent(
+            new CustomEvent('auth:token-refreshed', { detail: newToken })
+          );
+
+          // Выполняем все накопившиеся запросы из очереди
+          processQueue(newToken);
+
+          // Повторяем оригинальный запрос с новым токеном
+          originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
+          return apiClient(originalRequest);
+        } catch {
+          // RT истёк или отозван — полный logout
+          localStorage.removeItem('access_token');
+          processQueue(''); // разблокируем очередь (запросы упадут с 401)
+          refreshQueue = [];
+          if (!window.location.pathname.startsWith('/auth')) {
+            window.location.href = '/auth';
+          }
+        } finally {
+          isRefreshing = false;
+        }
+      } else {
+        // Refresh уже идет — ставим запрос в очередь
+        return new Promise((resolve) => {
+          refreshQueue.push((token: string) => {
+            originalRequest.headers['Authorization'] = `Bearer ${token}`;
+            resolve(apiClient(originalRequest));
+          });
+        });
       }
     }
+
     return Promise.reject(error);
   },
 );

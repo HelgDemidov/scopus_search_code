@@ -75,7 +75,7 @@ export default function App() {
   useEffect(() => {
     // Hydration токена из localStorage без немедленной валидации (§4.3).
     // Токен будет проверен при первом приватном запросе GET /users/me:
-    // если истёк — axios response interceptor вызовет logout() автоматически.
+    // если истёк — axios interceptor попытается silent refresh через RT cookie.
     const token = localStorage.getItem('access_token');
     if (token) {
       setToken(token);
@@ -83,8 +83,21 @@ export default function App() {
       fetchUser();
     }
 
+    // Слушаем событие от interceptor — обновляем AT в сторе без прямой зависимости
+    const handleTokenRefresh = (e: Event) => {
+      const newToken = (e as CustomEvent<string>).detail;
+      if (newToken) {
+        setToken(newToken);
+      }
+    };
+    window.addEventListener('auth:token-refreshed', handleTokenRefresh);
+
     // Предзагружаем статистику: она нужна и /explore, и sidebar фильтров главной
     fetchStats();
+
+    return () => {
+      window.removeEventListener('auth:token-refreshed', handleTokenRefresh);
+    };
   }, []);
 
   return (

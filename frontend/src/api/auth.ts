@@ -3,6 +3,8 @@
 // login                — POST /users/login (form-data, не JSON!)
 // register             — POST /users/register (JSON)
 // passwordResetRequest — POST /users/password-reset-request (JSON)
+// refreshAccessToken   — POST /auth/refresh (RT передается как httpOnly cookie)
+// serverLogout         — POST /auth/logout (отзывает RT на сервере)
 //
 // ВАЖНО: бэкенд использует OAuth2PasswordRequestForm для /users/login,
 // который принимает application/x-www-form-urlencoded с полем 'username'.
@@ -32,6 +34,7 @@ export async function login(credentials: LoginCredentials): Promise<TokenRespons
       // Явно указываем Content-Type — axios по умолчанию использует json
       'Content-Type': 'application/x-www-form-urlencoded',
     },
+    withCredentials: true,  // необходимо для получения RT httpOnly cookie
   });
   return response.data;
 }
@@ -65,4 +68,28 @@ export async function register(data: RegisterData): Promise<RegisterResponse> {
 
 export async function passwordResetRequest(email: string): Promise<void> {
   await apiClient.post('/users/password-reset-request', { email });
+}
+
+// ---------------------------------------------------------------------------
+// POST /auth/refresh — тихое обновление AT через RT cookie
+// ---------------------------------------------------------------------------
+
+export async function refreshAccessToken(): Promise<string> {
+  // withCredentials: true — axios включает httpOnly cookie в cross-origin запрос
+  // RT передается автоматически браузером, JS его не читает
+  const response = await apiClient.post<TokenResponse>(
+    '/auth/refresh',
+    {},
+    { withCredentials: true },
+  );
+  return response.data.access_token;
+}
+
+// ---------------------------------------------------------------------------
+// POST /auth/logout — серверный logout с отзывом RT
+// ---------------------------------------------------------------------------
+
+export async function serverLogout(): Promise<void> {
+  // withCredentials: true — браузер отправляет RT cookie для отзыва на сервере
+  await apiClient.post('/auth/logout', {}, { withCredentials: true });
 }

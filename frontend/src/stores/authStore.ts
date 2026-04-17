@@ -16,7 +16,7 @@ interface AuthStore {
   // Экшены
   setToken: (token: string) => void;
   fetchUser: () => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthStore>((set) => ({
@@ -45,14 +45,21 @@ export const useAuthStore = create<AuthStore>((set) => ({
         },
       });
     } catch {
-      // 401 перехватит axios response interceptor → logout
-      // Здесь дополнительных действий не нужно
+      // 401 перехватит axios response interceptor → silent refresh или logout
     }
   },
 
-  // Очищаем localStorage и сбрасываем стор; редирект делает axios interceptor
-  logout: () => {
-    localStorage.removeItem('access_token');
-    set({ token: null, user: null, isAuthenticated: false });
+  // Серверный logout: отзываем RT на бэкенде, затем очищаем локальное состояние
+  logout: async () => {
+    try {
+      // Динамический импорт разрывает циклическую зависимость store ← api/auth ← client ← store
+      const { serverLogout } = await import('../api/auth');
+      await serverLogout();
+    } catch {
+      // Сетевая ошибка — выполняем локальный logout в любом случае
+    } finally {
+      localStorage.removeItem('access_token');
+      set({ token: null, user: null, isAuthenticated: false });
+    }
   },
 }));
