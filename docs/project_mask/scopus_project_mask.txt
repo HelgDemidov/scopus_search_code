@@ -47,8 +47,28 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     pass
 
 ============================================================
+FILE: app\core\refresh_token_utils.py
+============================================================
+import secrets
+from datetime import datetime, timedelta, timezone
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.refresh_token import RefreshToken
+REFRESH_TOKEN_EXPIRE_DAYS = 30
+
+async def create_refresh_token(user_id: int, session: AsyncSession) -> str:
+    """Создает новый refresh token и сохраняет его в БД."""
+
+async def get_valid_refresh_token(token_value: str, session: AsyncSession) -> RefreshToken | None:
+    """Возвращает действующий RT или None, если он невалиден / истёк / отозван."""
+
+async def revoke_refresh_token(token_value: str, session: AsyncSession) -> None:
+    """Помечает RT как отозванный — используется при logout и ротации."""
+
+============================================================
 FILE: app\core\security.py
 ============================================================
+import secrets
 from datetime import datetime, timedelta, timezone
 import jwt
 from fastapi.security import OAuth2PasswordBearer
@@ -287,6 +307,26 @@ class Base(DeclarativeBase):
     pass
 
 ============================================================
+FILE: app\models\refresh_token.py
+============================================================
+from datetime import datetime
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy.orm import Mapped, mapped_column
+from app.models.base import Base
+
+class RefreshToken(Base):
+    __tablename__ = 'refresh_tokens'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    token: Mapped[str] = mapped_column(String(128), unique=True, index=True, nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    def __repr__(self) -> str:
+        pass
+
+============================================================
 FILE: app\models\seeder_keyword.py
 ============================================================
 import datetime
@@ -377,14 +417,21 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
-from starlette.status import HTTP_302_FOUND
+from starlette.status import HTTP_302_FOUND, HTTP_401_UNAUTHORIZED
 from app.config import settings
 from app.core.dependencies import get_db_session
+from app.core.refresh_token_utils import create_refresh_token, get_valid_refresh_token, revoke_refresh_token
+from app.core.security import create_access_token
 from app.infrastructure.postgres_user_repo import PostgresUserRepository
 from app.services.user_service import UserService
 router = APIRouter(prefix='/auth', tags=['Auth'])
 oauth = OAuth()
 oauth.register(name='google', client_id=settings.GOOGLE_CLIENT_ID, client_secret=settings.GOOGLE_CLIENT_SECRET, server_metadata_url='https://accounts.google.com/.well-known/openid-configuration', client_kwargs={'scope': 'openid email profile'})
+_RT_COOKIE_NAME = 'refresh_token'
+_RT_COOKIE_MAX_AGE = 30 * 24 * 3600
+
+def _set_rt_cookie(response: JSONResponse | RedirectResponse, token: str) -> None:
+    """Устанавливает httpOnly cookie с refresh token — единое место настройки."""
 
 @router.get('/google/login')
 async def google_login(request: Request) -> RedirectResponse:
@@ -393,6 +440,14 @@ async def google_login(request: Request) -> RedirectResponse:
 @router.get('/google/callback')
 async def google_callback(request: Request, session: AsyncSession=Depends(get_db_session)) -> RedirectResponse:
     pass
+
+@router.post('/refresh')
+async def refresh_access_token(request: Request, session: AsyncSession=Depends(get_db_session)) -> JSONResponse:
+    """Обменивает действующий RT cookie на новый AT + ротирует RT."""
+
+@router.post('/logout')
+async def logout(request: Request, session: AsyncSession=Depends(get_db_session)) -> JSONResponse:
+    """Отзывает RT на сервере и удаляет cookie — сервер-сайд logout."""
 
 ============================================================
 FILE: app\routers\health.py
@@ -411,15 +466,20 @@ async def health_db(session: AsyncSession=Depends(get_db_session)) -> dict[str, 
 FILE: app\routers\users.py
 ============================================================
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
 from app.core.dependencies import get_db_session
+from app.core.refresh_token_utils import create_refresh_token
 from app.core.security import decode_access_token, oauth2_scheme
 from app.infrastructure.postgres_user_repo import PostgresUserRepository
 from app.models.user import User
 from app.schemas.user_schemas import PasswordResetRequest, TokenResponse, UserRegisterRequest, UserResponse
 from app.services.user_service import UserService
 router = APIRouter(prefix='/users', tags=['Users'])
+_RT_COOKIE_NAME = 'refresh_token'
+_RT_COOKIE_MAX_AGE = 30 * 24 * 3600
 
 def get_user_service(session: AsyncSession=Depends(get_db_session)) -> UserService:
     pass
@@ -431,8 +491,8 @@ async def get_current_user(token: str=Depends(oauth2_scheme), service: UserServi
 async def register(data: UserRegisterRequest, service: UserService=Depends(get_user_service)) -> User:
     pass
 
-@router.post('/login', response_model=TokenResponse)
-async def login(form_data: OAuth2PasswordRequestForm=Depends(), service: UserService=Depends(get_user_service)) -> TokenResponse:
+@router.post('/login')
+async def login(request: Request, form_data: OAuth2PasswordRequestForm=Depends(), service: UserService=Depends(get_user_service), session: AsyncSession=Depends(get_db_session)) -> JSONResponse:
     pass
 
 @router.get('/me', response_model=UserResponse)
@@ -570,6 +630,7 @@ class SearchService:
 FILE: app\services\user_service.py
 ============================================================
 import secrets as secrets_module
+from typing import Tuple
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.user import User
 from app.schemas.user_schemas import UserRegisterRequest
@@ -583,7 +644,7 @@ class UserService:
     async def register(self, data: UserRegisterRequest) -> User:
         pass
 
-    async def login(self, email: str, password: str) -> str:
+    async def login(self, email: str, password: str) -> Tuple[str, int]:
         pass
 
     async def get_current_user(self, email: str) -> User | None:
@@ -592,7 +653,7 @@ class UserService:
     async def request_password_reset(self, email: str) -> str:
         pass
 
-    async def get_or_create_by_google(self, email: str, name: str) -> str:
+    async def get_or_create_by_google(self, email: str, name: str) -> Tuple[str, int]:
         pass
 
 ============================================================
@@ -657,28 +718,33 @@ FILE: tests\conftest.py
 ============================================================
 from typing import AsyncGenerator
 import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from httpx import AsyncClient, ASGITransport
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from app.core.dependencies import get_db_session
-from app.core.security import create_access_token
-from app.models.base import Base
 from app.main import app
-from app.models.user import User
-SQLALCHEMY_DATABASE_URL = 'sqlite+aiosqlite:///:memory:'
-engine = create_async_engine(SQLALCHEMY_DATABASE_URL, connect_args={'check_same_thread': False}, poolclass=None)
-TestingSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=engine, class_=AsyncSession, expire_on_commit=False)
+from app.models.base import Base
+_TEST_DB_URL = 'sqlite+aiosqlite:///:memory:'
 
 @pytest_asyncio.fixture(scope='function')
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
-    pass
+    """Создает изолированную in-memory БД для каждого теста."""
 
 @pytest_asyncio.fixture(scope='function')
-async def async_client(db_session: AsyncSession):
-    pass
+async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
+    """AsyncClient с переопределенной зависимостью БД — все эндпоинты используют тестовую сессию."""
+async_client = client
 
 @pytest_asyncio.fixture(scope='function')
-async def authenticated_client(async_client: AsyncClient, db_session: AsyncSession) -> AsyncClient:
-    pass
+async def registered_user(client: AsyncClient) -> dict:
+    """Регистрирует тестового пользователя, возвращает credentials."""
+
+@pytest_asyncio.fixture(scope='function')
+async def logged_in(client: AsyncClient, registered_user: dict) -> dict:
+    """Логинит пользователя, возвращает AT и RT cookie."""
+
+@pytest_asyncio.fixture(scope='function')
+async def authenticated_client(client: AsyncClient, logged_in: dict) -> AsyncClient:
+    """Client с Bearer-токеном в headers — для тестов, требующих авторизованный запрос."""
 
 ============================================================
 FILE: tests\integration\__init__.py
@@ -721,6 +787,64 @@ async def override_get_scopus_client():
 @pytest.mark.asyncio
 async def test_find_articles_rate_limits_headers(authenticated_client: AsyncClient, monkeypatch):
     pass
+
+============================================================
+FILE: tests\integration\test_rt_e2e.py
+============================================================
+"""E2E-тест: полный жизненный цикл refresh token.
+
+Сценарий: login → /users/me → refresh → старый RT отклонен →
+          новый AT работает → logout → RT отозван в БД.
+
+Все 8 шагов в одной тест-функции для наглядности цепочки.
+"""
+import pytest
+from httpx import AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.refresh_token import RefreshToken
+
+@pytest.mark.asyncio
+async def test_full_refresh_token_lifecycle(client: AsyncClient, logged_in: dict, db_session: AsyncSession) -> None:
+    pass
+
+============================================================
+FILE: tests\integration\test_rt_edge_cases.py
+============================================================
+"""Edge-case тесты refresh token.
+
+4 независимых теста, каждый проверяет один путь отказа:
+1. Запрос /auth/refresh без cookie вообще → 401
+2. Повторное использование отозванного RT (replay-атака) → 401
+3. Просроченный RT (expires_at в прошлом) → 401
+4. Двойной logout (идемпотентность) → 200 оба раза
+"""
+from datetime import datetime, timedelta, timezone
+import pytest
+from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.security import hash_password
+from app.models.refresh_token import RefreshToken
+from app.models.user import User
+
+async def _seed_expired_rt(session: AsyncSession) -> tuple[str, str]:
+    """Возвращает (email, expired_rt_value) — не идет через HTTP-слой."""
+
+@pytest.mark.asyncio
+async def test_refresh_without_cookie(client: AsyncClient) -> None:
+    """POST /auth/refresh без Cookie → 401 + понятное сообщение об ошибке."""
+
+@pytest.mark.asyncio
+async def test_refresh_with_revoked_token(client: AsyncClient, logged_in: dict) -> None:
+    """RT после первого /auth/refresh помечается revoked=True и отклоняется повторно."""
+
+@pytest.mark.asyncio
+async def test_refresh_with_expired_token(client: AsyncClient, db_session: AsyncSession) -> None:
+    """RT с expires_at в прошлом отклоняется с 401."""
+
+@pytest.mark.asyncio
+async def test_logout_idempotent(client: AsyncClient, logged_in: dict) -> None:
+    """Двойной вызов POST /auth/logout не должен вызывать ошибку — оба раза 200."""
 
 ============================================================
 FILE: tests\integration\test_users_api.py
