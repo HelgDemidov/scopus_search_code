@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, type UseFormRegisterReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
@@ -198,7 +198,9 @@ function PasswordInput({
   register,
 }: {
   id: string;
-  register: ReturnType<ReturnType<typeof useForm>['register']>;
+  // UseFormRegisterReturn содержит name, ref, onChange, onBlur —
+  // явный тип вместо вложенного ReturnType гарантирует прокидывание ref в DOM
+  register: UseFormRegisterReturn;
 }) {
   const [show, setShow] = useState(false);
   return (
@@ -256,9 +258,9 @@ export default function AuthPage() {
           </div>
         )}
 
-        {/* Кнопка Google OAuth — full-page redirect по §4.3 */}
+        {/* Кнопка Google OAuth — full-page redirect; Vercel стрипает /api и форвардит на Railway */}
         <button
-          onClick={() => { window.location.href = '/api/auth/google/login'; }}
+          onClick={() => { window.location.href = '/auth/google/login'; }}
           className="mb-4 flex w-full items-center justify-center gap-2.5 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
         >
           <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden="true">
