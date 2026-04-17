@@ -30,7 +30,7 @@ async def google_login(request: Request) -> RedirectResponse:
     # Формируем URL авторизации Google и перенаправляем пользователя
     # SessionMiddleware сохранит state в подписанной cookie для защиты от CSRF
     redirect_uri = settings.OAUTH_REDIRECT_URI
-    return await oauth.google.authorize_redirect(request, redirect_uri)
+    return await oauth.google.authorize_redirect(request, redirect_uri, prompt="select_account")
 
 
 @router.get("/google/callback")
