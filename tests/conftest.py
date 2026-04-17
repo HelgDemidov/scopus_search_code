@@ -50,6 +50,10 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     app.dependency_overrides.clear()
 
 
+# Алиас для обратной совместимости со старыми тестами, которые ожидают имя async_client
+async_client = client
+
+
 @pytest_asyncio.fixture(scope="function")
 async def registered_user(client: AsyncClient) -> dict:
     """Регистрирует тестового пользователя, возвращает credentials."""
@@ -80,3 +84,17 @@ async def logged_in(client: AsyncClient, registered_user: dict) -> dict:
     assert rt_cookie is not None, "RT cookie должен быть установлен при login"
 
     return {"access_token": access_token, "rt_cookie": rt_cookie}
+
+
+@pytest_asyncio.fixture(scope="function")
+async def authenticated_client(
+    client: AsyncClient,
+    logged_in: dict,
+) -> AsyncClient:
+    """Client с Bearer-токеном в headers — для тестов, требующих авторизованный запрос."""
+    # Устанавливаем Authorization header для всех последующих запросов этого клиента
+    client.headers.update({"Authorization": f"Bearer {logged_in['access_token']}"})
+    # Прокидываем RT cookie через cookies.set(): httpx AsyncClient в ASGI-режиме
+    # не пробрасывает cookies={} из аргумента запроса — нужна предустановка на уровне клиента
+    client.cookies.set("refresh_token", logged_in["rt_cookie"])
+    return client
