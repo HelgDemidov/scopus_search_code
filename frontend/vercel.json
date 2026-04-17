@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/auth/google/:path*",
+      "destination": "https://scopus-search-code.up.railway.app/auth/google/:path*"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://scopus-search-code.up.railway.app/:path*"
     },
