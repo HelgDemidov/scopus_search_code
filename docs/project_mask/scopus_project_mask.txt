@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     OAUTH_REDIRECT_URI: str = 'http://localhost:8000/auth/google/callback'
     SESSION_SECRET_KEY: str = ''
     FRONTEND_URL: str = 'http://localhost:5173'
+    ALLOWED_ORIGINS: str = ''
+
+    @property
+    def cors_origins(self) -> list[str]:
+        pass
 
     @property
     def database_url_str(self) -> str:
@@ -255,7 +260,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     pass
 app = FastAPI(title='Scopus Search API', description='Веб-сервис для поиска научных публикаций через Scopus API', version='1.0.0', lifespan=lifespan)
 app.add_middleware(SessionMiddleware, secret_key=settings.SESSION_SECRET_KEY)
-app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_credentials=True, allow_methods=['*'], allow_headers=['*'])
+app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=True, allow_methods=['*'], allow_headers=['*'])
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(articles.router)
