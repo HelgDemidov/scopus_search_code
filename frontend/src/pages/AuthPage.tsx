@@ -11,20 +11,26 @@ import { login, register as registerUser } from '../api/auth';
 
 // Zod-схема для формы входа
 const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(1, 'Password is required'),
+  email: z.string().email('Некорректный email'),
+  password: z.string().min(1, 'Введите пароль'),
 });
 
-// Zod-схема для формы регистрации
+// Zod-схема для формы регистрации — зеркалит требования Pydantic-валидатора бэкенда
 const registerSchema = z
   .object({
-    username: z.string().min(2, 'Username must be at least 2 characters'),
-    email: z.string().email('Invalid email address'),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
-    password_confirm: z.string().min(1, 'Please confirm your password'),
+    username: z.string().min(2, 'Имя пользователя: минимум 2 символа'),
+    email: z.string().email('Некорректный email'),
+    password: z
+      .string()
+      .min(8, 'Минимум 8 символов')
+      .regex(/[A-Z]/, 'Нужна хотя бы одна заглавная буква')
+      .regex(/[a-z]/, 'Нужна хотя бы одна строчная буква')
+      .regex(/[0-9]/, 'Нужна хотя бы одна цифра')
+      .regex(/[^A-Za-z0-9]/, 'Нужен хотя бы один спецсимвол (!@#$%^&* и др.)'),
+    password_confirm: z.string().min(1, 'Подтвердите пароль'),
   })
   .refine((data) => data.password === data.password_confirm, {
-    message: 'Passwords do not match',
+    message: 'Пароли не совпадают',
     path: ['password_confirm'],
   });
 
@@ -46,18 +52,16 @@ function SignInForm() {
   async function onSubmit(data: LoginFormData) {
     setServerError(null);
     try {
-      // Передаем объект LoginCredentials по реальной сигнатуре api/auth.ts
       const { access_token } = await login({ email: data.email, password: data.password });
       setToken(access_token);
       await fetchUser();
       navigate('/');
     } catch (err: unknown) {
-      // 401 → неверный email или пароль
       const status = (err as { response?: { status?: number } })?.response?.status;
       setServerError(
         status === 401
-          ? 'Invalid email or password'
-          : 'Server error. Please try again.',
+          ? 'Неверный email или пароль'
+          : 'Ошибка сервера. Попробуйте ещё раз.',
       );
     }
   }
@@ -95,7 +99,7 @@ function SignInForm() {
       )}
 
       <Button type="submit" disabled={isSubmitting} className="w-full bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400">
-        {isSubmitting ? 'Signing in…' : 'Sign In'}
+        {isSubmitting ? 'Вход…' : 'Sign In'}
       </Button>
     </form>
   );
@@ -124,18 +128,34 @@ function CreateAccountForm() {
         password_confirm: data.password_confirm,
       });
 
-      // Шаг 2: автологин по реальной сигнатуре api/auth.ts
+      // Шаг 2: автологин
       const { access_token } = await login({ email: data.email, password: data.password });
       setToken(access_token);
       await fetchUser();
       navigate('/');
     } catch (err: unknown) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
-      setServerError(
-        status === 409
-          ? 'Email already registered'
-          : 'Server error. Please try again.',
-      );
+      const axiosErr = err as { response?: { status?: number; data?: unknown } };
+      const status = axiosErr?.response?.status;
+      const data = axiosErr?.response?.data as {
+        detail?: string | Array<{ msg: string }>;
+      } | undefined;
+
+      if (status === 409) {
+        setServerError('Пользователь с таким email уже зарегистрирован');
+      } else if (status === 422) {
+        // Pydantic возвращает detail как массив объектов с полем msg
+        const detail = data?.detail;
+        if (Array.isArray(detail) && detail.length > 0) {
+          // Убираем префикс "Value error, " который добавляет Pydantic
+          setServerError(detail[0].msg.replace(/^Value error,\s*/i, ''));
+        } else if (typeof detail === 'string') {
+          setServerError(detail);
+        } else {
+          setServerError('Проверьте правильность заполнения полей');
+        }
+      } else {
+        setServerError('Ошибка сервера. Попробуйте ещё раз.');
+      }
     }
   }
 
@@ -186,7 +206,7 @@ function CreateAccountForm() {
       )}
 
       <Button type="submit" disabled={isSubmitting} className="w-full bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400">
-        {isSubmitting ? 'Creating account…' : 'Create Account'}
+        {isSubmitting ? 'Создание аккаунта…' : 'Create Account'}
       </Button>
     </form>
   );
@@ -198,8 +218,6 @@ function PasswordInput({
   register,
 }: {
   id: string;
-  // UseFormRegisterReturn содержит name, ref, onChange, onBlur —
-  // явный тип вместо вложенного ReturnType гарантирует прокидывание ref в DOM
   register: UseFormRegisterReturn;
 }) {
   const [show, setShow] = useState(false);
@@ -258,7 +276,7 @@ export default function AuthPage() {
           </div>
         )}
 
-        {/* Кнопка Google OAuth — full-page redirect; Vercel стрипает /api и форвардит на Railway */}
+        {/* Кнопка Google OAuth */}
         <button
           onClick={() => { window.location.href = '/auth/google/login'; }}
           className="mb-4 flex w-full items-center justify-center gap-2.5 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
