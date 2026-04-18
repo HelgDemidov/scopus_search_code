@@ -26,10 +26,10 @@ def _get_secrets() -> tuple[str, str, str]:
 
 
 async def _get_jwt_token(client: httpx.AsyncClient, email: str, password: str) -> str:
-    # Автологин через эндпоинт FastAPI — пароль проходит bcrypt-верификацию на сервере
+    # Автологин через эндпоинт FastAPI — UserLoginRequest ждет JSON с полем email
     response = await client.post(
         f"{BASE_URL}/users/login",
-        data={"username": email, "password": password},  # OAuth2PasswordRequestForm ждет form-data
+        json={"email": email, "password": password},
     )
     if response.status_code != 200:
         raise RuntimeError(f"Автологин не удался: {response.status_code} {response.text}")
