@@ -88,3 +88,16 @@ async def find_articles(
         response.headers["X-RateLimit-Reset"] = scopus_client.last_rate_reset
 
     return [ArticleResponse.model_validate(a) for a in articles]
+
+
+@router.get("/{article_id}", response_model=ArticleResponse)
+async def get_article_by_id(
+    article_id: int,
+    service: ArticleService = Depends(get_article_service),
+) -> ArticleResponse:
+    # Публичный эндпоинт — JWT не требуется (аналогично GET /articles/)
+    # Объявлен последним: /{article_id} не перехватывает /stats, /find, /
+    article = await service.get_by_id(article_id)
+    if article is None:
+        raise HTTPException(status_code=404, detail="Article not found")
+    return article
