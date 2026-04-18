@@ -31,10 +31,12 @@ app = FastAPI(
 # Она подписывает OAuth state в cookie, защищая от CSRF
 app.add_middleware(SessionMiddleware, secret_key=settings.SESSION_SECRET_KEY)
 
-# CORS: браузерная защита, разрешаем запросы с любого домена
+# CORS: используем явный список origins вместо wildcard
+# allow_origins=["*"] + allow_credentials=True — невалидная комбинация по спецификации CORS
+# Браузер блокирует такие запросы на уровне preflight — никакие credentials не проходят
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins,  # читаем из ALLOWED_ORIGINS, фоллбэк — FRONTEND_URL
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
