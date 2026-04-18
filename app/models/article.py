@@ -1,8 +1,8 @@
 import datetime
 
-from sqlalchemy import Boolean, Date, DateTime, Integer, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, text
 
 from app.models.base import Base
 
@@ -10,12 +10,24 @@ from app.models.base import Base
 class Article(Base):
     __tablename__ = "articles"
 
+    # Partial unique index по doi: NULL-строки не участвуют в конфликте,
+    # ON CONFLICT (doi) DO UPDATE корректно находит этот индекс (в отличие
+    # от UniqueConstraint, который PostgreSQL не принимает в index_elements).
+    __table_args__ = (
+        Index(
+            "ix_articles_doi_unique",
+            "doi",
+            unique=True,
+            postgresql_where=text("doi IS NOT NULL"),
+        ),
+    )
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(String(500), nullable=False)                    # dc:title — название статьи
     journal: Mapped[str] = mapped_column(String(500), nullable=True)                   # prism:publicationName — журнал
     author: Mapped[str] = mapped_column(String(255), nullable=True)                    # dc:creator — первый автор
     publication_date: Mapped[datetime.date] = mapped_column(Date, nullable=False)      # prism:coverDate
-    doi: Mapped[str] = mapped_column(String(255), unique=True, nullable=True)          # prism:doi
+    doi: Mapped[str] = mapped_column(String(255), nullable=True)                       # prism:doi — unique=True перенесен в __table_args__
     keyword: Mapped[str] = mapped_column(String(100), nullable=False)                  # поисковый запрос сидера
 
     # Расширенные наукометрические поля (доступны в Scopus free-tier)

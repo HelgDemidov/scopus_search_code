@@ -19,8 +19,7 @@ class SearchService:
         if not articles:
             return []
 
-        # 2. Сохраняем все найденные статьи в нашу локальную базу
-        await self.article_repo.save_many(articles)
-
-        # 3. Возвращаем только что сохраненные статьи
-        return articles
+        # 2. Сохраняем статьи и получаем их обратно с id из БД —
+        # объекты от Scopus не имеют id (server-generated), поэтому
+        # возвращаем именно то, что вернул репозиторий после перечитывания
+        return await self.article_repo.save_many(articles)

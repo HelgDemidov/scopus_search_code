@@ -1,5 +1,6 @@
 from typing import List
 
+import sqlalchemy as sa
 from sqlalchemy import desc, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,9 +23,16 @@ class PostgresArticleRepository(IArticleRepository):
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def save_many(self, articles: List[Article]) -> None:
+    async def get_by_id(self, article_id: int) -> Article | None:
+        # SQL: SELECT * FROM articles WHERE id = :article_id LIMIT 1
+        # scalar_one_or_none — стандартный паттерн для запросов с 0 или 1 результатом
+        stmt = select(Article).where(Article.id == article_id)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def save_many(self, articles: List[Article]) -> List[Article]:
         if not articles:
-            return
+            return []
 
         # Формируем значения для bulk insert — только поля, доступные в Scopus free-tier
         values = [
@@ -50,6 +58,7 @@ class PostgresArticleRepository(IArticleRepository):
             # При конфликте по doi обновляем все мутабельные поля
             .on_conflict_do_update(
                 index_elements=["doi"],
+                index_where=sa.text("doi IS NOT NULL"),  # соответствует partial index в БД
                 set_={
                     "title":               insert(Article).excluded.title,
                     "journal":             insert(Article).excluded.journal,
@@ -67,6 +76,37 @@ class PostgresArticleRepository(IArticleRepository):
 
         await self.session.execute(stmt)
         await self.session.commit()
+
+        # INSERT ON CONFLICT (Core-запрос) не обновляет Python-объекты автоматически —
+        # id и created_at остаются None до явного перечитывания из БД
+        dois = [a.doi for a in articles if a.doi is not None]
+        saved: List[Article] = []
+
+        if dois:
+            # Статьи с DOI выбираем одним запросом через IN
+            result = await self.session.execute(
+                select(Article).where(Article.doi.in_(dois))
+            )
+            saved.extend(result.scalars().all())
+
+        # Статьи без DOI не покрыты partial index — вставляются всегда,
+        # выбираем по title+keyword как наиболее точному доступному идентификатору
+        no_doi_articles = [a for a in articles if a.doi is None]
+        for a in no_doi_articles:
+            result = await self.session.execute(
+                select(Article)
+                .where(
+                    Article.title == a.title,
+                    Article.keyword == a.keyword,
+                )
+                .order_by(Article.id.desc())
+                .limit(1)
+            )
+            found = result.scalar_one_or_none()
+            if found:
+                saved.append(found)
+
+        return saved
 
     async def get_total_count(self, keyword: str | None = None) -> int:
         # Считает все статьи или только с заданным keyword при фильтрации

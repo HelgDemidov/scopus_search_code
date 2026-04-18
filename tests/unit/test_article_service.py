@@ -42,6 +42,10 @@ class FakeArticleRepository(IArticleRepository):
         # Эмулируем SQL-запрос: SELECT * FROM articles LIMIT {limit} OFFSET {offset}
         return self.db_articles[offset : offset + limit]
 
+    async def get_by_id(self, article_id: int) -> Article | None:
+        # Заглушка: get_by_id не нужен для тестов пагинации
+        return None
+
     async def get_total_count(self, keyword: str | None = None) -> int:
         return len(self.db_articles)
 

@@ -115,6 +115,7 @@ async_session_maker = async_sessionmaker(bind=engine, expire_on_commit=False)
 FILE: app\infrastructure\postgres_article_repo.py
 ============================================================
 from typing import List
+import sqlalchemy as sa
 from sqlalchemy import desc, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -127,6 +128,9 @@ class PostgresArticleRepository(IArticleRepository):
         pass
 
     async def get_all(self, limit: int, offset: int, keyword: str | None=None) -> List[Article]:
+        pass
+
+    async def get_by_id(self, article_id: int) -> Article | None:
         pass
 
     async def save_many(self, articles: List[Article]) -> None:
@@ -197,11 +201,15 @@ class IArticleRepository(ABC):
 
     @abstractmethod
     async def get_all(self, limit: int, offset: int, keyword: str | None=None) -> List[Article]:
-        """Возвращает статьи из базы с поддержкой пагинации и опциональным фильтром.
+        """Возвращает статьи из БД с поддержкой пагинации и опциональным фильтром.
 limit: сколько статей вернуть (размер страницы).
 offset: сколько статей пропустить с начала.
 keyword: если передан — фильтрует по точному совпадению с полем keyword;
          если None — возвращает все статьи без фильтрации."""
+
+    @abstractmethod
+    async def get_by_id(self, article_id: int) -> Article | None:
+        """Возвращает статью по первичному ключу или None если не найдена"""
 
     @abstractmethod
     async def get_total_count(self, keyword: str | None=None) -> int:
@@ -285,19 +293,20 @@ FILE: app\models\__init__.py
 FILE: app\models\article.py
 ============================================================
 import datetime
-from sqlalchemy import Boolean, Date, DateTime, Integer, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, text
 from app.models.base import Base
 
 class Article(Base):
     __tablename__ = 'articles'
+    __table_args__ = (Index('ix_articles_doi_unique', 'doi', unique=True, postgresql_where=text('doi IS NOT NULL')),)
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     journal: Mapped[str] = mapped_column(String(500), nullable=True)
     author: Mapped[str] = mapped_column(String(255), nullable=True)
     publication_date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
-    doi: Mapped[str] = mapped_column(String(255), unique=True, nullable=True)
+    doi: Mapped[str] = mapped_column(String(255), nullable=True)
     keyword: Mapped[str] = mapped_column(String(100), nullable=False)
     cited_by_count: Mapped[int] = mapped_column(Integer, nullable=True)
     document_type: Mapped[str] = mapped_column(String(100), nullable=True)
@@ -416,7 +425,11 @@ async def get_articles(page: int=Query(1, ge=1, description='Номер стра
     pass
 
 @router.get('/find', response_model=list[ArticleResponse])
-async def find_articles(response: Response, keyword: str=Query(..., min_length=2, description='Ключевое слово для поиска'), count: int=Query(25, ge=1, le=25, description='Сколько статей запросить из Scopus (макс 25)'), service: SearchService=Depends(get_search_service), scopus_client: ScopusHTTPClient=Depends(get_scopus_client), current_user: User=Depends(get_current_user)) -> Any:
+async def find_articles(response: Response, keyword: str=Query(..., min_length=2, description='Ключевое слово для поиска'), count: int=Query(25, ge=1, le=25, description='Сколько статей запросить из Scopus (макс 25)'), service: SearchService=Depends(get_search_service), current_user: User=Depends(get_current_user)) -> Any:
+    pass
+
+@router.get('/{article_id}', response_model=ArticleResponse)
+async def get_article_by_id(article_id: int, service: ArticleService=Depends(get_article_service)) -> ArticleResponse:
     pass
 
 ============================================================
@@ -525,6 +538,7 @@ from typing import List
 from pydantic import BaseModel
 
 class ArticleResponse(BaseModel):
+    id: int
     title: str
     journal: str | None
     author: str | None
@@ -614,6 +628,9 @@ class ArticleService:
         pass
 
     async def get_articles_paginated(self, page: int, size: int, keyword: str | None=None) -> PaginatedArticleResponse:
+        pass
+
+    async def get_by_id(self, article_id: int) -> ArticleResponse | None:
         pass
 
     async def get_stats(self) -> dict:
@@ -728,11 +745,22 @@ FILE: tests\conftest.py
 from typing import AsyncGenerator
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from app.core.dependencies import get_db_session
 from app.main import app
+from app.models.article import Article
 from app.models.base import Base
 _TEST_DB_URL = 'sqlite+aiosqlite:///:memory:'
+
+async def fetch_article_after_insert(session: AsyncSession, doi: str) -> Article:
+    """Загружает ORM-объект статьи из БД по doi после Core INSERT.
+
+save_many() использует Core-уровень SQLAlchemy (insert().on_conflict_do_update),
+поэтому объекты не попадают в identity_map сессии. Вызывать
+db_session.refresh() на них нельзя — выбросит InvalidRequestError.
+Правильный паттерн: запросить объект заново через SELECT, чтобы
+получить ORM-экземпляр с autoincrement id из БД."""
 
 @pytest_asyncio.fixture(scope='function')
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
@@ -759,6 +787,250 @@ async def authenticated_client(client: AsyncClient, logged_in: dict) -> AsyncCli
 FILE: tests\integration\__init__.py
 ============================================================
 
+
+============================================================
+FILE: tests\integration\test_article_by_id.py
+============================================================
+"""Сквозные интеграционные тесты для всей сводной таблицы изменений.
+
+Покрывает все 10 пунктов:
+  1.  ArticleResponse.id: int    — Pydantic-схема (article_schemas.py)
+  2.  IArticleRepository.get_by_id — абстрактный метод интерфейса
+  3.  PostgresArticleRepository.get_by_id — SQL-реализация через SQLite in-memory
+  4.  ArticleService.get_by_id   — делегирование репозиторию
+  5.  GET /articles/{id}          — роутер: корректный ответ и положение маршрута
+  6.  frontend ArticleResponse.id — верифицируется косвенно через JSON-ответ
+  7.  frontend getArticleById     — косвенно: HTTP 200 возвращает корректный JSON
+  8.  ArticleCard <Link>          — ссылки проверяются в E2E-блоке ниже
+  9.  ArticlePage loading/404/data — проверяется через HTTP-ответы бэкенда
+  10. App.tsx маршрут /article/:id — прямой запрос через httpx проверяет роутинг FastAPI
+
+Требования к окружению:
+  pip install pytest pytest-asyncio httpx aiosqlite
+  запускать из корня проекта: pytest tests/integration/test_article_by_id.py -v
+"""
+from __future__ import annotations
+import datetime
+from typing import AsyncGenerator
+import pytest
+import pytest_asyncio
+from httpx import AsyncClient, ASGITransport
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from app.core.dependencies import get_db_session
+from app.infrastructure.postgres_article_repo import PostgresArticleRepository
+from app.main import app
+from app.models.article import Article
+from app.models.base import Base
+from app.schemas.article_schemas import ArticleResponse
+from app.services.article_service import ArticleService
+from tests.conftest import fetch_article_after_insert
+_TEST_DB_URL = 'sqlite+aiosqlite:///:memory:'
+_ARTICLE_KWARGS = dict(title='Neural Networks in Drug Discovery', journal='Nature Machine Intelligence', author='Ivanov I.', publication_date=datetime.date(2024, 3, 15), doi='10.1234/test-doi-001', keyword='drug discovery AI', cited_by_count=42, document_type='Article', open_access=True, affiliation_country='Russia', is_seeded=True)
+
+@pytest_asyncio.fixture(scope='function')
+async def db_session() -> AsyncGenerator[AsyncSession, None]:
+    """Изолированная SQLite БД для каждого теста."""
+
+@pytest_asyncio.fixture(scope='function')
+async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
+    """AsyncClient с переопределенной зависимостью get_db_session."""
+
+@pytest_asyncio.fixture(scope='function')
+async def saved_article(db_session: AsyncSession) -> Article:
+    """Сохраняет одну тестовую статью через save_many(), возвращает ORM-объект с id.
+
+save_many() использует Core INSERT (insert().on_conflict_do_update) — объект
+не попадает в identity_map сессии, поэтому refresh() недопустим.
+Вместо этого загружаем статью из БД заново через SELECT по doi."""
+
+class TestArticleResponseSchema:
+    """Пункт 1 сводной таблицы: id: int в ArticleResponse."""
+
+    def test_id_field_present_in_schema(self):
+        """id должен быть объявлен первым полем и иметь тип int."""
+
+    def test_schema_validates_id_from_orm(self):
+        """model_validate должен успешно распарсить ORM-объект с id."""
+
+    def test_schema_requires_id_not_none(self):
+        """id=None должен вызвать ValidationError: поле обязательное."""
+
+class TestRepositoryGetById:
+    """Пункты 2–3: IArticleRepository.get_by_id и PostgresArticleRepository.get_by_id."""
+
+    @pytest.mark.asyncio
+    async def test_get_by_id_returns_article(self, db_session: AsyncSession, saved_article: Article):
+        """get_by_id должен вернуть тот же объект, что был сохранен."""
+
+    @pytest.mark.asyncio
+    async def test_get_by_id_returns_none_for_missing(self, db_session: AsyncSession):
+        """get_by_id с несуществующим id должен вернуть None."""
+
+    @pytest.mark.asyncio
+    async def test_get_by_id_returns_none_for_negative_id(self, db_session: AsyncSession):
+        """Отрицательный id — граничный случай, должен вернуть None (не 500)."""
+
+class TestArticleServiceGetById:
+    """Пункт 4: ArticleService.get_by_id."""
+
+    @pytest.mark.asyncio
+    async def test_service_returns_pydantic_model(self, db_session: AsyncSession, saved_article: Article):
+        """Сервис должен вернуть ArticleResponse (не ORM Article)."""
+
+    @pytest.mark.asyncio
+    async def test_service_returns_none_for_missing(self, db_session: AsyncSession):
+        """Сервис возвращает None, если репозиторий возвращает None."""
+
+class TestArticleByIdEndpoint:
+    """Пункты 5, 9: HTTP-эндпоинт GET /articles/{id}."""
+
+    @pytest.mark.asyncio
+    async def test_200_returns_correct_structure(self, client: AsyncClient, saved_article: Article):
+        """HTTP 200 и корректная структура JSON-ответа включая поле id."""
+
+    @pytest.mark.asyncio
+    async def test_404_for_missing_id(self, client: AsyncClient):
+        """HTTP 404 с корректным detail, если id не существует."""
+
+    @pytest.mark.asyncio
+    async def test_422_for_non_integer_id(self, client: AsyncClient):
+        """HTTP 422, если в URL передана не-числовая строка."""
+
+    @pytest.mark.asyncio
+    async def test_stats_not_shadowed_by_id_route(self, client: AsyncClient):
+        """Пункт 5 (архитектурный): /articles/stats не должен перехватываться
+маршрутом /{article_id}. Роутер объявляет /{id} ПОСЛЕДНИМ."""
+
+    @pytest.mark.asyncio
+    async def test_find_not_shadowed_by_id_route(self, client: AsyncClient):
+        """Аналогично: /articles/find не должен перехватываться /{article_id}.
+Без авторизации ожидаем 401/403, а не 422."""
+
+    @pytest.mark.asyncio
+    async def test_root_listing_not_shadowed(self, client: AsyncClient):
+        """GET /articles/ (список) не должен конфликтовать с /{id}."""
+
+    @pytest.mark.asyncio
+    async def test_id_field_present_in_list_response(self, client: AsyncClient, saved_article: Article):
+        """Пункт 1 (E2E): поле id присутствует в каждом объекте
+при ответе GET /articles/ — убеждаемся, что изменение схемы
+прошло сквозь весь стек до HTTP-ответа."""
+
+class TestFrontendTypeConsistency:
+    """
+    Пункт 6: frontend/src/types/api.ts — id: number.
+    Тест косвенный: убеждаемся, что бэкенд возвращает id как JSON integer,
+    что соответствует TypeScript number.
+    """
+
+    @pytest.mark.asyncio
+    async def test_id_is_json_integer(self, client: AsyncClient, saved_article: Article):
+        pass
+
+class TestGetArticleByIdContract:
+    """
+    Пункт 7: frontend/src/api/articles.ts → getArticleById.
+    Проверяет HTTP-контракт, который вызывает фронтенд.
+    """
+
+    @pytest.mark.asyncio
+    async def test_correct_url_pattern(self, client: AsyncClient, saved_article: Article):
+        """Фронтенд вызывает apiClient.get(`/articles/${id}`) — проверяем этот URL."""
+
+    @pytest.mark.asyncio
+    async def test_response_shape_matches_frontend_type(self, client: AsyncClient, saved_article: Article):
+        """Все поля ArticleResponse из frontend/src/types/api.ts присутствуют в ответе."""
+
+    @pytest.mark.asyncio
+    async def test_404_propagates_for_catch_block(self, client: AsyncClient):
+        """ArticlePage.tsx обрабатывает err.response.status === 404.
+Убеждаемся, что бэкенд действительно возвращает 404, а не 500."""
+
+class TestArticleIdRouting:
+    """
+    Пункт 10: App.tsx добавляет React Router маршрут /article/:id.
+    Тест проверяет FastAPI-сторону: что эндпоинт GET /articles/{id}
+    корректно интегрирован в приложение (не конфликтует с другими маршрутами).
+    """
+
+    @pytest.mark.asyncio
+    async def test_id_route_last_in_router(self, client: AsyncClient, saved_article: Article):
+        """GET /articles/{id} объявлен последним в router — убеждаемся,
+что /stats и /find всё ещё доступны."""
+
+    @pytest.mark.asyncio
+    async def test_multiple_ids_independent(self, client: AsyncClient, db_session: AsyncSession):
+        """Несколько разных статей возвращаются корректно по своим id —
+симулирует переходы между карточками в UI."""
+
+============================================================
+FILE: tests\integration\test_article_by_id_e2e.py
+============================================================
+"""E2E smoke-тесты против живого задеплоенного бэкенда.
+
+Запускать ТОЛЬКО когда Railway-деплой из ветки database-search-debugging активен:
+
+    BASE_URL=https://scopus-search-code.up.railway.app \\
+    TEST_EMAIL=your@email.com TEST_PASSWORD=YourPass123! \\
+    pytest tests/integration/test_article_by_id_e2e.py -v -s
+
+Тесты используют httpx.AsyncClient напрямую к живому API.
+Dependency overrides не применяются — это реальная БД Railway + Supabase.
+"""
+from __future__ import annotations
+import os
+import httpx
+import pytest
+BASE_URL = os.getenv('BASE_URL', 'https://scopus-search-code.up.railway.app')
+TEST_EMAIL = os.getenv('TEST_EMAIL', '')
+TEST_PASSWORD = os.getenv('TEST_PASSWORD', '')
+pytestmark = pytest.mark.skipif(not os.getenv('BASE_URL'), reason='BASE_URL не задан — E2E-тесты пропущены. Установите BASE_URL для запуска.')
+
+async def _get_access_token(client: httpx.AsyncClient) -> str | None:
+    """Логинится под тестовым пользователем, возвращает AT или None.
+
+POST /users/login принимает UserLoginRequest (Pydantic JSON-body):
+  {"email": ..., "password": ...}
+— НЕ OAuth2PasswordRequestForm (form-data с полем username)."""
+
+async def _get_first_article_id(client: httpx.AsyncClient) -> int | None:
+    """Берет первую статью из GET /articles/ и возвращает её id."""
+
+@pytest.mark.asyncio
+async def test_e2e_stats_returns_data():
+    """GET /articles/stats — должен вернуть 200 с ненулевыми total_articles.
+Проверяет что данные из Supabase доступны через Railway."""
+
+@pytest.mark.asyncio
+async def test_e2e_article_list_has_id_field():
+    """GET /articles/ — каждый объект ArticleResponse должен содержать поле id: int.
+Подтверждает, что изменение article_schemas.py (пункт 1) дошло до продакшн-деплоя."""
+
+@pytest.mark.asyncio
+async def test_e2e_get_article_by_id():
+    """GET /articles/{id} — сквозная проверка нового эндпоинта на живом деплое.
+Берет первый id из листинга, затем запрашивает его напрямую."""
+
+@pytest.mark.asyncio
+async def test_e2e_article_by_id_404():
+    """GET /articles/999999999 — несуществующий id должен давать 404 (не 500, не 422)."""
+
+@pytest.mark.asyncio
+async def test_e2e_stats_not_shadowed_by_id_route():
+    """/articles/stats не должен перехватываться маршрутом /{id}.
+Если маршрут /{id} стоит РАНЬШЕ /stats — FastAPI попытается привести
+строку 'stats' к int и вернет 422, а не 200."""
+
+@pytest.mark.asyncio
+async def test_e2e_find_requires_auth():
+    """GET /articles/find без токена должен вернуть 401/403, а не 422.
+Проверяет что /find не перехвачен маршрутом /{id}."""
+
+@pytest.mark.asyncio
+async def test_e2e_authenticated_find(monkeypatch):
+    """GET /articles/find с токеном — авторизованный live-поиск через Scopus.
+Пропускается если TEST_EMAIL/TEST_PASSWORD не заданы."""
 
 ============================================================
 FILE: tests\integration\test_articles_api.py

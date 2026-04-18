@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_db_session
 from app.infrastructure.postgres_article_repo import PostgresArticleRepository
 from app.infrastructure.scopus_client import ScopusHTTPClient
+from app.interfaces.search_client import ISearchClient
 from app.models.user import User
 from app.routers.users import get_current_user
 from app.schemas.article_schemas import (
@@ -26,6 +27,7 @@ def get_article_service(session: AsyncSession = Depends(get_db_session)) -> Arti
 
 
 async def get_scopus_client() -> AsyncGenerator[ScopusHTTPClient, None]:
+    # Один httpx.AsyncClient на запрос — создается и закрывается через async with
     async with httpx.AsyncClient(timeout=30.0) as client:
         yield ScopusHTTPClient(client)
 
@@ -74,17 +76,36 @@ async def find_articles(
     keyword: str = Query(..., min_length=2, description="Ключевое слово для поиска"),
     count: int = Query(25, ge=1, le=25, description="Сколько статей запросить из Scopus (макс 25)"),
     service: SearchService = Depends(get_search_service),
-    scopus_client: ScopusHTTPClient = Depends(get_scopus_client),
     current_user: User = Depends(get_current_user),
 ) -> Any:
+    # Второй Depends(get_scopus_client) убран: он создавал отдельный httpx.AsyncClient,
+    # который FastAPI закрывал раньше, чем SearchService успевал им воспользоваться.
+    # Теперь единственный клиент живет внутри get_search_service на всё время запроса.
     articles = await service.find_and_save(keyword, count=count)
 
-    # Пробрасываем лимиты Scopus в заголовки ответа
-    if scopus_client.last_rate_limit is not None:
-        response.headers["X-RateLimit-Limit"] = scopus_client.last_rate_limit
-    if scopus_client.last_rate_remaining is not None:
-        response.headers["X-RateLimit-Remaining"] = scopus_client.last_rate_remaining
-    if scopus_client.last_rate_reset is not None:
-        response.headers["X-RateLimit-Reset"] = scopus_client.last_rate_reset
+    # Пробрасываем rate-limit заголовки Scopus в ответ.
+    # isinstance проверяет соответствие интерфейсу ISearchClient, а не конкретному классу —
+    # любая будущая реализация (PubMedClient и др.) автоматически проходит guard.
+    sc = service.search_client
+    if isinstance(sc, ISearchClient):
+        if sc.last_rate_limit is not None:
+            response.headers["X-RateLimit-Limit"] = sc.last_rate_limit
+        if sc.last_rate_remaining is not None:
+            response.headers["X-RateLimit-Remaining"] = sc.last_rate_remaining
+        if sc.last_rate_reset is not None:
+            response.headers["X-RateLimit-Reset"] = sc.last_rate_reset
 
     return [ArticleResponse.model_validate(a) for a in articles]
+
+
+@router.get("/{article_id}", response_model=ArticleResponse)
+async def get_article_by_id(
+    article_id: int,
+    service: ArticleService = Depends(get_article_service),
+) -> ArticleResponse:
+    # Публичный эндпоинт — JWT не требуется (аналогично GET /articles/)
+    # Объявлен последним: /{article_id} не перехватывает /stats, /find, /
+    article = await service.get_by_id(article_id)
+    if article is None:
+        raise HTTPException(status_code=404, detail="Article not found")
+    return article

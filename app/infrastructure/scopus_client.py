@@ -31,13 +31,26 @@ SCOPUS_FIELDS = (
 
 
 class ScopusHTTPClient(ISearchClient):
-    # Принимаем готовый httpx.AsyncClient снаружи (Dependency Injection)
-    # Клиент создается один раз при старте приложения (в Lifespan) и живет всегда
+    # Принимаем готовый httpx.AsyncClient снаружи (Dependency Injection).
+    # Клиент создается один раз внутри get_scopus_client и живет один запрос.
+    # _last_rate_* — backing fields для @property, реализующих контракт ISearchClient.
     def __init__(self, http_client: httpx.AsyncClient):
         self._client = http_client
-        self.last_rate_limit: Optional[str] = None
-        self.last_rate_remaining: Optional[str] = None
-        self.last_rate_reset: Optional[str] = None
+        self._last_rate_limit: Optional[str] = None
+        self._last_rate_remaining: Optional[str] = None
+        self._last_rate_reset: Optional[str] = None
+
+    @property
+    def last_rate_limit(self) -> Optional[str]:
+        return self._last_rate_limit
+
+    @property
+    def last_rate_remaining(self) -> Optional[str]:
+        return self._last_rate_remaining
+
+    @property
+    def last_rate_reset(self) -> Optional[str]:
+        return self._last_rate_reset
 
     async def search(self, keyword: str, count: int = 25) -> List[Article]:
         page_size = min(count, 25)
@@ -51,10 +64,10 @@ class ScopusHTTPClient(ISearchClient):
 
         response = await self._client.get(SCOPUS_BASE_URL, params=params)
 
-        # Сохраняем лимиты из заголовков ответа
-        self.last_rate_limit = response.headers.get("X-RateLimit-Limit")
-        self.last_rate_remaining = response.headers.get("X-RateLimit-Remaining")
-        self.last_rate_reset = response.headers.get("X-RateLimit-Reset")
+        # Сохраняем лимиты из заголовков ответа через backing fields
+        self._last_rate_limit = response.headers.get("X-RateLimit-Limit")
+        self._last_rate_remaining = response.headers.get("X-RateLimit-Remaining")
+        self._last_rate_reset = response.headers.get("X-RateLimit-Reset")
 
         response.raise_for_status()
 
@@ -108,6 +121,7 @@ class ScopusHTTPClient(ISearchClient):
                 document_type=document_type[:100] if document_type else None,
                 open_access=open_access,
                 affiliation_country=affiliation_country[:100] if affiliation_country else None,
+                is_seeded=True,
             )
             articles.append(article)
 
