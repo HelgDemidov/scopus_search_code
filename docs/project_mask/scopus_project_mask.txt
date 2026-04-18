@@ -248,8 +248,10 @@ FILE: app\main.py
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 from app.config import settings
 from app.routers import articles, users, health
@@ -261,6 +263,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 app = FastAPI(title='Scopus Search API', description='Веб-сервис для поиска научных публикаций через Scopus API', version='1.0.0', lifespan=lifespan)
 app.add_middleware(SessionMiddleware, secret_key=settings.SESSION_SECRET_KEY)
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=True, allow_methods=['*'], allow_headers=['*'])
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    pass
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(articles.router)
@@ -472,15 +478,13 @@ FILE: app\routers\users.py
 ============================================================
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
-from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.requests import Request
 from app.core.dependencies import get_db_session
 from app.core.refresh_token_utils import create_refresh_token
 from app.core.security import decode_access_token, oauth2_scheme
 from app.infrastructure.postgres_user_repo import PostgresUserRepository
 from app.models.user import User
-from app.schemas.user_schemas import PasswordResetRequest, TokenResponse, UserRegisterRequest, UserResponse
+from app.schemas.user_schemas import PasswordResetRequest, TokenResponse, UserLoginRequest, UserRegisterRequest, UserResponse
 from app.services.user_service import UserService
 router = APIRouter(prefix='/users', tags=['Users'])
 _RT_COOKIE_NAME = 'refresh_token'
@@ -496,8 +500,8 @@ async def get_current_user(token: str=Depends(oauth2_scheme), service: UserServi
 async def register(data: UserRegisterRequest, service: UserService=Depends(get_user_service)) -> User:
     pass
 
-@router.post('/login')
-async def login(request: Request, form_data: OAuth2PasswordRequestForm=Depends(), service: UserService=Depends(get_user_service), session: AsyncSession=Depends(get_db_session)) -> JSONResponse:
+@router.post('/login', response_model=TokenResponse)
+async def login(data: UserLoginRequest, service: UserService=Depends(get_user_service), session: AsyncSession=Depends(get_db_session)) -> JSONResponse:
     pass
 
 @router.get('/me', response_model=UserResponse)
