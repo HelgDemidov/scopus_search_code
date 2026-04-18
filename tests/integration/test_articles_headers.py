@@ -6,12 +6,27 @@ from app.services.search_service import SearchService
 from app.interfaces.search_client import ISearchClient
 
 
-# FakeScopusClient реализует ISearchClient — проходит isinstance-guard в роутере
+# FakeScopusClient реализует ISearchClient — проходит isinstance-guard в роутере.
+# Backing fields + @property идентичны паттерну ScopusHTTPClient:
+# Python видит @property в __dict__ класса и убирает имена из __abstractmethods__,
+# что позволяет создать экземпляр без TypeError.
 class FakeScopusClient(ISearchClient):
     def __init__(self):
-        self.last_rate_limit = "20000"
-        self.last_rate_remaining = "19884"
-        self.last_rate_reset = "1774695787"
+        self._last_rate_limit = "20000"
+        self._last_rate_remaining = "19884"
+        self._last_rate_reset = "1774695787"
+
+    @property
+    def last_rate_limit(self) -> str | None:
+        return self._last_rate_limit
+
+    @property
+    def last_rate_remaining(self) -> str | None:
+        return self._last_rate_remaining
+
+    @property
+    def last_rate_reset(self) -> str | None:
+        return self._last_rate_reset
 
     async def search(self, keyword: str, count: int = 25) -> list:
         # Тест проверяет заголовки, а не результаты поиска
