@@ -26,6 +26,7 @@ def get_article_service(session: AsyncSession = Depends(get_db_session)) -> Arti
 
 
 async def get_scopus_client() -> AsyncGenerator[ScopusHTTPClient, None]:
+    # Один httpx.AsyncClient на запрос — создается и закрывается через async with
     async with httpx.AsyncClient(timeout=30.0) as client:
         yield ScopusHTTPClient(client)
 
@@ -74,18 +75,24 @@ async def find_articles(
     keyword: str = Query(..., min_length=2, description="Ключевое слово для поиска"),
     count: int = Query(25, ge=1, le=25, description="Сколько статей запросить из Scopus (макс 25)"),
     service: SearchService = Depends(get_search_service),
-    scopus_client: ScopusHTTPClient = Depends(get_scopus_client),
     current_user: User = Depends(get_current_user),
 ) -> Any:
+    # Второй Depends(get_scopus_client) убран: он создавал отдельный httpx.AsyncClient,
+    # который FastAPI закрывал раньше, чем SearchService успевал им воспользоваться.
+    # Теперь единственный клиент живет внутри get_search_service на всё время запроса.
     articles = await service.find_and_save(keyword, count=count)
 
-    # Пробрасываем лимиты Scopus в заголовки ответа
-    if scopus_client.last_rate_limit is not None:
-        response.headers["X-RateLimit-Limit"] = scopus_client.last_rate_limit
-    if scopus_client.last_rate_remaining is not None:
-        response.headers["X-RateLimit-Remaining"] = scopus_client.last_rate_remaining
-    if scopus_client.last_rate_reset is not None:
-        response.headers["X-RateLimit-Reset"] = scopus_client.last_rate_reset
+    # Пробрасываем rate-limit заголовки Scopus в ответ.
+    # isinstance-проверка явно документирует зависимость от конкретной реализации
+    # и не нарушает контракт интерфейса ISearchClient (принцип LSP).
+    sc = service.search_client
+    if isinstance(sc, ScopusHTTPClient):
+        if sc.last_rate_limit is not None:
+            response.headers["X-RateLimit-Limit"] = sc.last_rate_limit
+        if sc.last_rate_remaining is not None:
+            response.headers["X-RateLimit-Remaining"] = sc.last_rate_remaining
+        if sc.last_rate_reset is not None:
+            response.headers["X-RateLimit-Reset"] = sc.last_rate_reset
 
     return [ArticleResponse.model_validate(a) for a in articles]
 
