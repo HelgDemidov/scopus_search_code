@@ -1,5 +1,9 @@
-import { useEffect } from 'react';
-import { RouterProvider, createBrowserRouter } from 'react-router-dom';
+// ---------------------------------------------------------------------------
+// Импорты — все в начале файла (ESLint import/first)
+// ---------------------------------------------------------------------------
+
+import { lazy, Suspense, useEffect } from 'react';
+import { RouterProvider, createBrowserRouter, Outlet as RouterOutlet } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Toaster } from './components/ui/sonner';
@@ -8,16 +12,20 @@ import { PrivateRoute } from './components/layout/PrivateRoute';
 import { useAuthStore } from './stores/authStore';
 import { useStatsStore } from './stores/statsStore';
 
-// Ленивые импорты страниц — code splitting через React.lazy
-const HomePage      = lazyPage(() => import('./pages/HomePage'));
-const ExplorePage   = lazyPage(() => import('./pages/ExplorePage'));
-const AuthPage      = lazyPage(() => import('./pages/AuthPage'));
-const OAuthCallback = lazyPage(() => import('./pages/OAuthCallback'));
-const ProfilePage   = lazyPage(() => import('./pages/ProfilePage'));
-// Страница деталей статьи — публичная, не требует авторизации
-const ArticlePage   = lazyPage(() => import('./pages/ArticlePage'));
+// ---------------------------------------------------------------------------
+// Вспомогательные компоненты — объявляются до первого использования
+// ---------------------------------------------------------------------------
 
-import { lazy, Suspense } from 'react';
+// Заглушка при ленивой загрузке страницы (используется внутри lazyPage)
+function PageFallback() {
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-800 dark:border-slate-700 dark:border-t-blue-500" />
+    </div>
+  );
+}
+
+// Обёртка для ленивой загрузки страниц — code splitting через React.lazy + Suspense
 function lazyPage(factory: () => Promise<{ default: React.ComponentType }>) {
   const Component = lazy(factory);
   return (
@@ -27,17 +35,7 @@ function lazyPage(factory: () => Promise<{ default: React.ComponentType }>) {
   );
 }
 
-// Заглушка при ленивой загрузке страницы
-function PageFallback() {
-  return (
-    <div className="flex min-h-[60vh] items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-800 dark:border-slate-700 dark:border-t-blue-500" />
-    </div>
-  );
-}
-
 // Общий шаблон страницы: Header сверху + содержимое через Outlet
-import { Outlet as RouterOutlet } from 'react-router-dom';
 function RootLayout() {
   return (
     <div className="min-h-screen bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100">
@@ -49,7 +47,22 @@ function RootLayout() {
   );
 }
 
-// Маршруты по §3
+// ---------------------------------------------------------------------------
+// Ленивые страницы — объявляются после lazyPage (нет зависимости от hoisting)
+// ---------------------------------------------------------------------------
+
+const HomePage      = lazyPage(() => import('./pages/HomePage'));
+const ExplorePage   = lazyPage(() => import('./pages/ExplorePage'));
+const AuthPage      = lazyPage(() => import('./pages/AuthPage'));
+const OAuthCallback = lazyPage(() => import('./pages/OAuthCallback'));
+const ProfilePage   = lazyPage(() => import('./pages/ProfilePage'));
+// Страница деталей статьи — публичная, не требует авторизации
+const ArticlePage   = lazyPage(() => import('./pages/ArticlePage'));
+
+// ---------------------------------------------------------------------------
+// Маршруты по §3 ТЗ
+// ---------------------------------------------------------------------------
+
 const router = createBrowserRouter([
   {
     path: '/',
@@ -71,6 +84,10 @@ const router = createBrowserRouter([
     ],
   },
 ]);
+
+// ---------------------------------------------------------------------------
+// Корневой компонент приложения
+// ---------------------------------------------------------------------------
 
 export default function App() {
   const { setToken, fetchUser } = useAuthStore();
