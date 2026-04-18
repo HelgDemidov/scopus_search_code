@@ -108,6 +108,7 @@ class ScopusHTTPClient(ISearchClient):
                 document_type=document_type[:100] if document_type else None,
                 open_access=open_access,
                 affiliation_country=affiliation_country[:100] if affiliation_country else None,
+                is_seeded=True,
             )
             articles.append(article)
 
