@@ -6,6 +6,7 @@
 // ---------------------------------------------------------------------------
 
 export interface ArticleResponse {
+  id: number;                      // первичный ключ — используется в маршруте /article/:id
   title: string;
   journal: string | null;
   author: string | null;
