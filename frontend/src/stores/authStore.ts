@@ -19,11 +19,15 @@ interface AuthStore {
   logout: () => Promise<void>;
 }
 
+// Читаем токен синхронно до create() — до первого рендера React
+// Без этого PrivateRoute видит isAuthenticated=false и редиректит на /auth
+const _initialToken = localStorage.getItem('access_token');
+
 export const useAuthStore = create<AuthStore>((set) => ({
-  // Начальное состояние — токен в localStorage читает App.tsx при hydration
-  token: null,
+  // Синхронная инициализация — токен извлекаем до первого рендера
+  token: _initialToken,
+  isAuthenticated: !!_initialToken,
   user: null,
-  isAuthenticated: false,
 
   // Сохраняем токен и в localStorage, и в стор одновременно
   setToken: (token: string) => {
