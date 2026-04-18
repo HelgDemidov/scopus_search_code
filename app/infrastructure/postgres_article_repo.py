@@ -1,5 +1,6 @@
 from typing import List
 
+import sqlalchemy as sa   
 from sqlalchemy import desc, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,6 +58,7 @@ class PostgresArticleRepository(IArticleRepository):
             # При конфликте по doi обновляем все мутабельные поля
             .on_conflict_do_update(
                 index_elements=["doi"],
+                index_where=sa.text("doi IS NOT NULL"),   # соответствует partial index в БД
                 set_={
                     "title":               insert(Article).excluded.title,
                     "journal":             insert(Article).excluded.journal,

@@ -115,6 +115,7 @@ async_session_maker = async_sessionmaker(bind=engine, expire_on_commit=False)
 FILE: app\infrastructure\postgres_article_repo.py
 ============================================================
 from typing import List
+import sqlalchemy as sa
 from sqlalchemy import desc, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
