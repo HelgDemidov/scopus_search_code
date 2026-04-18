@@ -39,6 +39,14 @@ class ArticleService:
             total=total
         )
 
+    async def get_by_id(self, article_id: int) -> ArticleResponse | None:
+        # Делегируем репозиторию, конвертируем ORM → Pydantic
+        # сервис не знает про SQL, репозиторий не знает про Pydantic
+        article = await self.article_repo.get_by_id(article_id)
+        if article is None:
+            return None
+        return ArticleResponse.model_validate(article)
+
     async def get_stats(self) -> dict:
         # Делегируем агрегацию репозиторию — сервис не знает о SQL
         return await self.article_repo.get_stats()
