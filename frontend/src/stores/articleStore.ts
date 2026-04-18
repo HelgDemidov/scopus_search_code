@@ -25,7 +25,7 @@ interface ArticleStore {
   error: string | null;
 
   // Экшены
-  fetchArticles: () => Promise<void>;
+  fetchArticles: (keyword?: string) => Promise<void>;
   setFilters: (filters: Partial<ArticleFilters>) => void;
   setPage: (page: number) => void;
   setSortBy: (sortBy: 'date' | 'citations') => void;
@@ -84,15 +84,14 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
   error: null,
 
   // Загружаем страницу статей с учётом keyword-фильтра (серверный)
-  fetchArticles: async () => {
+  fetchArticles: async (keyword?: string) => {
     const { page, size, filters } = get();
+    // keyword из аргумента имеет приоритет: вызывающий код передает его явно
+    // сразу после setFilters, не дожидаясь обновления стейта в сторе
+    const effectiveKeyword = keyword !== undefined ? keyword : filters.keyword;
     set({ isLoading: true, error: null });
     try {
-      const data = await getArticles({
-        page,
-        size,
-        keyword: filters.keyword,
-      });
+      const data = await getArticles({ page, size, keyword: effectiveKeyword });
       // Применяем client-side фильтры к загруженной странице
       const filtered = applyClientFilters(data.articles, filters);
       // Сортировка по цитированиям — client-side, в пределах текущей страницы

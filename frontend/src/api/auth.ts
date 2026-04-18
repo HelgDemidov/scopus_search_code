@@ -1,14 +1,10 @@
 // API-функции авторизации (§2.1 спека)
 //
-// login                — POST /users/login (form-data, не JSON!)
+// login                — POST /users/login (JSON: { email, password })
 // register             — POST /users/register (JSON)
 // passwordResetRequest — POST /users/password-reset-request (JSON)
 // refreshAccessToken   — POST /auth/refresh (RT передается как httpOnly cookie)
 // serverLogout         — POST /auth/logout (отзывает RT на сервере)
-//
-// ВАЖНО: бэкенд использует OAuth2PasswordRequestForm для /users/login,
-// который принимает application/x-www-form-urlencoded с полем 'username'.
-// В UI поле называется 'Email', но в HTTP-запросе ключ должен быть 'username'.
 
 import { apiClient } from './client';
 import type { TokenResponse } from '../types/api';
@@ -18,22 +14,17 @@ import type { TokenResponse } from '../types/api';
 // ---------------------------------------------------------------------------
 
 export interface LoginCredentials {
-  // email пользователя — передается как поле 'username' в form-data
   email: string;
   password: string;
 }
 
 export async function login(credentials: LoginCredentials): Promise<TokenResponse> {
-  // Формируем application/x-www-form-urlencoded с ключом 'username'
-  const formData = new URLSearchParams();
-  formData.append('username', credentials.email);  // ключ — username, значение — email
-  formData.append('password', credentials.password);
-
-  const response = await apiClient.post<TokenResponse>('/users/login', formData, {
-    headers: {
-      // Явно указываем Content-Type — axios по умолчанию использует json
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
+  // Отправляем JSON-тело — бэкенд принимает UserLoginRequest (email + password)
+  // Content-Type: application/json применяется автоматически из глобального apiClient
+  const response = await apiClient.post<TokenResponse>('/users/login', {
+    email: credentials.email,
+    password: credentials.password,
+  }, {
     withCredentials: true,  // необходимо для получения RT httpOnly cookie
   });
   return response.data;

@@ -2,9 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
-from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.requests import Request
 
 from app.core.dependencies import get_db_session
 from app.core.refresh_token_utils import create_refresh_token
@@ -17,6 +15,7 @@ from app.models.user import User
 from app.schemas.user_schemas import (
     PasswordResetRequest,
     TokenResponse,
+    UserLoginRequest,
     UserRegisterRequest,
     UserResponse,
 )
@@ -66,20 +65,19 @@ async def register(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
 
-@router.post("/login")
+@router.post("/login", response_model=TokenResponse)
 async def login(
-    request: Request,
-    form_data: OAuth2PasswordRequestForm = Depends(),
+    data: UserLoginRequest,
     service: UserService = Depends(get_user_service),
     session: AsyncSession = Depends(get_db_session),
 ) -> JSONResponse:
     try:
-        at_token, user_id = await service.login(form_data.username, form_data.password)
+        at_token, user_id = await service.login(data.email, data.password)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e),
-            headers={"WWW-Authenticate": "Bearer"}
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     # Создаем refresh token и устанавливаем его в httpOnly cookie

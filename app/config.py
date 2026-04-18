@@ -30,8 +30,21 @@ class Settings(BaseSettings):
     # Секрет для подписи OAuth state в cookie (SessionMiddleware)
     SESSION_SECRET_KEY: str = ""
 
-    # 6. FRONTEND_URL (developer mode)
+    # 6. URLs фронтенда
     FRONTEND_URL: str = "http://localhost:5173"
+    # Список разрешенных CORS-origins через запятую
+    # Пример Railway: https://scopus-search-code.vercel.app
+    # Пример локально: http://localhost:5173
+    # Если не задан — берется FRONTEND_URL как единственный origin
+    ALLOWED_ORIGINS: str = ""
+
+    @property
+    def cors_origins(self) -> list[str]:
+        # Читаем ALLOWED_ORIGINS; если пусто — используем FRONTEND_URL как фоллбэк
+        raw = self.ALLOWED_ORIGINS.strip()
+        if raw:
+            return [o.strip() for o in raw.split(",") if o.strip()]
+        return [self.FRONTEND_URL.rstrip("/")]
 
     @property
     def database_url_str(self) -> str:

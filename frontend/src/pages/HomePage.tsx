@@ -114,7 +114,7 @@ export default function HomePage() {
   function handleSearch(query: string) {
     setFilters({ keyword: query });
     setCurrentPage(1);
-    fetchArticles();
+    fetchArticles(query);
   }
 
   return (
