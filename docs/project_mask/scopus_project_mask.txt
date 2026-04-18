@@ -292,19 +292,20 @@ FILE: app\models\__init__.py
 FILE: app\models\article.py
 ============================================================
 import datetime
-from sqlalchemy import Boolean, Date, DateTime, Integer, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, text
 from app.models.base import Base
 
 class Article(Base):
     __tablename__ = 'articles'
+    __table_args__ = (Index('ix_articles_doi_unique', 'doi', unique=True, postgresql_where=text('doi IS NOT NULL')),)
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     journal: Mapped[str] = mapped_column(String(500), nullable=True)
     author: Mapped[str] = mapped_column(String(255), nullable=True)
     publication_date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
-    doi: Mapped[str] = mapped_column(String(255), unique=True, nullable=True)
+    doi: Mapped[str] = mapped_column(String(255), nullable=True)
     keyword: Mapped[str] = mapped_column(String(100), nullable=False)
     cited_by_count: Mapped[int] = mapped_column(Integer, nullable=True)
     document_type: Mapped[str] = mapped_column(String(100), nullable=True)
@@ -423,7 +424,7 @@ async def get_articles(page: int=Query(1, ge=1, description='Номер стра
     pass
 
 @router.get('/find', response_model=list[ArticleResponse])
-async def find_articles(response: Response, keyword: str=Query(..., min_length=2, description='Ключевое слово для поиска'), count: int=Query(25, ge=1, le=25, description='Сколько статей запросить из Scopus (макс 25)'), service: SearchService=Depends(get_search_service), scopus_client: ScopusHTTPClient=Depends(get_scopus_client), current_user: User=Depends(get_current_user)) -> Any:
+async def find_articles(response: Response, keyword: str=Query(..., min_length=2, description='Ключевое слово для поиска'), count: int=Query(25, ge=1, le=25, description='Сколько статей запросить из Scopus (макс 25)'), service: SearchService=Depends(get_search_service), current_user: User=Depends(get_current_user)) -> Any:
     pass
 
 @router.get('/{article_id}', response_model=ArticleResponse)
