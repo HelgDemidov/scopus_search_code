@@ -133,7 +133,7 @@ class PostgresArticleRepository(IArticleRepository):
     async def get_by_id(self, article_id: int) -> Article | None:
         pass
 
-    async def save_many(self, articles: List[Article]) -> None:
+    async def save_many(self, articles: List[Article]) -> List[Article]:
         pass
 
     async def get_total_count(self, keyword: str | None=None) -> int:
@@ -178,6 +178,18 @@ class ScopusHTTPClient(ISearchClient):
     def __init__(self, http_client: httpx.AsyncClient):
         pass
 
+    @property
+    def last_rate_limit(self) -> Optional[str]:
+        pass
+
+    @property
+    def last_rate_remaining(self) -> Optional[str]:
+        pass
+
+    @property
+    def last_rate_reset(self) -> Optional[str]:
+        pass
+
     async def search(self, keyword: str, count: int=25) -> List[Article]:
         pass
 
@@ -196,8 +208,8 @@ from app.models.article import Article
 class IArticleRepository(ABC):
 
     @abstractmethod
-    async def save_many(self, articles: List[Article]) -> None:
-        """Сохраняет пачку (список) статей в базу данных за один раз"""
+    async def save_many(self, articles: List[Article]) -> List[Article]:
+        """Сохраняет пачку статей в БД и возвращает их с заполненными id из БД"""
 
     @abstractmethod
     async def get_all(self, limit: int, offset: int, keyword: str | None=None) -> List[Article]:
@@ -229,6 +241,21 @@ from typing import List
 from app.models.article import Article
 
 class ISearchClient(ABC):
+
+    @property
+    @abstractmethod
+    def last_rate_limit(self) -> str | None:
+        pass
+
+    @property
+    @abstractmethod
+    def last_rate_remaining(self) -> str | None:
+        pass
+
+    @property
+    @abstractmethod
+    def last_rate_reset(self) -> str | None:
+        pass
 
     @abstractmethod
     async def search(self, keyword: str, count: int=25) -> List[Article]:
@@ -400,6 +427,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_db_session
 from app.infrastructure.postgres_article_repo import PostgresArticleRepository
 from app.infrastructure.scopus_client import ScopusHTTPClient
+from app.interfaces.search_client import ISearchClient
 from app.models.user import User
 from app.routers.users import get_current_user
 from app.schemas.article_schemas import ArticleResponse, PaginatedArticleResponse, StatsResponse, CountByField
@@ -1056,10 +1084,26 @@ from httpx import AsyncClient
 from app.main import app
 from app.routers.articles import get_scopus_client
 from app.services.search_service import SearchService
+from app.interfaces.search_client import ISearchClient
 
-class FakeScopusClient:
+class FakeScopusClient(ISearchClient):
 
     def __init__(self):
+        pass
+
+    @property
+    def last_rate_limit(self) -> str | None:
+        pass
+
+    @property
+    def last_rate_remaining(self) -> str | None:
+        pass
+
+    @property
+    def last_rate_reset(self) -> str | None:
+        pass
+
+    async def search(self, keyword: str, count: int=25) -> list:
         pass
 
 async def override_get_scopus_client():
@@ -1165,6 +1209,9 @@ class FakeArticleRepository(IArticleRepository):
         pass
 
     async def get_all(self, limit: int, offset: int, keyword: str | None=None) -> List[Article]:
+        pass
+
+    async def get_by_id(self, article_id: int) -> Article | None:
         pass
 
     async def get_total_count(self, keyword: str | None=None) -> int:
