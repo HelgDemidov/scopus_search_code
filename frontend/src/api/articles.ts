@@ -1,7 +1,8 @@
 // API-функции для работы со статьями (§2.1, §2.2 спека)
 //
-// getArticles  — GET /articles/  (публичный, пагинация + keyword-фильтр)
-// findArticles — GET /articles/find  (приватный, live-поиск в Scopus)
+// getArticles     — GET /articles/        (публичный, пагинация + keyword-фильтр)
+// findArticles    — GET /articles/find   (приватный, live-поиск в Scopus)
+// getArticleById  — GET /articles/:id    (публичный, одна статья по id)
 
 import { apiClient } from './client';
 import type {
@@ -39,6 +40,17 @@ export async function getArticles(
   const response = await apiClient.get<PaginatedArticleResponse>('/articles/', {
     params: queryParams,
   });
+  return response.data;
+}
+
+// ---------------------------------------------------------------------------
+// GET /articles/:id — одна статья по первичному ключу (публичный)
+// ---------------------------------------------------------------------------
+
+export async function getArticleById(id: number): Promise<ArticleResponse> {
+  // JWT не требуется — эндпоинт публичный
+  // 404 от бэкенда пробрасывается наружу — обрабатывает ArticlePage
+  const response = await apiClient.get<ArticleResponse>(`/articles/${id}`);
   return response.data;
 }
 
