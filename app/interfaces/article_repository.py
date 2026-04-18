@@ -14,12 +14,17 @@ class IArticleRepository(ABC):
     @abstractmethod
     async def get_all(self, limit: int, offset: int, keyword: str | None = None) -> List[Article]:
         """
-        Возвращает статьи из базы с поддержкой пагинации и опциональным фильтром.
+        Возвращает статьи из БД с поддержкой пагинации и опциональным фильтром.
         limit: сколько статей вернуть (размер страницы).
         offset: сколько статей пропустить с начала.
         keyword: если передан — фильтрует по точному совпадению с полем keyword;
                  если None — возвращает все статьи без фильтрации.
         """
+        pass
+
+    @abstractmethod
+    async def get_by_id(self, article_id: int) -> Article | None:
+        """Возвращает статью по первичному ключу или None если не найдена"""
         pass
 
     @abstractmethod
