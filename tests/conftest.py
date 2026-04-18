@@ -88,10 +88,10 @@ async def registered_user(client: AsyncClient) -> dict:
 @pytest_asyncio.fixture(scope="function")
 async def logged_in(client: AsyncClient, registered_user: dict) -> dict:
     """Логинит пользователя, возвращает AT и RT cookie."""
+    # /users/login принимает JSON (UserLoginRequest), а не form-data (OAuth2PasswordRequestForm)
     resp = await client.post(
         "/users/login",
-        content=f"username={registered_user['email']}&password={registered_user['password']}",
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        json={"email": registered_user["email"], "password": registered_user["password"]},
     )
     assert resp.status_code == 200, f"Login failed: {resp.text}"
 
