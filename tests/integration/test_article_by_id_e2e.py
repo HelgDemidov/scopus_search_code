@@ -46,6 +46,7 @@ async def _get_access_token(client: httpx.AsyncClient) -> str | None:
         content=f"username={TEST_EMAIL}&password={TEST_PASSWORD}",
         headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
+    print(f"\n[DEBUG] /users/login → {resp.status_code}: {resp.text}") 
     if resp.status_code == 200:
         return resp.json().get("access_token")
     return None
