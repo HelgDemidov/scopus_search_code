@@ -38,13 +38,17 @@ pytestmark = pytest.mark.skipif(
 # ---------------------------------------------------------------------------
 
 async def _get_access_token(client: httpx.AsyncClient) -> str | None:
-    """Логинится под тестовым пользователем, возвращает AT или None."""
+    """Логинится под тестовым пользователем, возвращает AT или None.
+
+    POST /users/login принимает UserLoginRequest (Pydantic JSON-body):
+      {"email": ..., "password": ...}
+    — НЕ OAuth2PasswordRequestForm (form-data с полем username).
+    """
     if not TEST_EMAIL or not TEST_PASSWORD:
         return None
     resp = await client.post(
         f"{BASE_URL}/users/login",
-        content=f"username={TEST_EMAIL}&password={TEST_PASSWORD}",
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        json={"email": TEST_EMAIL, "password": TEST_PASSWORD},
     )
     print(f"\n[DEBUG] /users/login → {resp.status_code}: {resp.text}") 
     if resp.status_code == 200:
