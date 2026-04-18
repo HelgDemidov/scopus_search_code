@@ -9,11 +9,13 @@ import { useAuthStore } from './stores/authStore';
 import { useStatsStore } from './stores/statsStore';
 
 // Ленивые импорты страниц — code splitting через React.lazy
-const HomePage       = lazyPage(() => import('./pages/HomePage'));
-const ExplorePage    = lazyPage(() => import('./pages/ExplorePage'));
-const AuthPage       = lazyPage(() => import('./pages/AuthPage'));
-const OAuthCallback  = lazyPage(() => import('./pages/OAuthCallback'));
-const ProfilePage    = lazyPage(() => import('./pages/ProfilePage'));
+const HomePage      = lazyPage(() => import('./pages/HomePage'));
+const ExplorePage   = lazyPage(() => import('./pages/ExplorePage'));
+const AuthPage      = lazyPage(() => import('./pages/AuthPage'));
+const OAuthCallback = lazyPage(() => import('./pages/OAuthCallback'));
+const ProfilePage   = lazyPage(() => import('./pages/ProfilePage'));
+// Страница деталей статьи — публичная, не требует авторизации
+const ArticlePage   = lazyPage(() => import('./pages/ArticlePage'));
 
 import { lazy, Suspense } from 'react';
 function lazyPage(factory: () => Promise<{ default: React.ComponentType }>) {
@@ -53,10 +55,12 @@ const router = createBrowserRouter([
     path: '/',
     element: <RootLayout />,
     children: [
-      { index: true,            element: HomePage },
-      { path: 'explore',        element: ExplorePage },
-      { path: 'auth',           element: AuthPage },
-      { path: 'auth/callback',  element: OAuthCallback },
+      { index: true,           element: HomePage },
+      { path: 'explore',       element: ExplorePage },
+      { path: 'auth',          element: AuthPage },
+      { path: 'auth/callback', element: OAuthCallback },
+      // Страница статьи — публичная, доступна без авторизации
+      { path: 'article/:id',   element: ArticlePage },
       {
         // Защищённые маршруты через PrivateRoute
         element: <PrivateRoute />,
@@ -73,13 +77,13 @@ export default function App() {
   const fetchStats = useStatsStore((state) => state.fetchStats);
 
   useEffect(() => {
-    // Hydration токена из localStorage без немедленной валидации (§4.3).
-    // Токен будет проверен при первом приватном запросе GET /users/me:
-    // если истёк — axios interceptor попытается silent refresh через RT cookie.
+    // Hydration токена из localStorage без немедленной валидации (§4.3)
+    // Токен будет проверен при первом приватном запросе GET /users/me;
+    // если истёк — axios interceptor попытается silent refresh через RT cookie
     const token = localStorage.getItem('access_token');
     if (token) {
       setToken(token);
-      // Загружаем профиль пользователя сразу — чтобы Header отобразил имя
+      // Загружаем профиль сразу — чтобы Header отобразил имя
       fetchUser();
     }
 
