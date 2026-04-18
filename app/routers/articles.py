@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_db_session
 from app.infrastructure.postgres_article_repo import PostgresArticleRepository
 from app.infrastructure.scopus_client import ScopusHTTPClient
+from app.interfaces.search_client import ISearchClient
 from app.models.user import User
 from app.routers.users import get_current_user
 from app.schemas.article_schemas import (
@@ -83,10 +84,10 @@ async def find_articles(
     articles = await service.find_and_save(keyword, count=count)
 
     # Пробрасываем rate-limit заголовки Scopus в ответ.
-    # isinstance-проверка явно документирует зависимость от конкретной реализации
-    # и не нарушает контракт интерфейса ISearchClient (принцип LSP).
+    # isinstance проверяет соответствие интерфейсу ISearchClient, а не конкретному классу —
+    # любая будущая реализация (PubMedClient и др.) автоматически проходит guard.
     sc = service.search_client
-    if isinstance(sc, ScopusHTTPClient):
+    if isinstance(sc, ISearchClient):
         if sc.last_rate_limit is not None:
             response.headers["X-RateLimit-Limit"] = sc.last_rate_limit
         if sc.last_rate_remaining is not None:
