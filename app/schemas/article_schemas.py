@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 class ArticleResponse(BaseModel):
     # Схема одной статьи — только поля, реально доступные в Scopus free-tier API
+    id: int                          # первичный ключ — нужен для маршрута /article/:id на фронтенде
     title: str                       # Название статьи (dc:title)
     journal: str | None              # Название издания (prism:publicationName)
     author: str | None               # Первый автор (dc:creator)
