@@ -22,6 +22,13 @@ class PostgresArticleRepository(IArticleRepository):
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def get_by_id(self, article_id: int) -> Article | None:
+        # SQL: SELECT * FROM articles WHERE id = :article_id LIMIT 1
+        # scalar_one_or_none — стандартный паттерн для запросов с 0 или 1 результатом
+        stmt = select(Article).where(Article.id == article_id)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def save_many(self, articles: List[Article]) -> None:
         if not articles:
             return
