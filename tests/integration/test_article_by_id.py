@@ -25,6 +25,7 @@ from typing import AsyncGenerator
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.core.dependencies import get_db_session
@@ -34,6 +35,7 @@ from app.models.article import Article
 from app.models.base import Base
 from app.schemas.article_schemas import ArticleResponse
 from app.services.article_service import ArticleService
+from tests.conftest import fetch_article_after_insert
 
 # ---------------------------------------------------------------------------
 # Вспомогательные константы
@@ -87,13 +89,17 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
 
 @pytest_asyncio.fixture(scope="function")
 async def saved_article(db_session: AsyncSession) -> Article:
-    """Сохраняет одну тестовую статью в БД, возвращает ORM-объект с присвоенным id."""
+    """Сохраняет одну тестовую статью через save_many(), возвращает ORM-объект с id.
+
+    save_many() использует Core INSERT (insert().on_conflict_do_update) — объект
+    не попадает в identity_map сессии, поэтому refresh() недопустим.
+    Вместо этого загружаем статью из БД заново через SELECT по doi.
+    """
     repo = PostgresArticleRepository(db_session)
     article = Article(**_ARTICLE_KWARGS)
     await repo.save_many([article])
-    # Обновляем объект из БД, чтобы получить реальный autoincrement id
-    await db_session.refresh(article)
-    return article
+    # Получаем ORM-объект с реальным autoincrement id через SELECT, а не refresh()
+    return await fetch_article_after_insert(db_session, _ARTICLE_KWARGS["doi"])
 
 
 # ---------------------------------------------------------------------------
@@ -414,20 +420,24 @@ class TestArticleIdRouting:
         симулирует переходы между карточками в UI.
         """
         repo = PostgresArticleRepository(db_session)
-        articles = [
+        dois = [f"10.999/test-multi-{i}" for i in range(1, 4)]
+        articles_input = [
             Article(
                 title=f"Article {i}",
                 publication_date=datetime.date(2024, 1, i),
                 keyword=f"keyword_{i}",
-                doi=f"10.999/test-{i}",
+                doi=dois[i - 1],
                 is_seeded=True,
             )
             for i in range(1, 4)
         ]
-        await repo.save_many(articles)
-        # Обновляем id из БД
-        for a in articles:
-            await db_session.refresh(a)
+        await repo.save_many(articles_input)
+        # Загружаем ORM-объекты с реальными id через SELECT по doi,
+        # т.к. save_many() использует Core INSERT — refresh() недоступен
+        articles = [
+            await fetch_article_after_insert(db_session, doi)
+            for doi in dois
+        ]
 
         for article in articles:
             resp = await client.get(f"/articles/{article.id}")

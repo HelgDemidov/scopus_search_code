@@ -2,15 +2,32 @@ from typing import AsyncGenerator
 
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.core.dependencies import get_db_session
 from app.main import app
+from app.models.article import Article
 from app.models.base import Base
 
 # URL тестовой БД — SQLite in-memory через aiosqlite
 # Не требует PostgreSQL, изолирован на уровне функции
 _TEST_DB_URL = "sqlite+aiosqlite:///:memory:"
+
+
+async def fetch_article_after_insert(
+    session: AsyncSession, doi: str
+) -> Article:
+    """Загружает ORM-объект статьи из БД по doi после Core INSERT.
+
+    save_many() использует Core-уровень SQLAlchemy (insert().on_conflict_do_update),
+    поэтому объекты не попадают в identity_map сессии. Вызывать
+    db_session.refresh() на них нельзя — выбросит InvalidRequestError.
+    Правильный паттерн: запросить объект заново через SELECT, чтобы
+    получить ORM-экземпляр с autoincrement id из БД.
+    """
+    result = await session.execute(select(Article).where(Article.doi == doi))
+    return result.scalar_one()
 
 
 @pytest_asyncio.fixture(scope="function")
