@@ -7,8 +7,8 @@ from app.models.article import Article
 class IArticleRepository(ABC):
 
     @abstractmethod
-    async def save_many(self, articles: List[Article]) -> None:
-        """Сохраняет пачку (список) статей в базу данных за один раз"""
+    async def save_many(self, articles: List[Article]) -> List[Article]:
+        """Сохраняет пачку статей в БД и возвращает их с заполненными id из БД"""
         pass
 
     @abstractmethod
