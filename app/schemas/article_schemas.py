@@ -45,3 +45,14 @@ class StatsResponse(BaseModel):
     by_country: List[CountByField]   # Топ-10 стран по числу статей
     by_doc_type: List[CountByField]  # Распределение по типу документа
     top_keywords: List[CountByField] # Топ ключевых слов сидера
+
+
+class SearchStatsResponse(BaseModel):
+    # Схема GET /articles/search/stats — агрегаты по результатам пользовательского поиска
+    # Семантически отличается от StatsResponse: нет is_seeded-фильтра и top_keywords
+    # Клиент — Tremor-дашборд авторизованного пользователя
+    total: int                           # Всего статей, matching ILIKE-запросу
+    by_year: List[CountByField]          # Распределение по годам публикации
+    by_journal: List[CountByField]       # Топ-10 журналов
+    by_country: List[CountByField]       # Топ-10 стран аффилиации
+    by_doc_type: List[CountByField]      # Распределение по типу документа

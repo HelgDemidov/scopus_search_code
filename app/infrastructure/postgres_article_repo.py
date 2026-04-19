@@ -143,6 +143,96 @@ class PostgresArticleRepository(IArticleRepository):
         result = await self.session.execute(stmt)
         return result.scalar() or 0
 
+    async def get_search_stats(self, search: str) -> dict:
+        # Один CTE-запрос — все пять агрегатов за один round-trip к PostgreSQL
+        # filtered CTE применяет ILIKE однократно; все sub-агрегаты читают его
+        # json_agg упаковывает результаты в JSON на стороне БД — Python получает готовые списки
+        # COALESCE защищает от NULL: json_agg на пустом наборе возвращает NULL, не []
+        sql = sa.text("""
+            WITH filtered AS (
+                SELECT publication_date, journal, affiliation_country, document_type
+                FROM articles
+                WHERE title ILIKE :pattern OR author ILIKE :pattern
+            ),
+            total_cte AS (
+                SELECT COUNT(*) AS total FROM filtered
+            ),
+            by_year_cte AS (
+                SELECT json_agg(
+                    json_build_object('label', yr, 'count', cnt) ORDER BY yr
+                ) AS data
+                FROM (
+                    SELECT EXTRACT(YEAR FROM publication_date)::int AS yr,
+                           COUNT(*) AS cnt
+                    FROM filtered
+                    GROUP BY yr
+                ) t
+            ),
+            by_journal_cte AS (
+                SELECT json_agg(
+                    json_build_object('label', journal, 'count', cnt) ORDER BY cnt DESC
+                ) AS data
+                FROM (
+                    SELECT journal, COUNT(*) AS cnt
+                    FROM filtered
+                    WHERE journal IS NOT NULL
+                    GROUP BY journal
+                    ORDER BY cnt DESC
+                    LIMIT 10
+                ) t
+            ),
+            by_country_cte AS (
+                SELECT json_agg(
+                    json_build_object('label', affiliation_country, 'count', cnt) ORDER BY cnt DESC
+                ) AS data
+                FROM (
+                    SELECT affiliation_country, COUNT(*) AS cnt
+                    FROM filtered
+                    WHERE affiliation_country IS NOT NULL
+                    GROUP BY affiliation_country
+                    ORDER BY cnt DESC
+                    LIMIT 10
+                ) t
+            ),
+            by_doc_cte AS (
+                SELECT json_agg(
+                    json_build_object('label', document_type, 'count', cnt) ORDER BY cnt DESC
+                ) AS data
+                FROM (
+                    SELECT document_type, COUNT(*) AS cnt
+                    FROM filtered
+                    WHERE document_type IS NOT NULL
+                    GROUP BY document_type
+                    ORDER BY cnt DESC
+                ) t
+            )
+            SELECT
+                (SELECT total FROM total_cte)::int                          AS total,
+                COALESCE((SELECT data FROM by_year_cte),    '[]'::json)    AS by_year,
+                COALESCE((SELECT data FROM by_journal_cte), '[]'::json)    AS by_journal,
+                COALESCE((SELECT data FROM by_country_cte), '[]'::json)    AS by_country,
+                COALESCE((SELECT data FROM by_doc_cte),     '[]'::json)    AS by_doc_type
+        """)
+
+        row = (
+            await self.session.execute(sql, {"pattern": f"%{search}%"})
+        ).mappings().one()
+
+        # asyncpg отдаёт json-поля как list[dict], psycopg2 — как строку JSON
+        def _parse(val):
+            if isinstance(val, str):
+                import json
+                return json.loads(val)
+            return val or []
+
+        return {
+            "total":       row["total"],
+            "by_year":     _parse(row["by_year"]),
+            "by_journal":  _parse(row["by_journal"]),
+            "by_country":  _parse(row["by_country"]),
+            "by_doc_type": _parse(row["by_doc_type"]),
+        }
+
     async def get_stats(self) -> dict:
         # Все агрегаты считаются только по сидированным статьям (is_seeded=True)
         seeded = Article.is_seeded == True  # noqa: E712

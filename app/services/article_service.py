@@ -50,6 +50,10 @@ class ArticleService:
             return None
         return ArticleResponse.model_validate(article)
 
+    async def get_search_stats(self, search: str) -> dict:
+        # Делегируем агрегацию репозиторию — сервис не знает про CTE и json_agg
+        return await self.article_repo.get_search_stats(search)
+
     async def get_stats(self) -> dict:
         # Делегируем агрегацию репозиторию — сервис не знает о SQL
         return await self.article_repo.get_stats()

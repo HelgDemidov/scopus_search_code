@@ -12,6 +12,7 @@ from app.routers.users import get_current_user
 from app.schemas.article_schemas import (
     ArticleResponse,
     PaginatedArticleResponse,
+    SearchStatsResponse,
     StatsResponse,
     CountByField,
 )
@@ -79,6 +80,27 @@ async def get_articles(
     )
 
 
+@router.get("/search/stats", response_model=SearchStatsResponse, tags=["Analytics"])
+async def get_search_stats(
+    search: str = Query(
+        ..., min_length=2,
+        description="Поисковый запрос — возвращает агрегаты только по matching статьям (ILIKE по title/author)",
+    ),
+    service: ArticleService = Depends(get_article_service),
+    current_user: User = Depends(get_current_user),  # приватный: JWT обязателен
+) -> SearchStatsResponse:
+    # Приватный эндпоинт — агрегаты по пользовательскому поиску для Tremor-дашборда
+    # Зарегистрирован строго до /{article_id} — иначе FastAPI матчит 'search' как int и вернет 422
+    data = await service.get_search_stats(search)
+    return SearchStatsResponse(
+        total=data["total"],
+        by_year=[CountByField(**r) for r in data["by_year"]],
+        by_journal=[CountByField(**r) for r in data["by_journal"]],
+        by_country=[CountByField(**r) for r in data["by_country"]],
+        by_doc_type=[CountByField(**r) for r in data["by_doc_type"]],
+    )
+
+
 @router.get("/find", response_model=list[ArticleResponse])
 async def find_articles(
     response: Response,
@@ -87,9 +109,6 @@ async def find_articles(
     service: SearchService = Depends(get_search_service),
     current_user: User = Depends(get_current_user),
 ) -> Any:
-    # Второй Depends(get_scopus_client) убран: он создавал отдельный httpx.AsyncClient,
-    # который FastAPI закрывал раньше, чем SearchService успевал им воспользоваться.
-    # Теперь единственный клиент живет внутри get_search_service на всё время запроса.
     articles = await service.find_and_save(keyword, count=count)
 
     # Пробрасываем rate-limit заголовки Scopus в ответ
@@ -111,6 +130,7 @@ async def get_article_by_id(
     service: ArticleService = Depends(get_article_service),
 ) -> ArticleResponse:
     # Публичный эндпоинт — JWT не требуется
+    # Всегда последним: /{article_id} матчит любой path-сегмент
     article = await service.get_by_id(article_id)
     if article is None:
         raise HTTPException(status_code=404, detail="Article not found")

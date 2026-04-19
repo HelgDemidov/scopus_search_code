@@ -51,6 +51,16 @@ class IArticleRepository(ABC):
         pass
 
     @abstractmethod
+    async def get_search_stats(self, search: str) -> dict:
+        """
+        Возвращает агрегаты (total, by_year, by_journal, by_country, by_doc_type)
+        по статьям, matching ILIKE-поиску по title/author.
+        search обязателен: метод не имеет смысла без фильтра.
+        Реализуется одним CTE-запросом — один round-trip к БД.
+        """
+        pass
+
+    @abstractmethod
     async def get_stats(self) -> dict:
         """Возвращает агрегированную статистику по сидированным статьям (is_seeded=True)"""
         pass
