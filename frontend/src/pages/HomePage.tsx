@@ -2,17 +2,20 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { useArticleStore } from '../stores/articleStore';
+import { getSearchStats } from '../api/articles';
 import { SearchBar } from '../components/search/SearchBar';
 import { ArticleList } from '../components/articles/ArticleList';
 import { ArticleFilters } from '../components/articles/ArticleFilters';
 import { ScopusQuotaBadge } from '../components/articles/ScopusQuotaBadge';
 import { PaginationControls } from '../components/ui/PaginationControls';
+import { SearchResultsDashboard } from '../components/search/SearchResultsDashboard';
+import { Skeleton } from '../components/ui/skeleton';
 import { usePagination } from '../hooks/usePagination';
-import type { ArticleResponse } from '../types/api';
+import type { ArticleResponse, SearchStatsResponse } from '../types/api';
 
 const PAGE_SIZE = 20;
 
-// Клиентская сортировка по цитированиям (Sorted within current page — §4.1)
+// Клиентская сортировка по цитированиям (Сортед within current page — §4.1)
 function sortArticles(
   articles: ArticleResponse[],
   sortBy: 'date' | 'citations',
@@ -23,8 +26,7 @@ function sortArticles(
   );
 }
 
-// Применяем активные фильтры к client-side — по спеку фильтры серверные,
-// но для UX без перезагрузки применяем их поверх на данных текущей страницы
+// Применяем активные фильтры client-side поверх данных страницы
 function applyClientFilters(
   articles: ArticleResponse[],
   docTypes: string[] | undefined,
@@ -78,6 +80,14 @@ export default function HomePage() {
   const { articles, isLoading, filters, setFilters, fetchArticles } = useArticleStore();
   const [sortBy, setSortBy] = useState<'date' | 'citations'>('date');
 
+  // Флаг: пользователь выполнил хотя бы один поиск; предотвращает empty state
+  // до поиска и показывает скелетон во время загрузки
+  const [hasSearched, setHasSearched] = useState(false);
+
+  // Состояние статистики поиска (только для авторизованных)
+  const [searchStats, setSearchStats] = useState<SearchStatsResponse | null>(null);
+  const [isStatsLoading, setIsStatsLoading] = useState(false);
+
   // Локальная страница для client-side пагинации по отфильтрованным данным
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -110,11 +120,31 @@ export default function HomePage() {
   // usePagination по реальной сигнатуре: (total, page, size)
   const { totalPages } = usePagination(sortedArticles.length, currentPage, PAGE_SIZE);
 
-  // Сброс на первую страницу при смене фильтров или сортировки
-  function handleSearch(query: string) {
-    setFilters({ keyword: query });
+  // Обработчик поиска:
+  //   - пишет search (ILIKE), не keyword (фильтр по сидеру)
+  //   - для авторизованных параллельно запрашивает статистику поиска
+  //   - ошибка статистики не блокирует список статей
+  async function handleSearch(query: string) {
+    setHasSearched(true);
+    // search — пользовательский запрос; keyword: undefined — сбрасываем фильтр сидера
+    setFilters({ search: query, keyword: undefined });
     setCurrentPage(1);
-    fetchArticles(query);
+    // Zustand set() синхронен — к моменту fetchArticles() стейт уже обновлен
+    fetchArticles();
+
+    // Для авторизованных: параллельный запрос статистики
+    if (isAuthenticated) {
+      setIsStatsLoading(true);
+      setSearchStats(null);
+      try {
+        const stats = await getSearchStats(query);
+        setSearchStats(stats);
+      } catch {
+        // Ошибка статистики не блокирует список — тихо проглатываем
+      } finally {
+        setIsStatsLoading(false);
+      }
+    }
   }
 
   return (
@@ -123,7 +153,9 @@ export default function HomePage() {
         // Анонимный режим: hero + результаты без фильтров и пагинации
         <div className="flex flex-col">
           <AnonHero onSearch={handleSearch} />
-          {articles.length > 0 && (
+          {/* ArticleList рендерится только после первого поиска;
+               компонент сам управляет скелетоном и empty state */}
+          {hasSearched && (
             <div className="mx-auto w-full max-w-screen-lg px-4 pb-12">
               <ArticleList
                 articles={sortedArticles}
@@ -135,7 +167,7 @@ export default function HomePage() {
           )}
         </div>
       ) : (
-        // Авторизованный режим: SearchBar + sidebar + сетка статей + пагинация
+        // Авторизованный режим: SearchBar + sidebar + сетка статей + пагинация + дашборд
         <div className="mx-auto max-w-screen-xl px-4 py-6 flex flex-col gap-4">
           {/* SearchBar + quota badge */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
@@ -176,6 +208,20 @@ export default function HomePage() {
               )}
             </div>
           </div>
+
+          {/* Дашборд поисковой аналитики:
+               - показываем скелетон пока статистика загружается
+               - дашборд не показываем при stats.total === 0 */}
+          {filters.search && isStatsLoading && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-64 w-full rounded-xl" />
+              ))}
+            </div>
+          )}
+          {filters.search && searchStats && searchStats.total > 0 && (
+            <SearchResultsDashboard stats={searchStats} query={filters.search} />
+          )}
         </div>
       )}
     </div>
