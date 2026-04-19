@@ -12,13 +12,21 @@ class IArticleRepository(ABC):
         pass
 
     @abstractmethod
-    async def get_all(self, limit: int, offset: int, keyword: str | None = None) -> List[Article]:
+    async def get_all(
+        self,
+        limit: int,
+        offset: int,
+        keyword: str | None = None,
+        search: str | None = None,
+    ) -> List[Article]:
         """
-        Возвращает статьи из БД с поддержкой пагинации и опциональным фильтром.
+        Возвращает статьи из БД с поддержкой пагинации и опциональными фильтрами.
         limit: сколько статей вернуть (размер страницы).
         offset: сколько статей пропустить с начала.
-        keyword: если передан — фильтрует по точному совпадению с полем keyword;
-                 если None — возвращает все статьи без фильтрации.
+        keyword: если передан — фильтрует по точному совпадению с полем keyword
+                 (фраза сидера); если None — без фильтра по этому полю.
+        search: если передан — fulltext ILIKE по полям title и author;
+                если None — без fulltext-фильтра.
         """
         pass
 
@@ -28,11 +36,17 @@ class IArticleRepository(ABC):
         pass
 
     @abstractmethod
-    async def get_total_count(self, keyword: str | None = None) -> int:
+    async def get_total_count(
+        self,
+        keyword: str | None = None,
+        search: str | None = None,
+    ) -> int:
         """
         Считает общее количество статей в базе.
         keyword: если передан — считает только статьи с этим ключевым словом;
                  если None — считает все статьи.
+        search: если передан — считает только статьи, matching ILIKE по title/author;
+                если None — без fulltext-фильтра.
         """
         pass
 

@@ -13,19 +13,34 @@ class PostgresArticleRepository(IArticleRepository):
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_all(self, limit: int, offset: int, keyword: str | None = None) -> List[Article]:
-        # SQL: SELECT * FROM articles [WHERE keyword = :kw] LIMIT {limit} OFFSET {offset}
-        # keyword — управляемое значение из таблицы seeder_keywords, ILIKE не нужен
+    async def get_all(
+        self,
+        limit: int,
+        offset: int,
+        keyword: str | None = None,
+        search: str | None = None,
+    ) -> List[Article]:
+        # SQL: SELECT * FROM articles [WHERE ...] ORDER BY publication_date DESC LIMIT {limit} OFFSET {offset}
+        # keyword — точное совпадение с фразой сидера (поле keyword)
+        # search  — fulltext ILIKE по title и author для пользовательского поиска
         stmt = select(Article)
         if keyword is not None:
             stmt = stmt.where(Article.keyword == keyword)
-        stmt = stmt.limit(limit).offset(offset)
+        if search is not None:
+            pattern = f"%{search}%"
+            stmt = stmt.where(
+                sa.or_(
+                    Article.title.ilike(pattern),
+                    Article.author.ilike(pattern),
+                )
+            )
+        # ORDER BY гарантирует детерминированный порядок при пагинации
+        stmt = stmt.order_by(desc(Article.publication_date)).limit(limit).offset(offset)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
     async def get_by_id(self, article_id: int) -> Article | None:
         # SQL: SELECT * FROM articles WHERE id = :article_id LIMIT 1
-        # scalar_one_or_none — стандартный паттерн для запросов с 0 или 1 результатом
         stmt = select(Article).where(Article.id == article_id)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
@@ -108,11 +123,23 @@ class PostgresArticleRepository(IArticleRepository):
 
         return saved
 
-    async def get_total_count(self, keyword: str | None = None) -> int:
-        # Считает все статьи или только с заданным keyword при фильтрации
+    async def get_total_count(
+        self,
+        keyword: str | None = None,
+        search: str | None = None,
+    ) -> int:
+        # Считает статьи с учётом тех же фильтров, что get_all — для корректной пагинации
         stmt = select(func.count(Article.id))
         if keyword is not None:
             stmt = stmt.where(Article.keyword == keyword)
+        if search is not None:
+            pattern = f"%{search}%"
+            stmt = stmt.where(
+                sa.or_(
+                    Article.title.ilike(pattern),
+                    Article.author.ilike(pattern),
+                )
+            )
         result = await self.session.execute(stmt)
         return result.scalar() or 0
 

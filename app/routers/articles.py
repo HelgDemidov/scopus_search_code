@@ -64,10 +64,19 @@ async def get_stats(
 async def get_articles(
     page: int = Query(1, ge=1, description="Номер страницы"),
     size: int = Query(10, ge=1, le=100, description="Количество статей на странице"),
-    keyword: str | None = Query(None, min_length=2, description="Фильтр по ключевому слову сидера (точное совпадение)"),
+    keyword: str | None = Query(
+        None, min_length=2,
+        description="Фильтр по ключевому слову сидера (точное совпадение)",
+    ),
+    search: str | None = Query(
+        None, min_length=2,
+        description="Fulltext-поиск по названию и первому автору (ILIKE, без учёта регистра)",
+    ),
     service: ArticleService = Depends(get_article_service),
 ) -> PaginatedArticleResponse:
-    return await service.get_articles_paginated(page=page, size=size, keyword=keyword)
+    return await service.get_articles_paginated(
+        page=page, size=size, keyword=keyword, search=search
+    )
 
 
 @router.get("/find", response_model=list[ArticleResponse])
@@ -83,9 +92,7 @@ async def find_articles(
     # Теперь единственный клиент живет внутри get_search_service на всё время запроса.
     articles = await service.find_and_save(keyword, count=count)
 
-    # Пробрасываем rate-limit заголовки Scopus в ответ.
-    # isinstance проверяет соответствие интерфейсу ISearchClient, а не конкретному классу —
-    # любая будущая реализация (PubMedClient и др.) автоматически проходит guard.
+    # Пробрасываем rate-limit заголовки Scopus в ответ
     sc = service.search_client
     if isinstance(sc, ISearchClient):
         if sc.last_rate_limit is not None:
@@ -103,8 +110,7 @@ async def get_article_by_id(
     article_id: int,
     service: ArticleService = Depends(get_article_service),
 ) -> ArticleResponse:
-    # Публичный эндпоинт — JWT не требуется (аналогично GET /articles/)
-    # Объявлен последним: /{article_id} не перехватывает /stats, /find, /
+    # Публичный эндпоинт — JWT не требуется
     article = await service.get_by_id(article_id)
     if article is None:
         raise HTTPException(status_code=404, detail="Article not found")

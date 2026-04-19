@@ -11,8 +11,11 @@ class ArticleService:
         page: int,
         size: int,
         keyword: str | None = None,
+        search: str | None = None,
     ) -> PaginatedArticleResponse:
-        # Бизнес-логика пагинации с опциональным фильтром по ключевому слову
+        # Бизнес-логика пагинации с опциональными фильтрами
+        # keyword — точное совпадение по фразе сидера (серверный фильтр)
+        # search  — fulltext ILIKE по title/author (пользовательский поиск)
 
         # Защита от отрицательных значений
         if page < 1:
@@ -23,17 +26,18 @@ class ArticleService:
         limit = size
         offset = (page - 1) * size
 
-        # 1. Получаем ORM-объекты из БД; keyword=None означает без фильтра
-        db_articles = await self.article_repo.get_all(limit=limit, offset=offset, keyword=keyword)
-        total = await self.article_repo.get_total_count(keyword=keyword)
+        # Получаем ORM-объекты из БД; оба фильтра независимы
+        db_articles = await self.article_repo.get_all(
+            limit=limit, offset=offset, keyword=keyword, search=search
+        )
+        total = await self.article_repo.get_total_count(keyword=keyword, search=search)
 
-        # 2. Конвертируем ORM-объекты (Article) в Pydantic-схемы (ArticleResponse)
+        # Конвертируем ORM-объекты (Article) в Pydantic-схемы (ArticleResponse)
         article_responses = [
             ArticleResponse.model_validate(article)
             for article in db_articles
         ]
 
-        # 3. Возвращаем правильный тип
         return PaginatedArticleResponse(
             articles=article_responses,
             total=total
@@ -41,7 +45,6 @@ class ArticleService:
 
     async def get_by_id(self, article_id: int) -> ArticleResponse | None:
         # Делегируем репозиторию, конвертируем ORM → Pydantic
-        # сервис не знает про SQL, репозиторий не знает про Pydantic
         article = await self.article_repo.get_by_id(article_id)
         if article is None:
             return None
