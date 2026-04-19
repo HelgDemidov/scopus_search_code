@@ -5,9 +5,16 @@ import { Button } from '../ui/button';
 interface SearchBarProps {
   onSearch: (query: string) => void;
   placeholder?: string;
+  // inputId позволяет избежать дублирования id если SearchBar рендерится
+  // дважды на одной странице (например, мобильный и десктопный хедер)
+  inputId?: string;
 }
 
-export function SearchBar({ onSearch, placeholder = 'Search articles…' }: SearchBarProps) {
+export function SearchBar({
+  onSearch,
+  placeholder = 'Search articles\u2026',
+  inputId = 'article-search',
+}: SearchBarProps) {
   const [value, setValue] = useState('');
 
   function handleSubmit(e: React.FormEvent) {
@@ -18,12 +25,17 @@ export function SearchBar({ onSearch, placeholder = 'Search articles…' }: Sear
 
   return (
     <form onSubmit={handleSubmit} className="flex gap-2 w-full">
+      {/* Скрытый label связан с полем через htmlFor — доступность для скринридеров */}
+      <label htmlFor={inputId} className="sr-only">
+        Search articles
+      </label>
       <Input
+        id={inputId}
+        name={inputId}
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder={placeholder}
         className="flex-1"
-        aria-label="Search query"
       />
       <Button
         type="submit"
