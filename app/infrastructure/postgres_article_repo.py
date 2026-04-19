@@ -1,7 +1,7 @@
 from typing import List
 
 import sqlalchemy as sa
-from sqlalchemy import desc, func, select
+from sqlalchemy import cast, desc, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -148,6 +148,8 @@ class PostgresArticleRepository(IArticleRepository):
         # filtered CTE применяет ILIKE однократно; все sub-агрегаты читают его
         # json_agg упаковывает результаты в JSON на стороне БД — Python получает готовые списки
         # COALESCE защищает от NULL: json_agg на пустом наборе возвращает NULL, не []
+        # yr::text — гарантируем строковый тип label на уровне SQL, чтобы Pydantic
+        # CountByField(label: str) получал корректный тип без ручных кастов в Python
         sql = sa.text("""
             WITH filtered AS (
                 SELECT publication_date, journal, affiliation_country, document_type
@@ -159,7 +161,7 @@ class PostgresArticleRepository(IArticleRepository):
             ),
             by_year_cte AS (
                 SELECT json_agg(
-                    json_build_object('label', yr, 'count', cnt) ORDER BY yr
+                    json_build_object('label', yr::text, 'count', cnt) ORDER BY yr
                 ) AS data
                 FROM (
                     SELECT EXTRACT(YEAR FROM publication_date)::int AS yr,
@@ -254,14 +256,16 @@ class PostgresArticleRepository(IArticleRepository):
         )).scalar() or 0
 
         # Распределение по годам
+        # cast(..., sa.String) гарантирует строковый label на уровне SQL —
+        # единая конвенция репозитория: тип данных гарантируется SQL, не Python
         by_year_rows = (await self.session.execute(
             select(
-                func.extract("year", Article.publication_date).label("label"),
+                cast(func.extract("year", Article.publication_date), sa.String).label("label"),
                 func.count(Article.id).label("count"),
             )
             .where(seeded)
-            .group_by("label")
-            .order_by("label")
+            .group_by(func.extract("year", Article.publication_date))
+            .order_by(func.extract("year", Article.publication_date))
         )).all()
 
         # Топ-10 журналов
@@ -299,11 +303,12 @@ class PostgresArticleRepository(IArticleRepository):
         )).all()
 
         return {
-            "total_articles":   total,
-            "total_journals":   total_journals,
-            "total_countries":  total_countries,
+            "total_articles":    total,
+            "total_journals":    total_journals,
+            "total_countries":   total_countries,
             "open_access_count": open_access_count,
-            "by_year":      [{"label": str(int(r.label)), "count": r.count} for r in by_year_rows],
+            # label уже строка после cast на уровне SQL — ручной каст str(int()) не нужен
+            "by_year":      [{"label": r.label, "count": r.count} for r in by_year_rows],
             "by_journal":   [{"label": r.label, "count": r.count} for r in by_journal_rows],
             "by_country":   [{"label": r.label, "count": r.count} for r in by_country_rows],
             "by_doc_type":  [{"label": r.label, "count": r.count} for r in by_doc_rows],
