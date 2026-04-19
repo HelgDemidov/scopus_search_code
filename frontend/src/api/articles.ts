@@ -1,13 +1,15 @@
 // API-функции для работы со статьями (§2.1, §2.2 спека)
 //
-// getArticles     — GET /articles/        (публичный, пагинация + keyword-фильтр)
-// findArticles    — GET /articles/find   (приватный, live-поиск в Scopus)
-// getArticleById  — GET /articles/:id    (публичный, одна статья по id)
+// getArticles     — GET /articles/              (публичный, пагинация + фильтры)
+// getSearchStats  — GET /articles/search/stats  (приватный, агрегаты по поисковому запросу)
+// findArticles    — GET /articles/find          (приватный, live-поиск в Scopus)
+// getArticleById  — GET /articles/:id           (публичный, одна статья по id)
 
 import { apiClient } from './client';
 import type {
   PaginatedArticleResponse,
   ArticleResponse,
+  SearchStatsResponse,
   ScopusQuota,
 } from '../types/api';
 
@@ -18,9 +20,12 @@ import type {
 export interface GetArticlesParams {
   page?: number;
   size?: number;
-  // keyword — серверная фильтрация по полю keyword (фраза сидера);
+  // keyword — серверная фильтрация по полю articles.keyword (фраза сидера);
   // при отсутствии совпадений бэкенд возвращает пустой список
   keyword?: string;
+  // search — ILIKE-поиск по title и author (пользовательский запрос, коммит 2);
+  // keyword и search независимы на уровне API; стор обеспечивает взаимоисключение
+  search?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -30,16 +35,31 @@ export interface GetArticlesParams {
 export async function getArticles(
   params: GetArticlesParams = {},
 ): Promise<PaginatedArticleResponse> {
-  const { page = 1, size = 10, keyword } = params;
+  const { page = 1, size = 10, keyword, search } = params;
 
   const queryParams: Record<string, string | number> = { page, size };
-  if (keyword) {
-    queryParams.keyword = keyword;
-  }
+  if (keyword) queryParams.keyword = keyword;
+  if (search)  queryParams.search  = search;
 
   const response = await apiClient.get<PaginatedArticleResponse>('/articles/', {
     params: queryParams,
   });
+  return response.data;
+}
+
+// ---------------------------------------------------------------------------
+// GET /articles/search/stats — агрегаты по пользовательскому поисковому запросу
+// Требует JWT (приватный эндпоинт)
+// search — непустая строка запроса; бэкенд применяет ILIKE по title и author
+// ---------------------------------------------------------------------------
+
+export async function getSearchStats(
+  search: string,
+): Promise<SearchStatsResponse> {
+  const response = await apiClient.get<SearchStatsResponse>(
+    '/articles/search/stats',
+    { params: { search } },
+  );
   return response.data;
 }
 

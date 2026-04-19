@@ -25,7 +25,7 @@ export interface PaginatedArticleResponse {
 }
 
 // ---------------------------------------------------------------------------
-// Статистика коллекции
+// Статистика коллекции (GET /articles/stats — только сидированные статьи)
 // ---------------------------------------------------------------------------
 
 export interface LabelCount {
@@ -46,6 +46,23 @@ export interface StatsResponse {
   by_country: LabelCount[];
   by_doc_type: LabelCount[];
   top_keywords: LabelCount[];
+}
+
+// ---------------------------------------------------------------------------
+// Статистика поискового запроса (GET /articles/search/stats?search=...)
+// Отдельный интерфейс — не алиас StatsResponse:
+//   - нет total_articles, total_journals, total_countries, open_access_count
+//   - нет top_keywords
+//   - есть total (кол-во статей, совпавших с поисковым запросом)
+// Схема подтверждена живым тестом эндпоинта (коммит 2 + хотфикс)
+// ---------------------------------------------------------------------------
+
+export interface SearchStatsResponse {
+  total: number;
+  by_year: LabelCount[];
+  by_journal: LabelCount[];
+  by_country: LabelCount[];
+  by_doc_type: LabelCount[];
 }
 
 // ---------------------------------------------------------------------------
@@ -72,12 +89,19 @@ export interface TokenResponse {
 
 // ---------------------------------------------------------------------------
 // Фильтры статей (§4.1 ArticleFilters)
-// keyword — серверная фильтрация (query-param к GET /articles/)
-// остальные поля — client-side фильтрация загруженного набора
+//
+// Серверные фильтры (уходят в query-params к GET /articles/):
+//   keyword — точный фильтр по полю articles.keyword (фраза сидера)
+//   search  — ILIKE-поиск по title и author (пользовательский запрос)
+//   keyword и search взаимоисключающие: стор не передаёт оба одновременно
+//
+// Client-side фильтры (применяются к загруженной странице в браузере):
+//   yearFrom, yearTo, docTypes, openAccessOnly, countries
 // ---------------------------------------------------------------------------
 
 export interface ArticleFilters {
-  keyword?: string;                // фраза сидера для серверной фильтрации
+  keyword?: string;                // точный фильтр по полю keyword сидера
+  search?: string;                 // пользовательский текстовый поиск по title/author
   yearFrom?: number;               // нижняя граница года публикации
   yearTo?: number;                 // верхняя граница года публикации
   docTypes?: string[];             // массив типов документов

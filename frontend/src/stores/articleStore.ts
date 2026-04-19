@@ -33,7 +33,7 @@ interface ArticleStore {
 }
 
 // Вспомогательная функция: применяет client-side фильтры к массиву статей
-// keyword-фильтр — серверный; остальные (год, тип, OA, страна) — client-side
+// keyword и search — серверные; остальные (год, тип, OA, страна) — client-side
 function applyClientFilters(
   articles: ArticleResponse[],
   filters: ArticleFilters,
@@ -83,15 +83,22 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
   isLiveSearching: false,
   error: null,
 
-  // Загружаем страницу статей с учётом keyword-фильтра (серверный)
+  // Загружаем страницу статей с учётом серверных фильтров:
+  //   keyword (аргумент или filters.keyword) — точный фильтр по полю сидера
+  //   filters.search — ILIKE-поиск по title/author (пользовательский запрос)
+  // keyword из аргумента имеет приоритет над filters.keyword: вызывающий код
+  // передаёт его явно сразу после setFilters, не дожидаясь обновления стейта
   fetchArticles: async (keyword?: string) => {
     const { page, size, filters } = get();
-    // keyword из аргумента имеет приоритет: вызывающий код передает его явно
-    // сразу после setFilters, не дожидаясь обновления стейта в сторе
     const effectiveKeyword = keyword !== undefined ? keyword : filters.keyword;
     set({ isLoading: true, error: null });
     try {
-      const data = await getArticles({ page, size, keyword: effectiveKeyword });
+      const data = await getArticles({
+        page,
+        size,
+        keyword: effectiveKeyword,  // фильтр по полю keyword сидера
+        search: filters.search,     // ILIKE-поиск (undefined → параметр не уходит)
+      });
       // Применяем client-side фильтры к загруженной странице
       const filtered = applyClientFilters(data.articles, filters);
       // Сортировка по цитированиям — client-side, в пределах текущей страницы
