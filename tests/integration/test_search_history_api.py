@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from sqlalchemy.pool import StaticPool
 from app.models.base import Base
 from app.models.user import User
-from app.core.security import get_password_hash, create_access_token
+from app.core.security import hash_password, create_access_token
 
 DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
@@ -79,7 +79,7 @@ async def test_user(db_session: AsyncSession) -> User:
     user = User(
         username="testuser_hist",
         email="hist@example.com",
-        hashed_password=get_password_hash("testpass"),
+        hashed_password=hash_password("testpass"),
         is_active=True,
     )
     db_session.add(user)
@@ -94,7 +94,7 @@ async def other_user(db_session: AsyncSession) -> User:
     user = User(
         username="other_user_hist",
         email="other_hist@example.com",
-        hashed_password=get_password_hash("otherpass"),
+        hashed_password=hash_password("otherpass"),
         is_active=True,
     )
     db_session.add(user)
@@ -106,13 +106,13 @@ async def other_user(db_session: AsyncSession) -> User:
 @pytest.fixture(scope="module")
 def auth_headers(test_user: User) -> dict:
     # Генерируем JWT для test_user; user.id получаем через ORM-объект
-    token = create_access_token(data={"sub": test_user.username})
+    token = create_access_token(subject=test_user.username)
     return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture(scope="module")
 def other_auth_headers(other_user: User) -> dict:
-    token = create_access_token(data={"sub": other_user.username})
+    token = create_access_token(subject=other_user.username)
     return {"Authorization": f"Bearer {token}"}
 
 
