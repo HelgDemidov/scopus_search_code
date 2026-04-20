@@ -32,6 +32,6 @@ jobs:
           DATABASE_URL:       ${{ secrets.DATABASE_SUPABASE_URL }}
           SEEDER_EMAIL:       ${{ secrets.SEEDER_EMAIL }}
           SEEDER_PASSWORD:    ${{ secrets.SEEDER_PASSWORD }}
-          GOOGLE_AI_STUDIO_KEY: ${{ secrets.GOOGLE_AI_STUDIO_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         working-directory: db_seeder/seeder__scripts
         run: python seed_db.py
