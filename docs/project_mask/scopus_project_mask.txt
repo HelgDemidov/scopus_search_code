@@ -146,6 +146,33 @@ class PostgresArticleRepository(IArticleRepository):
         pass
 
 ============================================================
+FILE: app\infrastructure\postgres_search_history_repo.py
+============================================================
+import datetime
+from typing import List
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.search_history import SearchHistory
+from app.interfaces.search_history_repo import ISearchHistoryRepository
+
+class PostgresSearchHistoryRepository(ISearchHistoryRepository):
+
+    def __init__(self, session: AsyncSession):
+        pass
+
+    async def insert_row(self, user_id: int, query: str, result_count: int, filters: dict | None=None) -> SearchHistory:
+        pass
+
+    async def count_in_window(self, user_id: int, since: datetime.datetime) -> int:
+        pass
+
+    async def get_last_n(self, user_id: int, n: int=100) -> List[SearchHistory]:
+        pass
+
+    async def get_oldest_in_window_created_at(self, user_id: int, since: datetime.datetime) -> datetime.datetime | None:
+        pass
+
+============================================================
 FILE: app\infrastructure\postgres_user_repo.py
 ============================================================
 from sqlalchemy import select
@@ -276,6 +303,38 @@ class ISearchClient(ABC):
         pass
 
 ============================================================
+FILE: app\interfaces\search_history_repo.py
+============================================================
+import datetime
+from abc import ABC, abstractmethod
+from typing import List
+from app.models.search_history import SearchHistory
+
+class ISearchHistoryRepository(ABC):
+
+    @abstractmethod
+    async def insert_row(self, user_id: int, query: str, result_count: int, filters: dict | None=None) -> SearchHistory:
+        """Вставляет одну запись в search_history и возвращает её с заполненными
+id и created_at из БД. filters=None сохраняется как {}."""
+
+    @abstractmethod
+    async def count_in_window(self, user_id: int, since: datetime.datetime) -> int:
+        """Считает количество строк для user_id с created_at >= since.
+Используется для проверки недельной квоты перед вставкой."""
+
+    @abstractmethod
+    async def get_last_n(self, user_id: int, n: int=100) -> List[SearchHistory]:
+        """Возвращает последние n записей для user_id, упорядоченных
+по created_at DESC. Используется в GET /articles/history."""
+
+    @abstractmethod
+    async def get_oldest_in_window_created_at(self, user_id: int, since: datetime.datetime) -> datetime.datetime | None:
+        """Возвращает created_at самой старой записи в скользящем окне
+[since, now]. Используется для вычисления reset_at в квотном ответе:
+reset_at = oldest_created_at + 7 days.
+Возвращает None если окно пустое (использованных запросов нет)."""
+
+============================================================
 FILE: app\interfaces\user_repository.py
 ============================================================
 from abc import ABC, abstractmethod
@@ -383,6 +442,29 @@ class RefreshToken(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revoked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    def __repr__(self) -> str:
+        pass
+
+============================================================
+FILE: app\models\search_history.py
+============================================================
+import datetime
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, Text
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.sql import func, text
+from app.models.base import Base
+
+class SearchHistory(Base):
+    __tablename__ = 'search_history'
+    __table_args__ = (Index('ix_search_history_user_created', 'user_id', 'created_at', postgresql_ops={'created_at': 'DESC'}),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    query: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    result_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    filters: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default=text("'{}'"))
 
     def __repr__(self) -> str:
         pass
@@ -747,7 +829,7 @@ from datetime import date
 import httpx
 CLUSTERS = ['Large Language Models', 'Generative Adversarial Networks', 'Neuromorphic Computing', 'AI Hardware Accelerators', 'AutoML and Self-Improving Systems']
 OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
-MODEL = 'google/gemini-2.0-flash-001'
+MODEL = 'google/gemini-2.5-flash-preview-04-17'
 
 def _get_todays_cluster() -> str:
     pass
@@ -1276,6 +1358,64 @@ from app.infrastructure.scopus_client import ScopusHTTPClient
 
 @pytest.mark.asyncio
 async def test_scopus_client_search_and_limits(monkeypatch):
+    pass
+
+============================================================
+FILE: tests\unit\test_search_history_repository.py
+============================================================
+import datetime
+from typing import List
+import pytest
+from app.models.search_history import SearchHistory
+from app.interfaces.search_history_repo import ISearchHistoryRepository
+
+class FakeSearchHistoryRepository(ISearchHistoryRepository):
+
+    def __init__(self):
+        pass
+
+    async def insert_row(self, user_id: int, query: str, result_count: int, filters: dict | None=None) -> SearchHistory:
+        pass
+
+    async def count_in_window(self, user_id: int, since: datetime.datetime) -> int:
+        pass
+
+    async def get_last_n(self, user_id: int, n: int=100) -> List[SearchHistory]:
+        pass
+
+    async def get_oldest_in_window_created_at(self, user_id: int, since: datetime.datetime) -> datetime.datetime | None:
+        pass
+
+@pytest.mark.asyncio
+async def test_insert_row_creates_entry():
+    pass
+
+@pytest.mark.asyncio
+async def test_insert_row_filters_none_becomes_empty_dict():
+    pass
+
+@pytest.mark.asyncio
+async def test_insert_row_filters_roundtrip():
+    pass
+
+@pytest.mark.asyncio
+async def test_count_in_window_counts_only_recent_rows():
+    pass
+
+@pytest.mark.asyncio
+async def test_count_in_window_excludes_old_rows():
+    pass
+
+@pytest.mark.asyncio
+async def test_get_last_n_returns_at_most_n_rows_ordered_desc():
+    pass
+
+@pytest.mark.asyncio
+async def test_get_oldest_in_window_returns_none_when_empty():
+    pass
+
+@pytest.mark.asyncio
+async def test_reset_at_calculation():
     pass
 
 ============================================================
