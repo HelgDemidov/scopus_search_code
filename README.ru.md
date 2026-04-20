@@ -124,26 +124,50 @@ Scopus Search API — учебно-практический fullstack-проек
 
 ```text
 scopus_search_code/
-├── app/
-│   ├── core/                         # security, dependencies, refresh token utils
-│   ├── infrastructure/               # репозитории PostgreSQL и Scopus client
-│   ├── interfaces/                   # абстракции репозиториев и клиентов
-│   ├── models/                       # ORM-модели: article, user, refresh_token, seeder_keyword
-│   ├── routers/                      # users, auth, articles, health
-│   ├── schemas/                      # Pydantic-схемы для users и articles
-│   ├── services/                     # бизнес-логика приложения
-│   ├── config.py                     # настройки приложения
-│   └── main.py                       # точка входа FastAPI
-├── alembic/                          # миграции базы данных
-├── db_seeder/                        # автоматизированное наполнение БД
-├── frontend/                         # SPA-клиент на React/Vite
-├── tests/                            # unit и integration tests
-├── Dockerfile
-├── docker-compose.yml
-├── pyproject.toml
-├── requirements.txt
-├── README.md
-└── README.ru.md
+├── app/                              # Исходный код backend-приложения
+│   ├── core/                         # Безопасность, DI, refresh-token утилиты
+│   ├── infrastructure/               # Репозитории PostgreSQL и Scopus client
+│   ├── interfaces/                   # Абстракции репозиториев и внешних клиентов
+│   ├── models/                       # ORM-модели: article, user, refresh_token, seeder_keyword, base
+│   ├── routers/                      # HTTP-эндпоинты: users, auth, articles, health
+│   ├── schemas/                      # Pydantic-схемы запросов и ответов
+│   └── services/                     # Бизнес-логика поверх интерфейсов
+├── alembic/                          # Миграции базы данных (Alembic + Supabase Postgres)
+│   └── versions/                     # Файлы ревизий миграций
+├── db_seeder/                        # Автоматизированный сидер базы данных
+│   └── seeder__scripts/              # Скрипты сидера
+│       ├── seed_db.py                # Оркестратор: логин, запросы к Scopus, сохранение статей
+│       └── keyword_generator.py     # LLM-генератор поисковых фраз (OpenRouter)
+├── docs/                             # Документация и артефакты анализа
+│   ├── project_mask/                 # Маски кодовой базы для LLM-анализа
+│   └── project_tree/                 # Снимки структуры проекта
+├── frontend/                         # SPA-клиент на React + TypeScript + Vite
+│   ├── src/                          # Исходный код фронтенда
+│   │   ├── api/                      # Axios-клиент и функции обращения к API
+│   │   ├── components/               # UI-компоненты (articles, charts, search, ui)
+│   │   ├── hooks/                    # Кастомные React-хуки
+│   │   ├── pages/                    # Страницы: Home, Explore, Profile, Auth, Article
+│   │   ├── stores/                   # Zustand-сторы: auth, articles, stats
+│   │   └── types/                    # TypeScript-типы и интерфейсы API
+├── tests/                            # Автоматические тесты
+│   ├── integration/                  # Интеграционные тесты (HTTP + БД + внешние клиенты)
+│   └── unit/                         # Юнит-тесты (изолированная бизнес-логика)
+├── .github/
+│   └── workflows/                    # GitHub Actions: тесты, линтеры, coverage, сидер
+├── .coveragerc                       # Конфигурация coverage.py
+├── .dockerignore                     # Исключения для Docker-контекста
+├── .env.example                      # Шаблон переменных окружения
+├── .gitignore                        # Правила исключения файлов из Git
+├── .importlinter                     # Конфигурация import-linter (контроль архитектурных зависимостей)
+├── alembic.ini                       # Настройки Alembic (строка подключения к БД)
+├── docker-compose.yml                # Docker Compose для локальной разработки
+├── Dockerfile                        # Docker-образ FastAPI-приложения
+├── entrypoint.sh                     # Точка входа контейнера: миграции + запуск uvicorn
+├── pyproject.toml                    # Настройки инструментов: ruff, mypy, import-linter
+├── pytest.ini                        # Конфигурация pytest
+├── requirements.txt                  # Python-зависимости
+├── README.md                         # Документация проекта (английская версия)
+└── README.ru.md                      # Документация проекта (русская версия)
 ```
 
 > Важно: в актуальной ветке backend располагается в каталоге `app/`, а не в `backend/app/`. Frontend располагается в `frontend/`.
