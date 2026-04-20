@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_db_session
 from app.infrastructure.postgres_article_repo import PostgresArticleRepository
+from app.infrastructure.postgres_search_history_repo import PostgresSearchHistoryRepository
 from app.infrastructure.scopus_client import ScopusHTTPClient
 from app.interfaces.search_client import ISearchClient
 from app.models.user import User
@@ -16,7 +17,9 @@ from app.schemas.article_schemas import (
     StatsResponse,
     CountByField,
 )
+from app.schemas.search_history_schemas import QuotaResponse, SearchHistoryResponse
 from app.services.article_service import ArticleService
+from app.services.search_history_service import SearchHistoryService
 from app.services.search_service import SearchService
 
 router = APIRouter(prefix="/articles", tags=["Articles"])
@@ -39,6 +42,14 @@ def get_search_service(
 ) -> SearchService:
     repo = PostgresArticleRepository(session)
     return SearchService(search_client=scopus_client, article_repo=repo)
+
+
+def get_search_history_service(
+    session: AsyncSession = Depends(get_db_session),
+) -> SearchHistoryService:
+    # Фабрика зависимости: создаем репозиторий и сервис за жизнью одного HTTP-запроса
+    repo = PostgresSearchHistoryRepository(session)
+    return SearchHistoryService(history_repo=repo)
 
 
 @router.get("/stats", response_model=StatsResponse, tags=["Analytics"])
@@ -71,7 +82,7 @@ async def get_articles(
     ),
     search: str | None = Query(
         None, min_length=2,
-        description="Fulltext-поиск по названию и первому автору (ILIKE, без учёта регистра)",
+        description="Fulltext-поиск по названию и первому автору (ILIKE, без учета регистра)",
     ),
     service: ArticleService = Depends(get_article_service),
 ) -> PaginatedArticleResponse:
@@ -122,6 +133,27 @@ async def find_articles(
             response.headers["X-RateLimit-Reset"] = sc.last_rate_reset
 
     return [ArticleResponse.model_validate(a) for a in articles]
+
+
+@router.get("/history", response_model=SearchHistoryResponse)
+async def get_search_history(
+    n: int = Query(100, ge=1, le=100, description="Количество последних записей истории"),
+    service: SearchHistoryService = Depends(get_search_history_service),
+    current_user: User = Depends(get_current_user),
+) -> SearchHistoryResponse:
+    # Приватный эндпоинт: возвращает последние n записей истории текущего пользователя
+    # Зарегистрирован строго до /{article_id} — 'history' не должно матчиться как int
+    return await service.get_history(current_user.id, n)
+
+
+@router.get("/find/quota", response_model=QuotaResponse)
+async def get_find_quota(
+    service: SearchHistoryService = Depends(get_search_history_service),
+    current_user: User = Depends(get_current_user),
+) -> QuotaResponse:
+    # Приватный эндпоинт: состояние недельной квоты текущего пользователя
+    # /find/quota зарегистрирован до /{article_id}: литеральный путь всегда прецедентнее catch-all
+    return await service.get_quota(current_user.id)
 
 
 @router.get("/{article_id}", response_model=ArticleResponse)
