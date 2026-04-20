@@ -1396,6 +1396,12 @@ Test matrix (см. тех-спек v4, §4.1, Commit 2):
   живет ровно одну тест-функцию. Async-фикстуры scope="module" требуют loop,
   переживающий весь модуль → ScopeMismatch на каждом тесте при setup.
   Решение: используем conftest.py-фикстуры (scope="function") без изменений.
+
+Почему pg_* фикстуры:
+  JSONB-поле filters (SearchHistory.filters) поддерживается только PostgreSQL.
+  SQLite не умеет JSONB → тесты с реальными INSERT/SELECT по этой модели
+  требуют настоящего PostgreSQL. Фикстуры pg_* поднимаются только если
+  DATABASE_TEST_URL задан (CI: GitHub Actions postgres service; локально: docker).
 """
 import datetime
 from datetime import timezone, timedelta
@@ -1410,39 +1416,48 @@ async def _insert_history_rows(session: AsyncSession, user_id: int, n: int, base
     """Вставляет n строк SearchHistory для user_id через ORM-сессию conftest."""
 
 @pytest.mark.asyncio
-async def test_history_requires_auth(client: AsyncClient):
+@pytest.mark.requires_pg
+async def test_history_requires_auth(pg_client: AsyncClient):
     """GET /articles/history без токена → 401."""
 
 @pytest.mark.asyncio
-async def test_history_returns_only_current_user_rows(client: AsyncClient, db_session: AsyncSession, logged_in: dict):
+@pytest.mark.requires_pg
+async def test_history_returns_only_current_user_rows(pg_client: AsyncClient, pg_session: AsyncSession, pg_logged_in: dict):
     """GET /articles/history возвращает только строки текущего пользователя."""
 
 @pytest.mark.asyncio
-async def test_history_limited_to_100_rows(client: AsyncClient, db_session: AsyncSession, logged_in: dict):
+@pytest.mark.requires_pg
+async def test_history_limited_to_100_rows(pg_client: AsyncClient, pg_session: AsyncSession, pg_logged_in: dict):
     """GET /articles/history возвращает не более 100 строк, даже если в БД больше."""
 
 @pytest.mark.asyncio
-async def test_history_ordered_desc(client: AsyncClient, db_session: AsyncSession, logged_in: dict):
+@pytest.mark.requires_pg
+async def test_history_ordered_desc(pg_client: AsyncClient, pg_session: AsyncSession, pg_logged_in: dict):
     """GET /articles/history возвращает строки в порядке created_at DESC."""
 
 @pytest.mark.asyncio
-async def test_history_response_schema(client: AsyncClient, db_session: AsyncSession, logged_in: dict):
+@pytest.mark.requires_pg
+async def test_history_response_schema(pg_client: AsyncClient, pg_session: AsyncSession, pg_logged_in: dict):
     """Схема ответа содержит id, query, created_at, result_count, filters."""
 
 @pytest.mark.asyncio
-async def test_quota_requires_auth(client: AsyncClient):
+@pytest.mark.requires_pg
+async def test_quota_requires_auth(pg_client: AsyncClient):
     """GET /articles/find/quota без токена → 401."""
 
 @pytest.mark.asyncio
-async def test_quota_response_fields(client: AsyncClient, db_session: AsyncSession, logged_in: dict):
+@pytest.mark.requires_pg
+async def test_quota_response_fields(pg_client: AsyncClient, pg_session: AsyncSession, pg_logged_in: dict):
     """GET /articles/find/quota возвращает limit, used, remaining, reset_at, window_days."""
 
 @pytest.mark.asyncio
-async def test_quota_used_counts_only_window(client: AsyncClient, db_session: AsyncSession, logged_in: dict):
+@pytest.mark.requires_pg
+async def test_quota_used_counts_only_window(pg_client: AsyncClient, pg_session: AsyncSession, pg_logged_in: dict):
     """used включает только строки из скользящего 7-дневного окна; более старые не считаются."""
 
 @pytest.mark.asyncio
-async def test_history_route_does_not_match_article_id(client: AsyncClient, logged_in: dict):
+@pytest.mark.requires_pg
+async def test_history_route_does_not_match_article_id(pg_client: AsyncClient, pg_logged_in: dict):
     """'history' и 'find' не матчатся как int-сегмент /{article_id} → не 422."""
 
 ============================================================

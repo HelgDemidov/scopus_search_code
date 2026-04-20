@@ -16,6 +16,12 @@ Test matrix (см. тех-спек v4, §4.1, Commit 2):
   живет ровно одну тест-функцию. Async-фикстуры scope="module" требуют loop,
   переживающий весь модуль → ScopeMismatch на каждом тесте при setup.
   Решение: используем conftest.py-фикстуры (scope="function") без изменений.
+
+Почему pg_* фикстуры:
+  JSONB-поле filters (SearchHistory.filters) поддерживается только PostgreSQL.
+  SQLite не умеет JSONB → тесты с реальными INSERT/SELECT по этой модели
+  требуют настоящего PostgreSQL. Фикстуры pg_* поднимаются только если
+  DATABASE_TEST_URL задан (CI: GitHub Actions postgres service; локально: docker).
 """
 
 import datetime
@@ -64,29 +70,31 @@ async def _insert_history_rows(
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_history_requires_auth(client: AsyncClient):
+@pytest.mark.requires_pg
+async def test_history_requires_auth(pg_client: AsyncClient):
     """GET /articles/history без токена → 401."""
-    resp = await client.get("/articles/history")
+    resp = await pg_client.get("/articles/history")
     assert resp.status_code == 401
 
 
 @pytest.mark.asyncio
+@pytest.mark.requires_pg
 async def test_history_returns_only_current_user_rows(
-    client: AsyncClient,
-    db_session: AsyncSession,
-    logged_in: dict,
+    pg_client: AsyncClient,
+    pg_session: AsyncSession,
+    pg_logged_in: dict,
 ):
     """GET /articles/history возвращает только строки текущего пользователя."""
-    token = logged_in["access_token"]
+    token = pg_logged_in["access_token"]
     auth_headers = {"Authorization": f"Bearer {token}"}
 
     # Получаем user_id основного пользователя через /users/me
-    me_resp = await client.get("/users/me", headers=auth_headers)
+    me_resp = await pg_client.get("/users/me", headers=auth_headers)
     assert me_resp.status_code == 200
     user_id = me_resp.json()["id"]
 
     # Регистрируем второго пользователя через HTTP
-    reg_resp = await client.post("/users/register", json={
+    reg_resp = await pg_client.post("/users/register", json={
         "username": "other_hist",
         "email": "other_hist@example.com",
         "password": "Str0ngPass!",
@@ -95,21 +103,21 @@ async def test_history_returns_only_current_user_rows(
     assert reg_resp.status_code == 201
 
     # Получаем user_id второго пользователя через SELECT в той же сессии
-    res = await db_session.execute(
+    res = await pg_session.execute(
         select(User).where(User.username == "other_hist")
     )
     other_user = res.scalar_one()
 
     # Вставляем по 2 строки истории на каждого пользователя
-    await _insert_history_rows(db_session, user_id, 2)
-    await _insert_history_rows(db_session, other_user.id, 2)
+    await _insert_history_rows(pg_session, user_id, 2)
+    await _insert_history_rows(pg_session, other_user.id, 2)
 
-    resp = await client.get("/articles/history", headers=auth_headers)
+    resp = await pg_client.get("/articles/history", headers=auth_headers)
     assert resp.status_code == 200
     body = resp.json()
 
     # Собираем id строк other_user из БД
-    other_rows = await db_session.execute(
+    other_rows = await pg_session.execute(
         select(SearchHistory.id).where(SearchHistory.user_id == other_user.id)
     )
     other_ids = {row[0] for row in other_rows.fetchall()}
@@ -120,21 +128,22 @@ async def test_history_returns_only_current_user_rows(
 
 
 @pytest.mark.asyncio
+@pytest.mark.requires_pg
 async def test_history_limited_to_100_rows(
-    client: AsyncClient,
-    db_session: AsyncSession,
-    logged_in: dict,
+    pg_client: AsyncClient,
+    pg_session: AsyncSession,
+    pg_logged_in: dict,
 ):
     """GET /articles/history возвращает не более 100 строк, даже если в БД больше."""
-    token = logged_in["access_token"]
+    token = pg_logged_in["access_token"]
     auth_headers = {"Authorization": f"Bearer {token}"}
 
-    me_resp = await client.get("/users/me", headers=auth_headers)
+    me_resp = await pg_client.get("/users/me", headers=auth_headers)
     user_id = me_resp.json()["id"]
 
-    await _insert_history_rows(db_session, user_id, 110)
+    await _insert_history_rows(pg_session, user_id, 110)
 
-    resp = await client.get("/articles/history", headers=auth_headers)
+    resp = await pg_client.get("/articles/history", headers=auth_headers)
     assert resp.status_code == 200
     body = resp.json()
     assert body["total"] <= 100
@@ -142,21 +151,22 @@ async def test_history_limited_to_100_rows(
 
 
 @pytest.mark.asyncio
+@pytest.mark.requires_pg
 async def test_history_ordered_desc(
-    client: AsyncClient,
-    db_session: AsyncSession,
-    logged_in: dict,
+    pg_client: AsyncClient,
+    pg_session: AsyncSession,
+    pg_logged_in: dict,
 ):
     """GET /articles/history возвращает строки в порядке created_at DESC."""
-    token = logged_in["access_token"]
+    token = pg_logged_in["access_token"]
     auth_headers = {"Authorization": f"Bearer {token}"}
 
-    me_resp = await client.get("/users/me", headers=auth_headers)
+    me_resp = await pg_client.get("/users/me", headers=auth_headers)
     user_id = me_resp.json()["id"]
 
-    await _insert_history_rows(db_session, user_id, 5)
+    await _insert_history_rows(pg_session, user_id, 5)
 
-    resp = await client.get("/articles/history", headers=auth_headers)
+    resp = await pg_client.get("/articles/history", headers=auth_headers)
     assert resp.status_code == 200
     items = resp.json()["items"]
     created_ats = [item["created_at"] for item in items]
@@ -169,21 +179,22 @@ async def test_history_ordered_desc(
 
 
 @pytest.mark.asyncio
+@pytest.mark.requires_pg
 async def test_history_response_schema(
-    client: AsyncClient,
-    db_session: AsyncSession,
-    logged_in: dict,
+    pg_client: AsyncClient,
+    pg_session: AsyncSession,
+    pg_logged_in: dict,
 ):
     """Схема ответа содержит id, query, created_at, result_count, filters."""
-    token = logged_in["access_token"]
+    token = pg_logged_in["access_token"]
     auth_headers = {"Authorization": f"Bearer {token}"}
 
-    me_resp = await client.get("/users/me", headers=auth_headers)
+    me_resp = await pg_client.get("/users/me", headers=auth_headers)
     user_id = me_resp.json()["id"]
 
-    await _insert_history_rows(db_session, user_id, 1)
+    await _insert_history_rows(pg_session, user_id, 1)
 
-    resp = await client.get("/articles/history", headers=auth_headers)
+    resp = await pg_client.get("/articles/history", headers=auth_headers)
     assert resp.status_code == 200
     items = resp.json()["items"]
     assert len(items) >= 1
@@ -197,28 +208,30 @@ async def test_history_response_schema(
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_quota_requires_auth(client: AsyncClient):
+@pytest.mark.requires_pg
+async def test_quota_requires_auth(pg_client: AsyncClient):
     """GET /articles/find/quota без токена → 401."""
-    resp = await client.get("/articles/find/quota")
+    resp = await pg_client.get("/articles/find/quota")
     assert resp.status_code == 401
 
 
 @pytest.mark.asyncio
+@pytest.mark.requires_pg
 async def test_quota_response_fields(
-    client: AsyncClient,
-    db_session: AsyncSession,
-    logged_in: dict,
+    pg_client: AsyncClient,
+    pg_session: AsyncSession,
+    pg_logged_in: dict,
 ):
     """GET /articles/find/quota возвращает limit, used, remaining, reset_at, window_days."""
-    token = logged_in["access_token"]
+    token = pg_logged_in["access_token"]
     auth_headers = {"Authorization": f"Bearer {token}"}
 
-    me_resp = await client.get("/users/me", headers=auth_headers)
+    me_resp = await pg_client.get("/users/me", headers=auth_headers)
     user_id = me_resp.json()["id"]
 
-    await _insert_history_rows(db_session, user_id, 3)
+    await _insert_history_rows(pg_session, user_id, 3)
 
-    resp = await client.get("/articles/find/quota", headers=auth_headers)
+    resp = await pg_client.get("/articles/find/quota", headers=auth_headers)
     assert resp.status_code == 200
     body = resp.json()
 
@@ -232,30 +245,31 @@ async def test_quota_response_fields(
 
 
 @pytest.mark.asyncio
+@pytest.mark.requires_pg
 async def test_quota_used_counts_only_window(
-    client: AsyncClient,
-    db_session: AsyncSession,
-    logged_in: dict,
+    pg_client: AsyncClient,
+    pg_session: AsyncSession,
+    pg_logged_in: dict,
 ):
     """used включает только строки из скользящего 7-дневного окна; более старые не считаются."""
-    token = logged_in["access_token"]
+    token = pg_logged_in["access_token"]
     auth_headers = {"Authorization": f"Bearer {token}"}
 
-    me_resp = await client.get("/users/me", headers=auth_headers)
+    me_resp = await pg_client.get("/users/me", headers=auth_headers)
     user_id = me_resp.json()["id"]
 
     # 5 строк с датой за пределами окна (8 дней назад)
     old_time = datetime.datetime.now(tz=timezone.utc) - timedelta(days=8)
-    await _insert_history_rows(db_session, user_id, 5, base_time=old_time)
+    await _insert_history_rows(pg_session, user_id, 5, base_time=old_time)
 
-    resp_before = await client.get("/articles/find/quota", headers=auth_headers)
+    resp_before = await pg_client.get("/articles/find/quota", headers=auth_headers)
     used_before = resp_before.json()["used"]
 
     # 2 свежих строки внутри окна
     fresh_time = datetime.datetime.now(tz=timezone.utc)
-    await _insert_history_rows(db_session, user_id, 2, base_time=fresh_time)
+    await _insert_history_rows(pg_session, user_id, 2, base_time=fresh_time)
 
-    resp_after = await client.get("/articles/find/quota", headers=auth_headers)
+    resp_after = await pg_client.get("/articles/find/quota", headers=auth_headers)
     used_after = resp_after.json()["used"]
 
     # Счетчик должен вырасти ровно на 2, а не на 7
@@ -270,20 +284,21 @@ async def test_quota_used_counts_only_window(
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
+@pytest.mark.requires_pg
 async def test_history_route_does_not_match_article_id(
-    client: AsyncClient,
-    logged_in: dict,
+    pg_client: AsyncClient,
+    pg_logged_in: dict,
 ):
     """'history' и 'find' не матчатся как int-сегмент /{article_id} → не 422."""
-    auth_headers = {"Authorization": f"Bearer {logged_in['access_token']}"}
+    auth_headers = {"Authorization": f"Bearer {pg_logged_in['access_token']}"}
 
     # Если /history заматчился бы как /{article_id}, было бы 422 (int validation error)
-    resp = await client.get("/articles/history", headers=auth_headers)
+    resp = await pg_client.get("/articles/history", headers=auth_headers)
     assert resp.status_code != 422, (
         "'history' матчится как int article_id — нарушен порядок роутов"
     )
 
-    resp2 = await client.get("/articles/find/quota", headers=auth_headers)
+    resp2 = await pg_client.get("/articles/find/quota", headers=auth_headers)
     assert resp2.status_code != 422, (
         "'find' матчится как int article_id — нарушен порядок роутов"
     )

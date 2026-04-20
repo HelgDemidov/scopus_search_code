@@ -15,45 +15,90 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
- # Выбираем ОС для виртуальной машины
 jobs:
+  # ---------------------------------------------------------------------------
+  # Джоб 1: существующий — SQLite, быстрый, без внешних зависимостей
+  # ---------------------------------------------------------------------------
   test:
     runs-on: ubuntu-latest
 
-# Задаем переменные окружения-заглушки для Pydantic Settings, чтобы приложение могло собраться в тестовом режиме
     env:
       SCOPUS_API_KEY: "dummy_key_for_tests"
-      # DB_HOST: "localhost" (отключено в связи с миграцией на Supabase)
-      # DB_PORT: 5432
-      # DB_USER: "postgres"
-      # DB_PASSWORD: "password"
-      # DB_NAME: "test_db"
       SECRET_KEY: "supersecretkey_for_ci_tests_only"
       ALGORITHM: "HS256"
       ACCESS_TOKEN_EXPIRE_MINUTES: 30
-      DATABASE_URL: "postgresql+asyncpg://user:pass@localhost:5432/testdb" # Добавляем для Supabase
+      DATABASE_URL: "postgresql+asyncpg://user:pass@localhost:5432/testdb"
 
     steps:
-    # 1. Скачиваем код из репозитория на виртуальную машину
-    - name: Checkout repository
-      uses: actions/checkout@v4.2.2
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
 
-    # 2. Устанавливаем Python 3.12
-    - name: set up Python 3.12
-      uses: actions/setup-python@v5.6.0
-      with:
-        python-version: "3.12"
-        # Кэшируем pip-пакеты для ускорения следующих прогонов
-        cache: pip
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.6.0
+        with:
+          python-version: "3.12"
+          cache: pip
 
-    # 3. Устанавливаем зависимости из requirements.txt
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest pytest-asyncio aiosqlite httpx
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio aiosqlite httpx
 
-    # 4. Запускаем Pytest c целевым покрытием в 80%
-    - name: Run Pytest with Coverage
-      run: |
-        python -m pytest tests -vv --cov=app --cov-report=term-missing --cov-fail-under=75
+      # Исключаем requires_pg — они требуют реальный PostgreSQL, которого здесь нет
+      - name: Run Pytest with Coverage
+        run: |
+          python -m pytest tests -vv --cov=app --cov-report=term-missing --cov-fail-under=75 -m "not requires_pg"
+
+  # ---------------------------------------------------------------------------
+  # Джоб 2: новый — PostgreSQL 16 in-process, полная изоляция
+  # ---------------------------------------------------------------------------
+  test-pg:
+    runs-on: ubuntu-latest
+
+    # GitHub поднимает этот контейнер рядом с VM, убивает его после джоба
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      SCOPUS_API_KEY: "dummy_key_for_tests"
+      SECRET_KEY: "supersecretkey_for_ci_tests_only"
+      ALGORITHM: "HS256"
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      # DATABASE_URL нужен Pydantic Settings при старте приложения
+      DATABASE_URL: "postgresql+asyncpg://testuser:testpass@localhost:5432/testdb"
+      # DATABASE_TEST_URL читается conftest.py — включает pg_* фикстуры
+      DATABASE_TEST_URL: "postgresql+asyncpg://testuser:testpass@localhost:5432/testdb"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.6.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx
+
+      # Запускаем только тесты с маркером requires_pg
+      - name: Run PostgreSQL integration tests
+        run: |
+          python -m pytest tests/integration/test_search_history_api.py -vv -m requires_pg
