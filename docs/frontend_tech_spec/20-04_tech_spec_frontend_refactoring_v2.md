@@ -1,4 +1,4 @@
-# Product Refactor: Technical Specification, Risk Analysis, and Commit Plan
+# Product Refactor: Technical Specification, Risk Analysis, and Commit Plan v2
 
 Branch: `search-refactoring` of `https://github.com/HelgDemidov/scopus_search_code`
 Authoritative source of truth: `README.md` on this branch.
@@ -26,7 +26,7 @@ Authoritative source of truth: `README.md` on this branch.
 - `frontend/src/pages/HomePage.tsx`:
   - Unauthenticated branch (`AnonHero` + `ArticleList`): keep the existing call path that hits `GET /articles/` via `useArticleStore.fetchArticles` (already the case — `handleSearch` only calls `getSearchStats` for authenticated users). Do NOT call `/articles/find`.
   - Add a non-dismissable banner directly under `SearchBar` in the anonymous branch:
-    > «Поиск по тематической коллекции "Artificial Intelligence and Neural Network Technologies". Для живого поиска по Scopus [авторизуйтесь](/auth) или перейдите в [Explore](/explore).»
+    > «Поиск без авторизации осуществляется по статьям тематической коллекции «Artificial Intelligence and Neural Network Technologies». Для поиска по глобальной базе Scopus пройдите [авторизацию](/auth)»
   - Add a permanent, non-dismissable banner directly under the authenticated `SearchBar` with the exact text:
     > «Выдача результатов поиска по живой базе Scopus ограничена 25 статьями за 1 запрос»
 - New Axios function `getScopusQuota()` in `frontend/src/api/articles.ts` hitting `GET /articles/find/quota`.
@@ -35,7 +35,7 @@ Authoritative source of truth: `README.md` on this branch.
 
 **Acceptance criteria.**
 
-- Anonymous user performing a search on `/` receives results only from the local DB; `ArticleList` populates; no Scopus call is issued.
+- Anonymous user performing a search on `/` receives results only from the local DB; `ArticleList` populates; no Scopus call is issued; the banner text is exactly: «Поиск без авторизации осуществляется по статьям тематической коллекции «Artificial Intelligence and Neural Network Technologies». Для поиска по глобальной базе Scopus пройдите [авторизацию](/auth)».
 - Authenticated user sees the exact banner text quoted above, cannot dismiss it.
 - 201st request within 7 days returns HTTP 429; frontend surfaces a toast via the existing `Toaster` in `App.tsx`.
 - `GET /articles/find/quota` returns monotonically-correct counters under concurrent requests (verified by integration test).
@@ -74,6 +74,8 @@ Authoritative source of truth: `README.md` on this branch.
 
 **Goal.** Remove the left filter panel from `/` and expose filters only in `/profile`, where they operate over personal search history (not the full DB).
 
+**Decision:** Anonymous users on `/` have no filter panel. Search over the local thematic collection is full-text keyword search only (via the existing `search` query parameter on `GET /articles/`). Filtering is a profile-only, authenticated feature scoped to personal search history. If this decision is unacceptable to the product owner, treat it as an open product question before implementation.
+
 **Frontend changes.**
 
 - `frontend/src/pages/HomePage.tsx`:
@@ -103,7 +105,7 @@ Authoritative source of truth: `README.md` on this branch.
   > «Вы просматриваете аналитику по тематической коллекции "Artificial Intelligence and Neural Network Technologies". Авторизуйтесь, чтобы видеть аналитику по своим запросам.»
 - Authenticated users: add a `ToggleGroup` at the top: «Коллекция» | «Мои поиски». Default = Коллекция.
   - `?mode=personal` preselects «Мои поиски». Read via `useSearchParams` from `react-router-dom`.
-  - «Мои поиски» renders the same four chart components but sourced from a new `useHistoryStatsStore` that aggregates `GET /articles/history` (client-side) or a future `GET /articles/history/stats` endpoint.
+  - «Мои поиски» renders the same four chart components but sources data from selectors/derived functions inside `useHistoryStore`, which aggregate the existing `GET /articles/history` payload client-side into `by_year`, `by_doc_type`, `by_country`, and `by_journal`.
 - `KpiCard` labels stay the same; only the numbers change per mode.
 
 **Acceptance criteria.**
@@ -160,7 +162,7 @@ Authoritative source of truth: `README.md` on this branch.
 
 | Risk | Affected files | Current state / friction | Level | Mitigation |
 |---|---|---|---|---|
-| PostgreSQL-only rate limiting: TOCTOU race under concurrent `/articles/find` | `app/routers/articles.py::find_articles`, new `PostgresSearchHistoryRepository` | No Redis in stack (README lists PG 16/Supabase only). Naive `SELECT count(...) → INSERT` pattern lets two concurrent requests both read 199 and insert row 200 and 201. | **High** | Do the count and insert in a single SQL transaction with `SERIALIZABLE` isolation, OR wrap as a SQL function, OR use an advisory lock per-`user_id` (`pg_advisory_xact_lock(hashtext('quota:' || user_id))`). Add an integration test with 10 parallel requests. |
+| PostgreSQL-only rate limiting: TOCTOU race under concurrent `/articles/find` | `app/routers/articles.py::find_articles`, new `PostgresSearchHistoryRepository` | No Redis in stack (README lists PG 16/Supabase only). Naive `SELECT count(...) → INSERT` pattern lets two concurrent requests both read 199 and insert row 200 and 201. | **High** | Use `pg_advisory_xact_lock(user_id)` as the primary implementation choice around the quota check + history insert. Session Pooler is used for the FastAPI app, making advisory locks safe; `SERIALIZABLE` isolation is not chosen because it risks incompatibility with pooler connection reuse. Add an integration test with 10 parallel requests. |
 | Banner text regression via i18n/minifier | `HomePage.tsx` | Banner text is spec-critical ("Выдача результатов поиска по живой базе Scopus ограничена 25 статьями за 1 запрос") | Low | Snapshot test / Playwright assertion for exact string. |
 | Scopus quota headers already forwarded by `find_articles` (lines 116–122) may confuse users vs. per-user quota | `ScopusQuotaBadge.tsx`, new `LiveSearchQuotaCounter` | Two quota concepts collide | Medium | Keep `ScopusQuotaBadge` only in dev mode OR relabel it clearly (e.g. «Scopus API»); add `LiveSearchQuotaCounter` on `ProfilePage` labeled «Ваш недельный лимит». |
 | Anon search must not reach Scopus | `HomePage.tsx::handleSearch` | Already correct — only `getSearchStats` is gated on `isAuthenticated`; list fetch uses `articleStore.fetchArticles` → `GET /articles/` | Low | Add unit test asserting no `/articles/find` call while `isAuthenticated=false`. |
@@ -217,11 +219,11 @@ Conventional commits, 8 milestones, ordered by dependency.
 
 - **Affected files:**
   - new `app/models/search_history.py`
-  - `app/models/base.py` (import registration if explicit)
+  - `alembic/env.py` (model import registration for Alembic autogenerate)
   - new `alembic/versions/<rev>_add_search_history.py`
   - new `app/infrastructure/postgres_search_history_repo.py`
   - new `app/interfaces/search_history_repo.py`
-- **What & why:** Create the `search_history` table with `(user_id, query, created_at, result_count, filters)` and the repository abstraction. Both search history (§1.2) and quota counting (§1.1) depend on this row source, so it ships first. README explicitly confirms the table does not exist yet.
+- **What & why:** Create the `search_history` table with `(user_id, query, created_at, result_count, filters)` and the repository abstraction. Both search history (§1.2) and quota counting (§1.1) depend on this row source, so it ships first. README explicitly confirms the table does not exist yet. Add `from app.models.search_history import SearchHistory  # noqa: F401` to `alembic/env.py`, because Alembic currently imports ORM models directly there before assigning `target_metadata = Base.metadata`.
 - **Effort:** **4h** (model + migration + repo + happy-path test).
 - **Dependencies:** none.
 
@@ -232,7 +234,7 @@ Conventional commits, 8 milestones, ordered by dependency.
   - new `app/schemas/search_history_schemas.py` (`SearchHistoryResponse`, `QuotaResponse`)
   - new `app/services/search_history_service.py`
   - `tests/integration/test_articles.py`
-- **What & why:** Expose history read and quota read. Quota math must use a rolling 7-day window keyed off `search_history.created_at`.
+- **What & why:** Expose history read and quota read. Quota math must use a rolling 7-day window keyed off `search_history.created_at`. Register `GET /articles/history` and `GET /articles/find/quota` above `GET /{article_id}` in `app/routers/articles.py` to avoid route shadowing.
 - **Effort:** **5h**.
 - **Dependencies:** Commit 1.
 
@@ -240,10 +242,11 @@ Conventional commits, 8 milestones, ordered by dependency.
 
 - **Affected files:**
   - `app/routers/articles.py::find_articles` (inject quota check)
+  - `app/services/search_service.py` (inject `SearchHistoryRepository`, wrap article-save + history-insert in one transaction)
   - `app/services/search_service.py::SearchService.find_and_save` (insert `search_history` row on success, inside same tx)
   - `tests/integration/test_find_articles.py` (concurrent-request test, 429 test)
 - **What & why:** Enforce 200 req / 7 days per user; atomically record each call. This closes §1.1 on the backend. The endpoint is already private (`Depends(get_current_user)`) and already capped at `count ≤ 25`; this commit only adds the rolling counter and the history insert.
-- **Effort:** **6h** (includes SERIALIZABLE/advisory-lock race test).
+- **Effort:** **6h** (includes advisory-lock concurrency/race test).
 - **Dependencies:** Commits 1, 2.
 
 ### Commit 4 — `feat(frontend): global navbar — RU labels and Profile link`
@@ -282,9 +285,9 @@ Conventional commits, 8 milestones, ordered by dependency.
 
 - **Affected files:**
   - `frontend/src/pages/ExplorePage.tsx` (add `ToggleGroup`, read `?mode=`)
-  - new `frontend/src/stores/historyStatsStore.ts` (derives chart data from `historyStore`)
+  - `frontend/src/stores/historyStore.ts` (add selectors/derived functions for `by_year`, `by_doc_type`, `by_country`, `by_journal`)
   - translate anon CTA to reference the thematic collection
-- **What & why:** Implements §1.4. Anon behavior unchanged (still `GET /articles/stats` via `useStatsStore`). Auth toggle defaults to Коллекция; `?mode=personal` preselects personal. No new backend endpoint — aggregation is client-side over ≤100 rows.
+- **What & why:** Implements §1.4. Anon behavior unchanged (still `GET /articles/stats` via `useStatsStore`). Auth toggle defaults to Коллекция; `?mode=personal` preselects personal. No new backend endpoint and no duplicated stats store — `ExplorePage.tsx` reads personal chart aggregates directly from `historyStore` selectors derived client-side over ≤100 rows.
 - **Effort:** **5h**.
 - **Dependencies:** Commit 6 (for `historyStore`).
 
@@ -337,8 +340,8 @@ Conventional commits, 8 milestones, ordered by dependency.
 
 **Uncertain assumptions flagged for review:**
 
-1. *SERIALIZABLE isolation is available on Supabase pooled connections.* If Transaction Pooler strips session-level `SET`, fall back to `pg_advisory_xact_lock` for quota enforcement.
+1. *Advisory-lock implementation details must be validated against the deployed pooler mode.* The FastAPI app uses Session Pooler, so `pg_advisory_xact_lock(user_id)` is the primary quota-concurrency mechanism; do not rely on `SERIALIZABLE` session settings for this feature.
 2. *Client-side aggregation over ≤100 history rows is acceptable* for §1.4 personal analytics. If the product later raises the 100-row ceiling, add `GET /articles/history/stats` (deferred).
-3. *No existing `/articles/history*` route collides* — `/articles/find/quota` and `/articles/history` were chosen to stay under the existing `router = APIRouter(prefix="/articles")`; verify no slug conflict with the `/{article_id}` catch-all (it is registered last in `articles.py`, so new literal paths take precedence — confirmed safe).
+3. *No existing `/articles/history*` route collides* — `/articles/find/quota` and `/articles/history` were chosen to stay under the existing `router = APIRouter(prefix="/articles")`; verify no slug conflict with the `/{article_id}` catch-all by registering new literal paths before `GET /{article_id}` in `articles.py`, because FastAPI route priority follows registration order. The current `/{article_id}` route is last, so this is confirmed safe as long as the new literal routes are inserted above it.
 4. *README's "UI text not unified" item* is the only indication that global language work remains. The README does not explicitly say "no shared navbar" — inspection shows a `RootLayout`+`Header` already exist, so §1.5 is de-scoped from "add shared layout" to "relabel + add nav link."
 5. *No existing tests assert English copy strings*; if `tests/integration` or frontend tests do, Commit 8 must also update them.
