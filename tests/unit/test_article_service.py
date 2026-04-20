@@ -34,7 +34,13 @@ class FakeArticleRepository(IArticleRepository):
         # Для этого теста сохранение не нужно, просто ставим заглушку
         pass
 
-    async def get_all(self, limit: int, offset: int, keyword: str | None = None) -> List[Article]:
+    async def get_all(
+        self,
+        limit: int,
+        offset: int,
+        keyword: str | None = None,
+        search: str | None = None,  # выровнен с IArticleRepository
+    ) -> List[Article]:
         # Шпионская логика: запоминаем, с какими аргументами сервис вызвал метод базы
         self.last_limit_called = limit
         self.last_offset_called = offset
@@ -46,12 +52,27 @@ class FakeArticleRepository(IArticleRepository):
         # Заглушка: get_by_id не нужен для тестов пагинации
         return None
 
-    async def get_total_count(self, keyword: str | None = None) -> int:
+    async def get_total_count(
+        self,
+        keyword: str | None = None,
+        search: str | None = None,  # выровнен с IArticleRepository
+    ) -> int:
         return len(self.db_articles)
 
     async def get_stats(self) -> dict:
         # Заглушка: get_stats не нужен для тестов пагинации, возвращаем пустой dict
         return {}
+
+    async def get_search_stats(self, search: str) -> dict:
+        # Заглушка: get_search_stats не нужен для тестов пагинации
+        # Структура соответствует SearchStatsResponse из article_schemas.py
+        return {
+            "total": 0,
+            "by_year": [],
+            "by_journal": [],
+            "by_country": [],
+            "by_doc_type": [],
+        }
 
 
 # 2. Фикстура для подготовки сервиса
