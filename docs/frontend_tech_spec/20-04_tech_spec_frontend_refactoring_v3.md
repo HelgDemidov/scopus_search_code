@@ -1,4 +1,4 @@
-# Product Refactor: Technical Specification, Risk Analysis, and Commit Plan v2
+# Product Refactor: Technical Specification, Risk Analysis, and Commit Plan — v3
 
 Branch: `search-refactoring` of `https://github.com/HelgDemidov/scopus_search_code`
 Authoritative source of truth: `README.md` on this branch.
@@ -16,6 +16,8 @@ Authoritative source of truth: `README.md` on this branch.
 - Modify `find_articles` in `app/routers/articles.py` (`GET /articles/find`):
   - Keep the existing `Depends(get_current_user)` guard — README already confirms the endpoint is private.
   - Keep the existing cap `count: int = Query(25, ge=1, le=25, ...)` — this already enforces "25 articles per request"; no change required but it MUST be explicitly documented.
+  - Extend the endpoint signature with optional filter-capture query parameters: `year_from: int | None = Query(None)`, `year_to: int | None = Query(None)`, `doc_types: list[str] | None = Query(None)`, `open_access: bool | None = Query(None)`, and `country: list[str] | None = Query(None)`.
+  - Pass the five optional filter parameters through to `SearchService.find_and_save` and store them verbatim in `search_history.filters` as a JSON object. In v1 these filters do NOT need to alter the actual Scopus API query; live Scopus search remains `keyword`-only, while filters are captured for future analytics and history filtering.
   - Introduce a new per-user weekly quota: **200 requests / 7 rolling days**, enforced *before* calling `SearchService.find_and_save`. On breach return HTTP `429` with `detail="Недельный лимит поиска исчерпан"`.
 - New DB-backed rate limiter. Because the project README explicitly states Redis is not part of the stack (PostgreSQL 16 / Supabase only), the counter must live in PostgreSQL. Recommended approach: count rows in the new `search_history` table (see §1.2) where `user_id = :uid AND created_at >= now() - interval '7 days'`. Wrap the read+insert in a single transaction (or a SQL function) so concurrent `/articles/find` calls cannot both see "199 used" and each insert a 200th row.
 - New endpoint `GET /articles/find/quota` returning `{ "limit": 200, "used": <int>, "remaining": <int>, "reset_at": <iso8601> }` where `reset_at` is the timestamp of the oldest counted history row + 7 days (rolling window). Depends on `get_current_user`.
@@ -50,6 +52,7 @@ Authoritative source of truth: `README.md` on this branch.
 
 - New ORM model `app/models/search_history.py` (table `search_history`). README §"What Is Not Yet Implemented" confirms this table does NOT currently exist — migration is required.
   - Columns: `id SERIAL PK`, `user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE`, `query TEXT NOT NULL`, `created_at TIMESTAMPTZ NOT NULL DEFAULT now()`, `result_count INT NOT NULL`, `filters JSONB NOT NULL DEFAULT '{}'::jsonb`.
+  - `filters JSONB` stores the filter parameters submitted with the `/articles/find` request (`year_from`, `year_to`, `doc_types`, `open_access`, `country`), serialized as a JSON object. Default `{}` is valid only when no filters are submitted.
   - Indexes: `(user_id, created_at DESC)` to support both "last 100" and the rolling quota window.
 - New Alembic migration in `alembic/versions/` creating the table above.
 - Write into `search_history` inside `SearchService.find_and_save` (or inside `find_articles` after a successful call) on every successful `/articles/find`. The insert must include the user's `filters` payload and the count of articles actually returned.
@@ -86,6 +89,7 @@ Authoritative source of truth: `README.md` on this branch.
   - (b) add a new `GET /articles/history/stats` endpoint. Option (a) is preferred for the first iteration — avoids a second aggregation backend.
 - `frontend/src/pages/ProfilePage.tsx`: add an "Фильтры по моей истории" section that renders `<ArticleFilters />` and re-filters `SearchHistoryList` client-side.
 - `useArticleStore.filters` must be split: keep `search` / `keyword` for the home page, but move `{yearFrom, yearTo, docTypes, openAccessOnly, countries}` to a new `useHistoryStore` (or namespaced slice).
+- `articleStore.keyword` continues to serve both `GET /articles/` (local collection filter) and `GET /articles/find` (live Scopus search keyword) — these are intentionally the same field because in both cases it represents "what the user typed in SearchBar". The filter parameters (`yearFrom`, `yearTo`, etc.) are the only state migrated to `historyStore`; `keyword` is NOT split.
 
 **Acceptance criteria.**
 
@@ -162,7 +166,7 @@ Authoritative source of truth: `README.md` on this branch.
 
 | Risk | Affected files | Current state / friction | Level | Mitigation |
 |---|---|---|---|---|
-| PostgreSQL-only rate limiting: TOCTOU race under concurrent `/articles/find` | `app/routers/articles.py::find_articles`, new `PostgresSearchHistoryRepository` | No Redis in stack (README lists PG 16/Supabase only). Naive `SELECT count(...) → INSERT` pattern lets two concurrent requests both read 199 and insert row 200 and 201. | **High** | Use `pg_advisory_xact_lock(user_id)` as the primary implementation choice around the quota check + history insert. Session Pooler is used for the FastAPI app, making advisory locks safe; `SERIALIZABLE` isolation is not chosen because it risks incompatibility with pooler connection reuse. Add an integration test with 10 parallel requests. |
+| PostgreSQL-only rate limiting: TOCTOU race under concurrent `/articles/find` | `app/routers/articles.py::find_articles`, new `PostgresSearchHistoryRepository` | No Redis in stack (README lists PG 16/Supabase only). Naive `SELECT count(...) → INSERT` pattern lets two concurrent requests both read 199 and insert row 200 and 201. | **High** | Use `pg_advisory_xact_lock(user_id)` as the primary implementation choice around the quota check + history insert. Session Pooler is used for the FastAPI app, making advisory locks safe; `SERIALIZABLE` isolation is not chosen because it risks incompatibility with pooler connection reuse. Pass `user_id` as a Python `int` directly (not as a string) to `pg_advisory_xact_lock`; PostgreSQL auto-casts `INT → bigint` safely. Add an integration test with 10 parallel requests. |
 | Banner text regression via i18n/minifier | `HomePage.tsx` | Banner text is spec-critical ("Выдача результатов поиска по живой базе Scopus ограничена 25 статьями за 1 запрос") | Low | Snapshot test / Playwright assertion for exact string. |
 | Scopus quota headers already forwarded by `find_articles` (lines 116–122) may confuse users vs. per-user quota | `ScopusQuotaBadge.tsx`, new `LiveSearchQuotaCounter` | Two quota concepts collide | Medium | Keep `ScopusQuotaBadge` only in dev mode OR relabel it clearly (e.g. «Scopus API»); add `LiveSearchQuotaCounter` on `ProfilePage` labeled «Ваш недельный лимит». |
 | Anon search must not reach Scopus | `HomePage.tsx::handleSearch` | Already correct — only `getSearchStats` is gated on `isAuthenticated`; list fetch uses `articleStore.fetchArticles` → `GET /articles/` | Low | Add unit test asserting no `/articles/find` call while `isAuthenticated=false`. |
@@ -241,11 +245,13 @@ Conventional commits, 8 milestones, ordered by dependency.
 ### Commit 3 — `feat(api): auth-gated search routing and per-user weekly quota`
 
 - **Affected files:**
-  - `app/routers/articles.py::find_articles` (inject quota check)
-  - `app/services/search_service.py` (inject `SearchHistoryRepository`, wrap article-save + history-insert in one transaction)
-  - `app/services/search_service.py::SearchService.find_and_save` (insert `search_history` row on success, inside same tx)
+  - `app/routers/articles.py::find_articles` (inject quota check; add optional filter-capture query parameters)
+  - `app/schemas/article_schemas.py` (add `FindArticlesFilters` schema or equivalent inline-query plumbing for `year_from`, `year_to`, `doc_types`, `open_access`, `country`)
+  - `app/services/search_service.py` — inject `SearchHistoryRepository`; modify `find_and_save` to wrap article-save + history-insert in one DB transaction; insert `search_history` row (including filters payload) on every successful Scopus call.
   - `tests/integration/test_find_articles.py` (concurrent-request test, 429 test)
 - **What & why:** Enforce 200 req / 7 days per user; atomically record each call. This closes §1.1 on the backend. The endpoint is already private (`Depends(get_current_user)`) and already capped at `count ≤ 25`; this commit only adds the rolling counter and the history insert.
+- **Filter capture:** Extends `GET /articles/find` with five optional filter parameters (`year_from`, `year_to`, `doc_types`, `open_access`, `country`). These are not applied to the Scopus API query in v1 but are serialized and stored in `search_history.filters` on every successful call. This makes the `filters` column immediately meaningful for the §1.3 profile-page filter UX and §1.4 personal analytics.
+- **Advisory-lock comment placeholder:** `await session.execute(text('SELECT pg_advisory_xact_lock(:uid)'), {'uid': int(current_user.id)})`
 - **Effort:** **6h** (includes advisory-lock concurrency/race test).
 - **Dependencies:** Commits 1, 2.
 
@@ -263,7 +269,7 @@ Conventional commits, 8 milestones, ordered by dependency.
   - `frontend/src/pages/HomePage.tsx` (delete `ArticleFilters` sidebar, add two banners, translate `AnonHero` copy)
   - `frontend/src/components/search/SearchBar.tsx` (if copy)
   - `frontend/src/stores/articleStore.ts` (split filter slice, §1.3)
-- **What & why:** Implements §1.1 (banners) and §1.3 (remove left filter panel). Anon path already hits `GET /articles/` — confirmed in source — so no backend change needed for anon.
+- **What & why:** Implements §1.1 (banners) and §1.3 (remove left filter panel). Anon path already hits `GET /articles/` — confirmed in source — so no backend change needed for anon. `articleStore.keyword` continues to serve both `GET /articles/` (local collection filter) and `GET /articles/find` (live Scopus search keyword) — these are intentionally the same field because in both cases it represents "what the user typed in SearchBar". The filter parameters (`yearFrom`, `yearTo`, etc.) are the only state migrated to `historyStore`; `keyword` is NOT split.
 - **Effort:** **4h**.
 - **Dependencies:** Commit 4 (for consistent Header language). None on backend.
 
@@ -278,7 +284,7 @@ Conventional commits, 8 milestones, ordered by dependency.
   - `frontend/src/api/articles.ts` (add `getSearchHistory`, `getScopusQuota`)
   - `frontend/src/components/articles/ArticleFilters.tsx` (swap data source to `historyStore`)
 - **What & why:** Implements §1.2 (history) and §1.3 (filters moved here) and the live remaining counter from §1.1. Also adds the «Перейти в аналитику по моим поискам» link to `/explore?mode=personal`.
-- **Effort:** **8h**.
+- **Effort:** **10h** (realistic). 8h was optimistic; 10h includes integration wiring, manual testing, and first-pass bug fixes.
 - **Dependencies:** Commits 2 (history + quota APIs), 5 (filter slice split).
 
 ### Commit 7 — `feat(frontend): /explore dual-mode (collection vs personal)`
@@ -310,11 +316,56 @@ Conventional commits, 8 milestones, ordered by dependency.
 
 ### Summary
 
-- **Total effort:** **38 hours** (~5 working days at full focus; realistically 7–8 working days with review/testing).
+- **Total effort:** **40 hours** (~5 working days at full focus; realistically 7–8 working days with review/testing).
 - **Recommended sprint split (2 × 1-week sprints):**
   - **Sprint 1 — Backend + navbar:** Commits 1, 2, 3, 4. ~17h. Ships the data foundation and the lowest-risk frontend change.
-  - **Sprint 2 — Frontend refactor:** Commits 5, 6, 7, 8. ~21h. Builds directly on the APIs from Sprint 1.
+  - **Sprint 2 — Frontend refactor:** Commits 5, 6, 7, 8. ~23h. Builds directly on the APIs from Sprint 1.
 - **Critical path:** **1 → 2 → 3 → 6 → 7**. Commit 6 is the widest node — it depends on backend APIs (2) *and* on the filter-slice split landed in Commit 5, and it blocks the `/explore` dual-mode work in Commit 7. Landing Commit 1 on day 1 is the single biggest unblocker for the whole plan; Commit 4 can go in parallel to de-risk the final UI polish.
+
+---
+
+## 4. Test Coverage Plan
+
+### 4.1 Backend test requirements
+
+Tooling: backend coverage uses `pytest`, `pytest-asyncio`, and `httpx.AsyncClient` with `ASGITransport`, matching the current project test stack. Default integration tests run against the existing in-memory `sqlite+aiosqlite:///:memory:` fixture pattern; PostgreSQL-specific quota-concurrency tests must run against real PostgreSQL and be tagged `@pytest.mark.requires_postgres`.
+
+| Commit | Test file | Test type | Scenarios covered |
+|---|---|---|---|
+| Commit 1 — DB schema + rate limiting infrastructure | `tests/integration/test_search_history_schema.py` | Integration | Alembic upgrade creates `search_history`; Alembic downgrade drops `search_history`; table includes `id`, `user_id`, `query`, `created_at`, `result_count`, `filters`; `search_history.user_id` references `users.id` with cascade delete; `(user_id, created_at DESC)` index exists or is validated through query metadata; `filters` default is `{}` when no filters are submitted. |
+| Commit 1 — repository behavior | `tests/unit/test_search_history_repository.py` | Unit | Repository inserts one history row; repository counts rows in the rolling 7-day window; rows older than 7 days do not count toward quota; `reset_at` is calculated as oldest counted `created_at + 7 days`; `result_count` and `filters` round-trip correctly. |
+| Commit 2 — history + quota endpoints | `tests/integration/test_search_history_api.py` | Integration | `GET /articles/history` requires auth; `GET /articles/history` returns only the current user's rows; response is limited to ≤100 rows; rows are ordered by `created_at DESC`; response schema includes `id`, `query`, `created_at`, `result_count`, `filters`; `GET /articles/find/quota` requires auth; quota endpoint returns correct `limit`, `used`, `remaining`, and `reset_at`; route safety: `GET /articles/history` and `GET /articles/find/quota` resolve before `GET /{article_id}` catch-all. |
+| Commit 3 — live search quota + history write | `tests/integration/test_find_articles.py` | Integration | Happy path: `GET /articles/find` creates one `search_history` row; rollback: Scopus error creates no row and does not mask the original user-facing error behavior; quota boundary: 200th request succeeds and 201st returns HTTP `429`; `GET /articles/find/quota` reflects the updated count after each successful search; filter persistence: `GET /articles/find?keyword=ai&year_from=2020` stores `{\"year_from\": 2020}` in `search_history.filters`; `doc_types`, `open_access`, and `country` also persist when supplied; history insert includes `result_count`; unauthenticated access to `/articles/find` remains rejected by `Depends(get_current_user)`. |
+| Commit 3 — PostgreSQL quota concurrency | `tests/integration/test_find_articles_postgres.py` | Integration, `@pytest.mark.requires_postgres` | Concurrency: 10 parallel requests from the same user near the quota boundary produce the correct number of accepted rows and reject over-limit requests with HTTP `429`; exactly one row is allowed at the final available quota slot; `pg_advisory_xact_lock(:uid)` receives `uid` as `int(current_user.id)`, not `str(current_user.id)`; concurrent requests from different users do not block each other unnecessarily. |
+
+### 4.2 Frontend test requirements
+
+Frontend tests are not currently configured in `frontend/package.json`, so Commit 4 or a small test-infrastructure precursor must add Vitest + Testing Library for component tests and Playwright for E2E before these requirements can be enforced in CI.
+
+| Commit / feature | Test type | Scenarios covered |
+|---|---|---|
+| Commit 4 — Global navbar (§1.5) | Component test, Vitest + Testing Library | Header renders on routes covered by `RootLayout`; unauthenticated state renders **«Авторизоваться»** linking to `/auth`; authenticated state renders top-level **«Личный кабинет»** linking to `/profile`; authenticated dropdown renders **«Выйти»**; **«Исследовать»** links to `/explore`; no per-page navbar duplication is introduced. |
+| Commit 5 — Home page banners + filter relocation (§1.1, §1.3) | Component test + Playwright E2E | Anonymous user on `/`: `ArticleFilters` is not rendered; anonymous banner is present with exact text «Поиск без авторизации осуществляется по статьям тематической коллекции «Artificial Intelligence and Neural Network Technologies». Для поиска по глобальной базе Scopus пройдите авторизацию»; anonymous search calls `GET /articles/` and does not call `GET /articles/find`; authenticated user on `/`: authenticated banner is present with exact text «Выдача результатов поиска по живой базе Scopus ограничена 25 статьями за 1 запрос»; no sidebar filter is rendered; `articleStore.keyword` still tracks the `SearchBar` input for both local and live search flows. |
+| Commit 6 — Profile page history + quota + filters (§1.1, §1.2, §1.3) | Component test + Playwright E2E | `/profile` quota counter renders `remaining`, `used`, `limit`, and `reset_at`; quota counter updates after a successful live search; history list renders up to 100 entries; entries show query text, timestamp, result count, and filter badges; history list excludes anonymous users because `/profile` remains behind `PrivateRoute`; profile filters narrow history results client-side by year range, document type, open access, and country; link **«Перейти в аналитику по моим поискам»** navigates to `/explore?mode=personal`. |
+| Commit 7 — `/explore` dual-mode (§1.4) | Component test + Playwright E2E | `/explore?mode=personal` preselects «Мои поиски» for authenticated users; personal charts render from `historyStore` selectors for `by_year`, `by_doc_type`, `by_country`, and `by_journal`; `/explore?mode=collection` selects «Коллекция»; missing `mode` defaults to collection; anonymous user sees collection charts unchanged from `GET /articles/stats`; anonymous banner describes the thematic collection; mode selection is reflected in the URL and survives reload. |
+| Commit 8 — Russian UI pass (§1.6) | Component spot checks + Playwright E2E | Spot-check `/`, `/explore`, `/profile`, `/auth`, and `/article/:id` for visible English strings; allowed exceptions are only **"Scopus Search"** and **"Artificial Intelligence and Neural Network Technologies"**; ARIA labels are translated except for allowed brand/collection literals; updated tests no longer assert obsolete English copy. |
+
+### 4.3 E2E critical-path scenarios
+
+Minimum Playwright full-stack flows that must pass before release:
+
+1. **Anonymous search flow:** open `/` → type query → see local results → verify the network log contains no `GET /articles/find` call.
+2. **Auth + live search + quota flow:** register → log in → search 3 times → `/profile` shows `used: 3, remaining: 197`.
+3. **History → Explore flow:** perform 5 searches → `/profile` shows 5 history entries → click **«Перейти в аналитику»** → `/explore?mode=personal` opens with personal charts populated.
+4. **Quota exhaustion flow:** mock 200 prior rows in `search_history` → perform search → UI shows HTTP `429` toast → quota counter shows `remaining: 0`.
+5. **Filter persistence flow:** search with `year_from=2020` → `/profile` history shows filter badge `2020–` on the entry.
+
+### 4.4 Test infrastructure notes
+
+- All non-PostgreSQL backend integration tests must run against in-memory SQLite, following the existing `tests/conftest.py` pattern, with `search_history` included in the test schema.
+- E2E tests require a test PostgreSQL instance, for example a `docker-compose.test.yml` service. Add a new GitHub Actions job alongside the existing `.github/workflows/tests.yml` workflow to start PostgreSQL, run Alembic migrations, start the FastAPI backend, start the Vite frontend, and execute Playwright.
+- The quota concurrency test in §4.1 requires real PostgreSQL, not SQLite, because SQLite cannot validate `pg_advisory_xact_lock` semantics or PostgreSQL row/transaction behavior. Mark it with `@pytest.mark.requires_postgres` and skip it unless the PostgreSQL test service is available.
+- Frontend CI is currently absent; add `frontend` jobs for `npm run lint`, Vitest component tests, and Playwright E2E before treating the refactor as production-ready.
 
 ---
 
