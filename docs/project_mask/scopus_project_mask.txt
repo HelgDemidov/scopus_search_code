@@ -829,7 +829,7 @@ from datetime import date
 import httpx
 CLUSTERS = ['Large Language Models', 'Generative Adversarial Networks', 'Neuromorphic Computing', 'AI Hardware Accelerators', 'AutoML and Self-Improving Systems']
 OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
-MODEL = 'google/gemini-2.5-flash-preview-04-17'
+MODEL = 'google/gemini-2.5-flash'
 
 def _get_todays_cluster() -> str:
     pass
