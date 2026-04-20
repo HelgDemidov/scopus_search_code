@@ -987,6 +987,40 @@ FILE: tests\integration\__init__.py
 
 
 ============================================================
+FILE: tests\integration\conftest.py
+============================================================
+import os
+from typing import AsyncGenerator
+import pytest
+import pytest_asyncio
+from httpx import AsyncClient, ASGITransport
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from app.core.dependencies import get_db_session
+from app.main import app
+from app.models.base import Base
+_PG_URL = os.environ.get('DATABASE_TEST_URL')
+
+@pytest_asyncio.fixture(scope='function')
+async def pg_session() -> AsyncGenerator[AsyncSession, None]:
+    pass
+
+@pytest_asyncio.fixture(scope='function')
+async def pg_client(pg_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
+    pass
+
+@pytest_asyncio.fixture(scope='function')
+async def pg_registered_user(pg_client: AsyncClient) -> dict:
+    pass
+
+@pytest_asyncio.fixture(scope='function')
+async def pg_logged_in(pg_client: AsyncClient, pg_registered_user: dict) -> dict:
+    pass
+
+@pytest_asyncio.fixture(scope='function')
+async def pg_authenticated_client(pg_client: AsyncClient, pg_logged_in: dict) -> AsyncClient:
+    pass
+
+============================================================
 FILE: tests\integration\test_article_by_id.py
 ============================================================
 """Сквозные интеграционные тесты для всей сводной таблицы изменений.
@@ -1353,93 +1387,63 @@ Test matrix (см. тех-спек v4, §4.1, Commit 2):
   - GET /articles/history — порядок created_at DESC
   - GET /articles/history — схема ответа содержит id, query, created_at, result_count, filters
   - GET /articles/find/quota — требует auth (401 без токена)
-  - GET /articles/find/quota — возвращает limit, used, remaining, reset_at
+  - GET /articles/find/quota — возвращает limit, used, remaining, reset_at, window_days
+  - GET /articles/find/quota — used считает только строки внутри 7-дневного окна
   - Роутная безопасность: /history и /find/quota резолвятся до /{article_id}
+
+Почему НЕ используем scope="module":
+  pytest.ini задает asyncio_default_fixture_loop_scope = function — event loop
+  живет ровно одну тест-функцию. Async-фикстуры scope="module" требуют loop,
+  переживающий весь модуль → ScopeMismatch на каждом тесте при setup.
+  Решение: используем conftest.py-фикстуры (scope="function") без изменений.
 """
 import datetime
 from datetime import timezone, timedelta
 import pytest
-from httpx import AsyncClient, ASGITransport
-from app.main import app
-from app.core.dependencies import get_db_session
+from httpx import AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.search_history import SearchHistory
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.pool import StaticPool
-from app.models.base import Base
 from app.models.user import User
-from app.core.security import hash_password, create_access_token
-DATABASE_URL = 'sqlite+aiosqlite:///:memory:'
-
-@pytest.fixture(scope='module')
-def anyio_backend():
-    pass
-
-@pytest.fixture(scope='module')
-async def db_engine():
-    pass
-
-@pytest.fixture(scope='module')
-async def db_session(db_engine):
-    pass
-
-@pytest.fixture(scope='module')
-async def client(db_session: AsyncSession):
-    pass
-
-@pytest.fixture(scope='module')
-async def test_user(db_session: AsyncSession) -> User:
-    pass
-
-@pytest.fixture(scope='module')
-async def other_user(db_session: AsyncSession) -> User:
-    pass
-
-@pytest.fixture(scope='module')
-def auth_headers(test_user: User) -> dict:
-    pass
-
-@pytest.fixture(scope='module')
-def other_auth_headers(other_user: User) -> dict:
-    pass
 
 async def _insert_history_rows(session: AsyncSession, user_id: int, n: int, base_time: datetime.datetime | None=None) -> list[SearchHistory]:
-    """Вспомогательная функция: вставляет n строк истории для user_id."""
+    """Вставляет n строк SearchHistory для user_id через ORM-сессию conftest."""
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_history_requires_auth(client: AsyncClient):
     """GET /articles/history без токена → 401."""
 
-@pytest.mark.anyio
-async def test_history_returns_only_current_user_rows(client: AsyncClient, db_session: AsyncSession, test_user: User, other_user: User, auth_headers: dict):
+@pytest.mark.asyncio
+async def test_history_returns_only_current_user_rows(client: AsyncClient, db_session: AsyncSession, logged_in: dict):
     """GET /articles/history возвращает только строки текущего пользователя."""
 
-@pytest.mark.anyio
-async def test_history_limited_to_100_rows(client: AsyncClient, db_session: AsyncSession, test_user: User, auth_headers: dict):
+@pytest.mark.asyncio
+async def test_history_limited_to_100_rows(client: AsyncClient, db_session: AsyncSession, logged_in: dict):
     """GET /articles/history возвращает не более 100 строк, даже если в БД больше."""
 
-@pytest.mark.anyio
-async def test_history_ordered_desc(client: AsyncClient, db_session: AsyncSession, test_user: User, auth_headers: dict):
+@pytest.mark.asyncio
+async def test_history_ordered_desc(client: AsyncClient, db_session: AsyncSession, logged_in: dict):
     """GET /articles/history возвращает строки в порядке created_at DESC."""
 
-@pytest.mark.anyio
-async def test_history_response_schema(client: AsyncClient, db_session: AsyncSession, test_user: User, auth_headers: dict):
+@pytest.mark.asyncio
+async def test_history_response_schema(client: AsyncClient, db_session: AsyncSession, logged_in: dict):
     """Схема ответа содержит id, query, created_at, result_count, filters."""
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_quota_requires_auth(client: AsyncClient):
     """GET /articles/find/quota без токена → 401."""
 
-@pytest.mark.anyio
-async def test_quota_response_fields(client: AsyncClient, db_session: AsyncSession, test_user: User, auth_headers: dict):
-    """GET /articles/find/quota возвращает limit, used, remaining, reset_at и window_days."""
+@pytest.mark.asyncio
+async def test_quota_response_fields(client: AsyncClient, db_session: AsyncSession, logged_in: dict):
+    """GET /articles/find/quota возвращает limit, used, remaining, reset_at, window_days."""
 
-@pytest.mark.anyio
-async def test_quota_used_counts_only_window(client: AsyncClient, db_session: AsyncSession, test_user: User, auth_headers: dict):
+@pytest.mark.asyncio
+async def test_quota_used_counts_only_window(client: AsyncClient, db_session: AsyncSession, logged_in: dict):
     """used включает только строки из скользящего 7-дневного окна; более старые не считаются."""
 
-@pytest.mark.anyio
-async def test_history_route_does_not_match_article_id(client: AsyncClient, auth_headers: dict):
-    """'history' и 'find' не матчатся как int-сегмент /{article_id}."""
+@pytest.mark.asyncio
+async def test_history_route_does_not_match_article_id(client: AsyncClient, logged_in: dict):
+    """'history' и 'find' не матчатся как int-сегмент /{article_id} → не 422."""
 
 ============================================================
 FILE: tests\integration\test_users_api.py
