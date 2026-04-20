@@ -1,4 +1,4 @@
-# Product Refactor: Technical Specification, Risk Analysis, and Commit Plan — v3
+# Product Refactor: Technical Specification, Risk Analysis, and Commit Plan — v4
 
 Branch: `search-refactoring` of `https://github.com/HelgDemidov/scopus_search_code`
 Authoritative source of truth: `README.md` on this branch.
@@ -237,7 +237,7 @@ Conventional commits, 8 milestones, ordered by dependency.
   - `app/routers/articles.py` (new `GET /articles/history`, `GET /articles/find/quota`)
   - new `app/schemas/search_history_schemas.py` (`SearchHistoryResponse`, `QuotaResponse`)
   - new `app/services/search_history_service.py`
-  - `tests/integration/test_articles.py`
+  - new `tests/integration/test_search_history_api.py`
 - **What & why:** Expose history read and quota read. Quota math must use a rolling 7-day window keyed off `search_history.created_at`. Register `GET /articles/history` and `GET /articles/find/quota` above `GET /{article_id}` in `app/routers/articles.py` to avoid route shadowing.
 - **Effort:** **5h**.
 - **Dependencies:** Commit 1.
@@ -246,13 +246,16 @@ Conventional commits, 8 milestones, ordered by dependency.
 
 - **Affected files:**
   - `app/routers/articles.py::find_articles` (inject quota check; add optional filter-capture query parameters)
+  - `app/routers/articles.py::get_search_service` (update DI factory to inject `SearchHistoryRepository`)
   - `app/schemas/article_schemas.py` (add `FindArticlesFilters` schema or equivalent inline-query plumbing for `year_from`, `year_to`, `doc_types`, `open_access`, `country`)
   - `app/services/search_service.py` — inject `SearchHistoryRepository`; modify `find_and_save` to wrap article-save + history-insert in one DB transaction; insert `search_history` row (including filters payload) on every successful Scopus call.
   - `tests/integration/test_find_articles.py` (concurrent-request test, 429 test)
+  - `tests/unit/test_search_service.py` (update constructor calls if it exists; otherwise create it in this commit)
 - **What & why:** Enforce 200 req / 7 days per user; atomically record each call. This closes §1.1 on the backend. The endpoint is already private (`Depends(get_current_user)`) and already capped at `count ≤ 25`; this commit only adds the rolling counter and the history insert.
+- **SearchService refactor:** Extends `SearchService.__init__` to accept a `SearchHistoryRepository` instance alongside the existing `ISearchClient` and `IArticleRepository`. Extends `find_and_save` signature to `find_and_save(keyword, count, *, user_id: int, filters: dict | None = None)`. Updates the `get_search_service` factory in `app/routers/articles.py` to inject `PostgresSearchHistoryRepository` via `Depends`. Any existing unit tests constructing `SearchService` directly must be updated to pass a stub `SearchHistoryRepository`.
 - **Filter capture:** Extends `GET /articles/find` with five optional filter parameters (`year_from`, `year_to`, `doc_types`, `open_access`, `country`). These are not applied to the Scopus API query in v1 but are serialized and stored in `search_history.filters` on every successful call. This makes the `filters` column immediately meaningful for the §1.3 profile-page filter UX and §1.4 personal analytics.
 - **Advisory-lock comment placeholder:** `await session.execute(text('SELECT pg_advisory_xact_lock(:uid)'), {'uid': int(current_user.id)})`
-- **Effort:** **6h** (includes advisory-lock concurrency/race test).
+- **Effort:** **8h** (includes advisory-lock concurrency/race test plus `SearchService` constructor/signature and DI factory refactor).
 - **Dependencies:** Commits 1, 2.
 
 ### Commit 4 — `feat(frontend): global navbar — RU labels and Profile link`
@@ -316,9 +319,9 @@ Conventional commits, 8 milestones, ordered by dependency.
 
 ### Summary
 
-- **Total effort:** **40 hours** (~5 working days at full focus; realistically 7–8 working days with review/testing).
+- **Total effort:** **42 hours** (~5–6 working days at full focus; realistically 7–8 working days with review/testing).
 - **Recommended sprint split (2 × 1-week sprints):**
-  - **Sprint 1 — Backend + navbar:** Commits 1, 2, 3, 4. ~17h. Ships the data foundation and the lowest-risk frontend change.
+  - **Sprint 1 — Backend + navbar:** Commits 1, 2, 3, 4. ~19h. Ships the data foundation and the lowest-risk frontend change.
   - **Sprint 2 — Frontend refactor:** Commits 5, 6, 7, 8. ~23h. Builds directly on the APIs from Sprint 1.
 - **Critical path:** **1 → 2 → 3 → 6 → 7**. Commit 6 is the widest node — it depends on backend APIs (2) *and* on the filter-slice split landed in Commit 5, and it blocks the `/explore` dual-mode work in Commit 7. Landing Commit 1 on day 1 is the single biggest unblocker for the whole plan; Commit 4 can go in parallel to de-risk the final UI polish.
 
@@ -328,11 +331,11 @@ Conventional commits, 8 milestones, ordered by dependency.
 
 ### 4.1 Backend test requirements
 
-Tooling: backend coverage uses `pytest`, `pytest-asyncio`, and `httpx.AsyncClient` with `ASGITransport`, matching the current project test stack. Default integration tests run against the existing in-memory `sqlite+aiosqlite:///:memory:` fixture pattern; PostgreSQL-specific quota-concurrency tests must run against real PostgreSQL and be tagged `@pytest.mark.requires_postgres`.
+Tooling: backend coverage uses `pytest`, `pytest-asyncio`, and `httpx.AsyncClient` with `ASGITransport`, matching the current project test stack. Backend `pytest` tests already run locally and in CI via the existing `.github/workflows/tests.yml`. Default integration tests run against the existing in-memory `sqlite+aiosqlite:///:memory:` fixture pattern; PostgreSQL-specific quota-concurrency tests must run against real PostgreSQL and be tagged `@pytest.mark.requires_postgres`.
 
 | Commit | Test file | Test type | Scenarios covered |
 |---|---|---|---|
-| Commit 1 — DB schema + rate limiting infrastructure | `tests/integration/test_search_history_schema.py` | Integration | Alembic upgrade creates `search_history`; Alembic downgrade drops `search_history`; table includes `id`, `user_id`, `query`, `created_at`, `result_count`, `filters`; `search_history.user_id` references `users.id` with cascade delete; `(user_id, created_at DESC)` index exists or is validated through query metadata; `filters` default is `{}` when no filters are submitted. |
+| Commit 1 — DB schema + rate limiting infrastructure | `tests/integration/test_search_history_schema.py` | Integration | Alembic upgrade creates `search_history`; table includes `id`, `user_id`, `query`, `created_at`, `result_count`, `filters`; `search_history.user_id` references `users.id` with cascade delete; `(user_id, created_at DESC)` index exists or is validated through query metadata; `filters` default is `{}` when no filters are submitted. The `alembic downgrade -1` scenario must be tagged `@pytest.mark.requires_postgres` and excluded from the SQLite fixture, because `TIMESTAMPTZ` and `JSONB` DDL is PostgreSQL-specific. All other schema-inspection tests in this row can use SQLite. |
 | Commit 1 — repository behavior | `tests/unit/test_search_history_repository.py` | Unit | Repository inserts one history row; repository counts rows in the rolling 7-day window; rows older than 7 days do not count toward quota; `reset_at` is calculated as oldest counted `created_at + 7 days`; `result_count` and `filters` round-trip correctly. |
 | Commit 2 — history + quota endpoints | `tests/integration/test_search_history_api.py` | Integration | `GET /articles/history` requires auth; `GET /articles/history` returns only the current user's rows; response is limited to ≤100 rows; rows are ordered by `created_at DESC`; response schema includes `id`, `query`, `created_at`, `result_count`, `filters`; `GET /articles/find/quota` requires auth; quota endpoint returns correct `limit`, `used`, `remaining`, and `reset_at`; route safety: `GET /articles/history` and `GET /articles/find/quota` resolve before `GET /{article_id}` catch-all. |
 | Commit 3 — live search quota + history write | `tests/integration/test_find_articles.py` | Integration | Happy path: `GET /articles/find` creates one `search_history` row; rollback: Scopus error creates no row and does not mask the original user-facing error behavior; quota boundary: 200th request succeeds and 201st returns HTTP `429`; `GET /articles/find/quota` reflects the updated count after each successful search; filter persistence: `GET /articles/find?keyword=ai&year_from=2020` stores `{\"year_from\": 2020}` in `search_history.filters`; `doc_types`, `open_access`, and `country` also persist when supplied; history insert includes `result_count`; unauthenticated access to `/articles/find` remains rejected by `Depends(get_current_user)`. |
@@ -340,32 +343,55 @@ Tooling: backend coverage uses `pytest`, `pytest-asyncio`, and `httpx.AsyncClien
 
 ### 4.2 Frontend test requirements
 
-Frontend tests are not currently configured in `frontend/package.json`, so Commit 4 or a small test-infrastructure precursor must add Vitest + Testing Library for component tests and Playwright for E2E before these requirements can be enforced in CI.
+**Frontend testing approach for this project:** No dedicated frontend test framework (Vitest, Jest, Playwright) is configured. Frontend correctness is verified through **manual browser testing** following a structured checklist, runnable locally from VS Code with `npm run dev`. For each frontend commit (4–8), the developer must complete the checklist below before the commit is considered done.
 
-| Commit / feature | Test type | Scenarios covered |
-|---|---|---|
-| Commit 4 — Global navbar (§1.5) | Component test, Vitest + Testing Library | Header renders on routes covered by `RootLayout`; unauthenticated state renders **«Авторизоваться»** linking to `/auth`; authenticated state renders top-level **«Личный кабинет»** linking to `/profile`; authenticated dropdown renders **«Выйти»**; **«Исследовать»** links to `/explore`; no per-page navbar duplication is introduced. |
-| Commit 5 — Home page banners + filter relocation (§1.1, §1.3) | Component test + Playwright E2E | Anonymous user on `/`: `ArticleFilters` is not rendered; anonymous banner is present with exact text «Поиск без авторизации осуществляется по статьям тематической коллекции «Artificial Intelligence and Neural Network Technologies». Для поиска по глобальной базе Scopus пройдите авторизацию»; anonymous search calls `GET /articles/` and does not call `GET /articles/find`; authenticated user on `/`: authenticated banner is present with exact text «Выдача результатов поиска по живой базе Scopus ограничена 25 статьями за 1 запрос»; no sidebar filter is rendered; `articleStore.keyword` still tracks the `SearchBar` input for both local and live search flows. |
-| Commit 6 — Profile page history + quota + filters (§1.1, §1.2, §1.3) | Component test + Playwright E2E | `/profile` quota counter renders `remaining`, `used`, `limit`, and `reset_at`; quota counter updates after a successful live search; history list renders up to 100 entries; entries show query text, timestamp, result count, and filter badges; history list excludes anonymous users because `/profile` remains behind `PrivateRoute`; profile filters narrow history results client-side by year range, document type, open access, and country; link **«Перейти в аналитику по моим поискам»** navigates to `/explore?mode=personal`. |
-| Commit 7 — `/explore` dual-mode (§1.4) | Component test + Playwright E2E | `/explore?mode=personal` preselects «Мои поиски» for authenticated users; personal charts render from `historyStore` selectors for `by_year`, `by_doc_type`, `by_country`, and `by_journal`; `/explore?mode=collection` selects «Коллекция»; missing `mode` defaults to collection; anonymous user sees collection charts unchanged from `GET /articles/stats`; anonymous banner describes the thematic collection; mode selection is reflected in the URL and survives reload. |
-| Commit 8 — Russian UI pass (§1.6) | Component spot checks + Playwright E2E | Spot-check `/`, `/explore`, `/profile`, `/auth`, and `/article/:id` for visible English strings; allowed exceptions are only **"Scopus Search"** and **"Artificial Intelligence and Neural Network Technologies"**; ARIA labels are translated except for allowed brand/collection literals; updated tests no longer assert obsolete English copy. |
+**Commit 4 checklist:**
+
+- [ ] Unauthenticated: Header shows «Авторизоваться», links to `/auth`
+- [ ] Authenticated: Header shows top-level «Личный кабинет» linking to `/profile`
+- [ ] Authenticated: Dropdown shows «Выйти»; «Исследовать» links to `/explore`
+
+**Commit 5 checklist:**
+
+- [ ] Anonymous user on `/`: no `ArticleFilters` rendered; anon banner present with exact text
+- [ ] Anonymous user on `/`: network tab shows no `GET /articles/find` calls after search
+- [ ] Authenticated user on `/`: authenticated banner present; no sidebar filter
+
+**Commit 6 checklist:**
+
+- [ ] `/profile` quota counter shows `limit`, `used`, `remaining`, `reset_at`
+- [ ] Quota counter updates after performing a live search
+- [ ] History list renders entries with query text, timestamp, result count, filter badges
+- [ ] History filters (year / doctype / OA / country) narrow list client-side
+- [ ] «Перейти в аналитику по моим поискам» navigates to `/explore?mode=personal`
+
+**Commit 7 checklist:**
+
+- [ ] `/explore?mode=personal` preselects «Мои поиски» for logged-in users
+- [ ] Personal charts render with data from history
+- [ ] `/explore` (no param) defaults to «Коллекция»
+- [ ] Anonymous user sees collection charts unchanged
+
+**Commit 8 checklist:**
+
+- [ ] Spot-check `/`, `/explore`, `/profile`, `/auth`, `/article/:id` — no English UI copy except «Scopus Search» (logo) and the collection name literal
 
 ### 4.3 E2E critical-path scenarios
 
-Minimum Playwright full-stack flows that must pass before release:
+Run these 5 flows manually before any release. No automation required.
 
-1. **Anonymous search flow:** open `/` → type query → see local results → verify the network log contains no `GET /articles/find` call.
-2. **Auth + live search + quota flow:** register → log in → search 3 times → `/profile` shows `used: 3, remaining: 197`.
-3. **History → Explore flow:** perform 5 searches → `/profile` shows 5 history entries → click **«Перейти в аналитику»** → `/explore?mode=personal` opens with personal charts populated.
-4. **Quota exhaustion flow:** mock 200 prior rows in `search_history` → perform search → UI shows HTTP `429` toast → quota counter shows `remaining: 0`.
-5. **Filter persistence flow:** search with `year_from=2020` → `/profile` history shows filter badge `2020–` on the entry.
+1. **Anonymous search:** open `/` → type query → confirm local results load → confirm DevTools Network shows no `/articles/find` call.
+2. **Auth + quota tracking:** log in → perform 3 searches → open `/profile` → confirm quota counter shows `used: 3, remaining: 197`.
+3. **History → Explore:** perform 5 searches → `/profile` shows 5 entries → click «Перейти в аналитику» → `/explore?mode=personal` opens, charts populated.
+4. **Quota exhaustion:** use a DB client (e.g. TablePlus) to insert 200 dummy `search_history` rows for your test user → attempt a search → confirm 429 toast appears and quota counter shows `remaining: 0`.
+5. **Filter persistence:** search with `year_from=2020` via DevTools (or a REST client) → open `/profile` → confirm the history entry shows a `2020–` filter badge.
 
 ### 4.4 Test infrastructure notes
 
-- All non-PostgreSQL backend integration tests must run against in-memory SQLite, following the existing `tests/conftest.py` pattern, with `search_history` included in the test schema.
-- E2E tests require a test PostgreSQL instance, for example a `docker-compose.test.yml` service. Add a new GitHub Actions job alongside the existing `.github/workflows/tests.yml` workflow to start PostgreSQL, run Alembic migrations, start the FastAPI backend, start the Vite frontend, and execute Playwright.
-- The quota concurrency test in §4.1 requires real PostgreSQL, not SQLite, because SQLite cannot validate `pg_advisory_xact_lock` semantics or PostgreSQL row/transaction behavior. Mark it with `@pytest.mark.requires_postgres` and skip it unless the PostgreSQL test service is available.
-- Frontend CI is currently absent; add `frontend` jobs for `npm run lint`, Vitest component tests, and Playwright E2E before treating the refactor as production-ready.
+- Backend tests (`pytest`) run locally with `pytest tests/` and in CI via the existing `.github/workflows/tests.yml`. No new CI infrastructure is needed for backend tests.
+- Tests tagged `@pytest.mark.requires_postgres` require a live PostgreSQL connection (local or Supabase). Skip them with `pytest -m "not requires_postgres"` when only a SQLite environment is available.
+- Frontend has no automated test runner. Use the manual checklists in §4.2 and the manual smoke tests in §4.3 before marking any frontend commit as done.
+- If the project later grows beyond pet-project scope, the natural upgrade path is: add Vitest for component tests, then Playwright for E2E automation, then wire both into a new GitHub Actions frontend job.
 
 ---
 
