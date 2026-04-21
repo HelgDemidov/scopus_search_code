@@ -16,8 +16,18 @@ function formatResetDate(iso: string): string {
 export function LiveSearchQuotaCounter() {
   const quota = useQuotaStore((s) => s.quota);
 
+  // Skeleton-grid из 4 ячеек — повторяет структуру реального контента
   if (!quota) {
-    return <Skeleton className="h-16 w-full" />;
+    return (
+      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="flex flex-col gap-1">
+            <Skeleton className="h-3 w-16" />
+            <Skeleton className="h-5 w-20" />
+          </div>
+        ))}
+      </div>
+    );
   }
 
   const cells: Array<{ label: string; value: string }> = [

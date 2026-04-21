@@ -4,6 +4,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useQuotaStore } from '../stores/quotaStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { Button } from '../components/ui/button';
+import { Skeleton } from '../components/ui/skeleton';
 import { LiveSearchQuotaCounter } from '../components/profile/LiveSearchQuotaCounter';
 import { SearchHistoryList } from '../components/profile/SearchHistoryList';
 
@@ -22,6 +23,29 @@ function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+// Skeleton-заглушка страницы — повторяет структуру блока идентификации
+function ProfilePageSkeleton() {
+  return (
+    <div className="mx-auto max-w-screen-sm px-4 py-10">
+      <Skeleton className="h-7 w-24 mb-6" />
+      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6">
+        <div className="flex items-center gap-4 mb-6">
+          <Skeleton className="h-14 w-14 rounded-full" />
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-48" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-4 w-full" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function ProfilePage() {
@@ -49,12 +73,9 @@ export default function ProfilePage() {
     navigate('/');
   }
 
+  // Skeleton вместо spinner — визуально согласован со структурой страницы
   if (!user) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-800 dark:border-slate-700 dark:border-t-blue-500" />
-      </div>
-    );
+    return <ProfilePageSkeleton />;
   }
 
   return (

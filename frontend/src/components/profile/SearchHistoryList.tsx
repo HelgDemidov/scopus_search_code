@@ -5,6 +5,7 @@ import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
 import { Switch } from '../ui/switch';
 import { Badge } from '../ui/badge';
+import { Skeleton } from '../ui/skeleton';
 import type { SearchHistoryItem } from '../../types/api';
 
 function formatCreatedAt(iso: string): string {
@@ -47,6 +48,23 @@ function entryYear(iso: string): number | null {
 function entryOpenAccess(item: SearchHistoryItem): boolean {
   const v = (item.filters ?? {})['openAccessOnly'] ?? (item.filters ?? {})['open_access'];
   return v === true;
+}
+
+// Skeleton-заглушка списка — повторяет структуру реальных строк истории
+function HistoryListSkeleton() {
+  return (
+    <ul className="flex flex-col divide-y divide-slate-100 dark:divide-slate-700">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <li key={i} className="py-3 flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <Skeleton className="h-4 w-2/3" />
+            <Skeleton className="h-3 w-20" />
+          </div>
+          <Skeleton className="h-3 w-24" />
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 export function SearchHistoryList() {
@@ -216,8 +234,9 @@ export function SearchHistoryList() {
         </Button>
       </div>
 
+      {/* Skeleton-список при загрузке вместо текстовой заглушки */}
       {isLoading ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400">Загрузка…</p>
+        <HistoryListSkeleton />
       ) : filtered.length === 0 ? (
         <p className="text-sm text-slate-500 dark:text-slate-400">История поиска пуста</p>
       ) : (
