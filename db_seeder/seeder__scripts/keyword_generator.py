@@ -67,7 +67,7 @@ async def generate_keywords(
         "model": MODEL,
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.9,  # Высокая температура — максимальное разнообразие фраз
-        "max_tokens": 2048,  # 120 фраз × ~10 токенов + запас
+        "max_tokens": 3500,  # 120 фраз × ~10 токенов + запас
     }
 
     async with httpx.AsyncClient(timeout=60.0) as client:
@@ -86,19 +86,39 @@ async def generate_keywords(
         candidates: list[str] = json.loads(raw_content)
 
     except json.JSONDecodeError:
-        import re
-        candidates: list[str] = []  # инициализируем до входа в if — Pylance доволен
-        match = re.search(r'\[.*\]', raw_content, re.DOTALL)
-        if match:
+        candidates: list[str] = []
+
+        # Ищем начало JSON-массива — закрывающего ] может не быть (усечённый ответ)
+        start = raw_content.find('[')
+        if start != -1:
+            fragment = raw_content[start:]
+
+            # Сначала пробуем распарсить как есть (вдруг ] всё-таки есть)
             try:
-                candidates = json.loads(match.group())
+                candidates = json.loads(fragment)
             except json.JSONDecodeError:
-                # Ответ усечён — достраиваем закрывающую скобку и парсим то, что есть
-                truncated = match.group().rstrip().rstrip(',')
-                try:
-                    candidates = json.loads(truncated + ']')
-                except json.JSONDecodeError:
-                    candidates = []  # оба варианта провалились — упадём ниже
+                # Ответ усечён: убираем хвостовой мусор (незакрытая строка или запятая)
+                # и достраиваем закрывающую скобку
+                clean = fragment.rstrip()
+                # Убираем оборванную последнюю запись: ищем последнюю закрывающую кавычку
+                last_quote = clean.rfind('"')
+                if last_quote != -1:
+                    # Проверяем, закрыта ли строка: ищем парную открывающую кавычку
+                    prev_quote = clean.rfind('"', 0, last_quote)
+                    if prev_quote != -1:
+                        # Если после последней закрывающей кавычки нет запятой — строка полная
+                        after = clean[last_quote + 1:].strip().lstrip(',').strip()
+                        if not after or after == ']':
+                            # Строка полная — обрезаем до неё и закрываем массив
+                            truncated = clean[:last_quote + 1].rstrip().rstrip(',')
+                        else:
+                            # Строка оборвана — обрезаем до предыдущей полной записи
+                            truncated = clean[:prev_quote].rstrip().rstrip(',')
+                        try:
+                            candidates = json.loads(truncated + ']')
+                        except json.JSONDecodeError:
+                            candidates = []
+
         if not candidates:
             raise RuntimeError(
                 f"Не удалось распарсить ответ OpenRouter: {raw_content[:300]}"
