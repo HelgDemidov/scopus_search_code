@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { getArticles, findArticles } from '../api/articles';
-import type { ArticleResponse, ArticleFilters } from '../types/api';
+import type { ArticleResponse, ArticleFilters, ArticleClientFilters } from '../types/api';
 
 // Интерфейс стора статей — §4.1
 // fetchStats и stats здесь отсутствуют намеренно: они живут только в useStatsStore
@@ -33,35 +33,35 @@ interface ArticleStore {
 }
 
 // Вспомогательная функция: применяет client-side фильтры к массиву статей
-// keyword и search — серверные; остальные (год, тип, OA, страна) — client-side
+// Принимает отдельный аргумент clientFilters (из historyStore) согласно §1.3
 function applyClientFilters(
   articles: ArticleResponse[],
-  filters: ArticleFilters,
+  clientFilters: ArticleClientFilters,
 ): ArticleResponse[] {
   return articles.filter((a) => {
     // Фильтр по году публикации
-    if (filters.yearFrom || filters.yearTo) {
+    if (clientFilters.yearFrom || clientFilters.yearTo) {
       const year = a.publication_date
         ? parseInt(a.publication_date.slice(0, 4), 10)
         : null;
       if (year === null) return false;
-      if (filters.yearFrom && year < filters.yearFrom) return false;
-      if (filters.yearTo && year > filters.yearTo) return false;
+      if (clientFilters.yearFrom && year < clientFilters.yearFrom) return false;
+      if (clientFilters.yearTo && year > clientFilters.yearTo) return false;
     }
 
     // Фильтр по типу документа
-    if (filters.docTypes && filters.docTypes.length > 0) {
-      if (!a.document_type || !filters.docTypes.includes(a.document_type)) {
+    if (clientFilters.docTypes && clientFilters.docTypes.length > 0) {
+      if (!a.document_type || !clientFilters.docTypes.includes(a.document_type)) {
         return false;
       }
     }
 
     // Фильтр Open Access
-    if (filters.openAccessOnly && !a.open_access) return false;
+    if (clientFilters.openAccessOnly && !a.open_access) return false;
 
     // Фильтр по стране аффиляции
-    if (filters.countries && filters.countries.length > 0) {
-      if (!a.affiliation_country || !filters.countries.includes(a.affiliation_country)) {
+    if (clientFilters.countries && clientFilters.countries.length > 0) {
+      if (!a.affiliation_country || !clientFilters.countries.includes(a.affiliation_country)) {
         return false;
       }
     }
@@ -97,10 +97,13 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
         page,
         size,
         keyword: effectiveKeyword,  // фильтр по полю keyword сидера
-        search: filters.search,     // ILIKE-поиск (undefined → параметр не уходит)
+        search: filters.search,     // ILIKE-поиск (undefined -> параметр не уходит)
       });
+      // Берём client-side фильтры из historyStore согласно §1.3
+      const { useHistoryStore } = await import('./historyStore');
+      const { historyFilters } = useHistoryStore.getState();
       // Применяем client-side фильтры к загруженной странице
-      const filtered = applyClientFilters(data.articles, filters);
+      const filtered = applyClientFilters(data.articles, historyFilters);
       // Сортировка по цитированиям — client-side, в пределах текущей страницы
       const sorted =
         get().sortBy === 'citations'
@@ -115,7 +118,7 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
     }
   },
 
-  // Обновляем фильтры и сбрасываем на первую страницу
+  // Обновляем серверные фильтры и сбрасываем на первую страницу
   setFilters: (newFilters: Partial<ArticleFilters>) => {
     set((state) => ({
       filters: { ...state.filters, ...newFilters },

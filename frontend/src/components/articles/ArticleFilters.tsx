@@ -23,13 +23,14 @@ import {
   SheetTrigger,
 } from '../ui/sheet';
 import { useStatsStore } from '../../stores/statsStore';
-import { useArticleStore } from '../../stores/articleStore';
-import type { ArticleFilters } from '../../types/api';
+import { useHistoryStore } from '../../stores/historyStore';
+import type { ArticleClientFilters } from '../../types/api';
 
-// Внутренний компонент: содержимое sidebar’а фильтров
+// Внутренний компонент: содержимое sidebar'а фильтров
 function FiltersContent() {
   const stats = useStatsStore((s) => s.stats);
-  const { filters, setFilters } = useArticleStore();
+  // Фильтры теперь живут в historyStore согласно §1.3 (filter-slice split)
+  const { historyFilters: filters, setHistoryFilters: setFilters } = useHistoryStore();
   const [countriesOpen, setCountriesOpen] = useState(false);
 
   // Данные для фильтров: все из useStatsStore().stats по §4.1 (Б-6)
@@ -57,7 +58,7 @@ function FiltersContent() {
     setFilters({ countries: updated.length ? updated : undefined });
   }
 
-  // Сброс всех фильтров (кроме keyword — он серверный)
+  // Сброс всех фильтров (кроме keyword — он серверный, живёт в articleStore)
   function clearFilters() {
     setFilters({
       yearFrom: undefined,
@@ -65,7 +66,7 @@ function FiltersContent() {
       docTypes: undefined,
       openAccessOnly: undefined,
       countries: undefined,
-    } as Partial<ArticleFilters>);
+    } as Partial<ArticleClientFilters>);
   }
 
   const hasActiveFilters =

@@ -90,18 +90,21 @@ export interface TokenResponse {
 // ---------------------------------------------------------------------------
 // Фильтры статей (§4.1 ArticleFilters)
 //
-// Серверные фильтры (уходят в query-params к GET /articles/):
+// ArticleFilters — только серверные параметры для GET /articles/:
 //   keyword — точный фильтр по полю articles.keyword (фраза сидера)
 //   search  — ILIKE-поиск по title и author (пользовательский запрос)
-//   keyword и search взаимоисключающие: стор не передаёт оба одновременно
+//   keyword и search взаимоисключающие; стор не передаёт оба одновременно
 //
-// Client-side фильтры (применяются к загруженной странице в браузере):
-//   yearFrom, yearTo, docTypes, openAccessOnly, countries
+// ArticleClientFilters — client-side фильтры; применяются в браузере
+//   к загруженной странице; живут в historyStore.historyFilters
 // ---------------------------------------------------------------------------
 
 export interface ArticleFilters {
   keyword?: string;                // точный фильтр по полю keyword сидера
   search?: string;                 // пользовательский текстовый поиск по title/author
+}
+
+export interface ArticleClientFilters {
   yearFrom?: number;               // нижняя граница года публикации
   yearTo?: number;                 // верхняя граница года публикации
   docTypes?: string[];             // массив типов документов

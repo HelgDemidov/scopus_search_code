@@ -1,12 +1,10 @@
 import { create } from 'zustand';
 import { getSearchHistory } from '../api/articles';
-import type { SearchHistoryItem, LabelCount } from '../types/api';
+import type { SearchHistoryItem, LabelCount, ArticleClientFilters } from '../types/api';
 
-export interface HistoryFilters {
-  yearFrom?: number;
-  yearTo?: number;
-  openAccessOnly?: boolean;
-}
+// HistoryFilters = ArticleClientFilters: client-side фильтры переехали
+// из articleStore сюда согласно §1.3 (filter-slice split)
+export type HistoryFilters = ArticleClientFilters;
 
 interface HistoryStore {
   items: SearchHistoryItem[];
