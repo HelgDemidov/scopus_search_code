@@ -1,6 +1,10 @@
+import datetime
+from datetime import timezone, timedelta
 from typing import AsyncGenerator, Any
+
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_db_session
@@ -40,8 +44,13 @@ def get_search_service(
     session: AsyncSession = Depends(get_db_session),
     scopus_client: ScopusHTTPClient = Depends(get_scopus_client),
 ) -> SearchService:
-    repo = PostgresArticleRepository(session)
-    return SearchService(search_client=scopus_client, article_repo=repo)
+    article_repo = PostgresArticleRepository(session)
+    history_repo = PostgresSearchHistoryRepository(session)
+    return SearchService(
+        search_client=scopus_client,
+        article_repo=article_repo,
+        history_repo=history_repo,
+    )
 
 
 def get_search_history_service(
@@ -112,15 +121,65 @@ async def get_search_stats(
     )
 
 
+# Константы квоты — синхронизированы с SearchHistoryService
+_QUOTA_LIMIT = 200
+_WINDOW_DAYS = 7
+
+
 @router.get("/find", response_model=list[ArticleResponse])
 async def find_articles(
     response: Response,
     keyword: str = Query(..., min_length=2, description="Ключевое слово для поиска"),
     count: int = Query(25, ge=1, le=25, description="Сколько статей запросить из Scopus (макс 25)"),
+    year_from: int | None = Query(None, description="Фильтр: год публикации от"),
+    year_to: int | None = Query(None, description="Фильтр: год публикации до"),
+    doc_types: list[str] | None = Query(None, description="Фильтр: типы документов"),
+    open_access: bool | None = Query(None, description="Фильтр: только open-access"),
+    country: list[str] | None = Query(None, description="Фильтр: страны"),
     service: SearchService = Depends(get_search_service),
+    session: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ) -> Any:
-    articles = await service.find_and_save(keyword, count=count)
+    # Собираем payload фильтров только из непустых значений
+    filters_payload: dict = {}
+    if year_from is not None:
+        filters_payload["year_from"] = year_from
+    if year_to is not None:
+        filters_payload["year_to"] = year_to
+    if doc_types is not None:
+        filters_payload["doc_types"] = doc_types
+    if open_access is not None:
+        filters_payload["open_access"] = open_access
+    if country is not None:
+        filters_payload["country"] = country
+
+    # Advisory-lock на уровне транзакции сериализует параллельные проверки квоты
+    # одного пользователя (разные пользователи блокируют разные ключи).
+    # SQLite такую функцию не поддерживает — ограничиваем вызов диалектом PG.
+    if session.bind and session.bind.dialect.name == "postgresql":
+        await session.execute(
+            text('SELECT pg_advisory_xact_lock(:uid)'),
+            {'uid': int(current_user.id)},
+        )
+
+    # Проверяем квоту в том же запросе/транзакции после advisory-lock
+    since = datetime.datetime.now(tz=timezone.utc) - timedelta(days=_WINDOW_DAYS)
+    used = await service.history_repo.count_in_window(
+        user_id=int(current_user.id),
+        since=since,
+    )
+    if used >= _QUOTA_LIMIT:
+        raise HTTPException(
+            status_code=429,
+            detail="Недельный лимит поиска исчерпан",
+        )
+
+    articles = await service.find_and_save(
+        keyword,
+        count=count,
+        user_id=int(current_user.id),
+        filters=filters_payload or None,
+    )
 
     # Пробрасываем rate-limit заголовки Scopus в ответ
     sc = service.search_client

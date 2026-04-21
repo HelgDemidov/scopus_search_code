@@ -1,11 +1,16 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
+import { useQuotaStore } from '../stores/quotaStore';
+import { useHistoryStore } from '../stores/historyStore';
 import { Button } from '../components/ui/button';
+import { LiveSearchQuotaCounter } from '../components/profile/LiveSearchQuotaCounter';
+import { SearchHistoryList } from '../components/profile/SearchHistoryList';
 
 // Форматируем дату регистрации: DD MMM YYYY
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
-  return new Intl.DateTimeFormat('en-GB', {
+  return new Intl.DateTimeFormat('ru-RU', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -22,16 +27,21 @@ function getInitials(name: string): string {
 export default function ProfilePage() {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
+  const fetchQuota = useQuotaStore((s) => s.fetchQuota);
+  const fetchHistory = useHistoryStore((s) => s.fetchHistory);
 
-  // displayName — фаллбек по §4.3: username ?? email.split('@')[0]
   const displayName = user ? (user.username ?? user.email.split('@')[0]) : '';
+
+  useEffect(() => {
+    fetchQuota();
+    fetchHistory();
+  }, [fetchQuota, fetchHistory]);
 
   function handleSignOut() {
     logout();
     navigate('/');
   }
 
-  // PrivateRoute уже гарантирует наличие авторизации; user может быть null при hydration
   if (!user) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -42,12 +52,11 @@ export default function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-screen-sm px-4 py-10">
-      <h1 className="mb-6 text-xl font-semibold text-slate-900 dark:text-slate-100">Profile</h1>
+      <h1 className="mb-6 text-xl font-semibold text-slate-900 dark:text-slate-100">Профиль</h1>
 
       {/* Блок идентификации */}
       <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6">
         <div className="flex items-center gap-4 mb-6">
-          {/* Аватар с инициалами (загрузка фото не поддерживается §4.4) */}
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-800 text-white text-lg font-semibold dark:bg-blue-500">
             {getInitials(displayName)}
           </div>
@@ -59,9 +68,8 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Детали */}
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-          <dt className="text-slate-500 dark:text-slate-400">Username</dt>
+          <dt className="text-slate-500 dark:text-slate-400">Имя пользователя</dt>
           <dd className="font-medium text-slate-900 dark:text-slate-100">
             {user.username ?? '—'}
           </dd>
@@ -71,29 +79,31 @@ export default function ProfilePage() {
             {user.email}
           </dd>
 
-          <dt className="text-slate-500 dark:text-slate-400">Member since</dt>
+          <dt className="text-slate-500 dark:text-slate-400">Дата регистрации</dt>
           <dd className="font-medium text-slate-900 dark:text-slate-100">
             {formatDate(user.created_at)}
           </dd>
         </dl>
       </div>
 
-      {/* Search History — placeholder (§4.4: требует доработки бэкенда) */}
-      <div className="mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6">
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Search History</h2>
-        <p className="text-xs text-slate-400 dark:text-slate-500">
-          Coming soon — requires backend support.
-        </p>
+      {/* Квота live-поиска Scopus */}
+      <div className="mt-4">
+        <LiveSearchQuotaCounter />
       </div>
 
-      {/* Sign Out */}
+      {/* История поиска */}
+      <div className="mt-4">
+        <SearchHistoryList />
+      </div>
+
+      {/* Выход */}
       <div className="mt-6">
         <Button
           variant="outline"
           onClick={handleSignOut}
           className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-900/30"
         >
-          Sign Out
+          Выйти
         </Button>
       </div>
     </div>

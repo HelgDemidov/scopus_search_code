@@ -531,9 +531,12 @@ FILE: app\routers\__init__.py
 ============================================================
 FILE: app\routers\articles.py
 ============================================================
+import datetime
+from datetime import timezone, timedelta
 from typing import AsyncGenerator, Any
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_db_session
 from app.infrastructure.postgres_article_repo import PostgresArticleRepository
@@ -572,9 +575,11 @@ async def get_articles(page: int=Query(1, ge=1, description='Номер стра
 @router.get('/search/stats', response_model=SearchStatsResponse, tags=['Analytics'])
 async def get_search_stats(search: str=Query(..., min_length=2, description='Поисковый запрос — возвращает агрегаты только по matching статьям (ILIKE по title/author)'), service: ArticleService=Depends(get_article_service), current_user: User=Depends(get_current_user)) -> SearchStatsResponse:
     pass
+_QUOTA_LIMIT = 200
+_WINDOW_DAYS = 7
 
 @router.get('/find', response_model=list[ArticleResponse])
-async def find_articles(response: Response, keyword: str=Query(..., min_length=2, description='Ключевое слово для поиска'), count: int=Query(25, ge=1, le=25, description='Сколько статей запросить из Scopus (макс 25)'), service: SearchService=Depends(get_search_service), current_user: User=Depends(get_current_user)) -> Any:
+async def find_articles(response: Response, keyword: str=Query(..., min_length=2, description='Ключевое слово для поиска'), count: int=Query(25, ge=1, le=25, description='Сколько статей запросить из Scopus (макс 25)'), year_from: int | None=Query(None, description='Фильтр: год публикации от'), year_to: int | None=Query(None, description='Фильтр: год публикации до'), doc_types: list[str] | None=Query(None, description='Фильтр: типы документов'), open_access: bool | None=Query(None, description='Фильтр: только open-access'), country: list[str] | None=Query(None, description='Фильтр: страны'), service: SearchService=Depends(get_search_service), session: AsyncSession=Depends(get_db_session), current_user: User=Depends(get_current_user)) -> Any:
     pass
 
 @router.get('/history', response_model=SearchHistoryResponse)
@@ -856,13 +861,14 @@ from typing import List
 from app.models.article import Article
 from app.interfaces.article_repository import IArticleRepository
 from app.interfaces.search_client import ISearchClient
+from app.interfaces.search_history_repo import ISearchHistoryRepository
 
 class SearchService:
 
-    def __init__(self, search_client: ISearchClient, article_repo: IArticleRepository):
+    def __init__(self, search_client: ISearchClient, article_repo: IArticleRepository, history_repo: ISearchHistoryRepository):
         pass
 
-    async def find_and_save(self, keyword: str, count: int=25) -> List[Article]:
+    async def find_and_save(self, keyword: str, count: int=25, *, user_id: int, filters: dict | None=None) -> List[Article]:
         pass
 
 ============================================================
@@ -901,10 +907,11 @@ FILE: db_seeder\seeder__scripts\keyword_generator.py
 import asyncio
 import json
 from datetime import date
+import re
 import httpx
 CLUSTERS = ['Large Language Models', 'Generative Adversarial Networks', 'Neuromorphic Computing', 'AI Hardware Accelerators', 'AutoML and Self-Improving Systems']
 OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
-MODEL = 'google/gemini-2.5-flash'
+MODEL = 'mistralai/mistral-small-3.2-24b-instruct'
 
 def _get_todays_cluster() -> str:
     pass
@@ -1333,6 +1340,103 @@ async def test_find_articles_rate_limits_headers(authenticated_client: AsyncClie
     pass
 
 ============================================================
+FILE: tests\integration\test_find_articles.py
+============================================================
+"""Integration tests for Commit 3: /articles/find with auth, quota, history, filters.
+
+Выполняются на SQLite in-memory через shared conftest (client + authenticated_client).
+PG-only детали (advisory-lock concurrency, JSONB-специфика) вынесены в
+test_find_articles_postgres.py и маркируются requires_pg.
+"""
+import datetime
+from datetime import date, timezone, timedelta
+import pytest
+from httpx import AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.article import Article
+from app.models.search_history import SearchHistory
+from app.main import app
+from app.routers.articles import get_scopus_client
+from app.interfaces.search_client import ISearchClient
+from app.services.search_service import SearchService
+
+@pytest.fixture
+def mock_scopus_two_articles(monkeypatch):
+    pass
+
+@pytest.mark.asyncio
+async def test_find_happy_path_writes_one_history_row(authenticated_client: AsyncClient, db_session: AsyncSession, mock_scopus_two_articles):
+    pass
+
+@pytest.mark.asyncio
+async def test_find_requires_auth(client: AsyncClient, mock_scopus_two_articles):
+    pass
+
+@pytest.mark.asyncio
+async def test_find_returns_429_when_quota_exhausted(authenticated_client: AsyncClient, db_session: AsyncSession, monkeypatch):
+    pass
+
+@pytest.mark.asyncio
+async def test_find_persists_filters(authenticated_client: AsyncClient, db_session: AsyncSession, mock_scopus_two_articles):
+    pass
+
+@pytest.mark.asyncio
+async def test_find_result_count_equals_saved(authenticated_client: AsyncClient, db_session: AsyncSession, mock_scopus_two_articles):
+    pass
+
+@pytest.mark.asyncio
+async def test_find_scopus_error_writes_no_history(authenticated_client: AsyncClient, db_session: AsyncSession, monkeypatch):
+    pass
+
+============================================================
+FILE: tests\integration\test_find_articles_postgres.py
+============================================================
+"""PostgreSQL-only tests for Commit 3 /articles/find advisory-lock concurrency.
+
+Проверяют:
+  - pg_advisory_xact_lock сериализует параллельные проверки квоты одного user_id;
+  - ровно один свободный слот при 199 предзаполненных строках → один 200 и остальные 429;
+  - разные user_id не блокируют друг друга.
+
+Skipped if DATABASE_TEST_URL не задан (см. tests/integration/conftest.py::pg_session).
+"""
+import asyncio
+import datetime
+from datetime import date, timezone, timedelta
+import pytest
+from httpx import AsyncClient, ASGITransport
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from app.core.dependencies import get_db_session
+from app.main import app
+from app.models.article import Article
+from app.models.base import Base
+from app.models.search_history import SearchHistory
+
+@pytest.fixture
+def _mock_scopus(monkeypatch):
+    pass
+
+@pytest.mark.asyncio
+@pytest.mark.requires_pg
+async def test_single_slot_allows_exactly_one_success(pg_authenticated_client: AsyncClient, pg_session: AsyncSession, _mock_scopus):
+    """При 199 свежих строках → ровно 1 ответ 200 и остальные 429 на N-параллельных запросах."""
+
+@pytest.mark.asyncio
+@pytest.mark.requires_pg
+async def test_parallel_requests_near_quota_boundary(_mock_scopus, tmp_path):
+    """Жёсткая конкурентная проверка: несколько одновременных подключений,
+каждое со своей сессией, бьют в /articles/find одного пользователя
+при 199 предзаполненных строках. Advisory-lock обеспечивает: ровно 1 x 200,
+остальные x 429."""
+
+@pytest.mark.asyncio
+@pytest.mark.requires_pg
+async def test_different_users_do_not_share_lock(_mock_scopus, tmp_path):
+    """Разные user_id → разные advisory-lock ключи → не блокируют друг друга."""
+
+============================================================
 FILE: tests\integration\test_rt_e2e.py
 ============================================================
 """E2E-тест: полный жизненный цикл refresh token.
@@ -1610,6 +1714,111 @@ async def test_get_oldest_in_window_returns_none_when_empty():
 
 @pytest.mark.asyncio
 async def test_reset_at_calculation():
+    pass
+
+============================================================
+FILE: tests\unit\test_search_service.py
+============================================================
+import datetime
+from datetime import date
+from typing import List
+import pytest
+from app.interfaces.article_repository import IArticleRepository
+from app.interfaces.search_client import ISearchClient
+from app.interfaces.search_history_repo import ISearchHistoryRepository
+from app.models.article import Article
+from app.models.search_history import SearchHistory
+from app.services.search_service import SearchService
+
+class FakeSearchClient(ISearchClient):
+
+    def __init__(self, articles: List[Article] | None=None, raise_exc: Exception | None=None):
+        pass
+
+    @property
+    def last_rate_limit(self) -> str | None:
+        pass
+
+    @property
+    def last_rate_remaining(self) -> str | None:
+        pass
+
+    @property
+    def last_rate_reset(self) -> str | None:
+        pass
+
+    async def search(self, keyword: str, count: int=25) -> List[Article]:
+        pass
+
+class FakeArticleRepository(IArticleRepository):
+
+    def __init__(self, raise_exc: Exception | None=None):
+        pass
+
+    async def save_many(self, articles: List[Article]) -> List[Article]:
+        pass
+
+    async def get_all(self, limit, offset, keyword=None, search=None):
+        pass
+
+    async def get_by_id(self, article_id):
+        pass
+
+    async def get_total_count(self, keyword=None, search=None):
+        pass
+
+    async def get_search_stats(self, search):
+        pass
+
+    async def get_stats(self):
+        pass
+
+class FakeSearchHistoryRepository(ISearchHistoryRepository):
+
+    def __init__(self):
+        pass
+
+    async def insert_row(self, user_id: int, query: str, result_count: int, filters: dict | None=None) -> SearchHistory:
+        pass
+
+    async def count_in_window(self, user_id, since):
+        pass
+
+    async def get_last_n(self, user_id, n=100):
+        pass
+
+    async def get_oldest_in_window_created_at(self, user_id, since):
+        pass
+
+def _mk_article(doi: str='10.test/1') -> Article:
+    pass
+
+@pytest.mark.asyncio
+async def test_constructor_stores_history_repo():
+    pass
+
+@pytest.mark.asyncio
+async def test_find_and_save_success_calls_save_then_insert_row():
+    pass
+
+@pytest.mark.asyncio
+async def test_find_and_save_empty_returns_and_does_not_insert_history():
+    pass
+
+@pytest.mark.asyncio
+async def test_find_and_save_search_exception_does_not_save_or_insert():
+    pass
+
+@pytest.mark.asyncio
+async def test_find_and_save_save_exception_does_not_insert_history():
+    pass
+
+@pytest.mark.asyncio
+async def test_find_and_save_passes_count_to_search_client():
+    pass
+
+@pytest.mark.asyncio
+async def test_find_and_save_filters_default_none_passed_through():
     pass
 
 ============================================================

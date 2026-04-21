@@ -422,3 +422,124 @@ Run these 5 flows manually before any release. No automation required.
 3. *No existing `/articles/history*` route collides* — `/articles/find/quota` and `/articles/history` were chosen to stay under the existing `router = APIRouter(prefix="/articles")`; verify no slug conflict with the `/{article_id}` catch-all by registering new literal paths before `GET /{article_id}` in `articles.py`, because FastAPI route priority follows registration order. The current `/{article_id}` route is last, so this is confirmed safe as long as the new literal routes are inserted above it.
 4. *README's "UI text not unified" item* is the only indication that global language work remains. The README does not explicitly say "no shared navbar" — inspection shows a `RootLayout`+`Header` already exist, so §1.5 is de-scoped from "add shared layout" to "relabel + add nav link."
 5. *No existing tests assert English copy strings*; if `tests/integration` or frontend tests do, Commit 8 must also update them.
+
+***
+
+---
+
+## 5. Implementation Status
+
+> **Last updated:** 2026-04-21
+> **Branch:** `search-refactoring` → merged into `main` via PR #3 (2026-04-20) and PR #4 (2026-04-21)
+> **CI:** Both jobs (`test` — SQLite, `test-pg` — PostgreSQL 16) pass green on `main`.
+
+---
+
+### Commit 1 — `feat(db): add search_history table and weekly quota infrastructure`
+
+**Status: ✅ DONE — shipped in commit [`26ebd0f`](https://github.com/HelgDemidov/scopus_search_code/commit/26ebd0f06d59830b2b1cea5dae86a0b78cda18e8)**
+
+#### Files created / modified
+
+| File | Status vs. spec |
+|---|---|
+| `app/models/search_history.py` | ✅ Created. Columns match spec: `id`, `user_id` (FK → `users.id` ON DELETE CASCADE), `query`, `created_at` (TIMESTAMPTZ), `result_count`, `filters` (JSONB). |
+| `alembic/versions/0005_add_search_history.py` | ✅ Created. `down_revision = 'd2c4aaedfd4e'`, verified against `alembic current`. `upgrade()` creates table + index; `downgrade()` drops both cleanly. |
+| `alembic/env.py` | ✅ Modified: added `from app.models.search_history import SearchHistory  # noqa: F401` as required by spec. |
+| `app/interfaces/search_history_repo.py` | ✅ Created. ABC `ISearchHistoryRepository` with four abstract methods: `insert_row`, `count_in_window`, `get_last_n`, `get_oldest_in_window_created_at`. |
+| `app/infrastructure/postgres_search_history_repo.py` | ✅ Created. `PostgresSearchHistoryRepository` implements all four methods. Uses `flush()` (not `commit()`) in `insert_row` so the caller controls the transaction boundary. |
+| `tests/unit/test_search_history_repository.py` | ✅ Created. 9 unit tests via `FakeSearchHistoryRepository` (in-memory). Covers: insert, `filters=None→{}`, filters round-trip, `count_in_window` includes/excludes by date, `get_last_n` ordering and limit, `reset_at` calculation. Runs against SQLite / in-memory — no PostgreSQL required. |
+
+#### Deviations from spec
+
+**1. `filters` column: `server_default` removed from ORM model; `JsonField` custom type added.**
+
+The spec prescribed `filters JSONB NOT NULL DEFAULT '{}'::jsonb`. The implementation splits this into two layers:
+- **Migration** (`0005_add_search_history.py`): retains `server_default=sa.text("'{}'")`  and `postgresql.JSONB` — correct PostgreSQL DDL as specified.
+- **ORM model** (`search_history.py`): uses a custom `JsonField(TypeDecorator)` instead of a bare `JSONB` column, and sets `default=dict` at the Python level instead of `server_default`. The `server_default` with a PostgreSQL literal (`'{}'::jsonb`) was intentionally removed from the ORM layer because it is incompatible with SQLite (used in the existing fast test suite). `JsonField` dispatches to native `JSONB` on PostgreSQL and to `TEXT + json.dumps/loads` on SQLite — this makes the model usable in both environments without forking.
+
+**Implication:** The DDL in production (PostgreSQL, Supabase) is fully spec-compliant. The ORM-level `server_default` is absent, which means `filters` must always be explicitly set by the caller — and it is: `PostgresSearchHistoryRepository.insert_row` normalises `None → {}` before constructing the ORM object.
+
+**2. Composite index: `DESC` qualifier present in migration, absent in ORM `__table_args__`.**
+
+The spec required `(user_id, created_at DESC)`. The migration creates the index correctly with `sa.text('created_at DESC')`. The ORM model's `__table_args__` index declaration omits `DESC` (SQLite does not support operator classes / sort direction in index DDL). This is intentional and safe: Alembic uses the migration file for DDL on PostgreSQL; the ORM `__table_args__` definition is only used for `Base.metadata.create_all` (called in tests). Query performance on PostgreSQL is unaffected because the migration-created index is correct.
+
+**3. `tests/unit/test_search_history_repository.py` was not in the spec's Commit 1 file list.**
+
+The spec listed this file under Commit 1's test coverage (§4.1, table row "Commit 1 — repository behavior") but did not include it in the Commit 1 "Affected files" list (§3, Commit 1). In practice, the file was delivered in the same commit (`26ebd0f`) alongside the model and repository. This is a spec inconsistency; the actual delivery matches the test-coverage intent.
+
+---
+
+### Commit 2 — `feat(api): search history endpoints + quota endpoint`
+
+**Status: ✅ DONE WITH MINOR DEVIATIONS — shipped across commits [`8d05fc8`](https://github.com/HelgDemidov/scopus_search_code/commit/8d05fc8eaeea7759ebabaddf63a3179d88330dd1), [`55e0983`](https://github.com/HelgDemidov/scopus_search_code/commit/55e09832af5e4f836349539495bfdf5bd557f906), [`f6e8685`](https://github.com/HelgDemidov/scopus_search_code/commit/f6e8685c3e85e59125663cd456626437bf276621), [`c23ed33`](https://github.com/HelgDemidov/scopus_search_code/commit/c23ed3363af7155c03159c55d65c6fc695d11f10) + fixes in [`847392f`](https://github.com/HelgDemidov/scopus_search_code/commit/847392f0b6f7a34b9caecfb9168eb168d3a87604), [`2dfd409`](https://github.com/HelgDemidov/scopus_search_code/commit/2dfd409d0e377a73ba9607a1349b64f81a16f88d)**
+
+#### Files created / modified
+
+| File | Status vs. spec |
+|---|---|
+| `app/schemas/search_history_schemas.py` | ✅ Created. `SearchHistoryItemResponse` (fields: `id`, `query`, `created_at`, `result_count`, `filters`), `SearchHistoryResponse` (fields: `items`, `total`), `QuotaResponse` (fields: `limit`, `used`, `remaining`, `reset_at`, `window_days`). |
+| `app/services/search_history_service.py` | ✅ Created. `SearchHistoryService` with `get_history(user_id, n=100)` and `get_quota(user_id)`. Constants: `QUOTA_LIMIT = 200`, `WINDOW_DAYS = 7`. Rolling window via `datetime.now(utc) - timedelta(days=7)`. |
+| `app/routers/articles.py` | ✅ Modified. New endpoints `GET /articles/history` and `GET /articles/find/quota` added. New DI factory `get_search_history_service`. Both new routes registered **above** `GET /{article_id}` catch-all — route shadowing risk mitigated as required. |
+| `tests/integration/conftest.py` | ✅ Created (not listed in spec's Commit 2 affected files — see deviation §2 below). PostgreSQL-specific fixtures: `pg_session`, `pg_client`, `pg_registered_user`, `pg_logged_in`, `pg_authenticated_client`. All `scope="function"` — required by `asyncio_default_fixture_loop_scope = function` in `pytest.ini`. |
+| `tests/integration/test_search_history_api.py` | ✅ Created. 9 integration tests, all marked `@pytest.mark.requires_pg`. Covers all scenarios from spec §4.1 Commit 2 row: auth guard (401), user isolation, ≤100 row limit, `created_at DESC` ordering, response schema, quota auth guard, quota fields, quota rolling window, route safety (`history` / `find` do not match `/{article_id}`). |
+
+#### `QuotaResponse` schema: `window_days` field added beyond spec
+
+The spec defined `QuotaResponse` as `{ limit, used, remaining, reset_at }`. The implementation adds a fifth field `window_days: int = 7`. Rationale: avoids the frontend hardcoding the window length. This is a non-breaking additive change.
+
+#### Deviations from spec
+
+**1. `GET /articles/history` response wraps items in a `SearchHistoryResponse` envelope.**
+
+The spec described the endpoint as "returning the last 100 rows… schema `SearchHistoryResponse` (list of `{id, query, created_at, result_count, filters}`)". The implementation returns `{ "items": [...], "total": <int> }` rather than a bare JSON array. This is an intentional improvement — the `total` field is needed by the frontend pagination component and by the quota counter logic. The integration tests assert `body["items"]` and `body["total"]`, confirming the actual contract.
+
+**2. `conftest.py` for PostgreSQL fixtures was not in the spec's Commit 2 file list.**
+
+The spec's Commit 2 "Affected files" (§3) did not list `tests/integration/conftest.py`. In practice this file is a prerequisite for all `pg_*` fixtures and was created as part of Commit 2 delivery. It is correctly scoped to `tests/integration/` and does not affect the existing `tests/conftest.py` (SQLite fixtures).
+
+**3. `scope="module"` async fixtures were attempted and then reverted.**
+
+An intermediate commit (`2dfd409`) documents that module-scoped async fixtures were initially written and caused `ScopeMismatch` errors because `pytest.ini` sets `asyncio_default_fixture_loop_scope = function`. All `pg_*` fixtures were refactored to `scope="function"` in that same commit. The final state in `conftest.py` is `scope="function"` throughout — consistent with `pytest.ini`.
+
+**4. `n` parameter exposed on `GET /articles/history`.**
+
+The spec defined a fixed 100-row limit (`LIMIT 100` in the query). The implementation exposes it as a query parameter: `n: int = Query(100, ge=1, le=100)`. The default and ceiling are both 100, so the observable behavior is identical to the spec. The parameter allows future flexibility without a schema change.
+
+---
+
+### Test Infrastructure: PostgreSQL E2E via GitHub Actions
+
+**Status: ✅ DONE — shipped in commits [`7718987`](https://github.com/HelgDemidov/scopus_search_code/commit/7718987878dbea32aae21a5f957f2974ce139e57), [`ef16f5a`](https://github.com/HelgDemidov/scopus_search_code/commit/ef16f5a40d1642b145279c1fa101fcd3aa49586f), [`9eabc37`](https://github.com/HelgDemidov/scopus_search_code/commit/9eabc37c2ba4540d1eddf501fd980f2954b71893)**
+
+The spec (§4.4) stated: "No new CI infrastructure is needed for backend tests." In practice, this was revised during implementation: the `requires_pg` tests cannot run against SQLite (JSONB is PostgreSQL-only), and neither a local Docker setup nor a shared Supabase test database is an acceptable long-term solution (non-reproducible / accumulates test data). A second CI job was added to `.github/workflows/tests.yml`.
+
+#### Architecture decision: two isolated CI jobs
+
+| Job | Name in CI | Database | Test scope | Marker filter |
+|---|---|---|---|---|
+| Job 1 (pre-existing) | `test` | SQLite in-memory (`aiosqlite`) | All tests except `requires_pg` | `-m "not requires_pg"` |
+| Job 2 (new) | `test-pg` | PostgreSQL 16 ephemeral service container (GitHub Actions) | `tests/integration/test_search_history_api.py` only | `-m requires_pg` |
+
+**Key properties of Job 2:**
+- PostgreSQL 16 container is spun up fresh on every CI run and destroyed on completion — no data accumulation, full isolation between runs.
+- `DATABASE_TEST_URL` is set as a `jobs.test-pg.env` variable pointing to the ephemeral container (`postgresql+asyncpg://testuser:testpass@localhost:5432/testdb`). It is not stored as a GitHub Secret — the credentials are test-only, ephemeral, and not sensitive.
+- `conftest.py` uses `Base.metadata.create_all` / `Base.metadata.drop_all` around each test function — schema is rebuilt from ORM models per test, not from Alembic migrations. This is intentional: it keeps fixture setup fast and self-contained.
+- The existing Job 1 (`test`) is unchanged: it continues to run all non-`requires_pg` tests against SQLite, including all pre-existing unit and integration tests.
+
+#### `authlib` deprecation warning: resolved
+
+After CI stabilisation, `AuthlibDeprecationWarning` from `authlib 1.7+` appeared in both jobs. Resolved in commit [`b12df2d`](https://github.com/HelgDemidov/scopus_search_code/commit/b12df2d4c888441a2f68eb3a56c93ef77213a3d6) / [`3ed7b9f`](https://github.com/HelgDemidov/scopus_search_code/commit/3ed7b9f2421682ef8a382feb09c6f0a7904aa0f8):
+- `requirements.txt`: pinned `authlib>=1.3.1,<2.0.0` to prevent unexpected breakage at `authlib 2.0.0`.
+- `pytest.ini`: added `filterwarnings = ignore:authlib.jose module is deprecated:DeprecationWarning`.
+
+---
+
+### Open items carried forward to Commit 3
+
+The following items from the original spec remain **not yet implemented** and are prerequisites for Commit 3:
+
+1. **Quota enforcement on `GET /articles/find`** — the 200 req / 7 days guard (`pg_advisory_xact_lock`) is not yet wired into `find_articles`. The endpoint currently has no quota check.
+2. **History write on successful Scopus call** — `SearchService.find_and_save` does not yet insert a `search_history` row. The `PostgresSearchHistoryRepository` infrastructure is ready; the call site in `SearchService` is missing.
+3. **Filter capture on `GET /articles/find`** — the five optional query parameters (`year_from`, `year_to`, `doc_types`, `open_access`, `country`) are not yet added to `find_articles`; `filters` is not yet passed to `history_repo.insert_row`.
+4. **`SearchService` constructor refactor** — spec requires injecting `SearchHistoryRepository` into `SearchService.__init__`. Currently `get_search_service` factory creates `SearchService` without it; `get_search_history_service` is a separate factory. This split is a temporary state pending Commit 3.

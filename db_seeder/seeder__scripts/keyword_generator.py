@@ -2,6 +2,7 @@ import asyncio
 import json
 from datetime import date
 
+import re
 import httpx
 
 # Тематические кластеры в рамках Artificial Intelligence and Neural Network Technologies
@@ -14,7 +15,7 @@ CLUSTERS = [
 ]
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL = "google/gemini-2.5-flash"  # Обновлено: gemini-flash-1.5 удалена с OpenRouter
+MODEL = "mistralai/mistral-small-3.2-24b-instruct"  # Mistral Small 3.2: нет thinking, свежая (март 2026)
 
 
 def _get_todays_cluster() -> str:
@@ -66,6 +67,7 @@ async def generate_keywords(
         "model": MODEL,
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.9,  # Высокая температура — максимальное разнообразие фраз
+        "max_tokens": 3500,  # 120 фраз × ~10 токенов + запас
     }
 
     async with httpx.AsyncClient(timeout=60.0) as client:
@@ -82,13 +84,45 @@ async def generate_keywords(
     # Парсим JSON-массив из ответа
     try:
         candidates: list[str] = json.loads(raw_content)
+
     except json.JSONDecodeError:
-        # Модель иногда обертывает ответ в markdown-блоке — вырезаем JSON из него
-        import re
-        match = re.search(r'\[.*?\]', raw_content, re.DOTALL)
-        if not match:
-            raise RuntimeError(f"Не удалось распарсить ответ OpenRouter: {raw_content[:300]}")
-        candidates = json.loads(match.group())
+        candidates: list[str] = []
+
+        # Ищем начало JSON-массива — закрывающего ] может не быть (усечённый ответ)
+        start = raw_content.find('[')
+        if start != -1:
+            fragment = raw_content[start:]
+
+            # Сначала пробуем распарсить как есть (вдруг ] всё-таки есть)
+            try:
+                candidates = json.loads(fragment)
+            except json.JSONDecodeError:
+                # Ответ усечён: убираем хвостовой мусор (незакрытая строка или запятая)
+                # и достраиваем закрывающую скобку
+                clean = fragment.rstrip()
+                # Убираем оборванную последнюю запись: ищем последнюю закрывающую кавычку
+                last_quote = clean.rfind('"')
+                if last_quote != -1:
+                    # Проверяем, закрыта ли строка: ищем парную открывающую кавычку
+                    prev_quote = clean.rfind('"', 0, last_quote)
+                    if prev_quote != -1:
+                        # Если после последней закрывающей кавычки нет запятой — строка полная
+                        after = clean[last_quote + 1:].strip().lstrip(',').strip()
+                        if not after or after == ']':
+                            # Строка полная — обрезаем до неё и закрываем массив
+                            truncated = clean[:last_quote + 1].rstrip().rstrip(',')
+                        else:
+                            # Строка оборвана — обрезаем до предыдущей полной записи
+                            truncated = clean[:prev_quote].rstrip().rstrip(',')
+                        try:
+                            candidates = json.loads(truncated + ']')
+                        except json.JSONDecodeError:
+                            candidates = []
+
+        if not candidates:
+            raise RuntimeError(
+                f"Не удалось распарсить ответ OpenRouter: {raw_content[:300]}"
+            )
 
     # Финальная фильтрация: убираем уже использованные фразы
     unique = [

@@ -11,6 +11,8 @@ import type {
   ArticleResponse,
   SearchStatsResponse,
   ScopusQuota,
+  SearchHistoryItem,
+  QuotaResponse,
 } from '../types/api';
 
 // ---------------------------------------------------------------------------
@@ -106,4 +108,30 @@ export async function findArticles(
       : null;
 
   return { articles: response.data, quota };
+}
+
+// ---------------------------------------------------------------------------
+// GET /articles/history — история поисков текущего пользователя
+// Бэкенд может возвращать bare-array или { items, total } — обрабатываем оба
+// ---------------------------------------------------------------------------
+
+export async function getSearchHistory(): Promise<SearchHistoryItem[]> {
+  const response = await apiClient.get<
+    SearchHistoryItem[] | { items: SearchHistoryItem[]; total: number }
+  >('/articles/history');
+  const data = response.data;
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray((data as { items?: SearchHistoryItem[] }).items)) {
+    return (data as { items: SearchHistoryItem[] }).items;
+  }
+  return [];
+}
+
+// ---------------------------------------------------------------------------
+// GET /articles/find/quota — Scopus-квота пользователя (недельное окно)
+// ---------------------------------------------------------------------------
+
+export async function getScopusQuota(): Promise<QuotaResponse> {
+  const response = await apiClient.get<QuotaResponse>('/articles/find/quota');
+  return response.data;
 }
