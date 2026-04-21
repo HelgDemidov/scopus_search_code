@@ -60,6 +60,9 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
+        # Имитируем реальный JS-клиент: X-Requested-With требуется CSRF-guard
+        # на /auth/refresh (введен в 6647bce вместе с SameSite=None cookie)
+        headers={"X-Requested-With": "XMLHttpRequest"},
     ) as ac:
         yield ac
 
