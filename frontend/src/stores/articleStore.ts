@@ -154,11 +154,13 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
         scopusQuota: quota,
         isLiveSearching: false,
       });
-      // Синхронизируем quotaStore после live-поиска — ScopusQuotaBadge
-      // читает именно оттуда; передаём quota целиком (QuotaResponse: limit, used, remaining, reset_at)
+      // После live-поиска обновляем quotaStore через fetchQuota():
+      // /articles/find/quota возвращает полный QuotaResponse (limit, used, remaining, reset_at),
+      // который требует LiveSearchQuotaCounter. Fire-and-forget — не блокирует завершение поиска
       if (quota) {
-        const { useQuotaStore } = await import('./quotaStore');
-        useQuotaStore.setState({ quota });
+        void import('./quotaStore').then(({ useQuotaStore }) =>
+          useQuotaStore.getState().fetchQuota(),
+        );
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Live search failed';
