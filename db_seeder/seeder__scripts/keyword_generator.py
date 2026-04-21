@@ -2,6 +2,7 @@ import asyncio
 import json
 from datetime import date
 
+import re
 import httpx
 
 # Тематические кластеры в рамках Artificial Intelligence and Neural Network Technologies
@@ -66,6 +67,7 @@ async def generate_keywords(
         "model": MODEL,
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.9,  # Высокая температура — максимальное разнообразие фраз
+        "max_tokens": 2048,  # 120 фраз × ~10 токенов + запас
     }
 
     async with httpx.AsyncClient(timeout=60.0) as client:
@@ -82,13 +84,25 @@ async def generate_keywords(
     # Парсим JSON-массив из ответа
     try:
         candidates: list[str] = json.loads(raw_content)
+
     except json.JSONDecodeError:
-        # Модель иногда обертывает ответ в markdown-блоке — вырезаем JSON из него
         import re
-        match = re.search(r'\[.*?\]', raw_content, re.DOTALL)
-        if not match:
-            raise RuntimeError(f"Не удалось распарсить ответ OpenRouter: {raw_content[:300]}")
-        candidates = json.loads(match.group())
+        candidates: list[str] = []  # инициализируем до входа в if — Pylance доволен
+        match = re.search(r'\[.*\]', raw_content, re.DOTALL)
+        if match:
+            try:
+                candidates = json.loads(match.group())
+            except json.JSONDecodeError:
+                # Ответ усечён — достраиваем закрывающую скобку и парсим то, что есть
+                truncated = match.group().rstrip().rstrip(',')
+                try:
+                    candidates = json.loads(truncated + ']')
+                except json.JSONDecodeError:
+                    candidates = []  # оба варианта провалились — упадём ниже
+        if not candidates:
+            raise RuntimeError(
+                f"Не удалось распарсить ответ OpenRouter: {raw_content[:300]}"
+            )
 
     # Финальная фильтрация: убираем уже использованные фразы
     unique = [
