@@ -430,116 +430,277 @@ Run these 5 flows manually before any release. No automation required.
 ## 5. Implementation Status
 
 > **Last updated:** 2026-04-21
-> **Branch:** `search-refactoring` → merged into `main` via PR #3 (2026-04-20) and PR #4 (2026-04-21)
-> **CI:** Both jobs (`test` — SQLite, `test-pg` — PostgreSQL 16) pass green on `main`.
+> **Scope:** ветка `search-refactoring`, влита в `main` через PR #3 (2026-04-20),
+> PR #4 и прямые коммиты в `main` (2026-04-21).
+> **CI:** оба job'а — `test` (SQLite) и `test-pg` (PostgreSQL 16) — проходят на `main`.
+> **Итог:** коммиты 1–8 реализованы; все 6 разделов ТЗ (§1.1–1.6) закрыты.
 
 ---
 
 ### Commit 1 — `feat(db): add search_history table and weekly quota infrastructure`
 
-**Status: ✅ DONE — shipped in commit [`26ebd0f`](https://github.com/HelgDemidov/scopus_search_code/commit/26ebd0f06d59830b2b1cea5dae86a0b78cda18e8)**
+**Статус: ✅ DONE — [`26ebd0f`](https://github.com/HelgDemidov/scopus_search_code/commit/26ebd0f06d59830b2b1cea5dae86a0b78cda18e8)**
 
-#### Files created / modified
+#### Созданные файлы
 
-| File | Status vs. spec |
+| Файл | Факт из кода |
 |---|---|
-| `app/models/search_history.py` | ✅ Created. Columns match spec: `id`, `user_id` (FK → `users.id` ON DELETE CASCADE), `query`, `created_at` (TIMESTAMPTZ), `result_count`, `filters` (JSONB). |
-| `alembic/versions/0005_add_search_history.py` | ✅ Created. `down_revision = 'd2c4aaedfd4e'`, verified against `alembic current`. `upgrade()` creates table + index; `downgrade()` drops both cleanly. |
-| `alembic/env.py` | ✅ Modified: added `from app.models.search_history import SearchHistory  # noqa: F401` as required by spec. |
-| `app/interfaces/search_history_repo.py` | ✅ Created. ABC `ISearchHistoryRepository` with four abstract methods: `insert_row`, `count_in_window`, `get_last_n`, `get_oldest_in_window_created_at`. |
-| `app/infrastructure/postgres_search_history_repo.py` | ✅ Created. `PostgresSearchHistoryRepository` implements all four methods. Uses `flush()` (not `commit()`) in `insert_row` so the caller controls the transaction boundary. |
-| `tests/unit/test_search_history_repository.py` | ✅ Created. 9 unit tests via `FakeSearchHistoryRepository` (in-memory). Covers: insert, `filters=None→{}`, filters round-trip, `count_in_window` includes/excludes by date, `get_last_n` ordering and limit, `reset_at` calculation. Runs against SQLite / in-memory — no PostgreSQL required. |
+| `app/models/search_history.py` | Модель `SearchHistory` с колонками `id`, `user_id` (FK → `users.id` ON DELETE CASCADE), `query`, `created_at`, `result_count`, `filters`. |
+| `alembic/versions/0005_add_search_history.py` | `down_revision = 'd2c4aaedfd4e'`. `upgrade()` создаёт таблицу и составной индекс; `downgrade()` удаляет и то, и другое. |
+| `alembic/env.py` | Добавлен `from app.models.search_history import SearchHistory  # noqa: F401` для autogenerate. |
+| `app/interfaces/search_history_repo.py` | ABC `ISearchHistoryRepository` с методами `insert_row`, `count_in_window`, `get_last_n`, `get_oldest_in_window_created_at`. |
+| `app/infrastructure/postgres_search_history_repo.py` | `PostgresSearchHistoryRepository` реализует все четыре метода. В `insert_row` применяется `flush()` (не `commit()`), чтобы управление транзакцией оставалось у вызывающего кода. |
+| `tests/unit/test_search_history_repository.py` | 9 unit-тестов через `FakeSearchHistoryRepository`. |
 
-#### Deviations from spec
+#### Отклонения от ТЗ
 
-**1. `filters` column: `server_default` removed from ORM model; `JsonField` custom type added.**
+**1. Тип колонки `filters` в ORM-модели.**
+Миграция `0005_add_search_history.py` использует `postgresql.JSONB` и `server_default=sa.text("'{}'")` — точное соответствие спецификации. ORM-модель применяет собственный `JsonField(TypeDecorator)` и устанавливает `default=dict` на стороне Python для совместимости с SQLite-тестами. DDL в PostgreSQL соответствует ТЗ.
 
-The spec prescribed `filters JSONB NOT NULL DEFAULT '{}'::jsonb`. The implementation splits this into two layers:
-- **Migration** (`0005_add_search_history.py`): retains `server_default=sa.text("'{}'")`  and `postgresql.JSONB` — correct PostgreSQL DDL as specified.
-- **ORM model** (`search_history.py`): uses a custom `JsonField(TypeDecorator)` instead of a bare `JSONB` column, and sets `default=dict` at the Python level instead of `server_default`. The `server_default` with a PostgreSQL literal (`'{}'::jsonb`) was intentionally removed from the ORM layer because it is incompatible with SQLite (used in the existing fast test suite). `JsonField` dispatches to native `JSONB` on PostgreSQL and to `TEXT + json.dumps/loads` on SQLite — this makes the model usable in both environments without forking.
-
-**Implication:** The DDL in production (PostgreSQL, Supabase) is fully spec-compliant. The ORM-level `server_default` is absent, which means `filters` must always be explicitly set by the caller — and it is: `PostgresSearchHistoryRepository.insert_row` normalises `None → {}` before constructing the ORM object.
-
-**2. Composite index: `DESC` qualifier present in migration, absent in ORM `__table_args__`.**
-
-The spec required `(user_id, created_at DESC)`. The migration creates the index correctly with `sa.text('created_at DESC')`. The ORM model's `__table_args__` index declaration omits `DESC` (SQLite does not support operator classes / sort direction in index DDL). This is intentional and safe: Alembic uses the migration file for DDL on PostgreSQL; the ORM `__table_args__` definition is only used for `Base.metadata.create_all` (called in tests). Query performance on PostgreSQL is unaffected because the migration-created index is correct.
-
-**3. `tests/unit/test_search_history_repository.py` was not in the spec's Commit 1 file list.**
-
-The spec listed this file under Commit 1's test coverage (§4.1, table row "Commit 1 — repository behavior") but did not include it in the Commit 1 "Affected files" list (§3, Commit 1). In practice, the file was delivered in the same commit (`26ebd0f`) alongside the model and repository. This is a spec inconsistency; the actual delivery matches the test-coverage intent.
+**2. Составной индекс: `DESC` в миграции, отсутствует в `__table_args__`.**
+`alembic/versions/0005_add_search_history.py` создаёт индекс `(user_id, created_at DESC)` на стороне PostgreSQL — как требует ТЗ. `__table_args__` без направления используется только для `Base.metadata.create_all` в SQLite-тестах, которые не поддерживают сортировку индекса.
 
 ---
 
 ### Commit 2 — `feat(api): search history endpoints + quota endpoint`
 
-**Status: ✅ DONE WITH MINOR DEVIATIONS — shipped across commits [`8d05fc8`](https://github.com/HelgDemidov/scopus_search_code/commit/8d05fc8eaeea7759ebabaddf63a3179d88330dd1), [`55e0983`](https://github.com/HelgDemidov/scopus_search_code/commit/55e09832af5e4f836349539495bfdf5bd557f906), [`f6e8685`](https://github.com/HelgDemidov/scopus_search_code/commit/f6e8685c3e85e59125663cd456626437bf276621), [`c23ed33`](https://github.com/HelgDemidov/scopus_search_code/commit/c23ed3363af7155c03159c55d65c6fc695d11f10) + fixes in [`847392f`](https://github.com/HelgDemidov/scopus_search_code/commit/847392f0b6f7a34b9caecfb9168eb168d3a87604), [`2dfd409`](https://github.com/HelgDemidov/scopus_search_code/commit/2dfd409d0e377a73ba9607a1349b64f81a16f88d)**
+**Статус: ✅ DONE — [`8d05fc8`](https://github.com/HelgDemidov/scopus_search_code/commit/8d05fc8eaeea7759ebabaddf63a3179d88330dd1), [`55e0983`](https://github.com/HelgDemidov/scopus_search_code/commit/55e09832af5e4f836349539495bfdf5bd557f906), [`f6e8685`](https://github.com/HelgDemidov/scopus_search_code/commit/f6e8685c3e85e59125663cd456626437bf276621), [`c23ed33`](https://github.com/HelgDemidov/scopus_search_code/commit/c23ed3363af7155c03159c55d65c6fc695d11f10) + фиксы в [`847392f`](https://github.com/HelgDemidov/scopus_search_code/commit/847392f0b6f7a34b9caecfb9168eb168d3a87604), [`2dfd409`](https://github.com/HelgDemidov/scopus_search_code/commit/2dfd409d0e377a73ba9607a1349b64f81a16f88d)**
 
-#### Files created / modified
+#### Созданные / изменённые файлы
 
-| File | Status vs. spec |
+| Файл | Факт из кода |
 |---|---|
-| `app/schemas/search_history_schemas.py` | ✅ Created. `SearchHistoryItemResponse` (fields: `id`, `query`, `created_at`, `result_count`, `filters`), `SearchHistoryResponse` (fields: `items`, `total`), `QuotaResponse` (fields: `limit`, `used`, `remaining`, `reset_at`, `window_days`). |
-| `app/services/search_history_service.py` | ✅ Created. `SearchHistoryService` with `get_history(user_id, n=100)` and `get_quota(user_id)`. Constants: `QUOTA_LIMIT = 200`, `WINDOW_DAYS = 7`. Rolling window via `datetime.now(utc) - timedelta(days=7)`. |
-| `app/routers/articles.py` | ✅ Modified. New endpoints `GET /articles/history` and `GET /articles/find/quota` added. New DI factory `get_search_history_service`. Both new routes registered **above** `GET /{article_id}` catch-all — route shadowing risk mitigated as required. |
-| `tests/integration/conftest.py` | ✅ Created (not listed in spec's Commit 2 affected files — see deviation §2 below). PostgreSQL-specific fixtures: `pg_session`, `pg_client`, `pg_registered_user`, `pg_logged_in`, `pg_authenticated_client`. All `scope="function"` — required by `asyncio_default_fixture_loop_scope = function` in `pytest.ini`. |
-| `tests/integration/test_search_history_api.py` | ✅ Created. 9 integration tests, all marked `@pytest.mark.requires_pg`. Covers all scenarios from spec §4.1 Commit 2 row: auth guard (401), user isolation, ≤100 row limit, `created_at DESC` ordering, response schema, quota auth guard, quota fields, quota rolling window, route safety (`history` / `find` do not match `/{article_id}`). |
+| `app/schemas/search_history_schemas.py` | Схемы `SearchHistoryItemResponse`, `SearchHistoryResponse` (обёртка `{items, total}`), `QuotaResponse` (`limit`, `used`, `remaining`, `reset_at` + дополнительное поле `window_days: int = 7`). |
+| `app/services/search_history_service.py` | `SearchHistoryService` с методами `get_history(user_id, n=100)` и `get_quota(user_id)`. |
+| `app/routers/articles.py` | `GET /articles/history` и `GET /articles/find/quota` добавлены выше catch-all `GET /{article_id}` — риск перекрытия маршрутов устранён. |
+| `tests/integration/test_search_history_api.py` | 9 интеграционных тестов, все помечены `@pytest.mark.requires_pg`. |
 
-#### `QuotaResponse` schema: `window_days` field added beyond spec
+#### Отклонения от ТЗ
 
-The spec defined `QuotaResponse` as `{ limit, used, remaining, reset_at }`. The implementation adds a fifth field `window_days: int = 7`. Rationale: avoids the frontend hardcoding the window length. This is a non-breaking additive change.
-
-#### Deviations from spec
-
-**1. `GET /articles/history` response wraps items in a `SearchHistoryResponse` envelope.**
-
-The spec described the endpoint as "returning the last 100 rows… schema `SearchHistoryResponse` (list of `{id, query, created_at, result_count, filters}`)". The implementation returns `{ "items": [...], "total": <int> }` rather than a bare JSON array. This is an intentional improvement — the `total` field is needed by the frontend pagination component and by the quota counter logic. The integration tests assert `body["items"]` and `body["total"]`, confirming the actual contract.
-
-**2. `conftest.py` for PostgreSQL fixtures was not in the spec's Commit 2 file list.**
-
-The spec's Commit 2 "Affected files" (§3) did not list `tests/integration/conftest.py`. In practice this file is a prerequisite for all `pg_*` fixtures and was created as part of Commit 2 delivery. It is correctly scoped to `tests/integration/` and does not affect the existing `tests/conftest.py` (SQLite fixtures).
-
-**3. `scope="module"` async fixtures were attempted and then reverted.**
-
-An intermediate commit (`2dfd409`) documents that module-scoped async fixtures were initially written and caused `ScopeMismatch` errors because `pytest.ini` sets `asyncio_default_fixture_loop_scope = function`. All `pg_*` fixtures were refactored to `scope="function"` in that same commit. The final state in `conftest.py` is `scope="function"` throughout — consistent with `pytest.ini`.
-
-**4. `n` parameter exposed on `GET /articles/history`.**
-
-The spec defined a fixed 100-row limit (`LIMIT 100` in the query). The implementation exposes it as a query parameter: `n: int = Query(100, ge=1, le=100)`. The default and ceiling are both 100, so the observable behavior is identical to the spec. The parameter allows future flexibility without a schema change.
+1. **`GET /articles/history` возвращает `{items, total}` вместо bare-array.** Клиент (`getSearchHistory()` в `api/articles.ts`) обрабатывает оба формата: `if (Array.isArray(data)) return data; else return data.items` — обратная совместимость обеспечена.
+2. **`QuotaResponse` содержит дополнительное поле `window_days: int = 7`** — не нарушает контракт ТЗ, исключает хардкод константы на фронтенде.
+3. **Попытка `scope="module"` для async-фикстур** (промежуточный коммит [`2dfd409`](https://github.com/HelgDemidov/scopus_search_code/commit/2dfd409d0e377a73ba9607a1349b64f81a16f88d)) вызвала `ScopeMismatch` с `asyncio_default_fixture_loop_scope = function` из `pytest.ini`; откат к `scope="function"` выполнен в том же коммите.
 
 ---
 
-### Test Infrastructure: PostgreSQL E2E via GitHub Actions
+### Тестовая инфраструктура: PostgreSQL E2E в GitHub Actions
 
-**Status: ✅ DONE — shipped in commits [`7718987`](https://github.com/HelgDemidov/scopus_search_code/commit/7718987878dbea32aae21a5f957f2974ce139e57), [`ef16f5a`](https://github.com/HelgDemidov/scopus_search_code/commit/ef16f5a40d1642b145279c1fa101fcd3aa49586f), [`9eabc37`](https://github.com/HelgDemidov/scopus_search_code/commit/9eabc37c2ba4540d1eddf501fd980f2954b71893)**
+**Статус: ✅ DONE — [`7718987`](https://github.com/HelgDemidov/scopus_search_code/commit/7718987878dbea32aae21a5f957f2974ce139e57), [`ef16f5a`](https://github.com/HelgDemidov/scopus_search_code/commit/ef16f5a40d1642b145279c1fa101fcd3aa49586f), [`9eabc37`](https://github.com/HelgDemidov/scopus_search_code/commit/9eabc37c2ba4540d1eddf501fd980f2954b71893)**
 
-The spec (§4.4) stated: "No new CI infrastructure is needed for backend tests." In practice, this was revised during implementation: the `requires_pg` tests cannot run against SQLite (JSONB is PostgreSQL-only), and neither a local Docker setup nor a shared Supabase test database is an acceptable long-term solution (non-reproducible / accumulates test data). A second CI job was added to `.github/workflows/tests.yml`.
+В `.github/workflows/tests.yml` добавлен второй job `test-pg` с сервисным контейнером PostgreSQL 16. Предупреждение `authlib` устранено в [`b12df2d`](https://github.com/HelgDemidov/scopus_search_code/commit/b12df2d4c888441a2f68eb3a56c93ef77213a3d6) и [`3ed7b9f`](https://github.com/HelgDemidov/scopus_search_code/commit/3ed7b9f2421682ef8a382feb09c6f0a7904aa0f8).
 
-#### Architecture decision: two isolated CI jobs
-
-| Job | Name in CI | Database | Test scope | Marker filter |
-|---|---|---|---|---|
-| Job 1 (pre-existing) | `test` | SQLite in-memory (`aiosqlite`) | All tests except `requires_pg` | `-m "not requires_pg"` |
-| Job 2 (new) | `test-pg` | PostgreSQL 16 ephemeral service container (GitHub Actions) | `tests/integration/test_search_history_api.py` only | `-m requires_pg` |
-
-**Key properties of Job 2:**
-- PostgreSQL 16 container is spun up fresh on every CI run and destroyed on completion — no data accumulation, full isolation between runs.
-- `DATABASE_TEST_URL` is set as a `jobs.test-pg.env` variable pointing to the ephemeral container (`postgresql+asyncpg://testuser:testpass@localhost:5432/testdb`). It is not stored as a GitHub Secret — the credentials are test-only, ephemeral, and not sensitive.
-- `conftest.py` uses `Base.metadata.create_all` / `Base.metadata.drop_all` around each test function — schema is rebuilt from ORM models per test, not from Alembic migrations. This is intentional: it keeps fixture setup fast and self-contained.
-- The existing Job 1 (`test`) is unchanged: it continues to run all non-`requires_pg` tests against SQLite, including all pre-existing unit and integration tests.
-
-#### `authlib` deprecation warning: resolved
-
-After CI stabilisation, `AuthlibDeprecationWarning` from `authlib 1.7+` appeared in both jobs. Resolved in commit [`b12df2d`](https://github.com/HelgDemidov/scopus_search_code/commit/b12df2d4c888441a2f68eb3a56c93ef77213a3d6) / [`3ed7b9f`](https://github.com/HelgDemidov/scopus_search_code/commit/3ed7b9f2421682ef8a382feb09c6f0a7904aa0f8):
-- `requirements.txt`: pinned `authlib>=1.3.1,<2.0.0` to prevent unexpected breakage at `authlib 2.0.0`.
-- `pytest.ini`: added `filterwarnings = ignore:authlib.jose module is deprecated:DeprecationWarning`.
+| Job | БД | Фильтр тестов |
+|---|---|---|
+| `test` (существующий) | SQLite in-memory | `-m "not requires_pg"` |
+| `test-pg` (новый) | PostgreSQL 16 (сервисный контейнер) | `-m requires_pg` |
 
 ---
 
-### Open items carried forward to Commit 3
+### Commit 3 — `feat(api): auth-gated search routing and per-user weekly quota`
 
-The following items from the original spec remain **not yet implemented** and are prerequisites for Commit 3:
+**Статус: ✅ DONE — [`fd0bba6`](https://github.com/HelgDemidov/scopus_search_code/commit/fd0bba64c8e8f33b91431743ad58045a97e3e6ff)**
 
-1. **Quota enforcement on `GET /articles/find`** — the 200 req / 7 days guard (`pg_advisory_xact_lock`) is not yet wired into `find_articles`. The endpoint currently has no quota check.
-2. **History write on successful Scopus call** — `SearchService.find_and_save` does not yet insert a `search_history` row. The `PostgresSearchHistoryRepository` infrastructure is ready; the call site in `SearchService` is missing.
-3. **Filter capture on `GET /articles/find`** — the five optional query parameters (`year_from`, `year_to`, `doc_types`, `open_access`, `country`) are not yet added to `find_articles`; `filters` is not yet passed to `history_repo.insert_row`.
-4. **`SearchService` constructor refactor** — spec requires injecting `SearchHistoryRepository` into `SearchService.__init__`. Currently `get_search_service` factory creates `SearchService` without it; `get_search_history_service` is a separate factory. This split is a temporary state pending Commit 3.
+#### Что реализовано (верифицировано по diff коммита)
+
+- **`SearchService` рефакторинг:** конструктор принимает `ISearchHistoryRepository`; `find_and_save` расширен параметрами `user_id: int` и `filters: dict | None = None`; после успешного `save_many` вставляется строка в `search_history` в той же транзакции.
+- **`GET /articles/find`:** добавлены опциональные параметры `year_from`, `year_to`, `doc_types`, `open_access`, `country`; они сохраняются в `search_history.filters`, но **не** передаются в Scopus API — соответствие ТЗ v1.
+- **Квота через `pg_advisory_xact_lock`:** `await session.execute(text('SELECT pg_advisory_xact_lock(:uid)'), {'uid': int(current_user.id)})` перед проверкой 7-дневного счётчика; HTTP 429 (`"Недельный лимит поиска исчерпан"`) без вызова Scopus и без вставки строки при исчерпании.
+- **DI factory:** `PostgresSearchHistoryRepository` подключён на тот же `AsyncSession`, что и `PostgresArticleRepository` — advisory lock, квота, сохранение статей и история делят одну транзакцию.
+- **Тесты:** `tests/unit/test_search_service.py` (5 unit-тестов), `tests/integration/test_find_articles.py` (SQLite, 7 тестов), `tests/integration/test_find_articles_postgres.py` (`@pytest.mark.requires_pg`, 3 теста на конкурентность, сценарий «ровно один слот», изоляция замков разных пользователей).
+
+#### Таблица критериев приёмки
+
+| Критерий ТЗ | Статус |
+|---|---|
+| 201-й запрос → HTTP 429 | ✅ SQLite + PG тесты |
+| История пишется только при успехе, откат при ошибке Scopus | ✅ unit + integration тесты |
+| `pg_advisory_xact_lock` получает `int(uid)` | ✅ PG-тест на изоляцию |
+| Параметры фильтров сохраняются в `search_history.filters` | ✅ тест `filter persistence` |
+
+---
+
+### Commit 4 — `feat(frontend): global navbar — RU labels and Profile link`
+
+**Статус: ✅ DONE — [`ed5932d`](https://github.com/HelgDemidov/scopus_search_code/commit/ed5932d49eadf32def61c00a521e406cd5547f6a)**
+
+**Изменённый файл:** `frontend/src/components/layout/Header.tsx`.
+
+Верифицировано по финальному коду файла:
+
+| Требование ТЗ | Факт в коде |
+|---|---|
+| «Sign In» → «Авторизоваться» | `<Link to="/auth">Авторизоваться</Link>` в `Button` |
+| «Explore» → «Исследовать» | `<Link to="/explore">Исследовать</Link>` в `NavigationMenuItem` |
+| «Sign Out» → «Выйти» | `<DropdownMenuItem>Выйти</DropdownMenuItem>` |
+| Верхнеуровневая ссылка «Личный кабинет» для авторизованных | `<Link to="/profile">Личный кабинет</Link>` в отдельном `NavigationMenuItem`, условный рендер `{isAuthenticated && ...}` |
+| `aria-label` логотипа остаётся `"Scopus Search"` | `aria-label="Scopus Search"` на SVG-элементе |
+| `aria-label` аватара переведён | `aria-label={`Меню пользователя ${displayName}`}` |
+
+В дропдауне также присутствует `<Link to="/profile">Личный кабинет</Link>` — обе точки входа реализованы.
+
+---
+
+### Commit 5 — `feat(frontend): home page banners + remove sidebar filters`
+
+**Статус: ✅ DONE — [`d5a599a`](https://github.com/HelgDemidov/scopus_search_code/commit/d5a599a21d754d2c73fd291e64cf87bea6c9ed24) + пост-merge фикс [`3d7fdc7`](https://github.com/HelgDemidov/scopus_search_code/commit/3d7fdc727bcd88c6ba405944e73cda37bf97bef0), рефакторинг стора [`edbc0fd`](https://github.com/HelgDemidov/scopus_search_code/commit/edbc0fdf5a997e139701e2099fb176d4d075aff7)**
+
+Верифицировано по финальному коду `HomePage.tsx`:
+
+- **Фильтровая панель удалена:** ни в анонимной, ни в авторизованной ветке `ArticleFilters` не рендерится; в финальном коде файла `<ArticleFilters />` отсутствует полностью — только `SearchBar`, `ScopusQuotaBadge`, баннер, `ArticleList`, `SearchResultsDashboard`.
+- **Анонимный баннер:** в компоненте `AnonHero` присутствует точный текст ТЗ: «Поиск без авторизации осуществляется по статьям тематической коллекции «Artificial Intelligence and Neural Network Technologies». Для поиска по глобальной базе Scopus пройдите [авторизацию](/auth)». Реализован как `<p className="text-xs ...">` с `<Link to="/auth">`.
+- **Авторизованный баннер:** `<p className="text-xs text-slate-500 ...">Выдача результатов поиска по живой базе Scopus ограничена 25 статьями за 1 запрос</p>` — непосредственно под `SearchBar`, без возможности закрыть.
+- **`AnonHero` строки:** заголовок «Поиск публикаций Scopus», подпись «Предпросмотр результатов ниже. [Войдите] для полного поиска.» — переведены; слова «Search Scopus publications», «Preview results below.», «Sign in to unlock full search.» в файле отсутствуют.
+- **Анонимный `handleSearch`:** вызывает `setFilters({ search: query, keyword: undefined })` и `fetchArticles()` — `GET /articles/`, без вызова `/articles/find`.
+- **Авторизованный `handleSearch`:** вызывает `searchScopusLive(query)` — `GET /articles/find`.
+
+#### Filter-slice split (`articleStore` → `historyStore`)
+
+Верифицировано по финальному `articleStore.ts`:
+
+- `filters: ArticleFilters` содержит только серверные поля: `keyword` и `search`. Полей `yearFrom`, `yearTo`, `docTypes`, `openAccessOnly`, `countries` в интерфейсе `ArticleFilters` нет.
+- `applyClientFilters(articles, clientFilters)` получает `clientFilters` через `useHistoryStore.getState().historyFilters` — динамический импорт внутри `fetchArticles`.
+- `ArticleClientFilters` экспортируется из `types/api.ts` и используется как `HistoryFilters` в `historyStore.ts`.
+
+#### Пост-merge фикс
+
+`getScopusQuota()` в первоначальном `api/articles.ts` обращался к `/articles/quota`. Исправлено на `/articles/find/quota` в [`3d7fdc7`](https://github.com/HelgDemidov/scopus_search_code/commit/3d7fdc727bcd88c6ba405944e73cda37bf97bef0) (D-1). Финальный файл `api/articles.ts` содержит: `apiClient.get<QuotaResponse>('/articles/find/quota')`.
+
+---
+
+### Commit 6 — `feat(frontend): profile page — history list, quota counter, filters`
+
+**Статус: ✅ DONE — [`d5a599a`](https://github.com/HelgDemidov/scopus_search_code/commit/d5a599a21d754d2c73fd291e64cf87bea6c9ed24) + фикс [`a65d9183`](https://github.com/HelgDemidov/scopus_search_code/commit/a65d9183bd989122150e6998a5925f99fbbd8d94) + серия фиксов `quotaStore` [`71bec9af`](https://github.com/HelgDemidov/scopus_search_code/commit/71bec9afb4f7cdbf880df651856e6de0ba59f43d), [`6e63f793`](https://github.com/HelgDemidov/scopus_search_code/commit/6e63f793ad0d01edd458c711f79275e639678242), [`6f0244cb`](https://github.com/HelgDemidov/scopus_search_code/commit/6f0244cba3fad9f8932052e7ef5e3ebcb0c8b3f1)**
+
+#### Верификация по финальным файлам
+
+**`ProfilePage.tsx`:**
+- Импортирует `useQuotaStore`, `useHistoryStore`, `LiveSearchQuotaCounter`, `SearchHistoryList`.
+- В `useEffect` при монтировании вызывает `fetchQuota()` и `fetchHistory()` — соответствие требованию ТЗ «на ProfilePage mount».
+- Стаб «Coming soon — requires backend support.» (строки 82–87 оригинала) полностью заменён секциями `<LiveSearchQuotaCounter />` и `<SearchHistoryList />`.
+- Все надписи на русском: «Профиль», «Имя пользователя», «Email», «Дата регистрации», «Выйти».
+
+**`quotaStore.ts`:**
+- Содержит `quota: QuotaResponse | null`, `isLoading: boolean`, `fetchQuota: () => Promise<void>`.
+- `fetchQuota` вызывает `getScopusQuota()` → `GET /articles/find/quota`, сохраняет полный объект `QuotaResponse`.
+- Никакого `setState` со сторонними данными нет — только через `fetchQuota()`.
+
+**`LiveSearchQuotaCounter.tsx`:**
+- Читает `useQuotaStore((s) => s.quota)`.
+- Отображает 4 ячейки: «Лимит», «Использовано», «Осталось», «Сбросится» с форматированием `toLocaleString('ru-RU')` и датой через `Intl.DateTimeFormat`.
+- При `quota === null` рендерит `<Skeleton className="h-16 w-full" />`.
+
+**`SearchHistoryList.tsx`:**
+- Читает `items`, `historyFilters`, `setHistoryFilters`, `isLoading` из `useHistoryStore`.
+- `useMemo filtered()` фильтрует по `yearFrom`, `yearTo`, `openAccessOnly`, `docTypes` (пересечение с `item.filters.docTypes`), `countries` (пересечение с `item.filters.countries` или `item.filters.country`).
+- `availableDocTypes` и `availableCountries` выводятся из `items` (не из `statsStore`).
+- `resetFilters()` обнуляет все пять полей: `yearFrom`, `yearTo`, `openAccessOnly`, `docTypes`, `countries`.
+- Каждая запись отображает: текст запроса, дату (через `Intl.DateTimeFormat('ru-RU')`), `result_count` в формате «N статей», фильтровые бейджи (`<Badge variant="secondary">`).
+- Ссылка «Перейти в аналитику по моим поискам →» ведёт на `/explore?mode=personal`.
+
+**`historyStore.ts`:**
+- Состояние: `items: SearchHistoryItem[]`, `isLoading`, `error`, `historyFilters: HistoryFilters`.
+- `HistoryFilters = ArticleClientFilters` (алиас из `types/api.ts`).
+- `fetchHistory()` вызывает `getSearchHistory()`.
+- Четыре чистых селектора: `selectByYear`, `selectByDocType`, `selectByCountry`, `selectByJournal` — агрегируют `items` в `LabelCount[]` без обращения к бэкенду.
+
+**`articleStore.ts` — синхронизация quotaStore:**
+
+После успешного `searchScopusLive`:
+```typescript
+if (quota) {
+  void import('./quotaStore').then(({ useQuotaStore }) =>
+    useQuotaStore.getState().fetchQuota(),
+  );
+}
+```
+Динамический импорт и вызов `fetchQuota()` вместо `setState` — одиночный дополнительный HTTP-запрос к `/articles/find/quota`. `articleStore.scopusQuota` сохранён для обратной совместимости с `ScopusQuotaBadge`.
+
+При ошибке 429:
+```typescript
+if (err?.response?.status === 429) {
+  message = 'QUOTA_EXCEEDED';
+}
+```
+`HomePage.tsx` в `useEffect([error, isAuthenticated])` вызывает `toast.error('Недельный лимит поиска исчерпан')` при `error === 'QUOTA_EXCEEDED'`.
+
+---
+
+### Commit 7 — `feat(frontend): /explore dual-mode (collection vs personal)`
+
+**Статус: ✅ DONE — [`76b54c1d`](https://github.com/HelgDemidov/scopus_search_code/commit/76b54c1d4217f306dcf9e9b971d3411be9e39804) + ARIA-фикс [`3d7fdc7`](https://github.com/HelgDemidov/scopus_search_code/commit/3d7fdc727bcd88c6ba405944e73cda37bf97bef0)**
+
+Верифицировано по финальному `ExplorePage.tsx`:
+
+- **`useSearchParams`** из `react-router-dom` — режим читается: `modeParam === 'personal' && isAuthenticated ? 'personal' : 'collection'`. Анонимный пользователь всегда получает `'collection'` независимо от URL.
+- **Переключатель** рендерится только при `isAuthenticated`: два `<Button>` с `role="group"` / `aria-label="Режим аналитики"` и `aria-pressed` на каждой кнопке. Кнопки «По коллекции» и «По моим поискам».
+- **`switchMode`:** при выборе `'personal'` устанавливает `params.set('mode', 'personal')`; при `'collection'` удаляет параметр через `params.delete('mode')`. URL обновляется через `setSearchParams` — состояние персистентно и пережит перезагрузку.
+- **Данные `mode=collection`:** `useStatsStore.fetchStats` → `GET /articles/stats` — путь для анонимных пользователей не изменён.
+- **Данные `mode=personal`:** вычисляются через `useMemo` из `personalData = { by_year, by_doc_type, by_country, by_journal }`, где каждое поле — результат селектора из `historyStore` (`selectByYear`, `selectByDocType`, `selectByCountry`, `selectByJournal`). Новый backend-эндпоинт не требуется.
+- **KPI-карточки `mode=personal`:** «Всего поисков» (`historyItems.length`), «Найдено статей» (сумма `result_count`), «Стран» (`personalData.by_country.length`), «Типов документов» (`personalData.by_doc_type.length`).
+- **CTA-баннер для анонимных:** текст «Вы просматриваете аналитику по тематической коллекции "Artificial Intelligence and Neural Network Technologies". Авторизуйтесь, чтобы видеть аналитику по своим запросам.» — рендерится при `!isAuthenticated`.
+- **Чарты:** `DocumentTypesChart`, `TopCountriesChart`, `PublicationsByYearChart`, `TopJournalsChart` загружаются через `React.lazy` / `Suspense` — lazy-splitting не был в ТЗ, добавлен сверх требований.
+
+---
+
+### Commit 8 — `chore(frontend): Russian UI pass`
+
+**Статус: ✅ DONE — [`76b54c1d`](https://github.com/HelgDemidov/scopus_search_code/commit/76b54c1d4217f306dcf9e9b971d3411be9e39804) + остаточный фикс [`3d7fdc7`](https://github.com/HelgDemidov/scopus_search_code/commit/3d7fdc727bcd88c6ba405944e73cda37bf97bef0)**
+
+Верифицировано по diff [`76b54c1d`](https://github.com/HelgDemidov/scopus_search_code/commit/76b54c1d4217f306dcf9e9b971d3411be9e39804) (изменены: `AuthPage.tsx`, `OAuthCallback.tsx`, `ArticleFilters.tsx`, `ScopusQuotaBadge.tsx`, `SearchBar.tsx`, `HomePage.tsx` остаточные строки, `ExplorePage.tsx` КПИ-метки):
+
+- **`AuthPage.tsx`:** 16 добавлений / 16 удалений — переведены все видимые строки.
+- **`OAuthCallback.tsx`:** 1 добавление / 1 удаление — переведена одна строка состояния.
+- **`ArticleFilters.tsx`:** `CommandInput placeholder` переведён в [`3d7fdc7`](https://github.com/HelgDemidov/scopus_search_code/commit/3d7fdc727bcd88c6ba405944e97bef0) (D-7).
+- **`ScopusQuotaBadge.tsx`:** 2 добавления / 2 удаления.
+- **`SearchBar.tsx`:** 3 добавления / 3 удаления.
+- **`ArticlePage.tsx`:** по сообщению коммита D-6 в [`3d7fdc7`](https://github.com/HelgDemidov/scopus_search_code/commit/3d7fdc727bcd88c6ba405944e73cda37bf97bef0) подтверждён полностью переведённым, изменений не потребовалось.
+- Исключения согласно ТЗ §1.6 сохранены: `aria-label="Scopus Search"` на SVG-логотипе, литерал «Artificial Intelligence and Neural Network Technologies» в баннерах и CTA.
+
+---
+
+### Финальный коммит — `fix(frontend): route authenticated home search to live Scopus results`
+
+**Статус: ✅ DONE — [`372d5f5e`](https://github.com/HelgDemidov/scopus_search_code/commit/372d5f5e8e3d1fd56139f091c4a7b3e4ecb82660)**
+
+Обнаружен баг при живом тестировании: авторизованный пользователь после всех merge-коммитов всё ещё попадал на путь `fetchArticles()` (локальная БД) вместо `searchScopusLive()`. Исправлено в этом коммите.
+
+Верифицировано по финальному `HomePage.tsx`:
+- `handleSearch` в авторизованной ветке: `void searchScopusLive(query)` — первый вызов.
+- `displayArticles = isAuthenticated ? liveResults : articles` — отображаемый список берётся из `liveResults` (Scopus), а не из `articles` (локальная БД).
+- `isLoading={isLiveSearching}` в `<ArticleList>` для авторизованных — используется флаг live-поиска, не `isLoading` локальной БД.
+
+---
+
+### §1.1–1.6 Итоговый чек-лист
+
+| Раздел | Критерий ТЗ | Статус |
+|---|---|---|
+| §1.1 | Анонимный поиск: только `GET /articles/`, вызов `/articles/find` не производится | ✅ `handleSearch` анонима вызывает `fetchArticles()` |
+| §1.1 | Авторизованный поиск: `GET /articles/find`, результаты из `liveResults` | ✅ `handleSearch` авторизованного вызывает `searchScopusLive()` |
+| §1.1 | 201-й запрос → HTTP 429, toast «Недельный лимит поиска исчерпан» | ✅ backend + `error === 'QUOTA_EXCEEDED'` → toast |
+| §1.1 | `GET /articles/find/quota` корректен при конкурентных запросах | ✅ `pg_advisory_xact_lock`, тест в `test_find_articles_postgres.py` |
+| §1.1 | Авторизованный баннер — точный текст ТЗ | ✅ вербально совпадает в `HomePage.tsx` |
+| §1.1 | Анонимный баннер — точный текст ТЗ с ссылкой `/auth` | ✅ `AnonHero` в `HomePage.tsx` |
+| §1.2 | `alembic upgrade head` создаёт таблицу, `downgrade -1` удаляет | ✅ `0005_add_search_history.py` |
+| §1.2 | Запись в историю только при успехе; откат при ошибке Scopus | ✅ unit + integration тесты |
+| §1.2 | `GET /articles/history` ≤ 100 строк, `created_at DESC` | ✅ `LIMIT 100` в `get_last_n` |
+| §1.2 | ProfilePage: список с query, created_at, result_count, фильтровые бейджи | ✅ `SearchHistoryList.tsx` |
+| §1.2 | Ссылка «Перейти в аналитику по моим поискам» → `/explore?mode=personal` | ✅ `<Link to="/explore?mode=personal">` в `SearchHistoryList` |
+| §1.3 | Анонимный: никаких фильтровых элементов на `/` | ✅ `ArticleFilters` удалён из `HomePage.tsx` |
+| §1.3 | Авторизованный: никакой боковой панели фильтров на `/` | ✅ то же |
+| §1.3 | Фильтры на `/profile` сужают историю по году/OA/docType/country | ✅ `SearchHistoryList` — `useMemo filtered()` |
+| §1.3 | Серверные поля (`keyword`, `search`) в `articleStore`, клиентские фильтры в `historyStore` | ✅ `ArticleFilters` vs `ArticleClientFilters` в финальном `articleStore.ts` |
+| §1.4 | Анонимный `/explore`: чарты без изменений (`GET /articles/stats`) | ✅ `mode` принудительно `'collection'` при `!isAuthenticated` |
+| §1.4 | `/explore?mode=personal`: личные чарты из `historyStore` | ✅ `selectByYear` / `selectByDocType` / `selectByCountry` / `selectByJournal` |
+| §1.4 | Переключатель персистентен в URL | ✅ `setSearchParams` + `params.delete/set('mode')` |
+| §1.5 | «Авторизоваться» / «Исследовать» / «Выйти» / верхнеуровневый «Личный кабинет» | ✅ `Header.tsx` |
+| §1.6 | Нет английских UI-строк кроме «Scopus Search» и названия коллекции | ✅ все файлы переведены; исключения сохранены |
+
+---
+
+### Открытые вопросы / отложенная работа
+
+1. **`DELETE /articles/history/{id}`** — в ТЗ помечен «optional, not in scope unless requested». Не реализован.
+2. **`GET /articles/history/stats`** — отложен в пользу клиентской агрегации над ≤ 100 строками (spec-compliant для v1).
+3. **Frontend автотесты (Vitest / Playwright)** — не настроены; верификация покрыта только backend-тестами и живым тестированием.
+4. **`ScopusQuotaBadge`** — ТЗ §2.1 рекомендует перевести в dev-режим или переименовать, чтобы не путать с `LiveSearchQuotaCounter`. Компонент рендерится в `Header` авторизованных; вопрос не решён в текущем scope.
