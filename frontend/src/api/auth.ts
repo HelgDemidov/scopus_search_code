@@ -68,10 +68,14 @@ export async function passwordResetRequest(email: string): Promise<void> {
 export async function refreshAccessToken(): Promise<string> {
   // withCredentials: true — axios включает httpOnly cookie в cross-origin запрос
   // RT передается автоматически браузером, JS его не читает
+  // X-Requested-With — CSRF-guard, ожидаемый бэкендом на /auth/refresh
   const response = await apiClient.post<TokenResponse>(
     '/auth/refresh',
     {},
-    { withCredentials: true },
+    {
+      withCredentials: true,
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    },
   );
   return response.data.access_token;
 }

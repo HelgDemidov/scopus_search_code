@@ -26,11 +26,18 @@ function getInitials(name: string): string {
 
 export default function ProfilePage() {
   const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
+  const { user, isAuthenticated, logout } = useAuthStore();
   const fetchQuota = useQuotaStore((s) => s.fetchQuota);
   const fetchHistory = useHistoryStore((s) => s.fetchHistory);
 
   const displayName = user ? (user.username ?? user.email.split('@')[0]) : '';
+
+  // Guard: если авторизация потеряна — немедленный редирект вместо бесконечного спиннера
+  useEffect(() => {
+    if (isAuthenticated === false) {
+      navigate('/auth', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   useEffect(() => {
     fetchQuota();

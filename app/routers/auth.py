@@ -40,9 +40,10 @@ def _set_rt_cookie(response: JSONResponse | RedirectResponse, token: str) -> Non
     response.set_cookie(
         key=_RT_COOKIE_NAME,
         value=token,
-        httponly=True,   # недоступен JavaScript — защита от XSS
-        secure=True,     # только HTTPS
-        samesite="lax",  # защита от CSRF при OAuth-редиректах
+        httponly=True,    # недоступен JavaScript — защита от XSS
+        secure=True,      # только HTTPS
+        samesite="none",  # cross-origin XHR (Vercel → Railway); CSRF закрыт через
+                          # X-Requested-With + CORS allow_origins + RT ротацию
         max_age=_RT_COOKIE_MAX_AGE,
         path="/",
     )
@@ -89,6 +90,11 @@ async def refresh_access_token(
     session: AsyncSession = Depends(get_db_session),
 ) -> JSONResponse:
     """Обменивает действующий RT cookie на новый AT + ротирует RT."""
+    # CSRF-guard: браузер не добавляет этот заголовок автоматически ни в формах,
+    # ни в img/script тегах — только явный JS-код; preflight блокирует чужие домены
+    if request.headers.get("X-Requested-With") != "XMLHttpRequest":
+        return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+
     rt_cookie = request.cookies.get(_RT_COOKIE_NAME)
     if not rt_cookie:
         return JSONResponse(status_code=HTTP_401_UNAUTHORIZED, content={"detail": "No refresh token"})
@@ -128,5 +134,5 @@ async def logout(
 
     response = JSONResponse({"ok": True})
     # Удаляем cookie — max_age=0 удаляет немедленно
-    response.delete_cookie(key=_RT_COOKIE_NAME, path="/", httponly=True, secure=True, samesite="lax")
+    response.delete_cookie(key=_RT_COOKIE_NAME, path="/", httponly=True, secure=True, samesite="none")
     return response
