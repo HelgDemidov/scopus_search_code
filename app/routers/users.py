@@ -89,7 +89,7 @@ async def login(
         value=rt_value,
         httponly=True,
         secure=True,
-        samesite="lax",
+        samesite="none",  # cross-origin: Vercel → Railway
         max_age=_RT_COOKIE_MAX_AGE,
         path="/",
     )
