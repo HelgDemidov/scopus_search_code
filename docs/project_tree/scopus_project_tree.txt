@@ -13,6 +13,7 @@ scopus_search_code/
 │   │   ├── 0002_add_is_seeded_to_articles.py
 │   │   ├── 0003_create_refresh_tokens_table.py
 │   │   ├── 0004_replace_doi_unique_constraint_with_partial_index.py
+│   │   ├── 0005_add_search_history.py
 │   │   ├── a1b2c3d4e5f6_create_seeder_keywords_table.py
 │   │   ├── c7493a459c08_add_created_at_to_users.py
 │   │   ├── c8f5490cc436_merge_auth_and_main_heads.py
@@ -32,18 +33,21 @@ scopus_search_code/
 │   │   ├── __init__.py
 │   │   ├── database.py
 │   │   ├── postgres_article_repo.py
+│   │   ├── postgres_search_history_repo.py
 │   │   ├── postgres_user_repo.py
 │   │   └── scopus_client.py
 │   ├── interfaces
 │   │   ├── __init__.py
 │   │   ├── article_repository.py
 │   │   ├── search_client.py
+│   │   ├── search_history_repo.py
 │   │   └── user_repository.py
 │   ├── models
 │   │   ├── __init__.py
 │   │   ├── article.py
 │   │   ├── base.py
 │   │   ├── refresh_token.py
+│   │   ├── search_history.py
 │   │   ├── seeder_keyword.py
 │   │   └── user.py
 │   ├── routers
@@ -55,10 +59,12 @@ scopus_search_code/
 │   ├── schemas
 │   │   ├── __init__.py
 │   │   ├── article_schemas.py
+│   │   ├── search_history_schemas.py
 │   │   └── user_schemas.py
 │   ├── services
 │   │   ├── __init__.py
 │   │   ├── article_service.py
+│   │   ├── search_history_service.py
 │   │   ├── search_service.py
 │   │   └── user_service.py
 │   ├── __init__.py
@@ -72,7 +78,7 @@ scopus_search_code/
 │   ├── frontend_tech_spec
 │   │   ├── 16_04_frontend_action_plan.md
 │   │   ├── 16_04_frontend_tech_spec_v05.1.md
-│   │   └── 18_04_frontend_issue_audit.md
+│   │   └── 21_04_tech_spec_frontend_v5_DONE.md
 │   ├── project_mask
 │   │   ├── export_skeleton.py
 │   │   ├── pre-push-hook
@@ -4438,6 +4444,23 @@ scopus_search_code/
 │   │   │       ├── LICENSE
 │   │   │       ├── package.json
 │   │   │       └── README.md
+│   │   ├── @vercel
+│   │   │   ├── analytics
+│   │   │   │   ├── LICENSE
+│   │   │   │   ├── package.json
+│   │   │   │   ├── README.md
+│   │   │   │   ├── test.setup.ts
+│   │   │   │   ├── tsconfig.json
+│   │   │   │   ├── tsup.config.js
+│   │   │   │   └── vitest.config.mts
+│   │   │   └── speed-insights
+│   │   │       ├── LICENSE
+│   │   │       ├── package.json
+│   │   │       ├── README.md
+│   │   │       ├── test.setup.ts
+│   │   │       ├── tsconfig.json
+│   │   │       ├── tsup.config.js
+│   │   │       └── vitest.config.mts
 │   │   ├── @vitejs
 │   │   │   └── plugin-react
 │   │   │       ├── LICENSE
@@ -20818,6 +20841,9 @@ scopus_search_code/
 │   │   │   ├── layout
 │   │   │   │   ├── Header.tsx
 │   │   │   │   └── PrivateRoute.tsx
+│   │   │   ├── profile
+│   │   │   │   ├── LiveSearchQuotaCounter.tsx
+│   │   │   │   └── SearchHistoryList.tsx
 │   │   │   ├── search
 │   │   │   │   ├── SearchBar.tsx
 │   │   │   │   └── SearchResultsDashboard.tsx
@@ -20857,6 +20883,8 @@ scopus_search_code/
 │   │   ├── stores
 │   │   │   ├── articleStore.ts
 │   │   │   ├── authStore.ts
+│   │   │   ├── historyStore.ts
+│   │   │   ├── quotaStore.ts
 │   │   │   └── statsStore.ts
 │   │   ├── types
 │   │   │   └── api.ts
@@ -20877,16 +20905,22 @@ scopus_search_code/
 ├── tests
 │   ├── integration
 │   │   ├── __init__.py
+│   │   ├── conftest.py
 │   │   ├── test_article_by_id.py
 │   │   ├── test_article_by_id_e2e.py
 │   │   ├── test_articles_api.py
 │   │   ├── test_articles_headers.py
+│   │   ├── test_find_articles.py
+│   │   ├── test_find_articles_postgres.py
 │   │   ├── test_rt_e2e.py
 │   │   ├── test_rt_edge_cases.py
+│   │   ├── test_search_history_api.py
 │   │   └── test_users_api.py
 │   ├── unit
 │   │   ├── test_article_service.py
 │   │   ├── test_scopus_client.py
+│   │   ├── test_search_history_repository.py
+│   │   ├── test_search_service.py
 │   │   └── test_user_service.py
 │   ├── __init__.py
 │   ├── conftest.py
