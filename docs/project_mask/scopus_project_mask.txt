@@ -901,6 +901,7 @@ FILE: db_seeder\seeder__scripts\keyword_generator.py
 import asyncio
 import json
 from datetime import date
+import re
 import httpx
 CLUSTERS = ['Large Language Models', 'Generative Adversarial Networks', 'Neuromorphic Computing', 'AI Hardware Accelerators', 'AutoML and Self-Improving Systems']
 OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
