@@ -80,7 +80,7 @@ function FiltersContent() {
       {/* Шапка + кнопка сброса */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-          Filters
+          Фильтры
         </h3>
         {hasActiveFilters && (
           <Button
@@ -89,7 +89,7 @@ function FiltersContent() {
             onClick={clearFilters}
             className="h-6 px-2 text-xs text-slate-500"
           >
-            Clear all
+            Сбросить все
           </Button>
         )}
       </div>
@@ -97,7 +97,7 @@ function FiltersContent() {
       {/* Год публикации: два поля yearFrom / yearTo */}
       <div className="flex flex-col gap-2">
         <p className="text-xs font-medium text-slate-700 dark:text-slate-300 uppercase tracking-wide">
-          Publication Year
+          Год публикации
         </p>
         <div className="flex items-center gap-2">
           <input
@@ -130,7 +130,7 @@ function FiltersContent() {
       {docTypes.length > 0 && (
         <div className="flex flex-col gap-2">
           <p className="text-xs font-medium text-slate-700 dark:text-slate-300 uppercase tracking-wide">
-            Document Type
+            Тип документа
           </p>
           <div className="flex flex-col gap-1.5">
             {docTypes.map((type) => {
@@ -160,7 +160,7 @@ function FiltersContent() {
       {/* Open Access — toggle */}
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
-          Open Access only
+          Только Open Access
         </span>
         <Switch
           checked={!!filters.openAccessOnly}
@@ -174,7 +174,7 @@ function FiltersContent() {
       {countries.length > 0 && (
         <div className="flex flex-col gap-2">
           <p className="text-xs font-medium text-slate-700 dark:text-slate-300 uppercase tracking-wide">
-            Country
+            Страна
           </p>
 
           {/* Выбранные страны как badges */}
@@ -196,14 +196,14 @@ function FiltersContent() {
           <Popover open={countriesOpen} onOpenChange={setCountriesOpen}>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm" className="w-full justify-start text-xs font-normal text-slate-500">
-                Select countries…
+                Выбрать страны…
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-60 p-0" align="start">
               <Command>
                 <CommandInput placeholder="Search country…" className="h-8 text-xs" />
                 <CommandEmpty className="text-xs py-4 text-center">
-                  No country found.
+                  Страна не найдена.
                 </CommandEmpty>
                 <CommandGroup className="max-h-52 overflow-y-auto">
                   {countries.map((country) => {
@@ -249,12 +249,12 @@ export function ArticleFilters() {
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5" aria-hidden="true">
                 <path d="M2 4h12M4 8h8M6 12h4" strokeLinecap="round" />
               </svg>
-              Filters
+              Фильтры
             </Button>
           </SheetTrigger>
           <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto">
             <SheetHeader>
-              <SheetTitle className="text-sm">Filters</SheetTitle>
+              <SheetTitle className="text-sm">Фильтры</SheetTitle>
             </SheetHeader>
             <FiltersContent />
           </SheetContent>

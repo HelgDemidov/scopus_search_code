@@ -27,14 +27,14 @@ function AnonHero({ onSearch }: { onSearch: (q: string) => void }) {
     <div className="mx-auto max-w-screen-sm px-4 py-16 flex flex-col items-center gap-6 text-center">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-          Search Scopus publications
+          Поиск публикаций Scopus
         </h1>
         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-          Preview results below.{' '}
+          Предпросмотр результатов ниже.{' '}
           <Link to="/auth" className="text-blue-800 dark:text-blue-400 hover:underline">
-            Sign in
+            Войдите
           </Link>
-          {' '}to unlock full search.
+          {' '}для полного поиска.
         </p>
       </div>
       <div className="w-full max-w-md">

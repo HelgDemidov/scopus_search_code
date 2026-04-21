@@ -12,7 +12,7 @@ interface SearchBarProps {
 
 export function SearchBar({
   onSearch,
-  placeholder = 'Search articles\u2026',
+  placeholder = 'Поиск статей\u2026',
   inputId = 'article-search',
 }: SearchBarProps) {
   const [value, setValue] = useState('');
@@ -27,7 +27,7 @@ export function SearchBar({
     <form onSubmit={handleSubmit} className="flex gap-2 w-full">
       {/* Скрытый label связан с полем через htmlFor — доступность для скринридеров */}
       <label htmlFor={inputId} className="sr-only">
-        Search articles
+        Поиск статей
       </label>
       <Input
         id={inputId}
@@ -41,7 +41,7 @@ export function SearchBar({
         type="submit"
         className="bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400 text-white shrink-0"
       >
-        Search
+        Найти
       </Button>
     </form>
   );

@@ -22,14 +22,14 @@ export function ScopusQuotaBadge() {
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${colorClass}`}
-      title={`Scopus API quota: ${scopusQuota.remaining.toLocaleString()} remaining of ${scopusQuota.limit.toLocaleString()}`}
+      title={`Квота Scopus API: ${scopusQuota.remaining.toLocaleString()} из ${scopusQuota.limit.toLocaleString()}`}
     >
       {/* Индикатор */}
       <span className="relative flex h-1.5 w-1.5">
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-40" />
         <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-current" />
       </span>
-      Scopus quota: {scopusQuota.remaining.toLocaleString()} / {scopusQuota.limit.toLocaleString()}
+      Квота Scopus: {scopusQuota.remaining.toLocaleString()} / {scopusQuota.limit.toLocaleString()}
     </span>
   );
 }

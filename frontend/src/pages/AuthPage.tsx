@@ -70,7 +70,7 @@ function SignInForm() {
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <label htmlFor="login-email" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-          Email
+          Электронная почта
         </label>
         <Input
           id="login-email"
@@ -86,7 +86,7 @@ function SignInForm() {
 
       <div className="flex flex-col gap-1">
         <label htmlFor="login-password" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-          Password
+          Пароль
         </label>
         <PasswordInput id="login-password" register={register('password')} />
         {errors.password && (
@@ -99,7 +99,7 @@ function SignInForm() {
       )}
 
       <Button type="submit" disabled={isSubmitting} className="w-full bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400">
-        {isSubmitting ? 'Вход…' : 'Sign In'}
+        {isSubmitting ? 'Вход…' : 'Войти'}
       </Button>
     </form>
   );
@@ -163,7 +163,7 @@ function CreateAccountForm() {
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <label htmlFor="reg-username" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-          Username
+          Имя пользователя
         </label>
         <Input id="reg-username" placeholder="johndoe" {...register('username')} />
         {errors.username && (
@@ -173,7 +173,7 @@ function CreateAccountForm() {
 
       <div className="flex flex-col gap-1">
         <label htmlFor="reg-email" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-          Email
+          Электронная почта
         </label>
         <Input id="reg-email" type="email" autoComplete="email" placeholder="you@example.com" {...register('email')} />
         {errors.email && (
@@ -183,7 +183,7 @@ function CreateAccountForm() {
 
       <div className="flex flex-col gap-1">
         <label htmlFor="reg-password" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-          Password
+          Пароль
         </label>
         <PasswordInput id="reg-password" register={register('password')} />
         {errors.password && (
@@ -193,7 +193,7 @@ function CreateAccountForm() {
 
       <div className="flex flex-col gap-1">
         <label htmlFor="reg-confirm" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-          Confirm Password
+          Подтверждение пароля
         </label>
         <PasswordInput id="reg-confirm" register={register('password_confirm')} />
         {errors.password_confirm && (
@@ -206,7 +206,7 @@ function CreateAccountForm() {
       )}
 
       <Button type="submit" disabled={isSubmitting} className="w-full bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400">
-        {isSubmitting ? 'Создание аккаунта…' : 'Create Account'}
+        {isSubmitting ? 'Создание аккаунта…' : 'Создать аккаунт'}
       </Button>
     </form>
   );
@@ -233,7 +233,7 @@ function PasswordInput({
       <button
         type="button"
         onClick={() => setShow((v) => !v)}
-        aria-label={show ? 'Hide password' : 'Show password'}
+        aria-label={show ? 'Скрыть пароль' : 'Показать пароль'}
         className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
       >
         {show ? (
@@ -262,17 +262,17 @@ export default function AuthPage() {
         {/* Заголовок */}
         <div className="mb-6 text-center">
           <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
-            Welcome to Scopus Search
+            Добро пожаловать в Scopus Search
           </h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Sign in to access live Scopus search
+            Войдите, чтобы получить доступ к живому поиску Scopus
           </p>
         </div>
 
         {/* Ошибка OAuth */}
         {oauthError && (
           <div className="mb-4 rounded-md bg-rose-50 dark:bg-rose-900/30 px-3 py-2 text-xs text-rose-700 dark:text-rose-400">
-            Google sign-in failed. Please try again.
+            Вход через Google не удался. Попробуйте ещё раз.
           </div>
         )}
 
@@ -287,21 +287,21 @@ export default function AuthPage() {
             <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
             <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
           </svg>
-          Continue with Google
+          Продолжить через Google
         </button>
 
         {/* Разделитель */}
         <div className="relative my-4 flex items-center gap-2">
           <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
-          <span className="text-xs text-slate-400">— or —</span>
+          <span className="text-xs text-slate-400">— или —</span>
           <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
         </div>
 
         {/* Табы Sign In / Create Account */}
         <Tabs defaultValue="signin">
           <TabsList className="w-full mb-4">
-            <TabsTrigger value="signin" className="flex-1">Sign In</TabsTrigger>
-            <TabsTrigger value="register" className="flex-1">Create Account</TabsTrigger>
+            <TabsTrigger value="signin" className="flex-1">Вход</TabsTrigger>
+            <TabsTrigger value="register" className="flex-1">Регистрация</TabsTrigger>
           </TabsList>
           <TabsContent value="signin">
             <SignInForm />
