@@ -155,12 +155,10 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
         isLiveSearching: false,
       });
       // Синхронизируем quotaStore после live-поиска — ScopusQuotaBadge
-      // читает именно оттуда; articleStore.scopusQuota — локальная копия для обратной совместимости
+      // читает именно оттуда; передаём quota целиком (QuotaResponse: limit, used, remaining, reset_at)
       if (quota) {
         const { useQuotaStore } = await import('./quotaStore');
-        useQuotaStore.setState({
-          quota: { remaining: quota.remaining, limit: quota.limit },
-        });
+        useQuotaStore.setState({ quota });
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Live search failed';
