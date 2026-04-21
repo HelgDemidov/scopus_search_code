@@ -128,10 +128,10 @@ export async function getSearchHistory(): Promise<SearchHistoryItem[]> {
 }
 
 // ---------------------------------------------------------------------------
-// GET /articles/quota — Scopus-квота пользователя (недельное окно)
+// GET /articles/find/quota — Scopus-квота пользователя (недельное окно)
 // ---------------------------------------------------------------------------
 
 export async function getScopusQuota(): Promise<QuotaResponse> {
-  const response = await apiClient.get<QuotaResponse>('/articles/quota');
+  const response = await apiClient.get<QuotaResponse>('/articles/find/quota');
   return response.data;
 }

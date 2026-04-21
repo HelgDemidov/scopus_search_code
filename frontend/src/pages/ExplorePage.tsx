@@ -134,11 +134,16 @@ export default function ExplorePage() {
 
       {/* Переключатель режима для авторизованных */}
       {isAuthenticated && (
-        <div className="flex gap-2">
+        <div
+          className="flex gap-2"
+          role="group"
+          aria-label="Режим аналитики"
+        >
           <Button
             variant={mode === 'collection' ? 'default' : 'outline'}
             size="sm"
             onClick={() => switchMode('collection')}
+            aria-pressed={mode === 'collection'}
           >
             По коллекции
           </Button>
@@ -146,6 +151,7 @@ export default function ExplorePage() {
             variant={mode === 'personal' ? 'default' : 'outline'}
             size="sm"
             onClick={() => switchMode('personal')}
+            aria-pressed={mode === 'personal'}
           >
             По моим поискам
           </Button>

@@ -201,7 +201,7 @@ function FiltersContent() {
             </PopoverTrigger>
             <PopoverContent className="w-60 p-0" align="start">
               <Command>
-                <CommandInput placeholder="Search country…" className="h-8 text-xs" />
+                <CommandInput placeholder="Поиск страны…" className="h-8 text-xs" />
                 <CommandEmpty className="text-xs py-4 text-center">
                   Страна не найдена.
                 </CommandEmpty>
