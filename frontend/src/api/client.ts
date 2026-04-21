@@ -22,6 +22,8 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  // cross-origin cookie (RT httpOnly); единое место вместо per-call opt-in
+  withCredentials: true,
 });
 
 // ---------------------------------------------------------------------------
@@ -61,10 +63,16 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
 
       if (!refreshingPromise) {
-        // Динамический импорт разрывает циклическую зависимость
-        // client.ts → auth.ts → client.ts
-        const { refreshAccessToken } = await import('./auth');
-        refreshingPromise = refreshAccessToken()
+        // IIFE позволяет использовать await для динамического импорта,
+        // при этом присваивание refreshingPromise происходит синхронно —
+        // до любого await. Все параллельные interceptor'ы увидят непустой
+        // синглтон и не запустят второй POST /auth/refresh.
+        refreshingPromise = (async () => {
+          // Динамический импорт разрывает циклическую зависимость
+          // client.ts → auth.ts → client.ts
+          const { refreshAccessToken } = await import('./auth');
+          return refreshAccessToken();
+        })()
           .then((newToken) => {
             // Сохраняем новый AT в localStorage
             localStorage.setItem('access_token', newToken);

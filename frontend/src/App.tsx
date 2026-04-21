@@ -104,11 +104,15 @@ export default function App() {
       fetchUser();
     }
 
-    // Слушаем событие от interceptor — обновляем AT в сторе без прямой зависимости
+    // Слушаем событие от interceptor — обновляем AT в сторе без прямой зависимости.
+    // После silent refresh вызываем fetchUser() повторно: fetchUser(), завершившийся
+    // с catch{} до refresh, не перезапускается автоматически — без этого authStore.user
+    // остаётся null и ProfilePage зависает на skeleton бесконечно.
     const handleTokenRefresh = (e: Event) => {
       const newToken = (e as CustomEvent<string>).detail;
       if (newToken) {
         setToken(newToken);
+        fetchUser();
       }
     };
     window.addEventListener('auth:token-refreshed', handleTokenRefresh);
