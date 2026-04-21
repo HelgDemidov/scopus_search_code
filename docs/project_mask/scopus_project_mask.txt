@@ -911,7 +911,7 @@ import re
 import httpx
 CLUSTERS = ['Large Language Models', 'Generative Adversarial Networks', 'Neuromorphic Computing', 'AI Hardware Accelerators', 'AutoML and Self-Improving Systems']
 OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
-MODEL = 'google/gemini-2.5-flash'
+MODEL = 'mistralai/mistral-small-3.2-24b-instruct'
 
 def _get_todays_cluster() -> str:
     pass
