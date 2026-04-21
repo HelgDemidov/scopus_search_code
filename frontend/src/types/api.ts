@@ -117,3 +117,19 @@ export interface ScopusQuota {
   remaining: number;
   limit: number;
 }
+
+export interface SearchHistoryItem {
+  id: number;
+  query: string;
+  created_at: string;
+  result_count: number;
+  filters: Record<string, unknown>;
+}
+
+export interface QuotaResponse {
+  limit: number;
+  used: number;
+  remaining: number;
+  reset_at: string;
+  window_days?: number;
+}
