@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useHistoryStore } from '../../stores/historyStore';
 import { Button } from '../ui/button';
+import { Checkbox } from '../ui/checkbox';
 import { Switch } from '../ui/switch';
 import { Badge } from '../ui/badge';
 import type { SearchHistoryItem } from '../../types/api';
@@ -57,12 +58,76 @@ export function SearchHistoryList() {
       if (historyFilters.yearFrom && (y === null || y < historyFilters.yearFrom)) return false;
       if (historyFilters.yearTo && (y === null || y > historyFilters.yearTo)) return false;
       if (historyFilters.openAccessOnly && !entryOpenAccess(item)) return false;
+      // Фильтр по типу документа — проверяем пересечение с docTypes в item.filters
+      if (historyFilters.docTypes && historyFilters.docTypes.length > 0) {
+        const raw = (item.filters ?? {})['docTypes'];
+        const itemTypes: string[] = Array.isArray(raw)
+          ? raw.map(String)
+          : typeof raw === 'string' && raw
+          ? [raw]
+          : [];
+        if (!historyFilters.docTypes.some((t) => itemTypes.includes(t))) return false;
+      }
+      // Фильтр по стране аффиляции — поддерживаем оба ключа (countries и country)
+      if (historyFilters.countries && historyFilters.countries.length > 0) {
+        const raw = (item.filters ?? {})['countries'] ?? (item.filters ?? {})['country'];
+        const itemCountries: string[] = Array.isArray(raw)
+          ? raw.map(String)
+          : typeof raw === 'string' && raw
+          ? [raw]
+          : [];
+        if (!historyFilters.countries.some((c) => itemCountries.includes(c))) return false;
+      }
       return true;
     });
   }, [items, historyFilters]);
 
+  // Уникальные значения для чекбоксов: берём из items, не из statsStore
+  // statsStore.by_doc_type — коллекция сидера, здесь нужны типы из истории пользователя
+  const availableDocTypes = useMemo(() => {
+    const seen = new Set<string>();
+    for (const item of items) {
+      const raw = (item.filters ?? {})['docTypes'];
+      if (Array.isArray(raw)) raw.forEach((v) => v && seen.add(String(v)));
+      else if (typeof raw === 'string' && raw) seen.add(raw);
+    }
+    return Array.from(seen).sort();
+  }, [items]);
+
+  const availableCountries = useMemo(() => {
+    const seen = new Set<string>();
+    for (const item of items) {
+      const raw = (item.filters ?? {})['countries'] ?? (item.filters ?? {})['country'];
+      if (Array.isArray(raw)) raw.forEach((v) => v && seen.add(String(v)));
+      else if (typeof raw === 'string' && raw) seen.add(raw);
+    }
+    return Array.from(seen).sort();
+  }, [items]);
+
   function resetFilters() {
-    setHistoryFilters({ yearFrom: undefined, yearTo: undefined, openAccessOnly: undefined });
+    setHistoryFilters({
+      yearFrom: undefined,
+      yearTo: undefined,
+      openAccessOnly: undefined,
+      docTypes: undefined,
+      countries: undefined,
+    });
+  }
+
+  function toggleDocType(type: string) {
+    const current = historyFilters.docTypes ?? [];
+    const updated = current.includes(type)
+      ? current.filter((t) => t !== type)
+      : [...current, type];
+    setHistoryFilters({ docTypes: updated.length ? updated : undefined });
+  }
+
+  function toggleCountry(country: string) {
+    const current = historyFilters.countries ?? [];
+    const updated = current.includes(country)
+      ? current.filter((c) => c !== country)
+      : [...current, country];
+    setHistoryFilters({ countries: updated.length ? updated : undefined });
   }
 
   return (
@@ -103,6 +168,49 @@ export function SearchHistoryList() {
           />
           <span className="text-xs text-slate-700 dark:text-slate-300">Только Open Access</span>
         </div>
+
+        {/* Тип документа: чекбоксы по значениям из истории пользователя */}
+        {availableDocTypes.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <span className="text-xs text-slate-500 dark:text-slate-400">Тип документа</span>
+            <div className="flex flex-col gap-1">
+              {availableDocTypes.map((type) => (
+                <label key={type} className="flex items-center gap-2 cursor-pointer">
+                  <Checkbox
+                    checked={(historyFilters.docTypes ?? []).includes(type)}
+                    onCheckedChange={() => toggleDocType(type)}
+                    id={`hist-doctype-${type}`}
+                  />
+                  <span className="text-xs text-slate-700 dark:text-slate-300 truncate">
+                    {type}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Страна аффиляции: чекбоксы по значениям из истории пользователя */}
+        {availableCountries.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <span className="text-xs text-slate-500 dark:text-slate-400">Страна</span>
+            <div className="flex flex-col gap-1">
+              {availableCountries.map((country) => (
+                <label key={country} className="flex items-center gap-2 cursor-pointer">
+                  <Checkbox
+                    checked={(historyFilters.countries ?? []).includes(country)}
+                    onCheckedChange={() => toggleCountry(country)}
+                    id={`hist-country-${country}`}
+                  />
+                  <span className="text-xs text-slate-700 dark:text-slate-300 truncate">
+                    {country}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
         <Button variant="ghost" size="sm" onClick={resetFilters} className="text-xs">
           Сбросить
         </Button>
