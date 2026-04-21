@@ -27,7 +27,7 @@ export function Header() {
   const { user, isAuthenticated, logout } = useAuthStore();
   const navigate = useNavigate();
 
-  // Имя для отображения: username ?? часть email до @ (§6)
+  // Имя для отображения: username ?? часть email до @
   const displayName = user
     ? (user.username ?? user.email.split('@')[0])
     : '';
@@ -41,7 +41,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-700 dark:bg-slate-900/95">
       <div className="mx-auto flex h-14 max-w-screen-xl items-center justify-between px-4">
-        {/* Логотип */}
+        {/* Логотип — aria-label сохраняем на английском (исключение по ТЗ §1.6) */}
         <Link
           to="/"
           className="flex items-center gap-2 text-slate-900 no-underline dark:text-slate-100"
@@ -64,15 +64,25 @@ export function Header() {
         <div className="flex items-center gap-2">
           <NavigationMenu>
             <NavigationMenuList>
+              {/* Ссылка «Исследовать» — всегда видна */}
               <NavigationMenuItem>
                 <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
-                  <Link to="/explore">Explore</Link>
+                  <Link to="/explore">Исследовать</Link>
                 </NavigationMenuLink>
               </NavigationMenuItem>
+
+              {/* Ссылка «Личный кабинет» — только для авторизованных, верхний уровень */}
+              {isAuthenticated && (
+                <NavigationMenuItem>
+                  <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
+                    <Link to="/profile">Личный кабинет</Link>
+                  </NavigationMenuLink>
+                </NavigationMenuItem>
+              )}
             </NavigationMenuList>
           </NavigationMenu>
 
-          {/* Анонимный вариант: кнопка Sign In */}
+          {/* Анонимный вариант: кнопка «Авторизоваться» */}
           {!isAuthenticated && (
             <Button
               asChild
@@ -80,7 +90,7 @@ export function Header() {
               size="sm"
               className="bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400"
             >
-              <Link to="/auth">Sign In</Link>
+              <Link to="/auth">Авторизоваться</Link>
             </Button>
           )}
 
@@ -89,7 +99,7 @@ export function Header() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  aria-label={`User menu for ${displayName}`}
+                  aria-label={`Меню пользователя ${displayName}`}
                   className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-800 text-xs font-semibold text-white hover:bg-blue-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-800 dark:bg-blue-500 dark:hover:bg-blue-400"
                 >
                   {getInitials(displayName)}
@@ -107,14 +117,14 @@ export function Header() {
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link to="/profile">Profile</Link>
+                  <Link to="/profile">Личный кабинет</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={handleLogout}
                   className="text-rose-600 focus:text-rose-600 dark:text-rose-400"
                 >
-                  Sign Out
+                  Выйти
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
