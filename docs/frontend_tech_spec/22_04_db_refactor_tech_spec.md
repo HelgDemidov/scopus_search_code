@@ -1,28 +1,43 @@
 # ТЗ: Рефакторинг хранения данных и обработки поисковых запросов
 
+> **Версия 2.0** — включает исправления по результатам adversarial-анализа (замечания A-1…A-4, B-1…B-3, C-1…C-3, D-1…D-3).
+
+---
+
+## 0. Целевые user-stories (критерии приёмки)
+
+Реализация считается завершённой, когда выполнены все четыре условия:
+
+1. **Анонимный пользователь** видит ТОЛЬКО статьи из тематической коллекции, формируемой сидером.
+2. **Авторизованный пользователь** видит результаты исключительно своего поиска — в поисковой строке, в разделе «История поиска» и в разделе «Аналитика по моим поискам» (`/explore?mode=personal`).
+3. **Истории поиска** различных авторизованных пользователей хранятся отдельно и никогда не пересекаются.
+4. **У анонимного пользователя** никакой истории поиска не может быть в принципе.
+
+---
+
 ## 1. Текущее состояние: полный инвентарь дефектов
 
 Прежде чем описывать целевое состояние, фиксируем все найденные проблемы с точным указанием файлов.
 
 ### Дефект D-1: `ScopusHTTPClient` помечает user-статьи как `is_seeded=True`
-**Файл:** `app/infrastructure/scopus_client.py`, строка `is_seeded=True` в конструкторе `Article` . Клиент вызывается как сидером, так и `SearchService.find_and_save()`. Флаг всегда `True` — разделения нет.
+**Файл:** `app/infrastructure/scopus_client.py`, строка `is_seeded=True` в конструкторе `Article`. Клиент вызывается как сидером, так и `SearchService.find_and_save()`. Флаг всегда `True` — разделения нет.
 
 ### Дефект D-2: Публичный `GET /articles/` не фильтрует по `is_seeded`
-**Файл:** `app/infrastructure/postgres_article_repo.py`, метод `get_all()` . Запрос выбирает все записи из `articles`. Анонимам видны результаты поиска авторизованных пользователей.
+**Файл:** `app/infrastructure/postgres_article_repo.py`, метод `get_all()`. Запрос выбирает все записи из `articles`. Анонимам видны результаты поиска авторизованных пользователей.
 
 ### Дефект D-3: Upsert перезаписывает `keyword` и `is_seeded` при конфликте по DOI
-**Файл:** `app/infrastructure/postgres_article_repo.py`, метод `save_many()`, блок `set_={}` . Если статья уже есть в коллекции (`is_seeded=True`, `keyword="neural network"`), а пользователь ищет "deep learning" — upsert перепишет оба поля.
+**Файл:** `app/infrastructure/postgres_article_repo.py`, метод `save_many()`, блок `set_={}`. Если статья уже есть в коллекции (`is_seeded=True`, `keyword="neural network"`), а пользователь ищет "deep learning" — upsert перепишет оба поля.
 
 ### Дефект D-4: Нет связи `search_history → articles`
-**Файл:** `app/models/search_history.py` . Таблица хранит `query + result_count`, но не ссылки на конкретные статьи. Нельзя вернуть пользователю результаты прошлого поиска — только список запросов.
+**Файл:** `app/models/search_history.py`. Таблица хранит `query + result_count`, но не ссылки на конкретные статьи. Нельзя вернуть пользователю результаты прошлого поиска — только список запросов.
 
 ### Дефект D-5: `ArticleResponse` возвращает `keyword` клиенту
-**Файл:** `app/schemas/article_schemas.py` . Поле `keyword: str` в `ArticleResponse` — это артефакт сидера (технический ярлык), который не несёт ценности для пользователя и не должен быть в публичном API.
+**Файл:** `app/schemas/article_schemas.py`. Поле `keyword: str` в `ArticleResponse` — это артефакт сидера (технический ярлык), который не несёт ценности для пользователя и не должен быть в публичном API.
 
 ### Дефект D-6: `get_search_stats()` агрегирует по всей таблице без изоляции
-**Файл:** `app/infrastructure/postgres_article_repo.py`, метод `get_search_stats()` . CTE-запрос ищет по `articles` без фильтрации по `user_id` — агрегаты смешивают данные всех пользователей.
+**Файл:** `app/infrastructure/postgres_article_repo.py`, метод `get_search_stats()`. CTE-запрос ищет по `articles` без фильтрации по `user_id` — агрегаты смешивают данные всех пользователей.
 
-***
+---
 
 ## 2. Целевая схема БД
 
@@ -49,30 +64,33 @@ articles (
     journal          VARCHAR(500),
     author           VARCHAR(255),
     publication_date DATE NOT NULL,
-    doi              VARCHAR(255),          -- partial UNIQUE INDEX где NOT NULL
+    doi              VARCHAR(255),
     cited_by_count   INTEGER,
     document_type    VARCHAR(100),
     open_access      BOOLEAN,
     affiliation_country VARCHAR(100),
     created_at       TIMESTAMPTZ DEFAULT now() NOT NULL
 )
--- Существующий индекс ix_articles_doi_unique остается без изменений
 ```
+
+**Индексы:**
+- `ix_articles_doi_unique` — существующий partial UNIQUE INDEX по `doi WHERE doi IS NOT NULL`, сохраняется без изменений.
+- `ix_articles_no_doi_unique` — **новый** partial UNIQUE INDEX: `CREATE UNIQUE INDEX ix_articles_no_doi_unique ON articles(title, publication_date, author) WHERE doi IS NULL`. Необходим для корректного upsert статей без DOI (замечание A-1).
 
 ### Таблица `catalog_articles` — коллекция сидера (НОВАЯ)
 
-Принадлежность статьи коллекции ИИ теперь — отдельная сущность, а не флаг.
+Принадлежность статьи коллекции ИИ — отдельная сущность, а не флаг.
 
 ```sql
 catalog_articles (
     id          SERIAL PRIMARY KEY,
     article_id  INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
-    keyword     VARCHAR(100) NOT NULL,   -- ключевое слово сидера
+    keyword     VARCHAR(100) NOT NULL,
     seeded_at   TIMESTAMPTZ DEFAULT now() NOT NULL,
-    UNIQUE (article_id)                 -- статья входит в коллекцию один раз
+    CONSTRAINT uq_catalog_articles_article_id UNIQUE (article_id)
 )
--- INDEX: ix_catalog_articles_keyword (keyword) для фильтрации по теме коллекции
--- INDEX: ix_catalog_articles_article_id (article_id) для JOIN
+-- INDEX: ix_catalog_articles_keyword (keyword)
+-- INDEX: ix_catalog_articles_article_id (article_id)
 ```
 
 ### Таблица `search_history` — история запросов (ИЗМЕНЯЕТСЯ)
@@ -98,14 +116,14 @@ search_result_articles (
     id                SERIAL PRIMARY KEY,
     search_history_id INTEGER NOT NULL REFERENCES search_history(id) ON DELETE CASCADE,
     article_id        INTEGER NOT NULL REFERENCES articles(id) ON DELETE RESTRICT,
-    rank              SMALLINT NOT NULL,  -- позиция в выдаче Scopus (0-based)
-    UNIQUE (search_history_id, article_id)
+    rank              SMALLINT NOT NULL,
+    CONSTRAINT uq_sra_history_article UNIQUE (search_history_id, article_id)
 )
 -- INDEX: ix_sra_search_history_id (search_history_id) — главный путь чтения
 -- INDEX: ix_sra_article_id (article_id) — для обратных lookups
 ```
 
-***
+---
 
 ## 3. Новые интерфейсы (контракты)
 
@@ -131,42 +149,54 @@ class ISearchResultRepository(ABC):
 
     async def get_results_by_history_id(
         search_history_id: int,
-        user_id: int,  # для авторизационной проверки владения
+        user_id: int,  # обязателен — авторизационная проверка владения одним запросом
     ) -> list[Article]
+    # Реализация: один запрос с JOIN search_history WHERE id=:hist_id AND user_id=:uid.
+    # Раздельные SELECT (сначала проверить владельца, затем получить данные) ЗАПРЕЩЕНЫ — race condition.
+    # Если запись не найдена или user_id не совпадает — возвращает None → роутер отдаёт 404.
 
     async def get_search_stats_for_user(
         user_id: int,
-        search: str,
+        search: str | None = None,
+        since: datetime | None = None,
     ) -> dict
+    # Агрегирует ВСЕ статьи из всех поисков пользователя:
+    # search_result_articles JOIN search_history WHERE user_id = :uid.
+    # search — опциональный ILIKE-фильтр по articles.title/author.
+    # since  — опциональный фильтр по search_history.created_at (для будущего UI-фильтра "за N дней").
+    # Без фильтров: полный агрегат по всем поискам пользователя.
 ```
 
 ### `IArticleRepository` (изменяется)
 
-Удаляются методы, которые уходят в `ICatalogRepository`:
+Удаляются методы, которые уходят в другие репозитории:
 - `get_all()` → в `ICatalogRepository`
 - `get_total_count()` → в `ICatalogRepository`
 - `get_stats()` → в `ICatalogRepository`
 - `get_search_stats()` → в `ISearchResultRepository`
 
 Остаётся в `IArticleRepository`:
+
 ```python
 class IArticleRepository(ABC):
     async def upsert_many(articles: list[Article]) -> list[Article]
-    # Чистый upsert без is_seeded/keyword — только нормализованные поля статьи
+    # Чистый upsert без is_seeded/keyword — только нормализованные поля статьи.
+    # Управление транзакцией: upsert_many использует ТОЛЬКО flush(), НЕ commit().
+    # commit() вызывается исключительно на уровне сервиса.
     async def get_by_id(article_id: int) -> Article | None
 ```
 
-### `ISearchHistoryRepository` (изменяется)
+### `ISearchHistoryRepository` (без изменений контракта)
 
-Метод `insert_row` расширяется — теперь возвращает `SearchHistory` с заполненным `id` (уже реализовано через `flush`). Без других изменений контракта.
+Метод `insert_row` уже возвращает `SearchHistory` с заполненным `id` (реализовано через `flush`). Контракт сохраняется.
 
-***
+---
 
 ## 4. Новые сервисы
 
 ### `SearchService.find_and_save()` — новая оркестрация
 
-Текущий поток :
+Текущий поток:
 ```
 Scopus → save_many(articles) → insert_row(history)
 ```
@@ -174,13 +204,16 @@ Scopus → save_many(articles) → insert_row(history)
 Новый поток:
 ```
 Scopus
-  → upsert_many(articles)          # нормализованный реестр
-  → insert_row(history)            # запись истории, получаем search_history.id
-  → save_results(history_id, articles)  # привязка статей к этой конкретной истории
-  → return articles
+  → upsert_many(articles)               # нормализованный реестр, только flush()
+  → insert_row(history)                 # запись истории, получаем search_history.id, только flush()
+  → save_results(history_id, articles)  # привязка статей к этой истории, только flush()
+  → await session.commit()              # единственный commit для всех трёх операций
+  → return (history, articles)          # кортеж: SearchHistory + list[Article]
 ```
 
-Все три операции выполняются в одной транзакции. Если любая падает — ничего не сохраняется.
+**Требование к атомарности (замечание B-1):** Все три операции выполняются в одной транзакции. Репозитории используют только `flush()`. `commit()` вызывается **единожды** в `find_and_save` после успеха всех трёх операций. При любой ошибке — `await session.rollback()`. Это правило фиксируется как инвариант всего слоя инфраструктуры: _«Репозитории используют только `flush()`. `commit()` вызывается исключительно на уровне сервиса или Unit of Work»_.
+
+**Контракт возвращаемого значения (замечание A-2):** `find_and_save` возвращает `tuple[SearchHistory, list[Article]]`. Роутер использует `history.id` для формирования `SearchResultsResponse` и заголовка `Location: /articles/history/{history.id}/results`.
 
 ### `CatalogService` (новый, выделить из `ArticleService`)
 
@@ -188,13 +221,23 @@ Scopus
 - `get_paginated()` — публичный листинг через `ICatalogRepository`
 - `get_stats()` — публичная статистика только по коллекции
 - `search_in_catalog()` — полнотекстовый поиск по `catalog_articles JOIN articles`
+- `seed(keyword, articles)` — запись новых статей в коллекцию (вызывается сидером, см. раздел 4а)
 
-### `ArticleService` (сокращается)
+### ArticleService (сокращается)
 
 После рефакторинга `ArticleService` содержит только:
-- `get_by_id()` — публичный доступ к одной статье по id
+- `get_by_id()` — доступ к статье по id с проверкой видимости (см. замечание A-4)
 
-***
+### 4а. Изменения сидера (замечание B-2)
+
+Сидер вызывает `CatalogService.seed(keyword, articles)`, который:
+1. Вызывает `IArticleRepository.upsert_many(articles)` — нормализованный реестр.
+2. Вызывает `ICatalogRepository.save_seeded(article_ids, keyword)` — регистрация в коллекции.
+3. Вызывает `await session.commit()` — единственный commit.
+
+`ScopusHTTPClient` больше не выставляет `is_seeded=True`. Клиент создаёт объекты `Article` только с полями нормализованного реестра. Принадлежность коллекции передаётся явно через `CatalogService.seed(keyword=...)`.
+
+---
 
 ## 5. Изменения роутеров
 
@@ -202,24 +245,62 @@ Scopus
 |---|---|---|
 | `GET /articles/` | Публичный | Читает через `CatalogService` → только `catalog_articles JOIN articles` |
 | `GET /articles/stats` | Публичный | Читает через `CatalogService` → агрегаты только по коллекции |
-| `GET /articles/find` | Приватный | Возвращает результаты **из `search_result_articles`** текущего пользователя |
-| `GET /articles/search/stats` | Приватный | Агрегаты из `search_result_articles` только по `user_id` текущего пользователя |
+| `GET /articles/find` | Приватный | Возвращает `SearchResultsResponse` из `search_result_articles` текущего пользователя |
+| `GET /articles/search/stats` | Приватный | Агрегаты через `ISearchResultRepository.get_search_stats_for_user(user_id=current_user.id, search=...)` |
 | `GET /articles/history` | Приватный | Без изменений — возвращает записи `search_history` пользователя |
 | `GET /articles/find/quota` | Приватный | Без изменений |
-| `GET /articles/{id}` | Публичный | Без изменений |
-| **NEW** `GET /articles/history/{id}/results` | Приватный | Результаты конкретного прошлого поиска через `search_result_articles` |
+| `GET /articles/{id}` | Публичный | Добавляется фильтр по `catalog_articles` — см. ниже |
+| **NEW** `GET /articles/history/{id}/results` | Приватный | Результаты конкретного прошлого поиска |
 
-***
+### `GET /articles/{article_id}` — ограничение видимости (замечание A-4)
+
+Публичный эндпоинт возвращает статью только если она принадлежит коллекции (`catalog_articles.article_id IS NOT NULL`). Для авторизованных пользователей дополнительно проверяется принадлежность через `search_result_articles JOIN search_history WHERE user_id = :current_user_id`. Во всех остальных случаях — `404 Not Found`.
+
+### `GET /articles/search/stats` — изоляция агрегатов (замечание A-3)
+
+Переключается с `ArticleService` на новый `SearchResultService`. Агрегирует по:
+```sql
+search_result_articles
+  JOIN search_history ON search_history.id = search_result_articles.search_history_id
+  JOIN articles       ON articles.id = search_result_articles.article_id
+WHERE search_history.user_id = :current_user_id
+  [AND (articles.title ILIKE :pattern OR articles.author ILIKE :pattern)]
+```
+Параметр `search` — опциональный ILIKE-фильтр внутри уже изолированного набора данных пользователя.
+
+### `GET /articles/history/{id}/results` — авторизационная проверка (замечание C-1)
+
+Авторизация реализуется через **один атомарный запрос**:
+```sql
+SELECT articles.*
+FROM search_result_articles sra
+  JOIN search_history sh ON sh.id = sra.search_history_id
+  JOIN articles a ON a.id = sra.article_id
+WHERE sh.id = :hist_id
+  AND sh.user_id = :current_user_id
+ORDER BY sra.rank
+```
+Раздельные SELECT (сначала проверить владельца, затем получить данные) **запрещены** — TOCTOU race condition. Если запись не найдена или `user_id` не совпадает — `404 Not Found` (не `403` — чтобы не раскрывать существование чужих записей).
+
+### Защита от анонимного поиска (замечание D-2)
+
+Все эндпоинты, изменяющие состояние пользователя (`/find`, `/history`, `/find/quota`, `/history/{id}/results`), зависят от `Depends(get_current_user)` — FastAPI вернёт `401 Unauthorized` до входа в тело обработчика. На уровне БД дополнительная защита: `search_history.user_id NOT NULL` с FK делает вставку без валидного `user_id` невозможной. Оба уровня защиты обязательны.
+
+### Advisory lock (замечание C-3)
+
+Advisory lock в `GET /articles/find` сохраняется. Ключ блокировки вычисляется как `user_id % (2**63 - 1)` для гарантии попадания в диапазон `bigint`. Если `users.id` в будущем станет UUID — ключ вычисляется как `abs(hash(str(user_id))) % (2**63 - 1)`.
+
+---
 
 ## 6. Изменения схем Pydantic
 
 ### `ArticleResponse` — удалить `keyword`
 
-`keyword` — технический атрибут сидера, клиенту не нужен .
+`keyword` — технический атрибут сидера, клиенту не нужен.
 
 ### `SearchHistoryItemResponse` — добавить поле `results_available: bool`
 
-Чтобы фронтенд знал, можно ли запросить результаты прошлого поиска.
+Чтобы фронтенд знал, можно ли запросить результаты прошлого поиска через `GET /history/{id}/results`.
 
 ### Новая схема `SearchResultsResponse`
 
@@ -231,13 +312,18 @@ class SearchResultsResponse(BaseModel):
     articles: list[ArticleResponse]
 ```
 
-***
+---
 
 ## 7. Alembic миграция `0006_refactor_article_ownership`
 
-### Фаза 1 — Создать новые таблицы (не разрушающая)
+### Фаза 1 — Создать новые таблицы и индексы (не разрушающая)
 
 ```sql
+-- Новый partial unique index для статей без DOI (замечание A-1)
+CREATE UNIQUE INDEX ix_articles_no_doi_unique
+    ON articles(title, publication_date, author)
+    WHERE doi IS NULL;
+
 CREATE TABLE catalog_articles (
     id         SERIAL PRIMARY KEY,
     article_id INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
@@ -259,22 +345,35 @@ CREATE INDEX ix_sra_search_history_id ON search_result_articles(search_history_i
 CREATE INDEX ix_sra_article_id        ON search_result_articles(article_id);
 ```
 
-### Фаза 2 — Перенести данные коллекции
+### Фаза 2 — Перенести данные коллекции (с dry-run верификацией)
+
+**Перед запуском — обязательный верификационный шаг (замечание D-3):**
+```sql
+-- Выполнить вручную, проверить результат до запуска миграции
+SELECT
+    COUNT(*)                                     AS total_to_delete,
+    COUNT(*) FILTER (WHERE is_seeded = TRUE)     AS seeded_to_migrate,
+    COUNT(*) FILTER (WHERE is_seeded = FALSE)    AS orphans_to_delete,
+    MIN(created_at)                              AS oldest,
+    MAX(created_at)                              AS newest
+FROM articles;
+```
+Если `orphans_to_delete > 0` — разработчик анализирует записи вручную перед продолжением. `DELETE` необратим: данные `is_seeded=FALSE` не восстанавливаются при `downgrade()`. Это зафиксировано в комментарии миграции.
 
 ```sql
--- Переносим все текущие is_seeded=True статьи в catalog_articles
+-- Переносим все is_seeded=TRUE статьи в catalog_articles
 INSERT INTO catalog_articles (article_id, keyword, seeded_at)
 SELECT id, keyword, created_at
 FROM   articles
 WHERE  is_seeded = TRUE
 ON CONFLICT DO NOTHING;
 
--- Удаляем is_seeded=False статьи (user-статьи без владельца — orphans)
--- Их нельзя восстановить, так как связь search_history → articles не существовала
+-- Удаляем orphan-статьи (is_seeded=FALSE — user-статьи без владельца)
+-- НЕОБРАТИМО. Предварительно выполнить верификационный SELECT выше.
 DELETE FROM articles WHERE is_seeded = FALSE;
 ```
 
-### Фаза 3 — Удалить устаревшие колонки
+### Фаза 3 — Удалить устаревшие колонки (выполняется после готовности кода)
 
 ```sql
 ALTER TABLE articles DROP COLUMN is_seeded;
@@ -283,50 +382,85 @@ ALTER TABLE articles DROP COLUMN keyword;
 
 ### `downgrade()`
 
-Восстанавливает колонки, переносит данные обратно из `catalog_articles`, удаляет новые таблицы.
+Восстанавливает колонки `is_seeded` (default `false`) и `keyword` (default `''`), переносит данные обратно из `catalog_articles`, удаляет новые таблицы и индексы. **Данные `is_seeded=FALSE` строк не восстанавливаются.**
 
-***
+---
 
-## 8. Изменения в `ScopusHTTPClient`
+## 8. Инфраструктура: ключевые требования реализации
 
-Убрать `is_seeded=True` из конструктора `Article` . После рефакторинга клиент создаёт объекты `Article` без полей `keyword` и `is_seeded` — они больше не принадлежат модели. Принадлежность определяется вызывающим кодом через соответствующий репозиторий.
+### Управление транзакциями (замечание B-1)
 
-***
+Инвариант всего слоя инфраструктуры: **репозитории используют только `flush()`, никогда `commit()`**. `commit()` вызывается исключительно на уровне сервиса. Нарушение этого правила ломает атомарность составных операций.
 
-## 9. Затронутые файлы — сводная таблица
+### `upsert_many` — два батчевых INSERT (замечания A-1, B-3)
+
+`upsert_many` выполняет **два отдельных батчевых** `INSERT ... ON CONFLICT`:
+
+1. **Статьи с DOI** → `ON CONFLICT ON CONSTRAINT ix_articles_doi_unique DO UPDATE SET ...`
+2. **Статьи без DOI** → `ON CONFLICT ON CONSTRAINT ix_articles_no_doi_unique DO UPDATE SET ...`
+
+После обоих INSERT перечитывание всех записей выполняется **двумя** батчевыми SELECT:
+- `SELECT ... WHERE doi IN (:dois)` — для статей с DOI
+- `SELECT ... WHERE (title, publication_date, author) IN (:tuples) AND doi IS NULL` — для статей без DOI
+
+Цикловые SELECT по одной записи (`for a in articles: SELECT ...`) **запрещены** — N+1 запросов.
+
+### ILIKE-экранирование (замечание C-2)
+
+Все методы, использующие ILIKE-паттерн, **обязаны** экранировать входную строку через утилитарную функцию `escape_ilike(s: str) -> str`, размещённую в `app/utils/db_utils.py`:
+
+```python
+def escape_ilike(s: str) -> str:
+    # Экранируем спецсимволы ILIKE: \, %, _
+    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+```
+
+Паттерн формируется как `f"%{escape_ilike(search)}%"`, запрос использует `ILIKE :pattern ESCAPE '\\'`. Прямое форматирование `f"%{search}%"` без экранирования запрещено.
+
+---
+
+## 9. Изменения в `ScopusHTTPClient`
+
+Убрать `is_seeded=True` из конструктора `Article`. После рефакторинга клиент создаёт объекты `Article` только с полями нормализованного реестра (`title`, `journal`, `author`, `publication_date`, `doi`, `cited_by_count`, `document_type`, `open_access`, `affiliation_country`). Поля `keyword` и `is_seeded` удалены из модели.
+
+---
+
+## 10. Затронутые файлы — сводная таблица
 
 | Файл | Тип изменения |
 |---|---|
 | `app/models/article.py` | Удалить `keyword`, `is_seeded` |
 | `app/models/catalog_article.py` | **Создать** |
 | `app/models/search_result_article.py` | **Создать** |
-| `app/interfaces/article_repository.py` | Удалить `get_all`, `get_total_count`, `get_stats`, `get_search_stats`; переименовать `save_many` → `upsert_many` |
+| `app/interfaces/article_repository.py` | Удалить `get_all`, `get_total_count`, `get_stats`, `get_search_stats`; переименовать `save_many` → `upsert_many`; зафиксировать запрет на `commit()` |
 | `app/interfaces/catalog_repository.py` | **Создать** |
 | `app/interfaces/search_result_repo.py` | **Создать** |
-| `app/infrastructure/postgres_article_repo.py` | Удалить устаревшие методы; `upsert_many` без `keyword`/`is_seeded` |
+| `app/infrastructure/postgres_article_repo.py` | Переписать `upsert_many`: два батчевых INSERT + ILIKE-экранирование |
 | `app/infrastructure/postgres_catalog_repo.py` | **Создать** |
-| `app/infrastructure/postgres_search_result_repo.py` | **Создать** |
-| `app/services/article_service.py` | Сократить до `get_by_id` |
-| `app/services/catalog_service.py` | **Создать** из частей `ArticleService` |
-| `app/services/search_service.py` | Расширить `find_and_save` — добавить вызов `save_results` |
-| `app/infrastructure/scopus_client.py` | Убрать `is_seeded=True` из `Article()` |
-| `app/routers/articles.py` | Заменить зависимости; добавить `GET /history/{id}/results` |
+| `app/infrastructure/postgres_search_result_repo.py` | **Создать** (включая атомарную авторизационную проверку) |
+| `app/services/article_service.py` | Сократить до `get_by_id` с проверкой видимости |
+| `app/services/catalog_service.py` | **Создать** (включая метод `seed`) |
+| `app/services/search_service.py` | Переписать `find_and_save`: три flush + один commit, возврат `tuple[SearchHistory, list[Article]]` |
+| `app/infrastructure/scopus_client.py` | Убрать `is_seeded=True` и `keyword` из `Article()` |
+| `app/routers/articles.py` | Заменить зависимости; добавить `GET /history/{id}/results`; исправить `search/stats`; advisory lock fix |
 | `app/schemas/article_schemas.py` | Удалить `keyword` из `ArticleResponse`; добавить `SearchResultsResponse` |
-| `alembic/versions/0006_...py` | **Создать** |
+| `app/utils/db_utils.py` | **Создать** — `escape_ilike()` |
+| `alembic/versions/0006_refactor_article_ownership.py` | **Создать** |
 | Тесты — все файлы с `save_many`, `is_seeded`, `ArticleService` | Обновить |
 
-***
+---
 
-## 10. Порядок реализации
+## 11. Порядок реализации
 
-1. **Миграция** — создать таблицы и перенести данные (без удаления колонок до готовности кода)
-2. **Модели** — `CatalogArticle`, `SearchResultArticle`, обновить `Article`
-3. **Интерфейсы** — все три контракта
-4. **Инфраструктура** — три репозитория
-5. **Сервисы** — `CatalogService`, обновить `SearchService`
-6. **Роутер** — переключить зависимости, добавить эндпоинт
-7. **Схемы** — обновить `ArticleResponse`, добавить `SearchResultsResponse`
-8. **Финальная фаза миграции** — удалить колонки `keyword`, `is_seeded`
-9. **Тесты** — обновить fixtures и unit-тесты
-
-Готов начинать с любого пункта. Рекомендую начать с **шага 1 (миграция)** — она применяется к живой БД, и все остальные шаги должны быть согласованы с её результатом. Начинаем?
+1. **Миграция Фаза 1** — создать новые таблицы и индексы (включая `ix_articles_no_doi_unique`)
+2. **Утилиты** — `app/utils/db_utils.py` с `escape_ilike()`
+3. **Модели** — `CatalogArticle`, `SearchResultArticle`, обновить `Article` (убрать `keyword`, `is_seeded`)
+4. **Интерфейсы** — `ICatalogRepository`, `ISearchResultRepository`, обновить `IArticleRepository`
+5. **Инфраструктура** — `postgres_catalog_repo.py`, `postgres_search_result_repo.py`, переписать `postgres_article_repo.py`
+6. **Сервисы** — `CatalogService` (с методом `seed`), переписать `SearchService.find_and_save`
+7. **Роутер** — переключить зависимости, добавить `GET /history/{id}/results`, исправить `search/stats` и `/{article_id}`
+8. **Схемы** — обновить `ArticleResponse`, `SearchHistoryItemResponse`, добавить `SearchResultsResponse`
+9. **Миграция Фаза 2** — верификационный SELECT, перенос данных, DELETE orphans
+10. **Миграция Фаза 3** — удалить колонки `keyword`, `is_seeded`
+11. **Сидер** — переключить на `CatalogService.seed()`
+12. **Тесты** — обновить fixtures и unit-тесты
