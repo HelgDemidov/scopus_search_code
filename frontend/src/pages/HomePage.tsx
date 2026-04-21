@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useAuthStore } from '../stores/authStore';
 import { useArticleStore } from '../stores/articleStore';
 import { getSearchStats } from '../api/articles';
@@ -55,7 +56,17 @@ function AnonHero({ onSearch }: { onSearch: (q: string) => void }) {
 // Блок результатов для авторизованных
 export default function HomePage() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const { articles, isLoading, filters, setFilters, fetchArticles } = useArticleStore();
+  const {
+    articles,
+    liveResults,
+    isLoading,
+    isLiveSearching,
+    error,
+    filters,
+    setFilters,
+    fetchArticles,
+    searchScopusLive,
+  } = useArticleStore();
   const [sortBy, setSortBy] = useState<'date' | 'citations'>('date');
 
   const [hasSearched, setHasSearched] = useState(false);
@@ -63,18 +74,31 @@ export default function HomePage() {
   const [searchStats, setSearchStats] = useState<SearchStatsResponse | null>(null);
   const [isStatsLoading, setIsStatsLoading] = useState(false);
 
+  useEffect(() => {
+    if (!error || !isAuthenticated) return;
+    if (error === 'QUOTA_EXCEEDED') {
+      toast.error('Недельный лимит поиска исчерпан');
+    } else {
+      toast.error(`Ошибка поиска: ${error}`);
+    }
+  }, [error, isAuthenticated]);
+
+  // Для авторизованных показываем live-результаты из Scopus,
+  // для анонимных — статьи локальной коллекции
+  const displayArticles = isAuthenticated ? liveResults : articles;
+
   // Сортировка по текущим данным стора
   const sortedArticles = useMemo(
-    () => sortArticles(articles, sortBy),
-    [articles, sortBy],
+    () => sortArticles(displayArticles, sortBy),
+    [displayArticles, sortBy],
   );
 
   async function handleSearch(query: string) {
     setHasSearched(true);
-    setFilters({ search: query, keyword: undefined });
-    fetchArticles();
 
     if (isAuthenticated) {
+      void searchScopusLive(query);
+
       setIsStatsLoading(true);
       setSearchStats(null);
       try {
@@ -85,6 +109,9 @@ export default function HomePage() {
       } finally {
         setIsStatsLoading(false);
       }
+    } else {
+      setFilters({ search: query, keyword: undefined });
+      fetchArticles();
     }
   }
 
@@ -121,7 +148,7 @@ export default function HomePage() {
             <div className="flex-1 min-w-0 flex flex-col gap-4">
               <ArticleList
                 articles={sortedArticles}
-                isLoading={isLoading}
+                isLoading={isLiveSearching}
                 sortBy={sortBy}
                 onSortChange={setSortBy}
               />

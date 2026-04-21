@@ -163,7 +163,17 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
         );
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Live search failed';
+      let message: string;
+      if (
+        err &&
+        typeof err === 'object' &&
+        'response' in err &&
+        (err as { response?: { status?: number } }).response?.status === 429
+      ) {
+        message = 'QUOTA_EXCEEDED';
+      } else {
+        message = err instanceof Error ? err.message : 'Live search failed';
+      }
       set({ error: message, isLiveSearching: false });
     }
   },
