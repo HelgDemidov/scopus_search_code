@@ -1226,10 +1226,7 @@ DELAY_BETWEEN_REQUESTS = 2.0
 RATE_LIMIT_STOP_THRESHOLD = 500
 KEYWORDS_TO_USE = 100
 
-def _get_secrets() -> tuple[str, str, str]:
-    pass
-
-async def _get_jwt_token(client: httpx.AsyncClient, email: str, password: str) -> str:
+def _get_secrets() -> tuple[str, str]:
     pass
 
 async def _fetch_used_keywords(db_url: str) -> tuple[list[str], dict[str, str]]:
