@@ -5,10 +5,13 @@ Revises: 0005_add_search_history
 Create Date: 2026-04-22 02:39:00.000000
 
 Фаза 1 — не разрушающая. Приложение после этой миграции продолжает работать
-в текущем состоянии. Колонки keyword и is_seeded в articles не трогаются —
-это Фаза 3 (миграция 0007).
+в текущем состоянии. Колонки keyword и is_seeded в articles не трогаются
+физически — это Фаза 3 (миграция 0007).
 
-Что создаётся:
+Что создаётся / изменяется:
+- ALTER TABLE articles ALTER COLUMN keyword DROP NOT NULL — делаем keyword
+  nullable, чтобы scopus_client мог создавать Article без keyword.
+  Физическое удаление колонки — Фаза 3 (миграция 0007).
 - ix_articles_no_doi_unique: partial UNIQUE INDEX для корректного upsert
   статей без DOI (articles WHERE doi IS NULL)
 - catalog_articles: коллекция сидера (принадлежность статьи — отдельная
@@ -34,6 +37,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # --- Операция 0: делаем keyword nullable ---
+    # Необходимо до Шага 3: scopus_client больше не передает keyword в Article,
+    # поэтому flush() при upsert_many упал бы с NOT NULL violation без этой правки.
+    # Физическое удаление колонки — в миграции 0007 (Фаза 3).
+    op.alter_column('articles', 'keyword', nullable=True)
+
     # --- Операция 1: partial UNIQUE INDEX для статей без DOI ---
     # Необходим для второго батчевого INSERT в upsert_many (замечание A-1)
     # Создаётся первым — до дочерних таблиц, ссылающихся на articles
@@ -133,3 +142,6 @@ def downgrade() -> None:
 
     # Удаляем partial UNIQUE INDEX на articles
     op.execute('DROP INDEX IF EXISTS ix_articles_no_doi_unique')
+
+    # Восстанавливаем NOT NULL на keyword (откат Операции 0)
+    op.alter_column('articles', 'keyword', nullable=False)
