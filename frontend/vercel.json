@@ -9,6 +9,10 @@
       "destination": "https://scopus-search-code.up.railway.app/:path*"
     },
     {
+      "source": "/assets/:path*",
+      "destination": "/assets/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
