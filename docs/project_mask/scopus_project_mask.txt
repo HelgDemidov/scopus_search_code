@@ -941,7 +941,7 @@ class SearchStatsResponse(BaseModel):
 FILE: app\schemas\search_history_schemas.py
 ============================================================
 import datetime
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, computed_field
 from app.schemas.article_schemas import ArticleResponse
 
 class SearchHistoryItemResponse(BaseModel):
@@ -950,6 +950,11 @@ class SearchHistoryItemResponse(BaseModel):
     created_at: datetime.datetime
     result_count: int
     filters: dict
+
+    @computed_field
+    @property
+    def results_available(self) -> bool:
+        pass
     model_config = ConfigDict(from_attributes=True)
 
 class SearchHistoryResponse(BaseModel):

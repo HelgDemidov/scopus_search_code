@@ -1,7 +1,7 @@
 # app/schemas/search_history_schemas.py
 import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, computed_field
 
 from app.schemas.article_schemas import ArticleResponse
 
@@ -13,6 +13,11 @@ class SearchHistoryItemResponse(BaseModel):
     created_at: datetime.datetime
     result_count: int
     filters: dict
+
+    @computed_field                          # вычисляется автоматически при сериализации
+    @property
+    def results_available(self) -> bool:
+        return self.result_count > 0         # точно по ТЗ раздел 6
 
     model_config = ConfigDict(from_attributes=True)
 
