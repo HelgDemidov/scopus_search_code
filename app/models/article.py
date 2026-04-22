@@ -28,7 +28,11 @@ class Article(Base):
     author: Mapped[str] = mapped_column(String(255), nullable=True)                    # dc:creator — первый автор
     publication_date: Mapped[datetime.date] = mapped_column(Date, nullable=False)      # prism:coverDate
     doi: Mapped[str] = mapped_column(String(255), nullable=True)                       # prism:doi — unique=True перенесен в __table_args__
-    keyword: Mapped[str] = mapped_column(String(100), nullable=False)                  # поисковый запрос сидера
+
+    # keyword — технический ярлык сидера; nullable=True начиная с миграции 0006
+    # (scopus_client больше не передает keyword при пользовательском поиске).
+    # Колонка физически удаляется в миграции 0007 (Фаза 3).
+    keyword: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # Расширенные наукометрические поля (доступны в Scopus free-tier)
     cited_by_count: Mapped[int] = mapped_column(Integer, nullable=True)                # citedby-count — число цитирований
@@ -36,7 +40,8 @@ class Article(Base):
     open_access: Mapped[bool] = mapped_column(Boolean, nullable=True)                  # openaccess — флаг открытого доступа
     affiliation_country: Mapped[str] = mapped_column(String(100), nullable=True)       # affiliation[0].affiliation-country
 
-    # Флаг: статья добавлена автоматическим сидером (True) или пользовательским поиском (False)
+    # is_seeded — флаг сидера; nullable=False сохраняется до миграции 0007 (Фаза 3),
+    # когда колонка удаляется вместе с keyword.
     is_seeded: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
@@ -52,4 +57,4 @@ class Article(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<Article(title='{self.title[:20]}...', keyword='{self.keyword}')>"
+        return f"<Article(title='{self.title[:20]}...')>"
