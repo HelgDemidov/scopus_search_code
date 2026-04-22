@@ -1302,18 +1302,22 @@ from typing import AsyncGenerator
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from app.core.dependencies import get_db_session
 from app.main import app
 from app.models.base import Base
 _PG_URL = os.environ.get('DATABASE_TEST_URL')
 
 @pytest_asyncio.fixture(scope='function')
-async def pg_session() -> AsyncGenerator[AsyncSession, None]:
+async def pg_engine():
     pass
 
 @pytest_asyncio.fixture(scope='function')
-async def pg_client(pg_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
+async def pg_session(pg_engine) -> AsyncGenerator[AsyncSession, None]:
+    pass
+
+@pytest_asyncio.fixture(scope='function')
+async def pg_client(pg_engine) -> AsyncGenerator[AsyncClient, None]:
     pass
 
 @pytest_asyncio.fixture(scope='function')
@@ -1683,14 +1687,13 @@ FILE: tests\integration\test_find_articles_postgres.py
   - ровно один свободный слот при 199 предзаполненных строках → один 200 и остальные 429;
   - разные user_id не блокируют друг друга.
 
-Skipped if DATABASE_TEST_URL не задан (см. tests/integration/conftest.py::pg_session).
+Skipped if DATABASE_TEST_URL не задан (см. tests/integration/conftest.py::pg_engine).
 """
 import asyncio
 import datetime
 from datetime import date, timezone, timedelta
 import pytest
 from httpx import AsyncClient, ASGITransport
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from app.core.dependencies import get_db_session
 from app.main import app
@@ -1705,7 +1708,11 @@ def _mock_scopus(monkeypatch):
 @pytest.mark.asyncio
 @pytest.mark.requires_pg
 async def test_single_slot_allows_exactly_one_success(pg_authenticated_client: AsyncClient, pg_session: AsyncSession, _mock_scopus):
-    """При 199 свежих строках → ровно 1 ответ 200 и остальные 429 на N-параллельных запросах."""
+    """При 199 свежих строках → ровно 1 ответ 200 и остальные 429 на N-параллельных запросах.
+
+После рефакторинга conftest pg_client выдаёт каждому HTTP-запросу
+собственную сессию, поэтому advisory-lock реально сериализует конкурентные
+проверки квоты. Ассерт точный: == 1 / == 4."""
 
 @pytest.mark.asyncio
 @pytest.mark.requires_pg
@@ -1713,12 +1720,21 @@ async def test_parallel_requests_near_quota_boundary(_mock_scopus, tmp_path):
     """Жёсткая конкурентная проверка: несколько одновременных подключений,
 каждое со своей сессией, бьют в /articles/find одного пользователя
 при 199 предзаполненных строках. Advisory-lock обеспечивает: ровно 1 x 200,
-остальные x 429."""
+остальные x 429.
+
+Тест намеренно создаёт собственный движок и не использует pg_engine
+из conftest — это обеспечивает полную изоляцию от других тестов и
+максимально реалистичную конкуренцию на уровне PG-соединений."""
 
 @pytest.mark.asyncio
 @pytest.mark.requires_pg
 async def test_different_users_do_not_share_lock(_mock_scopus, tmp_path):
-    """Разные user_id → разные advisory-lock ключи → не блокируют друг друга."""
+    """Разные user_id → разные advisory-lock ключи → не блокируют друг друга.
+
+Тест намеренно создаёт собственный движок: ему нужны два независимых
+AsyncClient с разными сессиями, никак не связанных с pg_authenticated_client
+из conftest. Использование pg_engine из conftest создало бы неявную связанность
+между тестами через teardown-порядок."""
 
 ============================================================
 FILE: tests\integration\test_rt_e2e.py
