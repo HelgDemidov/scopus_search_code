@@ -5,6 +5,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from typing import cast
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.interfaces.article_repository import IArticleRepository
 from app.interfaces.catalog_repository import ICatalogRepository
 from app.models.article import Article
@@ -109,7 +112,7 @@ def _mk_service(
     ar = FakeArticleRepository()
     cr = FakeCatalogRepository(articles=articles, total=total)
     sess = FakeSession()
-    svc = CatalogService(article_repo=ar, catalog_repo=cr, session=sess)
+    svc = CatalogService(article_repo=ar, catalog_repo=cr, session=cast(AsyncSession, sess))
     return svc, ar, cr, sess
 
 
@@ -271,7 +274,7 @@ async def test_seed_upsert_failure_skips_save_seeded_and_commit():
 
     cr = FakeCatalogRepository()
     sess = FakeSession()
-    svc = CatalogService(article_repo=BrokenArticleRepo(), catalog_repo=cr, session=sess)
+    svc = CatalogService(article_repo=BrokenArticleRepo(), catalog_repo=cr, session=cast(AsyncSession, sess))
 
     with pytest.raises(RuntimeError, match="db down"):
         await svc.seed(articles=[_mk_article(1)], keyword="AI")

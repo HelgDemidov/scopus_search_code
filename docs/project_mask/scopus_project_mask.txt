@@ -1936,6 +1936,8 @@ from datetime import date
 from typing import List
 from unittest.mock import AsyncMock
 import pytest
+from typing import cast
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.interfaces.article_repository import IArticleRepository
 from app.interfaces.catalog_repository import ICatalogRepository
 from app.models.article import Article
@@ -2105,6 +2107,8 @@ from datetime import date
 from typing import List
 from unittest.mock import AsyncMock
 import pytest
+from typing import cast
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.interfaces.article_repository import IArticleRepository
 from app.interfaces.search_client import ISearchClient
 from app.interfaces.search_history_repo import ISearchHistoryRepository

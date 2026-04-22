@@ -130,8 +130,8 @@ async def test_get_by_id_found_maps_all_fields():
         publication_date=date(2025, 3, 15),
         doi="10.acm/dl-survey",
         journal="Nature",
-        country="UK",
-        doc_type="Review",
+        affiliation_country="UK",
+        document_type="Review",
         open_access=True,
         keyword=None,
         is_seeded=False,
@@ -146,5 +146,5 @@ async def test_get_by_id_found_maps_all_fields():
     assert result.author == "Hinton G."
     assert result.doi == "10.acm/dl-survey"
     assert result.journal == "Nature"
-    assert result.country == "UK"
+    assert result.affiliation_country == "UK"
     assert result.open_access is True

@@ -6,6 +6,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from typing import cast
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.interfaces.article_repository import IArticleRepository
 from app.interfaces.search_client import ISearchClient
 from app.interfaces.search_history_repo import ISearchHistoryRepository
@@ -173,7 +176,7 @@ def _mk_service(
         article_repo=ar,
         history_repo=hr,
         search_result_repo=sr,
-        session=sess,
+        session=cast(AsyncSession, sess),
     )
     return svc, sc, ar, hr, sr, sess
 
