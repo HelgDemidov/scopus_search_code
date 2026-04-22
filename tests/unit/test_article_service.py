@@ -1,127 +1,150 @@
+# tests/unit/test_article_service.py
 from datetime import date
 from typing import List
 
 import pytest
 
-from app.models.article import Article
-from app.schemas.article_schemas import PaginatedArticleResponse
-from app.services.article_service import ArticleService
 from app.interfaces.article_repository import IArticleRepository
+from app.models.article import Article
+from app.schemas.article_schemas import ArticleResponse
+from app.services.article_service import ArticleService
 
 
-# 1. Создаем Fake-репозиторий (Заглушку) для статей
+# ================================================================ #
+#  Фейковый репозиторий                                            #
+# ================================================================ #
+
 class FakeArticleRepository(IArticleRepository):
-    def __init__(self):
-        # Имитируем базу данных с 25 статьями
-        self.db_articles = []
-        for i in range(1, 26):
-            article = Article(
-                id=i,
-                title=f"Test Article {i}",
-                author="Test Author",
-                publication_date=date(2026, 1, 1),
-                doi=f"10.test/{i}",
-                keyword="test",
-                is_seeded=False,
-            )
-            self.db_articles.append(article)
+    """Заглушка IArticleRepository — реализует только методы, существующие в интерфейсе."""
 
-        # Эти переменные нужны для проверки (шпионажа), какие параметры передал сервис
-        self.last_limit_called = None
-        self.last_offset_called = None
+    def __init__(self, articles: list[Article] | None = None):
+        # Словарь id → Article для имитации хранилища
+        self._store: dict[int, Article] = {}
+        for a in (articles or []):
+            if a.id is not None:
+                self._store[a.id] = a
 
-    async def save_many(self, articles: List[Article]) -> None:
-        # Для этого теста сохранение не нужно, просто ставим заглушку
-        pass
+    async def upsert_many(self, articles: List[Article]) -> List[Article]:
+        # Не нужен для тестов ArticleService — просто заглушка
+        return articles
 
-    async def get_all(
+    async def get_by_id(
         self,
-        limit: int,
-        offset: int,
-        keyword: str | None = None,
-        search: str | None = None,  # выровнен с IArticleRepository
-    ) -> List[Article]:
-        # Шпионская логика: запоминаем, с какими аргументами сервис вызвал метод базы
-        self.last_limit_called = limit
-        self.last_offset_called = offset
-
-        # Эмулируем SQL-запрос: SELECT * FROM articles LIMIT {limit} OFFSET {offset}
-        return self.db_articles[offset : offset + limit]
-
-    async def get_by_id(self, article_id: int) -> Article | None:
-        # Заглушка: get_by_id не нужен для тестов пагинации
-        return None
-
-    async def get_total_count(
-        self,
-        keyword: str | None = None,
-        search: str | None = None,  # выровнен с IArticleRepository
-    ) -> int:
-        return len(self.db_articles)
-
-    async def get_stats(self) -> dict:
-        # Заглушка: get_stats не нужен для тестов пагинации, возвращаем пустой dict
-        return {}
-
-    async def get_search_stats(self, search: str) -> dict:
-        # Заглушка: get_search_stats не нужен для тестов пагинации
-        # Структура соответствует SearchStatsResponse из article_schemas.py
-        return {
-            "total": 0,
-            "by_year": [],
-            "by_journal": [],
-            "by_country": [],
-            "by_doc_type": [],
-        }
+        article_id: int,
+        user_id: int | None = None,
+    ) -> Article | None:
+        return self._store.get(article_id)
 
 
-# 2. Фикстура для подготовки сервиса
-@pytest.fixture
-def article_service() -> tuple[ArticleService, FakeArticleRepository]:
-    # Возвращаем и кортеж и сервис, и сам фейковый репозиторий, чтобы проверять "шпионские" переменные
-    fake_repo = FakeArticleRepository()
-    service = ArticleService(article_repo=fake_repo)
-    return service, fake_repo
+# ================================================================ #
+#  Хелперы                                                         #
+# ================================================================ #
+
+def _mk_article(article_id: int, doi: str | None = None) -> Article:
+    return Article(
+        id=article_id,
+        title=f"Article {article_id}",
+        author="Test Author",
+        publication_date=date(2026, 1, 1),
+        doi=doi or f"10.test/{article_id}",
+        keyword=None,
+        is_seeded=False,
+    )
 
 
-# 3. Тест 1: Проверка первой страницы
+# ================================================================ #
+#  Тесты get_by_id                                                 #
+# ================================================================ #
+
 @pytest.mark.asyncio
-async def test_get_articles_paginated_page_1(article_service):
-    service, fake_repo = article_service
+async def test_get_by_id_found_returns_article_response():
+    article = _mk_article(1)
+    repo = FakeArticleRepository(articles=[article])
+    svc = ArticleService(article_repo=repo)
 
-    result = await service.get_articles_paginated(page=1, size=10)
+    result = await svc.get_by_id(article_id=1)
 
-    assert fake_repo.last_limit_called == 10
-    assert fake_repo.last_offset_called == 0
-
-    assert isinstance(result, PaginatedArticleResponse)
-    assert result.total == 25
-    assert len(result.articles) == 10
-    assert result.articles[0].title == "Test Article 1"
-    assert result.articles[9].title == "Test Article 10"
+    assert result is not None
+    assert isinstance(result, ArticleResponse)
+    assert result.id == 1
+    assert result.title == "Article 1"
 
 
-# 4. Тест 2: Проверка третьей (неполной) страницы
 @pytest.mark.asyncio
-async def test_get_articles_paginated_page_3(article_service):
-    service, fake_repo = article_service
+async def test_get_by_id_not_found_returns_none():
+    repo = FakeArticleRepository(articles=[])
+    svc = ArticleService(article_repo=repo)
 
-    result = await service.get_articles_paginated(page=3, size=10)
+    result = await svc.get_by_id(article_id=999)
 
-    assert fake_repo.last_limit_called == 10
-    assert fake_repo.last_offset_called == 20
-
-    assert len(result.articles) == 5
-    assert result.articles[0].title == "Test Article 21"
+    assert result is None
 
 
-# 5. Тест 3: Проверка граничных (невалидных) значений
 @pytest.mark.asyncio
-async def test_get_articles_paginated_negative_page(article_service):
-    service, fake_repo = article_service
+async def test_get_by_id_passes_user_id_to_repo():
+    """Сервис должен передавать user_id в репозиторий (visibility check)."""
+    received: dict = {}
 
-    result = await service.get_articles_paginated(page=-5, size=10)
+    class SpyRepo(IArticleRepository):
+        async def upsert_many(self, articles):
+            return articles
 
-    assert fake_repo.last_limit_called == 10
-    assert fake_repo.last_offset_called == 0
-    assert len(result.articles) == 10
+        async def get_by_id(self, article_id: int, user_id: int | None = None):
+            received["article_id"] = article_id
+            received["user_id"] = user_id
+            return None
+
+    svc = ArticleService(article_repo=SpyRepo())
+    await svc.get_by_id(article_id=5, user_id=42)
+
+    assert received["article_id"] == 5
+    assert received["user_id"] == 42
+
+
+@pytest.mark.asyncio
+async def test_get_by_id_without_user_id_passes_none():
+    """Вызов без user_id — в репозиторий передаётся None (без visibility check)."""
+    received: dict = {}
+
+    class SpyRepo(IArticleRepository):
+        async def upsert_many(self, articles):
+            return articles
+
+        async def get_by_id(self, article_id: int, user_id: int | None = None):
+            received["user_id"] = user_id
+            return None
+
+    svc = ArticleService(article_repo=SpyRepo())
+    await svc.get_by_id(article_id=1)
+
+    assert received["user_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_get_by_id_found_maps_all_fields():
+    """model_validate корректно проецирует ORM-объект в ArticleResponse."""
+    article = Article(
+        id=7,
+        title="Deep Learning Survey",
+        author="Hinton G.",
+        publication_date=date(2025, 3, 15),
+        doi="10.acm/dl-survey",
+        journal="Nature",
+        country="UK",
+        doc_type="Review",
+        open_access=True,
+        keyword=None,
+        is_seeded=False,
+    )
+    repo = FakeArticleRepository(articles=[article])
+    svc = ArticleService(article_repo=repo)
+
+    result = await svc.get_by_id(article_id=7)
+
+    assert result is not None
+    assert result.title == "Deep Learning Survey"
+    assert result.author == "Hinton G."
+    assert result.doi == "10.acm/dl-survey"
+    assert result.journal == "Nature"
+    assert result.country == "UK"
+    assert result.open_access is True

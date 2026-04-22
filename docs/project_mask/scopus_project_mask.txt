@@ -1889,49 +1889,144 @@ FILE: tests\unit\test_article_service.py
 from datetime import date
 from typing import List
 import pytest
-from app.models.article import Article
-from app.schemas.article_schemas import PaginatedArticleResponse
-from app.services.article_service import ArticleService
 from app.interfaces.article_repository import IArticleRepository
+from app.models.article import Article
+from app.schemas.article_schemas import ArticleResponse
+from app.services.article_service import ArticleService
+
+class FakeArticleRepository(IArticleRepository):
+    """Заглушка IArticleRepository — реализует только методы, существующие в интерфейсе."""
+
+    def __init__(self, articles: list[Article] | None=None):
+        pass
+
+    async def upsert_many(self, articles: List[Article]) -> List[Article]:
+        pass
+
+    async def get_by_id(self, article_id: int, user_id: int | None=None) -> Article | None:
+        pass
+
+def _mk_article(article_id: int, doi: str | None=None) -> Article:
+    pass
+
+@pytest.mark.asyncio
+async def test_get_by_id_found_returns_article_response():
+    pass
+
+@pytest.mark.asyncio
+async def test_get_by_id_not_found_returns_none():
+    pass
+
+@pytest.mark.asyncio
+async def test_get_by_id_passes_user_id_to_repo():
+    """Сервис должен передавать user_id в репозиторий (visibility check)."""
+
+@pytest.mark.asyncio
+async def test_get_by_id_without_user_id_passes_none():
+    """Вызов без user_id — в репозиторий передаётся None (без visibility check)."""
+
+@pytest.mark.asyncio
+async def test_get_by_id_found_maps_all_fields():
+    """model_validate корректно проецирует ORM-объект в ArticleResponse."""
+
+============================================================
+FILE: tests\unit\test_catalog_service.py
+============================================================
+from datetime import date
+from typing import List
+from unittest.mock import AsyncMock
+import pytest
+from app.interfaces.article_repository import IArticleRepository
+from app.interfaces.catalog_repository import ICatalogRepository
+from app.models.article import Article
+from app.schemas.article_schemas import PaginatedArticleResponse, StatsResponse
+from app.services.catalog_service import CatalogService
 
 class FakeArticleRepository(IArticleRepository):
 
     def __init__(self):
         pass
 
-    async def save_many(self, articles: List[Article]) -> None:
+    async def upsert_many(self, articles: List[Article]) -> List[Article]:
+        pass
+
+    async def get_by_id(self, article_id: int, user_id: int | None=None) -> Article | None:
+        pass
+
+class FakeCatalogRepository(ICatalogRepository):
+
+    def __init__(self, articles: List[Article] | None=None, total: int=0):
         pass
 
     async def get_all(self, limit: int, offset: int, keyword: str | None=None, search: str | None=None) -> List[Article]:
         pass
 
-    async def get_by_id(self, article_id: int) -> Article | None:
+    async def get_total_count(self, keyword: str | None=None, search: str | None=None) -> int:
         pass
 
-    async def get_total_count(self, keyword: str | None=None, search: str | None=None) -> int:
+    async def save_seeded(self, articles: List[Article], keyword: str) -> List[Article]:
         pass
 
     async def get_stats(self) -> dict:
         pass
 
-    async def get_search_stats(self, search: str) -> dict:
+class FakeSession:
+
+    def __init__(self):
         pass
 
-@pytest.fixture
-def article_service() -> tuple[ArticleService, FakeArticleRepository]:
+    async def commit(self) -> None:
+        pass
+
+def _mk_article(article_id: int) -> Article:
+    pass
+
+def _mk_service(articles: List[Article] | None=None, total: int=0) -> tuple[CatalogService, FakeArticleRepository, FakeCatalogRepository, FakeSession]:
     pass
 
 @pytest.mark.asyncio
-async def test_get_articles_paginated_page_1(article_service):
+async def test_get_catalog_paginated_page1_correct_limit_offset():
     pass
 
 @pytest.mark.asyncio
-async def test_get_articles_paginated_page_3(article_service):
+async def test_get_catalog_paginated_page3_partial():
     pass
 
 @pytest.mark.asyncio
-async def test_get_articles_paginated_negative_page(article_service):
+async def test_get_catalog_paginated_negative_page_clamped_to_1():
     pass
+
+@pytest.mark.asyncio
+async def test_get_catalog_paginated_passes_filters():
+    pass
+
+@pytest.mark.asyncio
+async def test_get_stats_returns_stats_response():
+    pass
+
+@pytest.mark.asyncio
+async def test_get_stats_maps_by_year_to_count_by_field():
+    pass
+
+@pytest.mark.asyncio
+async def test_get_stats_maps_top_keywords():
+    pass
+
+@pytest.mark.asyncio
+async def test_get_stats_delegates_to_catalog_repo():
+    pass
+
+@pytest.mark.asyncio
+async def test_seed_calls_upsert_then_save_seeded_then_commit():
+    """seed() должен: upsert_many → save_seeded → commit() — в таком порядке."""
+
+@pytest.mark.asyncio
+async def test_seed_passes_keyword_to_save_seeded():
+    pass
+
+@pytest.mark.asyncio
+async def test_seed_upsert_failure_skips_save_seeded_and_commit():
+    """Если upsert_many бросил — save_seeded и commit не вызываются."""
 
 ============================================================
 FILE: tests\unit\test_scopus_client.py
@@ -2008,10 +2103,12 @@ FILE: tests\unit\test_search_service.py
 import datetime
 from datetime import date
 from typing import List
+from unittest.mock import AsyncMock
 import pytest
 from app.interfaces.article_repository import IArticleRepository
 from app.interfaces.search_client import ISearchClient
 from app.interfaces.search_history_repo import ISearchHistoryRepository
+from app.interfaces.search_result_repo import ISearchResultRepository
 from app.models.article import Article
 from app.models.search_history import SearchHistory
 from app.services.search_service import SearchService
@@ -2041,22 +2138,10 @@ class FakeArticleRepository(IArticleRepository):
     def __init__(self, raise_exc: Exception | None=None):
         pass
 
-    async def save_many(self, articles: List[Article]) -> List[Article]:
+    async def upsert_many(self, articles: List[Article]) -> List[Article]:
         pass
 
-    async def get_all(self, limit, offset, keyword=None, search=None):
-        pass
-
-    async def get_by_id(self, article_id):
-        pass
-
-    async def get_total_count(self, keyword=None, search=None):
-        pass
-
-    async def get_search_stats(self, search):
-        pass
-
-    async def get_stats(self):
+    async def get_by_id(self, article_id: int, user_id: int | None=None) -> Article | None:
         pass
 
 class FakeSearchHistoryRepository(ISearchHistoryRepository):
@@ -2067,37 +2152,51 @@ class FakeSearchHistoryRepository(ISearchHistoryRepository):
     async def insert_row(self, user_id: int, query: str, result_count: int, filters: dict | None=None) -> SearchHistory:
         pass
 
-    async def count_in_window(self, user_id, since):
+    async def count_in_window(self, user_id: int, since: datetime.datetime) -> int:
         pass
 
-    async def get_last_n(self, user_id, n=100):
+    async def get_last_n(self, user_id: int, n: int=100):
         pass
 
-    async def get_oldest_in_window_created_at(self, user_id, since):
+    async def get_oldest_in_window_created_at(self, user_id: int, since: datetime.datetime) -> datetime.datetime | None:
+        pass
+
+class FakeSearchResultRepository(ISearchResultRepository):
+
+    def __init__(self):
+        pass
+
+    async def save_results(self, search_history_id: int, articles: List[Article]) -> None:
+        pass
+
+    async def get_results_by_history_id(self, search_history_id: int, user_id: int) -> List[Article] | None:
+        pass
+
+    async def get_search_stats_for_user(self, user_id: int, search: str | None=None, since: datetime.datetime | None=None) -> dict:
+        pass
+
+class FakeSession:
+    """Минимальная заглушка AsyncSession — только commit()."""
+
+    def __init__(self):
+        pass
+
+    async def commit(self) -> None:
         pass
 
 def _mk_article(doi: str='10.test/1') -> Article:
     pass
 
-@pytest.mark.asyncio
-async def test_constructor_stores_history_repo():
+def _mk_service(articles: List[Article] | None=None, search_raise: Exception | None=None, upsert_raise: Exception | None=None) -> tuple[SearchService, FakeSearchClient, FakeArticleRepository, FakeSearchHistoryRepository, FakeSearchResultRepository, FakeSession]:
     pass
 
 @pytest.mark.asyncio
-async def test_find_and_save_success_calls_save_then_insert_row():
+async def test_constructor_stores_all_dependencies():
     pass
 
 @pytest.mark.asyncio
-async def test_find_and_save_empty_returns_and_does_not_insert_history():
-    pass
-
-@pytest.mark.asyncio
-async def test_find_and_save_search_exception_does_not_save_or_insert():
-    pass
-
-@pytest.mark.asyncio
-async def test_find_and_save_save_exception_does_not_insert_history():
-    pass
+async def test_find_and_save_success_full_pipeline():
+    """Успешный путь: search → upsert_many → insert_row → save_results → commit."""
 
 @pytest.mark.asyncio
 async def test_find_and_save_passes_count_to_search_client():
@@ -2106,6 +2205,18 @@ async def test_find_and_save_passes_count_to_search_client():
 @pytest.mark.asyncio
 async def test_find_and_save_filters_default_none_passed_through():
     pass
+
+@pytest.mark.asyncio
+async def test_find_and_save_empty_returns_empty_and_skips_pipeline():
+    """Если Scopus вернул 0 статей — никаких записей в БД, commit не вызван."""
+
+@pytest.mark.asyncio
+async def test_find_and_save_search_exception_skips_all_db_ops():
+    """Если Scopus упал — ничего в БД не пишем, commit не вызван."""
+
+@pytest.mark.asyncio
+async def test_find_and_save_upsert_exception_skips_history_and_results():
+    """Если upsert_many упал — история и search_results не пишутся, commit не вызван."""
 
 ============================================================
 FILE: tests\unit\test_user_service.py
