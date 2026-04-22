@@ -530,6 +530,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.config import settings
 from app.routers import articles, users, health
 from app.routers import auth
+from app.routers.seeder_router import router as seeder_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -545,6 +546,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(articles.router)
 app.include_router(health.router)
+app.include_router(seeder_router)
 
 @app.get('/', tags=['Health'])
 async def root() -> dict[str, str]:
@@ -845,6 +847,28 @@ router = APIRouter(prefix='/health', tags=['Health'])
 
 @router.api_route('/db', methods=['GET', 'HEAD'], status_code=status.HTTP_200_OK)
 async def health_db(session: AsyncSession=Depends(get_db_session)) -> dict[str, str]:
+    pass
+
+============================================================
+FILE: app\routers\seeder_router.py
+============================================================
+import os
+from fastapi import APIRouter, Depends, Header, HTTPException, status
+import httpx
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.dependencies import get_db_session
+from app.infrastructure.postgres_article_repo import PostgresArticleRepository
+from app.infrastructure.postgres_catalog_repo import PostgresCatalogRepository
+from app.infrastructure.scopus_client import ScopusHTTPClient
+from app.services.catalog_service import CatalogService
+router = APIRouter(prefix='/seeder', tags=['seeder'])
+_SEEDER_SECRET: str = os.environ.get('SEEDER_SECRET', '')
+
+def _check_secret(x_seeder_secret: str=Header(...)):
+    pass
+
+@router.post('/seed', dependencies=[Depends(_check_secret)])
+async def seed_keyword(keyword: str, count: int=25, session: AsyncSession=Depends(get_db_session)):
     pass
 
 ============================================================
