@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - master
+      - db-refactoring       # добавлено для отработки e2e-тестов перед merge ветки db-refactoring с main
   pull_request:
     branches:
       - main
