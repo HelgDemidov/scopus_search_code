@@ -30,8 +30,7 @@ jobs:
         # Секреты передаются исключительно через env-блок — не в args, не в логах
         env:
           DATABASE_URL:       ${{ secrets.DATABASE_SUPABASE_URL }}
-          SEEDER_EMAIL:       ${{ secrets.SEEDER_EMAIL }}
-          SEEDER_PASSWORD:    ${{ secrets.SEEDER_PASSWORD }}
+          SEEDER_SECRET:      ${{ secrets.SEEDER_SECRET }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         working-directory: db_seeder/seeder__scripts
         run: python seed_db.py
