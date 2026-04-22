@@ -248,11 +248,17 @@ async def get_search_results(
     # добавлять get_by_id в интерфейс ради одного поля query означало бы расширять контракт
     # только ради представления, что нарушает принцип минимальности интерфейса (ISP).
     history_row = await session.get(SearchHistory, search_id)
-    query_str = history_row.query if history_row else ""
+    if history_row is None:
+    # Инвариант нарушен: статьи есть, но запись истории исчезла — ошибка БД
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Внутренняя ошибка: запись истории не найдена",
+        )
 
     return SearchResultsResponse(
         search_id=search_id,
-        query=query_str,
+        query=history_row.query,
+        created_at=history_row.created_at,
         articles=[ArticleResponse.model_validate(a) for a in articles],
         total=len(articles),
     )

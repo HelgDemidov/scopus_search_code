@@ -37,5 +37,6 @@ class SearchResultsResponse(BaseModel):
     # Поле search_id позволяет фронту сверить, что ответ соответствует запрошенному id
     search_id: int
     query: str                          # поисковый запрос из search_history.query
+    created_at: datetime.datetime       # добавлено в рамках точечных доработок после коммита cfb7b317
     articles: list[ArticleResponse]     # статьи, упорядоченные по rank (порядок выдачи Scopus)
     total: int                          # len(articles) — для удобства фронта без .length

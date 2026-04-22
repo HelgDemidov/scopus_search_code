@@ -966,6 +966,7 @@ class QuotaResponse(BaseModel):
 class SearchResultsResponse(BaseModel):
     search_id: int
     query: str
+    created_at: datetime.datetime
     articles: list[ArticleResponse]
     total: int
 
