@@ -1,85 +1,80 @@
+# app/routers/articles.py
 import datetime
 from datetime import timezone, timedelta
-from typing import AsyncGenerator, Any
+from typing import Any
 
-import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_db_session
-from app.infrastructure.postgres_article_repo import PostgresArticleRepository
-from app.infrastructure.postgres_search_history_repo import PostgresSearchHistoryRepository
-from app.infrastructure.scopus_client import ScopusHTTPClient
-from app.interfaces.search_client import ISearchClient
+from app.core.dependencies import (
+    get_catalog_service,
+    get_db_session,
+    get_current_user,
+    get_optional_current_user,
+    get_search_service,
+    get_search_history_service,
+)
+from app.infrastructure.postgres_search_result_repo import PostgresSearchResultRepository
+from app.models.search_history import SearchHistory
 from app.models.user import User
-from app.routers.users import get_current_user
 from app.schemas.article_schemas import (
     ArticleResponse,
+    CountByField,
     PaginatedArticleResponse,
     SearchStatsResponse,
     StatsResponse,
-    CountByField,
 )
-from app.schemas.search_history_schemas import QuotaResponse, SearchHistoryResponse
+from app.schemas.search_history_schemas import (
+    QuotaResponse,
+    SearchHistoryResponse,
+    SearchResultsResponse,
+)
 from app.services.article_service import ArticleService
+from app.services.catalog_service import CatalogService
 from app.services.search_history_service import SearchHistoryService
 from app.services.search_service import SearchService
+from app.interfaces.search_client import ISearchClient
 
 router = APIRouter(prefix="/articles", tags=["Articles"])
 
 
-def get_article_service(session: AsyncSession = Depends(get_db_session)) -> ArticleService:
-    repo = PostgresArticleRepository(session)
-    return ArticleService(article_repo=repo)
-
-
-async def get_scopus_client() -> AsyncGenerator[ScopusHTTPClient, None]:
-    # Один httpx.AsyncClient на запрос — создается и закрывается через async with
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        yield ScopusHTTPClient(client)
-
-
-def get_search_service(
+# Фабрика ArticleService остается локальной — сервис нужен только здесь
+# и требует отдельной сессии, не смешанной с CatalogService
+def _get_article_service(
     session: AsyncSession = Depends(get_db_session),
-    scopus_client: ScopusHTTPClient = Depends(get_scopus_client),
-) -> SearchService:
-    article_repo = PostgresArticleRepository(session)
-    history_repo = PostgresSearchHistoryRepository(session)
-    return SearchService(
-        search_client=scopus_client,
-        article_repo=article_repo,
-        history_repo=history_repo,
-    )
+) -> "ArticleService":
+    from app.infrastructure.postgres_article_repo import PostgresArticleRepository
+    return ArticleService(article_repo=PostgresArticleRepository(session))
 
 
-def get_search_history_service(
+def _get_search_result_repo(
     session: AsyncSession = Depends(get_db_session),
-) -> SearchHistoryService:
-    # Фабрика зависимости: создаем репозиторий и сервис за жизнью одного HTTP-запроса
-    repo = PostgresSearchHistoryRepository(session)
-    return SearchHistoryService(history_repo=repo)
+) -> PostgresSearchResultRepository:
+    # Репозиторий результатов нужен напрямую для get_search_stats_for_user
+    # и get_results_by_history_id — SearchService не предоставляет этих методов
+    return PostgresSearchResultRepository(session)
 
+
+# Константа квоты — единственный источник правды, остальное живёт в SearchHistoryService
+_WINDOW_DAYS = 7
+
+
+# ------------------------------------------------------------------ #
+#  GET /stats — публичный, без JWT                                    #
+# ------------------------------------------------------------------ #
 
 @router.get("/stats", response_model=StatsResponse, tags=["Analytics"])
 async def get_stats(
-    service: ArticleService = Depends(get_article_service),
+    service: CatalogService = Depends(get_catalog_service),
 ) -> StatsResponse:
-    # Публичный эндпоинт — JWT не требуется
-    # Возвращает агрегаты только по сидированным статьям (is_seeded=True)
-    data = await service.get_stats()
-    return StatsResponse(
-        total_articles=data["total_articles"],
-        total_journals=data["total_journals"],
-        total_countries=data["total_countries"],
-        open_access_count=data["open_access_count"],
-        by_year=[CountByField(**r) for r in data["by_year"]],
-        by_journal=[CountByField(**r) for r in data["by_journal"]],
-        by_country=[CountByField(**r) for r in data["by_country"]],
-        by_doc_type=[CountByField(**r) for r in data["by_doc_type"]],
-        top_keywords=[CountByField(**r) for r in data["top_keywords"]],
-    )
+    # CatalogService.get_stats() возвращает готовый StatsResponse — разворот dict→Pydantic не нужен
+    return await service.get_stats()
 
+
+# ------------------------------------------------------------------ #
+#  GET / — публичный, без JWT                                         #
+# ------------------------------------------------------------------ #
 
 @router.get("/", response_model=PaginatedArticleResponse)
 async def get_articles(
@@ -93,38 +88,44 @@ async def get_articles(
         None, min_length=2,
         description="Fulltext-поиск по названию и первому автору (ILIKE, без учета регистра)",
     ),
-    service: ArticleService = Depends(get_article_service),
+    service: CatalogService = Depends(get_catalog_service),
 ) -> PaginatedArticleResponse:
-    return await service.get_articles_paginated(
+    return await service.get_catalog_paginated(
         page=page, size=size, keyword=keyword, search=search
     )
 
+
+# ------------------------------------------------------------------ #
+#  GET /search/stats — приватный, JWT обязателен                      #
+# ------------------------------------------------------------------ #
 
 @router.get("/search/stats", response_model=SearchStatsResponse, tags=["Analytics"])
 async def get_search_stats(
     search: str = Query(
         ..., min_length=2,
-        description="Поисковый запрос — возвращает агрегаты только по matching статьям (ILIKE по title/author)",
+        description="Поисковый запрос — агрегаты по matching статьям из поисков пользователя",
     ),
-    service: ArticleService = Depends(get_article_service),
-    current_user: User = Depends(get_current_user),  # приватный: JWT обязателен
+    result_repo: PostgresSearchResultRepository = Depends(_get_search_result_repo),
+    current_user: User = Depends(get_current_user),
 ) -> SearchStatsResponse:
-    # Приватный эндпоинт — агрегаты по пользовательскому поиску для Tremor-дашборда
-    # Зарегистрирован строго до /{article_id} — иначе FastAPI матчит 'search' как int и вернет 422
-    data = await service.get_search_stats(search)
+    # Приватный эндпоинт — агрегаты по статьям из поисков текущего пользователя
+    # Зарегистрирован строго до /{article_id} — иначе FastAPI матчит 'search' как int → 422
+    data = await result_repo.get_search_stats_for_user(
+        user_id=int(current_user.id),
+        search=search,
+    )
     return SearchStatsResponse(
         total=data["total"],
-        by_year=[CountByField(**r) for r in data["by_year"]],
-        by_journal=[CountByField(**r) for r in data["by_journal"]],
-        by_country=[CountByField(**r) for r in data["by_country"]],
-        by_doc_type=[CountByField(**r) for r in data["by_doc_type"]],
+        by_year=[CountByField(label=str(r["year"]), count=r["count"]) for r in data["by_year"]],
+        by_journal=[CountByField(label=r["journal"], count=r["count"]) for r in data["by_journal"]],
+        by_country=[CountByField(label=r["country"], count=r["count"]) for r in data["by_country"]],
+        by_doc_type=[CountByField(label=r["doc_type"], count=r["count"]) for r in data["by_doc_type"]],
     )
 
 
-# Константы квоты — синхронизированы с SearchHistoryService
-_QUOTA_LIMIT = 200
-_WINDOW_DAYS = 7
-
+# ------------------------------------------------------------------ #
+#  GET /find — приватный, JWT обязателен                              #
+# ------------------------------------------------------------------ #
 
 @router.get("/find", response_model=list[ArticleResponse])
 async def find_articles(
@@ -137,6 +138,7 @@ async def find_articles(
     open_access: bool | None = Query(None, description="Фильтр: только open-access"),
     country: list[str] | None = Query(None, description="Фильтр: страны"),
     service: SearchService = Depends(get_search_service),
+    history_service: SearchHistoryService = Depends(get_search_history_service),
     session: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ) -> Any:
@@ -154,23 +156,18 @@ async def find_articles(
         filters_payload["country"] = country
 
     # Advisory-lock на уровне транзакции сериализует параллельные проверки квоты
-    # одного пользователя (разные пользователи блокируют разные ключи).
-    # SQLite такую функцию не поддерживает — ограничиваем вызов диалектом PG.
+    # одного пользователя. SQLite такую функцию не поддерживает — ограничиваем PG.
     if session.bind and session.bind.dialect.name == "postgresql":
         await session.execute(
-            text('SELECT pg_advisory_xact_lock(:uid)'),
-            {'uid': int(current_user.id)},
+            text("SELECT pg_advisory_xact_lock(:uid)"),
+            {"uid": int(current_user.id)},
         )
 
-    # Проверяем квоту в том же запросе/транзакции после advisory-lock
-    since = datetime.datetime.now(tz=timezone.utc) - timedelta(days=_WINDOW_DAYS)
-    used = await service.history_repo.count_in_window(
-        user_id=int(current_user.id),
-        since=since,
-    )
-    if used >= _QUOTA_LIMIT:
+    # Квотная проверка через SearchHistoryService — не читаем репо напрямую из роутера
+    quota = await history_service.get_quota(current_user.id)
+    if quota.remaining <= 0:
         raise HTTPException(
-            status_code=429,
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Недельный лимит поиска исчерпан",
         )
 
@@ -181,7 +178,7 @@ async def find_articles(
         filters=filters_payload or None,
     )
 
-    # Пробрасываем rate-limit заголовки Scopus в ответ
+    # Пробрасываем rate-limit заголовки Scopus API в ответ
     sc = service.search_client
     if isinstance(sc, ISearchClient):
         if sc.last_rate_limit is not None:
@@ -194,16 +191,9 @@ async def find_articles(
     return [ArticleResponse.model_validate(a) for a in articles]
 
 
-@router.get("/history", response_model=SearchHistoryResponse)
-async def get_search_history(
-    n: int = Query(100, ge=1, le=100, description="Количество последних записей истории"),
-    service: SearchHistoryService = Depends(get_search_history_service),
-    current_user: User = Depends(get_current_user),
-) -> SearchHistoryResponse:
-    # Приватный эндпоинт: возвращает последние n записей истории текущего пользователя
-    # Зарегистрирован строго до /{article_id} — 'history' не должно матчиться как int
-    return await service.get_history(current_user.id, n)
-
+# ------------------------------------------------------------------ #
+#  GET /find/quota — приватный, JWT обязателен                        #
+# ------------------------------------------------------------------ #
 
 @router.get("/find/quota", response_model=QuotaResponse)
 async def get_find_quota(
@@ -211,18 +201,78 @@ async def get_find_quota(
     current_user: User = Depends(get_current_user),
 ) -> QuotaResponse:
     # Приватный эндпоинт: состояние недельной квоты текущего пользователя
-    # /find/quota зарегистрирован до /{article_id}: литеральный путь всегда прецедентнее catch-all
+    # /find/quota зарегистрирован до /{article_id}: литеральный путь прецедентнее catch-all
     return await service.get_quota(current_user.id)
 
+
+# ------------------------------------------------------------------ #
+#  GET /history — приватный, JWT обязателен                           #
+# ------------------------------------------------------------------ #
+
+@router.get("/history", response_model=SearchHistoryResponse)
+async def get_search_history(
+    n: int = Query(100, ge=1, le=100, description="Количество последних записей истории"),
+    service: SearchHistoryService = Depends(get_search_history_service),
+    current_user: User = Depends(get_current_user),
+) -> SearchHistoryResponse:
+    # Приватный эндпоинт: последние n записей истории текущего пользователя
+    # Зарегистрирован строго до /{article_id}
+    return await service.get_history(current_user.id, n)
+
+
+# ------------------------------------------------------------------ #
+#  GET /history/{search_id}/results — приватный, JWT обязателен       #
+# ------------------------------------------------------------------ #
+
+@router.get("/history/{search_id}/results", response_model=SearchResultsResponse)
+async def get_search_results(
+    search_id: int,
+    result_repo: PostgresSearchResultRepository = Depends(_get_search_result_repo),
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+) -> SearchResultsResponse:
+    # Ownership-проверка встроена в get_results_by_history_id:
+    # возвращает None если search_id не найден или принадлежит другому пользователю
+    articles = await result_repo.get_results_by_history_id(
+        search_history_id=search_id,
+        user_id=int(current_user.id),
+    )
+    if articles is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="История поиска не найдена",
+        )
+
+    # Отдельный SELECT за query — ISearchHistoryRepository.get_by_id не существует,
+    # используем session напрямую. Это единственное исключение из правила «не писать SQL в роутере»:
+    # добавлять get_by_id в интерфейс ради одного поля query означало бы расширять контракт
+    # только ради представления, что нарушает принцип минимальности интерфейса (ISP).
+    history_row = await session.get(SearchHistory, search_id)
+    query_str = history_row.query if history_row else ""
+
+    return SearchResultsResponse(
+        search_id=search_id,
+        query=query_str,
+        articles=[ArticleResponse.model_validate(a) for a in articles],
+        total=len(articles),
+    )
+
+
+# ------------------------------------------------------------------ #
+#  GET /{article_id} — публичный, JWT опционален                      #
+# ------------------------------------------------------------------ #
 
 @router.get("/{article_id}", response_model=ArticleResponse)
 async def get_article_by_id(
     article_id: int,
-    service: ArticleService = Depends(get_article_service),
+    service: "ArticleService" = Depends(_get_article_service),
+    current_user: User | None = Depends(get_optional_current_user),
 ) -> ArticleResponse:
-    # Публичный эндпоинт — JWT не требуется
-    # Всегда последним: /{article_id} матчит любой path-сегмент
-    article = await service.get_by_id(article_id)
+    # Публичный эндпоинт: JWT не обязателен, но если передан — учитывается видимость
+    # из поисков пользователя (ArticleService.get_by_id с user_id). Всегда последним:
+    # /{article_id} матчит любой path-сегмент — литеральные пути должны быть выше.
+    user_id = int(current_user.id) if current_user else None
+    article = await service.get_by_id(article_id, user_id=user_id)
     if article is None:
-        raise HTTPException(status_code=404, detail="Article not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
     return article

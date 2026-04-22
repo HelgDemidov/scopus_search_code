@@ -1,6 +1,9 @@
+# app/schemas/search_history_schemas.py
 import datetime
 
 from pydantic import BaseModel, ConfigDict
+
+from app.schemas.article_schemas import ArticleResponse
 
 
 class SearchHistoryItemResponse(BaseModel):
@@ -27,3 +30,12 @@ class QuotaResponse(BaseModel):
     remaining: int                      # limit - used, не меньше 0
     reset_at: datetime.datetime | None  # oldest_in_window + 7d; None если used == 0
     window_days: int                    # длина окна в днях (7) — чтобы фронт не хардкодил
+
+
+class SearchResultsResponse(BaseModel):
+    # Ответ GET /articles/history/{search_id}/results — статьи конкретного поиска
+    # Поле search_id позволяет фронту сверить, что ответ соответствует запрошенному id
+    search_id: int
+    query: str                          # поисковый запрос из search_history.query
+    articles: list[ArticleResponse]     # статьи, упорядоченные по rank (порядок выдачи Scopus)
+    total: int                          # len(articles) — для удобства фронта без .length
