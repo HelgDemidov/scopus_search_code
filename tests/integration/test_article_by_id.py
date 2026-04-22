@@ -37,6 +37,9 @@ from app.schemas.article_schemas import ArticleResponse
 from app.services.article_service import ArticleService
 from tests.conftest import fetch_article_after_insert
 
+from app.infrastructure.postgres_catalog_repo import PostgresCatalogRepository
+from app.services.catalog_service import CatalogService
+
 # ---------------------------------------------------------------------------
 # Вспомогательные константы
 # ---------------------------------------------------------------------------
@@ -45,14 +48,15 @@ _TEST_DB_URL = "sqlite+aiosqlite:///:memory:"
 
 # Константы тестовых данных
 _TEST_DOI: str = "10.1234/test-doi-001"  # DOI единственной тестовой статьи
+_TEST_KEYWORD: str = "drug discovery AI"
 
 _ARTICLE_KWARGS = dict(
     title="Neural Networks in Drug Discovery",
     journal="Nature Machine Intelligence",
     author="Ivanov I.",
     publication_date=datetime.date(2024, 3, 15),
-    doi=_TEST_DOI,                           # ← используем константу
-    keyword="drug discovery AI",
+    doi=_TEST_DOI,
+    keyword=_TEST_KEYWORD,  # ← используем константу
     cited_by_count=42,
     document_type="Article",
     open_access=True,
@@ -92,16 +96,20 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
 
 @pytest_asyncio.fixture(scope="function")
 async def saved_article(db_session: AsyncSession) -> Article:
-    """Сохраняет одну тестовую статью через upsert_many(), возвращает ORM-объект с id.
-    upsert_many() использует Core INSERT (insert().on_conflict_do_update) — объект
-    не попадает в identity_map сессии, поэтому refresh() недопустим.
-    Вместо этого загружаем статью из БД заново через SELECT по doi.
-    """
-    repo = PostgresArticleRepository(db_session)
-    article = Article(**_ARTICLE_KWARGS)
-    await repo.upsert_many([article])
-    # Получаем ORM-объект с реальным autoincrement id через SELECT, а не refresh()
-    return await fetch_article_after_insert(db_session, _TEST_DOI)
+    """Сохраняет тестовую статью через CatalogService.seed() — полный путь как в продакшне."""
+    article_repo = PostgresArticleRepository(db_session)
+    catalog_repo = PostgresCatalogRepository(db_session)
+    service = CatalogService(
+        article_repo=article_repo,
+        catalog_repo=catalog_repo,
+        session=db_session,
+    )
+    # seed() делает upsert_many + save_seeded + commit() атомарно
+    saved = await service.seed(
+        articles=[Article(**_ARTICLE_KWARGS)],
+        keyword=_TEST_KEYWORD,                # ← явный str
+    )
+    return saved[0]
 
 
 # ---------------------------------------------------------------------------
@@ -413,35 +421,32 @@ class TestArticleIdRouting:
         assert "total_articles" in stats_resp.json()
         assert article_resp.json()["id"] == saved_article.id
 
-    @pytest.mark.asyncio
-    async def test_multiple_ids_independent(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
-        """
-        Несколько разных статей возвращаются корректно по своим id —
-        симулирует переходы между карточками в UI.
-        """
-        repo = PostgresArticleRepository(db_session)
-        dois = [f"10.999/test-multi-{i}" for i in range(1, 4)]
-        articles_input = [
-            Article(
-                title=f"Article {i}",
-                publication_date=datetime.date(2024, 1, i),
-                keyword=f"keyword_{i}",
-                doi=dois[i - 1],
-                is_seeded=True,
-            )
-            for i in range(1, 4)
-        ]
-        await repo.upsert_many(articles_input)
-        # Загружаем ORM-объекты с реальными id через SELECT по doi,
-        # т.к. save_many() использует Core INSERT — refresh() недоступен
-        articles = [
-            await fetch_article_after_insert(db_session, doi)
-            for doi in dois
-        ]
+@pytest.mark.asyncio
+async def test_multiple_ids_independent(
+    self, client: AsyncClient, db_session: AsyncSession
+):
+    article_repo = PostgresArticleRepository(db_session)
+    catalog_repo = PostgresCatalogRepository(db_session)
+    service = CatalogService(
+        article_repo=article_repo,
+        catalog_repo=catalog_repo,
+        session=db_session,
+    )
+    dois = [f"10.999/test-multi-{i}" for i in range(1, 4)]
+    articles_input = [
+        Article(
+            title=f"Article {i}",
+            publication_date=datetime.date(2024, 1, i),
+            keyword=f"keyword_{i}",
+            doi=dois[i - 1],
+            is_seeded=True,
+        )
+        for i in range(1, 4)
+    ]
+    # seed() вместо upsert_many — создаёт записи в catalog_articles
+    articles = await service.seed(articles_input, keyword="test_keyword")
 
-        for article in articles:
-            resp = await client.get(f"/articles/{article.id}")
-            assert resp.status_code == 200
-            assert resp.json()["title"] == article.title
+    for article in articles:
+        resp = await client.get(f"/articles/{article.id}")
+        assert resp.status_code == 200
+        assert resp.json()["title"] == article.title    
