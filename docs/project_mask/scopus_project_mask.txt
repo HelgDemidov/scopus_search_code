@@ -1366,7 +1366,8 @@ from app.schemas.article_schemas import ArticleResponse
 from app.services.article_service import ArticleService
 from tests.conftest import fetch_article_after_insert
 _TEST_DB_URL = 'sqlite+aiosqlite:///:memory:'
-_ARTICLE_KWARGS = dict(title='Neural Networks in Drug Discovery', journal='Nature Machine Intelligence', author='Ivanov I.', publication_date=datetime.date(2024, 3, 15), doi='10.1234/test-doi-001', keyword='drug discovery AI', cited_by_count=42, document_type='Article', open_access=True, affiliation_country='Russia', is_seeded=True)
+_TEST_DOI: str = '10.1234/test-doi-001'
+_ARTICLE_KWARGS = dict(title='Neural Networks in Drug Discovery', journal='Nature Machine Intelligence', author='Ivanov I.', publication_date=datetime.date(2024, 3, 15), doi=_TEST_DOI, keyword='drug discovery AI', cited_by_count=42, document_type='Article', open_access=True, affiliation_country='Russia', is_seeded=True)
 
 @pytest_asyncio.fixture(scope='function')
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
@@ -1378,9 +1379,8 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
 
 @pytest_asyncio.fixture(scope='function')
 async def saved_article(db_session: AsyncSession) -> Article:
-    """Сохраняет одну тестовую статью через save_many(), возвращает ORM-объект с id.
-
-save_many() использует Core INSERT (insert().on_conflict_do_update) — объект
+    """Сохраняет одну тестовую статью через upsert_many(), возвращает ORM-объект с id.
+upsert_many() использует Core INSERT (insert().on_conflict_do_update) — объект
 не попадает в identity_map сессии, поэтому refresh() недопустим.
 Вместо этого загружаем статью из БД заново через SELECT по doi."""
 

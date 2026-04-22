@@ -43,12 +43,15 @@ from tests.conftest import fetch_article_after_insert
 
 _TEST_DB_URL = "sqlite+aiosqlite:///:memory:"
 
+# Константы тестовых данных
+_TEST_DOI: str = "10.1234/test-doi-001"  # DOI единственной тестовой статьи
+
 _ARTICLE_KWARGS = dict(
     title="Neural Networks in Drug Discovery",
     journal="Nature Machine Intelligence",
     author="Ivanov I.",
     publication_date=datetime.date(2024, 3, 15),
-    doi="10.1234/test-doi-001",
+    doi=_TEST_DOI,                           # ← используем константу
     keyword="drug discovery AI",
     cited_by_count=42,
     document_type="Article",
@@ -89,17 +92,16 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
 
 @pytest_asyncio.fixture(scope="function")
 async def saved_article(db_session: AsyncSession) -> Article:
-    """Сохраняет одну тестовую статью через save_many(), возвращает ORM-объект с id.
-
-    save_many() использует Core INSERT (insert().on_conflict_do_update) — объект
+    """Сохраняет одну тестовую статью через upsert_many(), возвращает ORM-объект с id.
+    upsert_many() использует Core INSERT (insert().on_conflict_do_update) — объект
     не попадает в identity_map сессии, поэтому refresh() недопустим.
     Вместо этого загружаем статью из БД заново через SELECT по doi.
     """
     repo = PostgresArticleRepository(db_session)
     article = Article(**_ARTICLE_KWARGS)
-    await repo.save_many([article])
+    await repo.upsert_many([article])
     # Получаем ORM-объект с реальным autoincrement id через SELECT, а не refresh()
-    return await fetch_article_after_insert(db_session, _ARTICLE_KWARGS["doi"])
+    return await fetch_article_after_insert(db_session, _TEST_DOI)
 
 
 # ---------------------------------------------------------------------------
@@ -431,7 +433,7 @@ class TestArticleIdRouting:
             )
             for i in range(1, 4)
         ]
-        await repo.save_many(articles_input)
+        await repo.upsert_many(articles_input)
         # Загружаем ORM-объекты с реальными id через SELECT по doi,
         # т.к. save_many() использует Core INSERT — refresh() недоступен
         articles = [

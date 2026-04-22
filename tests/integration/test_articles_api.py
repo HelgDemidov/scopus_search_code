@@ -40,23 +40,26 @@ def mock_scopus_api(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_find_and_save_articles_integration(authenticated_client: AsyncClient):
-    # Act 1: Идем на эндпоинт поиска Scopus
+    # Act 1: поиск через Scopus
     find_response = await authenticated_client.get(
         "/articles/find",
         params={"keyword": "AI"}
     )
 
-    # Assert 1: Проверяем ответ ручки /find
+    # Assert 1: /find возвращает 2 статьи
     assert find_response.status_code == 200
     find_data = find_response.json()
     assert len(find_data) == 2
     assert find_data[0]["title"] == "Mocked Scopus Paper 1"
 
-    # Act 2: Проверяем, что статьи реально записались в БД
-    get_response = await authenticated_client.get("/articles/", params={"page": 1, "size": 10})
+    # Act 2: проверяем, что поиск записан в историю пользователя
+    # После рефакторинга /articles/ — каталог сидированных статей (is_seeded=True),
+    # результаты пользовательского поиска хранятся в /articles/history
+    history_response = await authenticated_client.get("/articles/history")
 
-    # Assert 2: Проверяем публичную выдачу
-    assert get_response.status_code == 200
-    get_data = get_response.json()
-    assert get_data["total"] == 2
-    assert get_data["articles"][0]["keyword"] == "AI"
+    # Assert 2: одна запись истории с корректными данными
+    assert history_response.status_code == 200
+    history_data = history_response.json()
+    assert history_data["total"] == 1
+    assert history_data["items"][0]["query"] == "AI"
+    assert history_data["items"][0]["result_count"] == 2
