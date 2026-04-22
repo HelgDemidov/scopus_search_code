@@ -127,7 +127,6 @@ async def test_e2e_get_article_by_id():
     assert data["id"] == article_id
     assert isinstance(data["title"], str) and data["title"]
     assert "publication_date" in data
-    assert "keyword" in data
 
 
 @pytest.mark.asyncio

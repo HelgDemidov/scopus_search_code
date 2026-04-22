@@ -10,6 +10,7 @@ on:
     branches:
       - main
       - master
+      - db-refactoring       # добавлено для отработки e2e-тестов перед merge ветки db-refactoring с main
 
 # Устанавливаем Node.js 24 для всех actions в этом workflow заранее официального дедлайна (02.06.2026)
 env:
@@ -113,4 +114,4 @@ jobs:
       # Запускаем только тесты с маркером requires_pg
       - name: Run PostgreSQL integration tests
         run: |
-          python -m pytest tests/integration/test_search_history_api.py -vv -m requires_pg
+          python -m pytest tests/integration -vv -m requires_pg
