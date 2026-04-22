@@ -496,3 +496,227 @@ def escape_ilike(s: str) -> str:
 10. **Миграция Фаза 3** — удалить колонки `keyword`, `is_seeded`
 11. **Сидер** — переключить на `CatalogService.seed()`
 12. **Тесты** — обновить fixtures и unit-тесты
+
+У меня достаточно данных для полного анализа. Составляю план.
+
+***
+
+# План реализации ТЗ: Рефакторинг хранения данных и обработки поисковых запросов
+
+## Часть 1 — План коммитов
+
+Коммиты сгруппированы в **6 атомарных шагов** по принципу «каждый шаг компилируется и не ломает приложение до следующего».
+
+***
+
+### Шаг 1 — Миграция: создание новых таблиц (Фаза 1)
+
+**1 коммит:** `alembic/versions/0006_refactor_article_ownership.py`
+
+Содержимое:
+- `upgrade()`: создаёт `ix_articles_no_doi_unique`, таблицы `catalog_articles` и `search_result_articles` с их индексами (без `ix_sra_article_id`).
+- `downgrade()`: откат — удаление этих таблиц и индексов.
+- ⚠️ Колонки `keyword` и `is_seeded` в `articles` **не трогаются** — это Фаза 3.
+
+> **Замечание:** Фаза 1 — полностью не разрушающая, приложение после неё продолжает работать в текущем состоянии.
+
+***
+
+### Шаг 2 — Фундамент: модели, утилита, новые интерфейсы
+
+**1 коммит**, 7 файлов:
+
+| Файл | Действие |
+|---|---|
+| `app/utils/__init__.py` | Создать (пустой) |
+| `app/utils/db_utils.py` | Создать — `escape_ilike()` |
+| `app/models/catalog_article.py` | Создать — ORM-модель `CatalogArticle` |
+| `app/models/search_result_article.py` | Создать — ORM-модель `SearchResultArticle` |
+| `app/interfaces/catalog_repository.py` | Создать — `ICatalogRepository` (без `is_article_in_catalog`) |
+| `app/interfaces/search_result_repo.py` | Создать — `ISearchResultRepository` |
+| `app/interfaces/article_repository.py` | Обновить — удалить `get_all/get_total_count/get_stats/get_search_stats`; переименовать `save_many→upsert_many`; расширить `get_by_id(id, user_id=None)`; добавить запрет на `commit()` в docstring |
+
+> Приложение после этого шага **не запустится** (интерфейс изменился, реализации ещё нет). Это временное состояние — допустимо в feature-ветке. В `main` шаг идёт сразу со шагом 3.
+
+***
+
+### Шаг 3 — Инфраструктура: новые репозитории + переписать существующий
+
+**1 коммит**, 4 файла:
+
+| Файл | Действие |
+|---|---|
+| `app/infrastructure/postgres_catalog_repo.py` | Создать — реализует `ICatalogRepository` |
+| `app/infrastructure/postgres_search_result_repo.py` | Создать — реализует `ISearchResultRepository`; атомарная авторизационная проверка одним JOIN |
+| `app/infrastructure/postgres_article_repo.py` | Переписать: два батчевых `upsert_many`; расширить `get_by_id` с JOIN-логикой видимости; удалить `get_all/get_total_count/get_stats/get_search_stats` |
+| `app/infrastructure/scopus_client.py` | Удалить `is_seeded=True` и `keyword=` из конструктора `Article()` |
+
+***
+
+### Шаг 4 — Сервисы: новые + рефакторинг существующих
+
+**1 коммит**, 3 файла:
+
+| Файл | Действие |
+|---|---|
+| `app/services/catalog_service.py` | Создать — `get_paginated`, `get_stats`, `search_in_catalog`, `seed(keyword, articles)` |
+| `app/services/search_service.py` | Переписать `find_and_save`: `upsert_many` → `insert_row` → `save_results` → один `commit()`; возврат `tuple[SearchHistory, list[Article]]` |
+| `app/services/article_service.py` | Сократить до `get_by_id(article_id, user_id=None)` |
+
+***
+
+### Шаг 5 — API: схемы, роутер, DI
+
+**1 коммит**, 3 файла:
+
+| Файл | Действие |
+|---|---|
+| `app/schemas/article_schemas.py` | Удалить `keyword` из `ArticleResponse`; добавить `SearchResultsResponse`; добавить `results_available = result_count > 0` в `SearchHistoryItemResponse` |
+| `app/routers/articles.py` | Переключить зависимости на `CatalogService`; добавить `GET /history/{id}/results`; исправить `search/stats` → `ISearchResultRepository`; исправить `/{article_id}` → `ArticleService.get_by_id(id, user_id)`; сохранить advisory lock |
+| `app/core/dependencies.py` | Добавить провайдеры `CatalogService`, `ISearchResultRepository`, `ISearchHistoryRepository` |
+
+***
+
+### Шаг 6 — Сидер + тесты
+
+**2 коммита:**
+
+**6a:** `db_seeder/seeder__scripts/seed_db.py`
+- Переключить вызов с прямого `save_many` на `CatalogService.seed(keyword, articles)`.
+
+**6b:** Тесты — 4 файла:
+
+| Файл | Действие |
+|---|---|
+| `tests/unit/test_article_service.py` | Удалить тесты `get_all`, `get_stats`; переписать под `get_by_id(id, user_id)` |
+| `tests/unit/test_search_service.py` | Переписать под новый `find_and_save` (три mock — `upsert_many`, `insert_row`, `save_results`) |
+| `tests/unit/test_scopus_client.py` | Убрать проверку `is_seeded=True` |
+| `tests/unit/test_catalog_service.py` | **Создать** — тесты `seed`, `get_paginated`, `get_stats` |
+
+***
+
+## Часть 2 — Ручные действия (не автоматизируются коммитами)
+
+### 🔷 М-1 — Верификационный SELECT перед миграцией Фазы 2
+
+**Когда:** после того как Шаги 1–5 закоммичены и приложение работает.
+
+Выполнить вручную в **Supabase SQL Editor**:
+
+```sql
+-- Проверить состояние данных до переноса (результат должен показать 0 orphans)
+SELECT
+    COUNT(*)                                     AS total_articles,
+    COUNT(*) FILTER (WHERE is_seeded = TRUE)     AS seeded_to_migrate,
+    COUNT(*) FILTER (WHERE is_seeded = FALSE)    AS orphans_to_delete,
+    MIN(created_at)                              AS oldest,
+    MAX(created_at)                              AS newest
+FROM articles;
+```
+
+**Ожидаемый результат:** `orphans_to_delete = 0`. Если `> 0` — просмотреть эти записи вручную:
+
+```sql
+SELECT id, title, keyword, created_at FROM articles WHERE is_seeded = FALSE LIMIT 20;
+```
+
+***
+
+### 🔷 М-2 — Миграция Фаза 2: перенос данных (выполнить в Supabase SQL Editor)
+
+**Когда:** только после `orphans_to_delete = 0` по М-1.
+
+```sql
+-- Переносим все seeded-статьи в catalog_articles
+INSERT INTO catalog_articles (article_id, keyword, seeded_at)
+SELECT id, keyword, created_at
+FROM   articles
+WHERE  is_seeded = TRUE
+ON CONFLICT DO NOTHING;
+
+-- Проверить результат переноса
+SELECT COUNT(*) FROM catalog_articles;
+
+-- Только после проверки — удалить orphan-статьи
+-- ⚠️ НЕОБРАТИМО
+DELETE FROM articles WHERE is_seeded = FALSE;
+```
+
+***
+
+### 🔷 М-3 — Применить Alembic миграцию 0006 (Фаза 1) локально
+
+**Когда:** после `git pull` шага 1.
+
+```powershell
+# В корне проекта
+alembic upgrade 0006
+```
+
+Убедиться, что таблицы `catalog_articles` и `search_result_articles` появились:
+
+```powershell
+alembic current
+# Должно показать: 0006 (head)
+```
+
+***
+
+### 🔷 М-4 — Miграция Фаза 3: удалить колонки `keyword` и `is_seeded`
+
+**Когда:** после М-2, когда перенос данных подтверждён.
+
+Этот шаг **оформляется отдельным коммитом** `0007_drop_article_legacy_columns.py` — он добавляется в репозиторий после вашего подтверждения. После пуша:
+
+```powershell
+alembic upgrade 0007
+```
+
+И в Supabase SQL Editor (Alembic для Supabase применяется вручную):
+
+```sql
+ALTER TABLE articles DROP COLUMN IF EXISTS is_seeded;
+ALTER TABLE articles DROP COLUMN IF EXISTS keyword;
+```
+
+***
+
+### 🔷 М-5 — Обновить ORM-модель `Article` (синхронно с Фазой 3)
+
+**Это коммит**, но требует ручного решения о моменте: модель `Article` в `app/models/article.py` (удаление `keyword` и `is_seeded`) должна попасть в репозиторий **одновременно** с миграцией 0007, не раньше — иначе приложение упадёт при запуске до применения Фазы 3 к БД.
+
+***
+
+### 🔷 М-6 — Проверка `.importlinter` после рефакторинга
+
+В репозитории есть `.importlinter` с настроенными правилами граней архитектуры. После добавления новых модулей (`app/utils/`, новые интерфейсы, новые сервисы) нужно локально убедиться, что правила не нарушены:
+
+```powershell
+lint-imports
+```
+
+Если нарушения есть — добавить новые модули в разрешённые слои конфигурации `.importlinter`.
+
+***
+
+## Сводный порядок выполнения
+
+```
+Шаги 1–6 (коммиты)
+    ↓
+М-3: alembic upgrade 0006  (локально)
+    ↓
+М-1: верификационный SELECT  (Supabase)
+    ↓
+М-2: перенос данных + DELETE orphans  (Supabase)
+    ↓
+коммит 0007 + М-4: DROP COLUMN  (Supabase + локально)
+    ↓
+М-5: обновить Article ORM (коммит синхронно с 0007)
+    ↓
+М-6: lint-imports
+```
+
+***
+
+Скажи, с какого шага начнём генерировать коммиты — могу сразу пушить Шаги 1 и 2 параллельно или начать с Шага 1 в изоляции для проверки.
