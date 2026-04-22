@@ -200,8 +200,8 @@ async def test_different_users_do_not_share_lock(_mock_scopus, tmp_path):
     ) as ac2:
 
         for (name, email, client) in [
-            ("u1", "u1@ex.com", ac1),
-            ("u2", "u2@ex.com", ac2),
+            ("usr1", "u1@ex.com", ac1),
+            ("usr2", "u2@ex.com", ac2),
         ]:
             reg = await client.post("/users/register", json={
                 "username": name, "email": email,
