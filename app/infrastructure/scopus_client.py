@@ -110,18 +110,19 @@ class ScopusHTTPClient(ISearchClient):
             except ValueError:
                 continue
 
+            # keyword и is_seeded не передаются:
+            # keyword=None (nullable после миграции 0006, будет удалена в 0007)
+            # is_seeded берет server_default=false из БД
             article = Article(
                 title=title[:500],
                 journal=journal[:500] if journal else None,
                 author=creator[:255] if creator else None,
                 publication_date=cover_date,
                 doi=doi[:255] if doi else None,
-                keyword=keyword[:100],
                 cited_by_count=cited_by_count,
                 document_type=document_type[:100] if document_type else None,
                 open_access=open_access,
                 affiliation_country=affiliation_country[:100] if affiliation_country else None,
-                is_seeded=True,
             )
             articles.append(article)
 

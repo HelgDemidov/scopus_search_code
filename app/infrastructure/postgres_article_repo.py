@@ -27,6 +27,11 @@ class PostgresArticleRepository(IArticleRepository):
 
         Затем два батча SELECT для перечитывания записей с серверными id/created_at.
         Использует flush() — commit() остается за вызывающим кодом.
+
+        keyword и is_seeded намеренно исключены из values и set_:
+        ON CONFLICT DO UPDATE не трогает эти поля в существующих строках.
+        Seeded-статьи сохраняют is_seeded=True и keyword до удаления колонок
+        в миграции 0007 (Фаза 3).
         """
         if not articles:
             return []
@@ -45,12 +50,10 @@ class PostgresArticleRepository(IArticleRepository):
                     "author":              a.author,
                     "publication_date":    a.publication_date,
                     "doi":                 a.doi,
-                    "keyword":             a.keyword,
                     "cited_by_count":      a.cited_by_count,
                     "document_type":       a.document_type,
                     "open_access":         a.open_access,
                     "affiliation_country": a.affiliation_country,
-                    "is_seeded":           a.is_seeded,
                 }
                 for a in with_doi
             ]
@@ -66,12 +69,10 @@ class PostgresArticleRepository(IArticleRepository):
                         "journal":             insert(Article).excluded.journal,
                         "author":              insert(Article).excluded.author,
                         "publication_date":    insert(Article).excluded.publication_date,
-                        "keyword":             insert(Article).excluded.keyword,
                         "cited_by_count":      insert(Article).excluded.cited_by_count,
                         "document_type":       insert(Article).excluded.document_type,
                         "open_access":         insert(Article).excluded.open_access,
                         "affiliation_country": insert(Article).excluded.affiliation_country,
-                        "is_seeded":           insert(Article).excluded.is_seeded,
                     },
                 )
             )
@@ -95,12 +96,10 @@ class PostgresArticleRepository(IArticleRepository):
                     "author":              a.author,
                     "publication_date":    a.publication_date,
                     "doi":                 None,
-                    "keyword":             a.keyword,
                     "cited_by_count":      a.cited_by_count,
                     "document_type":       a.document_type,
                     "open_access":         a.open_access,
                     "affiliation_country": a.affiliation_country,
-                    "is_seeded":           a.is_seeded,
                 }
                 for a in without_doi
             ]
@@ -112,12 +111,10 @@ class PostgresArticleRepository(IArticleRepository):
                     constraint="ix_articles_no_doi_unique",
                     set_={
                         "journal":             insert(Article).excluded.journal,
-                        "keyword":             insert(Article).excluded.keyword,
                         "cited_by_count":      insert(Article).excluded.cited_by_count,
                         "document_type":       insert(Article).excluded.document_type,
                         "open_access":         insert(Article).excluded.open_access,
                         "affiliation_country": insert(Article).excluded.affiliation_country,
-                        "is_seeded":           insert(Article).excluded.is_seeded,
                     },
                 )
             )
