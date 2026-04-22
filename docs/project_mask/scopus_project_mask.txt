@@ -1499,9 +1499,9 @@ class TestArticleIdRouting:
         """GET /articles/{id} объявлен последним в router — убеждаемся,
 что /stats и /find всё ещё доступны."""
 
-@pytest.mark.asyncio
-async def test_multiple_ids_independent(self, client: AsyncClient, db_session: AsyncSession):
-    pass
+    @pytest.mark.asyncio
+    async def test_multiple_ids_independent(self, client: AsyncClient, db_session: AsyncSession):
+        pass
 
 ============================================================
 FILE: tests\integration\test_article_by_id_e2e.py

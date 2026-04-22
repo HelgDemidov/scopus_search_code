@@ -243,7 +243,6 @@ class TestArticleByIdEndpoint:
         assert data["journal"] == _ARTICLE_KWARGS["journal"]
         assert data["author"] == _ARTICLE_KWARGS["author"]
         assert data["doi"] == _ARTICLE_KWARGS["doi"]
-        assert data["keyword"] == _ARTICLE_KWARGS["keyword"]
         assert data["cited_by_count"] == _ARTICLE_KWARGS["cited_by_count"]
         assert data["document_type"] == _ARTICLE_KWARGS["document_type"]
         assert data["open_access"] is True
@@ -375,7 +374,7 @@ class TestGetArticleByIdContract:
 
         expected_fields = {
             "id", "title", "journal", "author", "publication_date",
-            "doi", "keyword", "cited_by_count", "document_type",
+            "doi", "cited_by_count", "document_type",
             "open_access", "affiliation_country",
         }
         missing = expected_fields - set(data.keys())
@@ -403,7 +402,6 @@ class TestArticleIdRouting:
     Тест проверяет FastAPI-сторону: что эндпоинт GET /articles/{id}
     корректно интегрирован в приложение (не конфликтует с другими маршрутами).
     """
-
     @pytest.mark.asyncio
     async def test_id_route_last_in_router(
         self, client: AsyncClient, saved_article: Article
@@ -421,32 +419,32 @@ class TestArticleIdRouting:
         assert "total_articles" in stats_resp.json()
         assert article_resp.json()["id"] == saved_article.id
 
-@pytest.mark.asyncio
-async def test_multiple_ids_independent(
-    self, client: AsyncClient, db_session: AsyncSession
-):
-    article_repo = PostgresArticleRepository(db_session)
-    catalog_repo = PostgresCatalogRepository(db_session)
-    service = CatalogService(
-        article_repo=article_repo,
-        catalog_repo=catalog_repo,
-        session=db_session,
-    )
-    dois = [f"10.999/test-multi-{i}" for i in range(1, 4)]
-    articles_input = [
-        Article(
-            title=f"Article {i}",
-            publication_date=datetime.date(2024, 1, i),
-            keyword=f"keyword_{i}",
-            doi=dois[i - 1],
-            is_seeded=True,
+    @pytest.mark.asyncio
+    async def test_multiple_ids_independent(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        article_repo = PostgresArticleRepository(db_session)
+        catalog_repo = PostgresCatalogRepository(db_session)
+        service = CatalogService(
+            article_repo=article_repo,
+            catalog_repo=catalog_repo,
+            session=db_session,
         )
-        for i in range(1, 4)
-    ]
-    # seed() вместо upsert_many — создаёт записи в catalog_articles
-    articles = await service.seed(articles_input, keyword="test_keyword")
+        dois = [f"10.999/test-multi-{i}" for i in range(1, 4)]
+        articles_input = [
+            Article(
+                title=f"Article {i}",
+                publication_date=datetime.date(2024, 1, i),
+                keyword=f"keyword_{i}",
+                doi=dois[i - 1],
+                is_seeded=True,
+            )
+            for i in range(1, 4)
+        ]
+        # seed() вместо upsert_many — создаёт записи в catalog_articles
+        articles = await service.seed(articles_input, keyword="test_keyword")
 
-    for article in articles:
-        resp = await client.get(f"/articles/{article.id}")
-        assert resp.status_code == 200
-        assert resp.json()["title"] == article.title    
+        for article in articles:
+            resp = await client.get(f"/articles/{article.id}")
+            assert resp.status_code == 200
+            assert resp.json()["title"] == article.title    
