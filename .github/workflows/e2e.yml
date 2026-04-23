@@ -1,5 +1,22 @@
 # .github/workflows/e2e.yml
-name: E2E tests
+#
+# E2E smoke-тесты против задеплоенного Railway staging environment.
+# Сервер НЕ запускается на runner'е — pytest стреляет реальные HTTP-запросы
+# на $RAILWAY_STAGING_BASE_URL. Это тестирование production-инфраструктуры:
+# Railway runtime + Supabase staging БД + реальный сетевой путь.
+#
+# Триггеры:
+#   - push в db-refactoring (smoke-check после каждого коммита)
+#   - workflow_dispatch (ручной запуск из GitHub UI)
+#
+# Секреты (Settings → Secrets and variables → Actions):
+#   RAILWAY_STAGING_BASE_URL  — https://scopus-search-code-staging.up.railway.app
+#   SCOPUS_API_KEY            — реальный ключ Scopus
+#   STAGING_TEST_EMAIL        — e2e-test@example.com
+#   STAGING_TEST_PASSWORD     — TestPass123!
+
+name: E2E — Railway Staging
+
 on:
   workflow_dispatch:
   push:
@@ -7,17 +24,83 @@ on:
 
 jobs:
   e2e:
+    name: Smoke tests → Railway staging
     runs-on: ubuntu-latest
+
+    # Все переменные окружения, которые читают тест-файлы
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      BASE_URL: http://localhost:8000
+      # BASE_URL используется в test_article_by_id_e2e.py (os.getenv("BASE_URL"))
+      BASE_URL: ${{ secrets.RAILWAY_STAGING_BASE_URL }}
+      # TEST_EMAIL / TEST_PASSWORD используются в test_article_by_id_e2e.py
+      TEST_EMAIL: ${{ secrets.STAGING_TEST_EMAIL }}
+      TEST_PASSWORD: ${{ secrets.STAGING_TEST_PASSWORD }}
+      # SCOPUS_API_KEY нужен для теста live-поиска test_e2e_authenticated_find
+      SCOPUS_API_KEY: ${{ secrets.SCOPUS_API_KEY }}
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.12" }
-      - run: pip install -r requirements.txt
-      - name: Start server
-        run: uvicorn app.main:app --host 0.0.0.0 --port 8000 &
-      - name: Wait for server
-        run: sleep 5 && curl --retry 5 --retry-delay 2 http://localhost:8000/health
-      - run: pytest tests/integration/test_article_by_id_e2e.py -v
+      # -----------------------------------------------------------------------
+      # 1. Checkout — нужен для доступа к тест-файлам и requirements.txt
+      # -----------------------------------------------------------------------
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      # 2. Python — та же версия, что в production
+      # -----------------------------------------------------------------------
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      # -----------------------------------------------------------------------
+      # 3. Зависимости — только то, что нужно для запуска pytest + httpx.
+      #    Uvicorn, alembic, psycopg2 НЕ нужны: сервер уже запущен на Railway.
+      # -----------------------------------------------------------------------
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # -----------------------------------------------------------------------
+      # 4. Проверяем доступность staging до запуска тестов.
+      #    Если Railway деплой не поднят — падаем сразу с понятным сообщением,
+      #    а не после 30-секундных таймаутов в каждом тесте.
+      # -----------------------------------------------------------------------
+      - name: Health-check Railway staging
+        run: |
+          echo "Проверяем доступность: $BASE_URL/health"
+          curl \
+            --fail \
+            --retry 5 \
+            --retry-delay 5 \
+            --retry-connrefused \
+            --max-time 30 \
+            "$BASE_URL/health"
+
+      # -----------------------------------------------------------------------
+      # 5. E2E smoke-тесты против живого Railway staging.
+      #    test_rt_e2e.py и test_rt_edge_cases.py НЕ включены:
+      #    они требуют фикстур client/db_session (ASGI + прямой доступ к БД),
+      #    которые несовместимы с внешним Railway-инстансом.
+      #    Все остальные e2e-файлы используют httpx.AsyncClient напрямую.
+      # -----------------------------------------------------------------------
+      - name: Run E2E tests
+        run: |
+          pytest \
+            tests/integration/test_article_by_id_e2e.py \
+            -v \
+            --tb=short \
+            --timeout=60 \
+            -x
+
+      # -----------------------------------------------------------------------
+      # 6. Summary — пишем итог в GitHub Step Summary для удобного чтения
+      #    прямо в интерфейсе Actions без открытия логов.
+      # -----------------------------------------------------------------------
+      - name: Write job summary
+        if: always()
+        run: |
+          echo "## E2E результат" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Target:** \`$BASE_URL\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
