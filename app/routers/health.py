@@ -1,3 +1,5 @@
+print("[health] Router module loading", flush=True)
+
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
