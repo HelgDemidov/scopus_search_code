@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 
+from app.asgi_debug import ASGIDebugMiddleware
 from app.config import settings
 from app.routers import articles, users, health
 from app.routers import auth
@@ -102,3 +103,11 @@ app.include_router(seeder_router)
 async def root() -> dict[str, str]:
     print("[main] Root endpoint called", flush=True)
     return {"status": "ok", "message": "Scopus Search API is running"}
+
+
+# Wrap the FastAPI app with the ASGI-level debug middleware.
+# This sits below FastAPI in the ASGI stack so it captures every request
+# before Starlette/FastAPI middleware runs.  Uvicorn calls `app` directly,
+# so we reassign the module-level name to the wrapped version.
+app = ASGIDebugMiddleware(app)  # type: ignore[assignment]
+print("[main] ASGIDebugMiddleware applied — ASGI-level request logging active", flush=True)
