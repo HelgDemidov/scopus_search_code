@@ -1,14 +1,14 @@
 """refactor article ownership — Phase 1: create new tables and indexes
 
 Revision ID: 0006_refactor_article_ownership
-Revises: 0005_add_search_history
+Revises: 0005b_rename_date_add_scopus_fields
 Create Date: 2026-04-22 02:39:00.000000
 
 Фаза 1 — не разрушающая. Приложение после этой миграции продолжает работать
 в текущем состоянии. Колонки keyword и is_seeded в articles не трогаются
 физически — это Фаза 3 (миграция 0007).
 
-Что создаётся / изменяется:
+Что создается / изменяется:
 - ALTER TABLE articles ALTER COLUMN keyword DROP NOT NULL — делаем keyword
   nullable, чтобы scopus_client мог создавать Article без keyword.
   Физическое удаление колонки — Фаза 3 (миграция 0007).
@@ -21,7 +21,7 @@ Create Date: 2026-04-22 02:39:00.000000
 Что НЕ делает эта миграция:
 - Не переносит данные в catalog_articles (Фаза 2 — ручной шаг М-2)
 - Не удаляет колонки keyword / is_seeded (Фаза 3 — миграция 0007)
-- ix_sra_article_id намеренно не создаётся: ни один эндпоинт не ищет
+- ix_sra_article_id намеренно не создаётся: ни один эндпойнт не ищет 
   по article_id без search_history_id (замечание S-3 из ТЗ v2.1)
 """
 from typing import Sequence, Union
@@ -31,7 +31,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic
 revision: str = '0006_refactor_article_ownership'
-down_revision: Union[str, Sequence[str], None] = '0005_add_search_history'
+down_revision: Union[str, Sequence[str], None] = '0005b_rename_date_add_scopus_fields'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -45,7 +45,7 @@ def upgrade() -> None:
 
     # --- Операция 1: partial UNIQUE INDEX для статей без DOI ---
     # Необходим для второго батчевого INSERT в upsert_many (замечание A-1)
-    # Создаётся первым — до дочерних таблиц, ссылающихся на articles
+    # Создается первым — до дочерних таблиц, ссылающихся на articles
     op.execute(
         """
         CREATE UNIQUE INDEX ix_articles_no_doi_unique
@@ -77,7 +77,7 @@ def upgrade() -> None:
         sa.UniqueConstraint('article_id', name='uq_catalog_articles_article_id'),
     )
 
-    # Индекс по article_id — поиск статьи в коллекции по её id
+    # Индекс по article_id — поиск статьи в коллекции по ее id
     op.create_index(
         'ix_catalog_articles_article_id',
         'catalog_articles',
@@ -120,7 +120,7 @@ def upgrade() -> None:
     )
 
     # Единственный индекс — главный путь чтения: все статьи одного поиска
-    # ix_sra_article_id намеренно не создаётся (замечание S-3)
+    # ix_sra_article_id намеренно не создается (замечание S-3)
     op.create_index(
         'ix_sra_search_history_id',
         'search_result_articles',
@@ -131,11 +131,11 @@ def upgrade() -> None:
 def downgrade() -> None:
     # Порядок важен: сначала дочерние таблицы, потом индекс на родительской
 
-    # Удаляем search_result_articles и её индекс
+    # Удаляем search_result_articles и ее индекс
     op.drop_index('ix_sra_search_history_id', table_name='search_result_articles')
     op.drop_table('search_result_articles')
 
-    # Удаляем catalog_articles и её индексы
+    # Удаляем catalog_articles и ее индексы
     op.drop_index('ix_catalog_articles_keyword', table_name='catalog_articles')
     op.drop_index('ix_catalog_articles_article_id', table_name='catalog_articles')
     op.drop_table('catalog_articles')
