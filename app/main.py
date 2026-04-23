@@ -1,5 +1,8 @@
+print("[main] Module loading started", flush=True)
+
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
+import traceback
 
 import httpx
 from fastapi import FastAPI, Request
@@ -12,6 +15,8 @@ from app.config import settings
 from app.routers import articles, users, health
 from app.routers import auth
 from app.routers.seeder_router import router as seeder_router
+
+print("[main] All imports complete", flush=True)
 
 
 @asynccontextmanager
@@ -48,6 +53,29 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    print(f"[main] Incoming request: {request.method} {request.url.path}", flush=True)
+    try:
+        response = await call_next(request)
+        print(f"[main] Request completed: {request.method} {request.url.path} -> {response.status_code}", flush=True)
+        return response
+    except Exception as exc:
+        print(f"[main] Unhandled exception in middleware for {request.method} {request.url.path}: {exc}", flush=True)
+        print(traceback.format_exc(), flush=True)
+        raise
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    print(f"[main] Unhandled exception caught by exception handler: {type(exc).__name__}: {exc}", flush=True)
+    print(traceback.format_exc(), flush=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error", "type": type(exc).__name__},
+    )
 
 
 @app.exception_handler(RequestValidationError)

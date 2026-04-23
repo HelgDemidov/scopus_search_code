@@ -53,3 +53,8 @@ class Settings(BaseSettings):
 
 # Singleton-экземпляр настроек, который импортируется во все остальные модули проекта
 settings = Settings()  # type: ignore
+print(
+    f"[config] Settings loaded — DATABASE_URL set: {bool(settings.DATABASE_URL)}, "
+    f"CORS origins: {settings.cors_origins}",
+    flush=True,
+)

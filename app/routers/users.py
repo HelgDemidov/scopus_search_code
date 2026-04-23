@@ -1,4 +1,5 @@
 # app/routers/users.py
+print("[users] Router module loading", flush=True)
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse

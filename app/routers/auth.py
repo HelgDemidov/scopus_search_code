@@ -1,3 +1,5 @@
+print("[auth] Router module loading", flush=True)
+
 import secrets
 
 from authlib.integrations.starlette_client import OAuth
@@ -51,6 +53,7 @@ def _set_rt_cookie(response: JSONResponse | RedirectResponse, token: str) -> Non
 
 @router.get("/google/login")
 async def google_login(request: Request) -> RedirectResponse:
+    print("[auth] google_login: handler called", flush=True)
     # Формируем URL авторизации Google и перенаправляем пользователя
     # SessionMiddleware сохранит state в подписанной cookie для защиты от CSRF
     redirect_uri = settings.OAUTH_REDIRECT_URI
@@ -62,6 +65,7 @@ async def google_callback(
     request: Request,
     session: AsyncSession = Depends(get_db_session),
 ) -> RedirectResponse:
+    print("[auth] google_callback: handler called", flush=True)
     # Обмениваем code на токен Google и извлекаем userinfo
     token = await oauth.google.authorize_access_token(request)
     user_info = token.get("userinfo") or {}
@@ -90,6 +94,7 @@ async def refresh_access_token(
     session: AsyncSession = Depends(get_db_session),
 ) -> JSONResponse:
     """Обменивает действующий RT cookie на новый AT + ротирует RT."""
+    print("[auth] refresh_access_token: handler called", flush=True)
     # CSRF-guard: браузер не добавляет этот заголовок автоматически ни в формах,
     # ни в img/script тегах — только явный JS-код; preflight блокирует чужие домены
     if request.headers.get("X-Requested-With") != "XMLHttpRequest":
@@ -128,6 +133,7 @@ async def logout(
     session: AsyncSession = Depends(get_db_session),
 ) -> JSONResponse:
     """Отзывает RT на сервере и удаляет cookie — сервер-сайд logout."""
+    print("[auth] logout: handler called", flush=True)
     rt_cookie = request.cookies.get(_RT_COOKIE_NAME)
     if rt_cookie:
         await revoke_refresh_token(rt_cookie, session)

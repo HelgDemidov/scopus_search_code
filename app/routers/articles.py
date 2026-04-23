@@ -1,4 +1,6 @@
 # app/routers/articles.py
+print("[articles] Router module loading", flush=True)
+
 import datetime
 from datetime import timezone, timedelta
 from typing import Any
