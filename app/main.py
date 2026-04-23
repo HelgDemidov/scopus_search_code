@@ -1,4 +1,3 @@
-import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -14,20 +13,18 @@ from app.routers import articles, users, health
 from app.routers import auth
 from app.routers.seeder_router import router as seeder_router
 
-logger = logging.getLogger(__name__)
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # --- STARTUP: создаем глобальный HTTP-клиент для Scopus ---
-    logger.info("Application startup: initializing HTTP client")
+    print("[main] Application startup: initializing HTTP client", flush=True)
     app.state.http_client = httpx.AsyncClient()
-    logger.info("Application startup complete — ready to serve requests")
+    print("[main] Application startup complete — ready to serve requests", flush=True)
     yield
     # --- SHUTDOWN: корректно закрываем TCP-соединения ---
-    logger.info("Application shutdown: closing HTTP client")
+    print("[main] Application shutdown: closing HTTP client", flush=True)
     await app.state.http_client.aclose()
-    logger.info("Application shutdown complete")
+    print("[main] Application shutdown complete", flush=True)
 
 
 app = FastAPI(
@@ -75,5 +72,5 @@ app.include_router(seeder_router)
 
 @app.get("/", tags=["Health"])
 async def root() -> dict[str, str]:
-    logger.info("Root endpoint called")
+    print("[main] Root endpoint called", flush=True)
     return {"status": "ok", "message": "Scopus Search API is running"}

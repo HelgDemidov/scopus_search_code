@@ -37,8 +37,12 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     # Dependency: создает сессию БД на время одного запроса
     # yield — ключевое слово: FastAPI получит сессию, выполнит запрос,
     # потом автоматически закроет сессию в блоке finally
+    print("[dependencies] get_db_session: acquiring DB session...", flush=True)
     async with async_session_maker() as session:
+        print("[dependencies] get_db_session: session acquired, yielding to handler", flush=True)
         yield session
+    print("[dependencies] get_db_session: session closed", flush=True)
+
 
 
 # ------------------------------------------------------------------ #
