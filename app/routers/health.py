@@ -1,13 +1,9 @@
-import logging
-
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
 
 from app.core.dependencies import get_db_session
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/health", tags=["Health"])
 
@@ -20,7 +16,7 @@ router = APIRouter(prefix="/health", tags=["Health"])
 async def health_db(session: AsyncSession = Depends(get_db_session)) -> dict[str, str]:
     # Легкая проверка доступности базы данных.
     # Если база недоступна, здесь упадет исключение, и сервис вернет 5xx.
-    logger.info("health_db: endpoint called, acquiring DB session")
+    print("[health] health_db: endpoint called, executing SELECT 1", flush=True)
     await session.execute(text("SELECT 1"))
-    logger.info("health_db: DB query completed successfully")
+    print("[health] health_db: DB query completed successfully", flush=True)
     return {"status": "ok"}
