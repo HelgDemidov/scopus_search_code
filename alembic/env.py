@@ -29,6 +29,8 @@ from app.models.article import Article  # noqa: F401
 from app.models.seeder_keyword import SeederKeyword  # noqa: F401
 from app.models.refresh_token import RefreshToken  # noqa: F401  — fix Risk 6
 from app.models.search_history import SearchHistory  # noqa: F401
+from app.models.catalog_article import CatalogArticle          # noqa: F401
+from app.models.search_result_article import SearchResultArticle  # noqa: F401
 
 # Передаем метаданные всех зарегистрированных моделей
 target_metadata = Base.metadata
