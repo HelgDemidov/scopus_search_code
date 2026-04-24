@@ -56,12 +56,10 @@ _ARTICLE_KWARGS = dict(
     author="Ivanov I.",
     publication_date=datetime.date(2024, 3, 15),
     doi=_TEST_DOI,
-    keyword=_TEST_KEYWORD,  # ← используем константу
     cited_by_count=42,
     document_type="Article",
     open_access=True,
     affiliation_country="Russia",
-    is_seeded=True,
 )
 
 
@@ -107,7 +105,7 @@ async def saved_article(db_session: AsyncSession) -> Article:
     # seed() делает upsert_many + save_seeded + commit() атомарно
     saved = await service.seed(
         articles=[Article(**_ARTICLE_KWARGS)],
-        keyword=_TEST_KEYWORD,                # ← явный str
+        keyword=_TEST_KEYWORD,                # явный str
     )
     return saved[0]
 
@@ -133,8 +131,6 @@ class TestArticleResponseSchema:
             id=99,
             title="Test Title",
             publication_date=datetime.date(2024, 1, 1),
-            keyword="test",
-            is_seeded=False,
         )
         response = ArticleResponse.model_validate(article)
         assert response.id == 99
@@ -145,7 +141,7 @@ class TestArticleResponseSchema:
         import pydantic
         with pytest.raises(pydantic.ValidationError):
             ArticleResponse.model_validate(
-                {"id": None, "title": "X", "publication_date": "2024-01-01", "keyword": "x"}
+                {"id": None, "title": "X", "publication_date": "2024-01-01"}
             )
 
 
@@ -435,9 +431,7 @@ class TestArticleIdRouting:
             Article(
                 title=f"Article {i}",
                 publication_date=datetime.date(2024, 1, i),
-                keyword=f"keyword_{i}",
                 doi=dois[i - 1],
-                is_seeded=True,
             )
             for i in range(1, 4)
         ]
@@ -447,4 +441,4 @@ class TestArticleIdRouting:
         for article in articles:
             resp = await client.get(f"/articles/{article.id}")
             assert resp.status_code == 200
-            assert resp.json()["title"] == article.title    
+            assert resp.json()["title"] == article.title

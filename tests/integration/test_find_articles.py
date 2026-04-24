@@ -21,7 +21,7 @@ from app.services.search_service import SearchService
 
 # ---------------------------------------------------------------------------
 # Mock Scopus: возвращает 2 статьи. Подменяем сам метод клиента —
-# roутер всё равно вызывает service.find_and_save, который ходит в клиент.
+# роутер всё равно вызывает service.find_and_save, который ходит в клиент.
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
@@ -33,16 +33,12 @@ def mock_scopus_two_articles(monkeypatch):
                 author="A",
                 publication_date=date(2026, 1, 1),
                 doi="10.t/1",
-                keyword=keyword,
-                is_seeded=False,
             ),
             Article(
                 title="Paper 2",
                 author="B",
                 publication_date=date(2026, 1, 2),
                 doi="10.t/2",
-                keyword=keyword,
-                is_seeded=False,
             ),
         ]
     monkeypatch.setattr(
