@@ -11,7 +11,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import PostgresDsn
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8')
+    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8', extra='ignore')
     SCOPUS_API_KEY: str
     DATABASE_URL: str | PostgresDsn
     SECRET_KEY: str
@@ -561,7 +561,7 @@ FILE: app\models\__init__.py
 FILE: app\models\article.py
 ============================================================
 import datetime
-from sqlalchemy import Boolean, Date, DateTime, Index, Integer, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func, text
 from app.models.base import Base
@@ -1372,7 +1372,7 @@ from app.services.catalog_service import CatalogService
 _TEST_DB_URL = 'sqlite+aiosqlite:///:memory:'
 _TEST_DOI: str = '10.1234/test-doi-001'
 _TEST_KEYWORD: str = 'drug discovery AI'
-_ARTICLE_KWARGS = dict(title='Neural Networks in Drug Discovery', journal='Nature Machine Intelligence', author='Ivanov I.', publication_date=datetime.date(2024, 3, 15), doi=_TEST_DOI, keyword=_TEST_KEYWORD, cited_by_count=42, document_type='Article', open_access=True, affiliation_country='Russia', is_seeded=True)
+_ARTICLE_KWARGS = dict(title='Neural Networks in Drug Discovery', journal='Nature Machine Intelligence', author='Ivanov I.', publication_date=datetime.date(2024, 3, 15), doi=_TEST_DOI, cited_by_count=42, document_type='Article', open_access=True, affiliation_country='Russia')
 
 @pytest_asyncio.fixture(scope='function')
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
