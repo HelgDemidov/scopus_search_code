@@ -845,7 +845,7 @@ from sqlalchemy import text
 from app.core.dependencies import get_db_session
 router = APIRouter(prefix='/health', tags=['Health'])
 
-@router.api_route('/db', methods=['GET', 'HEAD'], status_code=status.HTTP_200_OK)
+@router.api_route('/db', methods=['GET'], status_code=status.HTTP_200_OK)
 async def health_db(session: AsyncSession=Depends(get_db_session)) -> dict[str, str]:
     pass
 
@@ -1220,7 +1220,7 @@ import httpx
 from colorama import Fore, Style, init
 from keyword_generator import generate_keywords
 init(autoreset=True)
-BASE_URL = 'https://scopus-search-code.up.railway.app'
+BASE_URL = os.environ.get('SEEDER_BASE_URL', 'https://scopus-search-code.up.railway.app')
 ARTICLES_PER_QUERY = 25
 DELAY_BETWEEN_REQUESTS = 2.0
 RATE_LIMIT_STOP_THRESHOLD = 500
