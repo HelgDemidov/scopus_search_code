@@ -2,8 +2,8 @@
 
 Запускать ТОЛЬКО когда Railway-деплой из ветки database-search-debugging активен:
 
-    BASE_URL=https://scopus-search-code.up.railway.app \\
-    TEST_EMAIL=your@email.com TEST_PASSWORD=YourPass123! \\
+    E2E_BASE_URL=https://scopus-search-code-staging.up.railway.app \\
+    E2E_TEST_EMAIL=your@email.com E2E_TEST_PASSWORD=YourPass123! \\
     pytest tests/integration/test_article_by_id_e2e.py -v -s
 
 Тесты используют httpx.AsyncClient напрямую к живому API.
@@ -21,15 +21,15 @@ import pytest
 # Настройка: URL берется из переменных окружения
 # ---------------------------------------------------------------------------
 
-BASE_URL = os.getenv("BASE_URL", "https://scopus-search-code.up.railway.app")
-TEST_EMAIL = os.getenv("TEST_EMAIL", "")
-TEST_PASSWORD = os.getenv("TEST_PASSWORD", "")
+BASE_URL = os.getenv("E2E_BASE_URL", "")
+TEST_EMAIL = os.getenv("E2E_TEST_EMAIL", "")
+TEST_PASSWORD = os.getenv("E2E_TEST_PASSWORD", "")
 
-# Пропускаем весь модуль, если BASE_URL не задан явно (default == prod)
+# Пропускаем весь модуль, если E2E_BASE_URL не задан явно
 # или если credentials не переданы — защита от случайного запуска
 pytestmark = pytest.mark.skipif(
-    not os.getenv("BASE_URL"),
-    reason="BASE_URL не задан — E2E-тесты пропущены. Установите BASE_URL для запуска.",
+    not os.getenv("E2E_BASE_URL"),
+    reason="E2E_BASE_URL не задан — E2E-тесты пропущены. Установите E2E_BASE_URL для запуска.",
 )
 
 
@@ -176,10 +176,10 @@ async def test_e2e_find_requires_auth():
 async def test_e2e_authenticated_find(monkeypatch):
     """
     GET /articles/find с токеном — авторизованный live-поиск через Scopus.
-    Пропускается если TEST_EMAIL/TEST_PASSWORD не заданы.
+    Пропускается если E2E_TEST_EMAIL/E2E_TEST_PASSWORD не заданы.
     """
     if not TEST_EMAIL or not TEST_PASSWORD:
-        pytest.skip("TEST_EMAIL/TEST_PASSWORD не заданы — тест пропущен")
+        pytest.skip("E2E_TEST_EMAIL/E2E_TEST_PASSWORD не заданы — тест пропущен")
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         token = await _get_access_token(client)

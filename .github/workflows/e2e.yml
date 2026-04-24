@@ -2,7 +2,7 @@
 #
 # E2E smoke-тесты против задеплоенного Railway staging environment.
 # Сервер НЕ запускается на runner'е — pytest стреляет реальные HTTP-запросы
-# на $RAILWAY_STAGING_BASE_URL. Это тестирование production-инфраструктуры:
+# на $E2E_BASE_URL. Это тестирование production-инфраструктуры:
 # Railway runtime + Supabase staging БД + реальный сетевой путь.
 #
 # Триггеры:
@@ -29,11 +29,11 @@ jobs:
 
     # Все переменные окружения, которые читают тест-файлы
     env:
-      # BASE_URL используется в test_article_by_id_e2e.py (os.getenv("BASE_URL"))
-      BASE_URL: ${{ secrets.RAILWAY_STAGING_BASE_URL }}
-      # TEST_EMAIL / TEST_PASSWORD используются в test_article_by_id_e2e.py
-      TEST_EMAIL: ${{ secrets.STAGING_TEST_EMAIL }}
-      TEST_PASSWORD: ${{ secrets.STAGING_TEST_PASSWORD }}
+      # E2E_BASE_URL используется в test_article_by_id_e2e.py (os.getenv("E2E_BASE_URL"))
+      E2E_BASE_URL: ${{ secrets.RAILWAY_STAGING_BASE_URL }}
+      # E2E_TEST_EMAIL / E2E_TEST_PASSWORD используются в test_article_by_id_e2e.py
+      E2E_TEST_EMAIL: ${{ secrets.STAGING_TEST_EMAIL }}
+      E2E_TEST_PASSWORD: ${{ secrets.STAGING_TEST_PASSWORD }}
       # SCOPUS_API_KEY нужен для теста live-поиска test_e2e_authenticated_find
       SCOPUS_API_KEY: ${{ secrets.SCOPUS_API_KEY }}
 
@@ -67,14 +67,14 @@ jobs:
       # -----------------------------------------------------------------------
       - name: Health-check Railway staging
         run: |
-          echo "Проверяем доступность: $BASE_URL/health"
+          echo "Проверяем доступность: $E2E_BASE_URL/health"
           curl \
             --fail \
             --retry 5 \
             --retry-delay 5 \
             --retry-connrefused \
             --max-time 30 \
-            "$BASE_URL/health"
+            "$E2E_BASE_URL/health"
 
       # -----------------------------------------------------------------------
       # 5. E2E smoke-тесты против живого Railway staging.
@@ -101,6 +101,6 @@ jobs:
         run: |
           echo "## E2E результат" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Target:** \`$BASE_URL\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Target:** \`$E2E_BASE_URL\`" >> $GITHUB_STEP_SUMMARY
           echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
