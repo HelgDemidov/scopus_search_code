@@ -5,7 +5,11 @@ from pydantic import PostgresDsn
 class Settings(BaseSettings):
 
     # Указываем Pydantic читать настройки из файла .env
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",  # игнорировать поля из .env, не объявленные в модели
+    )
 
     # 1. Scopus
     SCOPUS_API_KEY: str
