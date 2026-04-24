@@ -13,24 +13,19 @@ def mock_scopus_api(monkeypatch):
     Эта фикстура автоматически подменяет реальный метод поиска на наш фейковый.
     """
     async def mock_search(self, keyword: str, count: int = 10):
-        # Вместо запроса в интернет, всегда возвращаем 2 фейковые статьи.
-        # is_seeded=False — обязателен: колонка NOT NULL, ORM не вставит без значения.
+        # Вместо запроса в интернет, всегда возвращаем 2 фейковые статьи
         return [
             Article(
                 title="Mocked Scopus Paper 1",
                 author="John Doe",
                 publication_date=date(2026, 1, 1),
                 doi="10.123/mock1",
-                keyword=keyword,
-                is_seeded=False,
             ),
             Article(
                 title="Mocked Scopus Paper 2",
                 author="Jane Smith",
                 publication_date=date(2026, 1, 2),
                 doi="10.123/mock2",
-                keyword=keyword,
-                is_seeded=False,
             )
         ]
 

@@ -155,8 +155,6 @@ def _mk_article(doi: str = "10.test/1") -> Article:
         author="A",
         publication_date=date(2026, 1, 1),
         doi=doi,
-        keyword=None,
-        is_seeded=False,
     )
 
 

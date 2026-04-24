@@ -47,8 +47,6 @@ def _mk_article(article_id: int, doi: str | None = None) -> Article:
         author="Test Author",
         publication_date=date(2026, 1, 1),
         doi=doi or f"10.test/{article_id}",
-        keyword=None,
-        is_seeded=False,
     )
 
 
@@ -133,8 +131,6 @@ async def test_get_by_id_found_maps_all_fields():
         affiliation_country="UK",
         document_type="Review",
         open_access=True,
-        keyword=None,
-        is_seeded=False,
     )
     repo = FakeArticleRepository(articles=[article])
     svc = ArticleService(article_repo=repo)

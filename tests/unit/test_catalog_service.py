@@ -100,8 +100,6 @@ def _mk_article(article_id: int) -> Article:
         author="Author",
         publication_date=date(2026, 1, 1),
         doi=f"10.test/{article_id}",
-        keyword=None,
-        is_seeded=False,
     )
 
 
