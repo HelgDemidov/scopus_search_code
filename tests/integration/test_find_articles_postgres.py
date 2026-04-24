@@ -31,8 +31,7 @@ def _mock_scopus(monkeypatch):
                 author="A",
                 publication_date=date(2026, 1, 1),
                 doi="10.pg/1",
-                keyword=keyword,
-                is_seeded=False,
+                # keyword и is_seeded удалены — поля больше нет в модели
             )
         ]
     monkeypatch.setattr(
