@@ -1246,6 +1246,8 @@ FILE: tests\__init__.py
 ============================================================
 FILE: tests\conftest.py
 ============================================================
+from dotenv import load_dotenv
+load_dotenv(override=False)
 from typing import AsyncGenerator
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
