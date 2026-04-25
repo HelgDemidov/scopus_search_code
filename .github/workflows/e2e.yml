@@ -14,6 +14,8 @@
 #   SCOPUS_API_KEY            — реальный ключ Scopus
 #   STAGING_TEST_EMAIL        — e2e-test@example.com
 #   STAGING_TEST_PASSWORD     — TestPass123!
+#   DATABASE_URL:             — Connecton String для Railway Staging Environment к Staging Instance Supabase
+#   SECRET_KEY:               — 32-символьная строка
 
 name: E2E — Railway Staging
 
@@ -36,6 +38,10 @@ jobs:
       E2E_TEST_PASSWORD: ${{ secrets.STAGING_TEST_PASSWORD }}
       # SCOPUS_API_KEY нужен для теста live-поиска test_e2e_authenticated_find
       SCOPUS_API_KEY: ${{ secrets.SCOPUS_API_KEY }}
+      # Нужны ТОЛЬКО для инициализации Settings() при импорте app.*
+      # содержит значение Connection String DATABASE_SUPABASE_STAGING_URL
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
 
     steps:
       # -----------------------------------------------------------------------

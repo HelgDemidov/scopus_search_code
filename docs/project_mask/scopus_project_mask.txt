@@ -1514,8 +1514,8 @@ FILE: tests\integration\test_article_by_id_e2e.py
 
 Запускать ТОЛЬКО когда Railway-деплой из ветки database-search-debugging активен:
 
-    BASE_URL=https://scopus-search-code.up.railway.app \\
-    TEST_EMAIL=your@email.com TEST_PASSWORD=YourPass123! \\
+    E2E_BASE_URL=https://scopus-search-code-staging.up.railway.app \\
+    E2E_TEST_EMAIL=your@email.com E2E_TEST_PASSWORD=YourPass123! \\
     pytest tests/integration/test_article_by_id_e2e.py -v -s
 
 Тесты используют httpx.AsyncClient напрямую к живому API.
@@ -1525,10 +1525,10 @@ from __future__ import annotations
 import os
 import httpx
 import pytest
-BASE_URL = os.getenv('BASE_URL', 'https://scopus-search-code.up.railway.app')
-TEST_EMAIL = os.getenv('TEST_EMAIL', '')
-TEST_PASSWORD = os.getenv('TEST_PASSWORD', '')
-pytestmark = pytest.mark.skipif(not os.getenv('BASE_URL'), reason='BASE_URL не задан — E2E-тесты пропущены. Установите BASE_URL для запуска.')
+BASE_URL = os.getenv('E2E_BASE_URL', '')
+TEST_EMAIL = os.getenv('E2E_TEST_EMAIL', '')
+TEST_PASSWORD = os.getenv('E2E_TEST_PASSWORD', '')
+pytestmark = pytest.mark.skipif(not os.getenv('E2E_BASE_URL'), reason='E2E_BASE_URL не задан — E2E-тесты пропущены. Установите E2E_BASE_URL для запуска.')
 
 async def _get_access_token(client: httpx.AsyncClient) -> str | None:
     """Логинится под тестовым пользователем, возвращает AT или None.
@@ -1573,7 +1573,7 @@ async def test_e2e_find_requires_auth():
 @pytest.mark.asyncio
 async def test_e2e_authenticated_find(monkeypatch):
     """GET /articles/find с токеном — авторизованный live-поиск через Scopus.
-Пропускается если TEST_EMAIL/TEST_PASSWORD не заданы."""
+Пропускается если E2E_TEST_EMAIL/E2E_TEST_PASSWORD не заданы."""
 
 ============================================================
 FILE: tests\integration\test_articles_api.py
