@@ -1,22 +1,3 @@
-# .github/workflows/e2e.yml
-#
-# E2E smoke-тесты против задеплоенного Railway staging environment.
-# Сервер НЕ запускается на runner'е — pytest стреляет реальные HTTP-запросы
-# на $E2E_BASE_URL. Это тестирование production-инфраструктуры:
-# Railway runtime + Supabase staging БД + реальный сетевой путь.
-#
-# Триггеры:
-#   - push в db-refactoring (smoke-check после каждого коммита)
-#   - workflow_dispatch (ручной запуск из GitHub UI)
-#
-# Секреты (Settings → Secrets and variables → Actions):
-#   RAILWAY_STAGING_BASE_URL  — https://scopus-search-code-staging.up.railway.app
-#   SCOPUS_API_KEY            — реальный ключ Scopus
-#   STAGING_TEST_EMAIL        — e2e-test@example.com
-#   STAGING_TEST_PASSWORD     — TestPass123!
-#   DATABASE_URL:             — Connecton String для Railway Staging Environment к Staging Instance Supabase
-#   SECRET_KEY:               — 32-символьная строка
-
 name: E2E — Railway Staging
 
 on:
@@ -110,3 +91,23 @@ jobs:
           echo "**Target:** \`$E2E_BASE_URL\`" >> $GITHUB_STEP_SUMMARY
           echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+
+
+# .github/workflows/e2e.yml
+#
+# E2E smoke-тесты против задеплоенного Railway staging environment.
+# Сервер НЕ запускается на runner'е — pytest стреляет реальные HTTP-запросы
+# на $E2E_BASE_URL. Это тестирование production-инфраструктуры:
+# Railway runtime + Supabase staging БД + реальный сетевой путь.
+#
+# Триггеры:
+#   - push в db-refactoring (smoke-check после каждого коммита)
+#   - workflow_dispatch (ручной запуск из GitHub UI)
+#
+# Секреты (Settings → Secrets and variables → Actions):
+#   RAILWAY_STAGING_BASE_URL  — https://scopus-search-code-staging.up.railway.app
+#   SCOPUS_API_KEY            — реальный ключ Scopus
+#   STAGING_TEST_EMAIL        — e2e-test@example.com
+#   STAGING_TEST_PASSWORD     — TestPass123!
+#   DATABASE_URL:             — Connecton String для Railway Staging Environment к Staging Instance Supabase
+#   SECRET_KEY:               — 32-символьная строка
