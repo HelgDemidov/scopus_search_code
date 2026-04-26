@@ -6,12 +6,11 @@ on:
     branches:
       - main
       - master
-      - db-refactoring       # добавлено для отработки e2e-тестов перед merge ветки db-refactoring с main
+
   pull_request:
     branches:
       - main
       - master
-      - db-refactoring       # добавлено для отработки e2e-тестов перед merge ветки db-refactoring с main
 
 # Устанавливаем Node.js 24 для всех actions в этом workflow заранее официального дедлайна (02.06.2026)
 env:
