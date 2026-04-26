@@ -85,7 +85,7 @@ async def generate_keywords(
     payload = {
         "model": MODEL,
         "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.9,  # Высокая температура — максимальное разнообразие фраз
+        "temperature": 0.8,  # Высокая температура — максимальное разнообразие фраз
         "max_tokens": 4500,  # 120 фраз × ~10 токенов + запас на блок исключений 200 фраз
     }
 
