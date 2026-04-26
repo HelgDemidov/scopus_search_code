@@ -14,9 +14,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.article import Article
 from app.models.search_history import SearchHistory
-from app.main import app
-from app.interfaces.search_client import ISearchClient
-from app.services.search_service import SearchService
 
 
 # ---------------------------------------------------------------------------

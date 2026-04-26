@@ -596,7 +596,7 @@ class Base(DeclarativeBase):
 FILE: app\models\catalog_article.py
 ============================================================
 import datetime
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, SmallInteger, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 from app.models.base import Base
@@ -735,11 +735,9 @@ FILE: app\routers\__init__.py
 ============================================================
 FILE: app\routers\articles.py
 ============================================================
-import datetime
-from datetime import timezone, timedelta
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
-from sqlalchemy import select, text
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_catalog_service, get_db_session, get_current_user, get_optional_current_user, get_search_service, get_search_history_service
 from app.infrastructure.postgres_search_result_repo import PostgresSearchResultRepository
@@ -796,7 +794,6 @@ async def get_article_by_id(article_id: int, service: 'ArticleService'=Depends(_
 ============================================================
 FILE: app\routers\auth.py
 ============================================================
-import secrets
 from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -1195,10 +1192,8 @@ def escape_ilike(s: str) -> str:
 ============================================================
 FILE: db_seeder\seeder__scripts\keyword_generator.py
 ============================================================
-import asyncio
 import json
 from datetime import date
-import re
 import httpx
 CLUSTERS = ['Large Language Models', 'Generative Adversarial Networks', 'Neuromorphic Computing', 'AI Hardware Accelerators', 'AutoML and Self-Improving Systems']
 OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
@@ -1363,7 +1358,6 @@ from typing import AsyncGenerator
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from app.core.dependencies import get_db_session
 from app.infrastructure.postgres_article_repo import PostgresArticleRepository
@@ -1372,7 +1366,6 @@ from app.models.article import Article
 from app.models.base import Base
 from app.schemas.article_schemas import ArticleResponse
 from app.services.article_service import ArticleService
-from tests.conftest import fetch_article_after_insert
 from app.infrastructure.postgres_catalog_repo import PostgresCatalogRepository
 from app.services.catalog_service import CatalogService
 _TEST_DB_URL = 'sqlite+aiosqlite:///:memory:'
@@ -1649,9 +1642,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.article import Article
 from app.models.search_history import SearchHistory
-from app.main import app
-from app.interfaces.search_client import ISearchClient
-from app.services.search_service import SearchService
 
 @pytest.fixture
 def mock_scopus_two_articles(monkeypatch):
@@ -1952,7 +1942,6 @@ FILE: tests\unit\test_catalog_service.py
 ============================================================
 from datetime import date
 from typing import List
-from unittest.mock import AsyncMock
 import pytest
 from typing import cast
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -2123,7 +2112,6 @@ FILE: tests\unit\test_search_service.py
 import datetime
 from datetime import date
 from typing import List
-from unittest.mock import AsyncMock
 import pytest
 from typing import cast
 from sqlalchemy.ext.asyncio import AsyncSession

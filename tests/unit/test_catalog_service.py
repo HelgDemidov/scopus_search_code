@@ -1,7 +1,6 @@
 # tests/unit/test_catalog_service.py
 from datetime import date
 from typing import List
-from unittest.mock import AsyncMock
 
 import pytest
 

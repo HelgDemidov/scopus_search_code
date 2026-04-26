@@ -1,7 +1,7 @@
 # ORM-модель для таблицы catalog_articles — статьи, добавленные автоматическим сидером
 import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, SmallInteger, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 

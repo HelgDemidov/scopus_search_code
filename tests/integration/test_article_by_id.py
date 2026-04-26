@@ -25,7 +25,6 @@ from typing import AsyncGenerator
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.core.dependencies import get_db_session
@@ -35,7 +34,6 @@ from app.models.article import Article
 from app.models.base import Base
 from app.schemas.article_schemas import ArticleResponse
 from app.services.article_service import ArticleService
-from tests.conftest import fetch_article_after_insert
 
 from app.infrastructure.postgres_catalog_repo import PostgresCatalogRepository
 from app.services.catalog_service import CatalogService
