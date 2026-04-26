@@ -58,7 +58,7 @@ jobs:
         pip install -r requirements.txt
         pip install pytest pytest-asyncio aiosqlite httpx
 
-    # 4. Запускаем Pytest c целевым покрытием в 80%
+    # 4. Запускаем Pytest c целевым покрытием в 75%
     # Исключаем requires_pg — они требуют реальный PostgreSQL, которого здесь нет
     - name: Run Pytest with Coverage
       run: |
