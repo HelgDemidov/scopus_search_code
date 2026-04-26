@@ -4,8 +4,8 @@ import asyncio
 import httpx
 from colorama import Fore, Style, init
 
-# Импорт генератора ключевых фраз из соседнего модуля
-from keyword_generator import generate_keywords
+# Импорт генератора ключевых фраз и функции выбора кластера
+from keyword_generator import generate_keywords, get_todays_cluster
 
 init(autoreset=True)
 
@@ -16,7 +16,9 @@ BASE_URL = os.environ.get("SEEDER_BASE_URL", "https://scopus-search-code.up.rail
 ARTICLES_PER_QUERY = 25  # Максимум статей за 1 запрос к Scopus
 DELAY_BETWEEN_REQUESTS = 2.0  # Секунд между запросами — защита от DDoS Railway и Scopus
 RATE_LIMIT_STOP_THRESHOLD = 500  # Остановиться, если Scopus осталось < 500 запросов
-KEYWORDS_TO_USE = 100  # Из 120 сгенерированных используем 100
+# Берём все уникальные фразы от модели: фильтрация теперь cluster-scoped,
+# поэтому отсев минимален и cap в 100 уже не нужен
+KEYWORDS_TO_USE = 120
 
 
 def _get_secrets() -> tuple[str, str]:
@@ -85,17 +87,29 @@ async def seed_database() -> None:
             "Accept": "application/json",
         }
 
-        # Шаг 1: загрузка истории использованных фраз из Supabase
-        print(f"{Fore.CYAN}Читаем историю из Supabase...")
-        used_keywords, _ = await _fetch_used_keywords(db_url)
-        print(f"Сохранено фраз в базе: {len(used_keywords)}\n")
+        # Шаг 1: кластер определяем ДО загрузки истории — нужен для фильтрации used_keywords
+        cluster = get_todays_cluster()
+        print(f"Кластер этого запуска: {Fore.YELLOW}{cluster}{Style.RESET_ALL}")
 
-        # Шаг 2: генерация 120 фраз через OpenRouter, берем 100 уникальных
+        # Шаг 2: загрузка истории использованных фраз из Supabase
+        print(f"{Fore.CYAN}Читаем историю из Supabase...")
+        all_keywords, cluster_map = await _fetch_used_keywords(db_url)
+        print(f"Сохранено фраз в базе (все кластеры): {len(all_keywords)}")
+
+        # Фильтруем: передаём в генератор только фразы активного кластера
+        # Это кардинально снижает постфактумный отсев в generate_keywords
+        cluster_keywords = [kw for kw, cl in cluster_map.items() if cl == cluster]
+        print(f"Фраз активного кластера '{cluster}': {len(cluster_keywords)}\n")
+
+        # Шаг 3: генерация фраз через OpenRouter — передаём кластер явно
         print(f"{Fore.CYAN}Генерируем ключевые фразы через OpenRouter...")
-        all_keywords, cluster = await generate_keywords(used_keywords, openrouter_key)
-        keywords = all_keywords[:KEYWORDS_TO_USE]
-        print(f"Кластер: {Fore.YELLOW}{cluster}{Style.RESET_ALL}")
-        print(f"Фраз для обработки: {len(keywords)}\n")
+        all_new_keywords = await generate_keywords(
+            cluster_keywords=cluster_keywords,
+            api_key=openrouter_key,
+            cluster=cluster,
+        )
+        keywords = all_new_keywords[:KEYWORDS_TO_USE]
+        print(f"Уникальных новых фраз получено: {len(keywords)}\n")
 
         for i, keyword in enumerate(keywords, 1):
             print(

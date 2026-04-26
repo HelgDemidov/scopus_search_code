@@ -1,5 +1,5 @@
 import json
-from datetime import date
+from datetime import datetime
 
 import httpx
 
@@ -15,15 +15,29 @@ CLUSTERS = [
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 MODEL = "mistralai/mistral-small-3.2-24b-instruct"  # Mistral Small 3.2: нет thinking, свежая (март 2026)
 
+# Ширина окна исключений в промпте: 200 фраз (было 50)
+# 200 × ~5 токенов ≈ 1000 токенов входящего промпта — умеренно при 32k context window Mistral
+_EXCLUSION_WINDOW = 200
 
-def _get_todays_cluster() -> str:
-    # Детерминированная ротация: каждый день недели использует свой кластер
-    return CLUSTERS[date.today().toordinal() % len(CLUSTERS)]
+
+def get_todays_cluster() -> str:
+    """Детерминированная per-run ротация кластера.
+
+    Каждые ~4 часа UTC выбирается новый кластер из 5.
+    При расписании cron 0 */4 * * * (6 запусков в сутки) это даёт
+    равномерное распределение нагрузки: каждый кластер получает
+    1–2 запуска в сутки вместо 6 подряд на один кластер.
+    """
+    now = datetime.utcnow()
+    # Каждые 4 часа — новый слот: 0,4,8,12,16,20 -> слоты 0-5
+    # Добавляем день.toordinal() чтобы слоты не повторялись каждые сутки
+    slot = (now.toordinal() * 6 + now.hour // 4) % len(CLUSTERS)
+    return CLUSTERS[slot]
 
 
 def _build_prompt(cluster: str, used_keywords: list[str]) -> str:
-    # Формируем промпт с последними 50 использованными фразами для исключения повторов
-    recent = used_keywords[-50:] if len(used_keywords) > 50 else used_keywords
+    # Последние _EXCLUSION_WINDOW фраз кластера — модель избегает их повторения
+    recent = used_keywords[-_EXCLUSION_WINDOW:] if len(used_keywords) > _EXCLUSION_WINDOW else used_keywords
     exclusion_block = (
         f"\n\nDo NOT generate any of these already-used phrases:\n"
         + "\n".join(f"- {k}" for k in recent)
@@ -45,14 +59,20 @@ def _build_prompt(cluster: str, used_keywords: list[str]) -> str:
 
 
 async def generate_keywords(
-    used_keywords: list[str],
+    cluster_keywords: list[str],
     api_key: str,
-) -> tuple[list[str], str]:
-    """Возвращает (keywords, cluster) — список уникальных фраз и имя кластера."""
-    cluster = _get_todays_cluster()
-    prompt = _build_prompt(cluster, used_keywords)
+    cluster: str,
+) -> list[str]:
+    """Возвращает список уникальных фраз для указанного кластера.
 
-    used_set = set(k.lower().strip() for k in used_keywords)
+    cluster_keywords — только фразы активного кластера (не вся таблица).
+    Это кардинально снижает постфактумный отсев: used_set содержит
+    только релевантные конкурирующие фразы, а не все ~3800 из базы.
+    """
+    prompt = _build_prompt(cluster, cluster_keywords)
+
+    # used_set — только фразы текущего кластера (кластер-скопированная дедупликация)
+    used_set = set(k.lower().strip() for k in cluster_keywords)
 
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -65,7 +85,7 @@ async def generate_keywords(
         "model": MODEL,
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.9,  # Высокая температура — максимальное разнообразие фраз
-        "max_tokens": 3500,  # 120 фраз × ~10 токенов + запас
+        "max_tokens": 4500,  # 120 фраз × ~10 токенов + запас на блок исключений 200 фраз
     }
 
     async with httpx.AsyncClient(timeout=60.0) as client:
@@ -122,10 +142,10 @@ async def generate_keywords(
                 f"Не удалось распарсить ответ OpenRouter: {raw_content[:300]}"
             )
 
-    # Финальная фильтрация: убираем уже использованные фразы
+    # Финальная фильтрация: убираем фразы кластера, уже использованные ранее
     unique = [
         kw.strip() for kw in candidates
         if isinstance(kw, str) and kw.strip().lower() not in used_set
     ]
 
-    return unique, cluster
+    return unique
