@@ -3,7 +3,7 @@ name: Scheduled DB Seeder
 on:
   # Каждые 4 часа — всегда production
   schedule:
-    - cron: "0 */4 * * *"
+    - cron: "0 */2 * * *"
   # Ручной запуск: выбор среды через input
   workflow_dispatch:
     inputs:

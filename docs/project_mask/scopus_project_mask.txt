@@ -1193,20 +1193,30 @@ def escape_ilike(s: str) -> str:
 FILE: db_seeder\seeder__scripts\keyword_generator.py
 ============================================================
 import json
-from datetime import date
+from datetime import datetime
 import httpx
-CLUSTERS = ['Large Language Models', 'Generative Adversarial Networks', 'Neuromorphic Computing', 'AI Hardware Accelerators', 'AutoML and Self-Improving Systems']
+CLUSTERS = ['Large Language Models', 'Generative Adversarial Networks', 'Neuromorphic Computing', 'AI Hardware Accelerators', 'AutoML and Self-Improving Systems', 'Reinforcement Learning and Decision Systems']
 OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 MODEL = 'mistralai/mistral-small-3.2-24b-instruct'
+_EXCLUSION_WINDOW = 200
 
-def _get_todays_cluster() -> str:
-    pass
+def get_todays_cluster() -> str:
+    """Детерминированная per-run ротация кластера.
+
+Каждые ~4 часа UTC выбирается новый кластер из 5.
+При расписании cron 0 */4 * * * (6 запусков в сутки) это даёт
+равномерное распределение нагрузки: каждый кластер получает
+1–2 запуска в сутки вместо 6 подряд на один кластер."""
 
 def _build_prompt(cluster: str, used_keywords: list[str]) -> str:
     pass
 
-async def generate_keywords(used_keywords: list[str], api_key: str) -> tuple[list[str], str]:
-    """Возвращает (keywords, cluster) — список уникальных фраз и имя кластера."""
+async def generate_keywords(cluster_keywords: list[str], api_key: str, cluster: str) -> list[str]:
+    """Возвращает список уникальных фраз для указанного кластера.
+
+cluster_keywords — только фразы активного кластера (не вся таблица).
+Это кардинально снижает постфактумный отсев: used_set содержит
+только релевантные конкурирующие фразы, а не все ~3800 из базы."""
 
 ============================================================
 FILE: db_seeder\seeder__scripts\seed_db.py
@@ -1215,13 +1225,13 @@ import os
 import asyncio
 import httpx
 from colorama import Fore, Style, init
-from keyword_generator import generate_keywords
+from keyword_generator import generate_keywords, get_todays_cluster
 init(autoreset=True)
 BASE_URL = os.environ.get('SEEDER_BASE_URL', 'https://scopus-search-code.up.railway.app')
 ARTICLES_PER_QUERY = 25
 DELAY_BETWEEN_REQUESTS = 2.0
 RATE_LIMIT_STOP_THRESHOLD = 500
-KEYWORDS_TO_USE = 100
+KEYWORDS_TO_USE = 120
 
 def _get_secrets() -> tuple[str, str]:
     pass

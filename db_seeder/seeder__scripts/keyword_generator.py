@@ -10,6 +10,7 @@ CLUSTERS = [
     "Neuromorphic Computing",
     "AI Hardware Accelerators",
     "AutoML and Self-Improving Systems",
+    "Reinforcement Learning and Decision Systems",
 ]
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -31,7 +32,7 @@ def get_todays_cluster() -> str:
     now = datetime.utcnow()
     # Каждые 4 часа — новый слот: 0,4,8,12,16,20 -> слоты 0-5
     # Добавляем день.toordinal() чтобы слоты не повторялись каждые сутки
-    slot = (now.toordinal() * 6 + now.hour // 4) % len(CLUSTERS)
+    slot = (now.toordinal() * 12 + now.hour // 2) % len(CLUSTERS)
     return CLUSTERS[slot]
 
 
@@ -143,9 +144,14 @@ async def generate_keywords(
             )
 
     # Финальная фильтрация: убираем фразы кластера, уже использованные ранее
-    unique = [
-        kw.strip() for kw in candidates
-        if isinstance(kw, str) and kw.strip().lower() not in used_set
-    ]
+    seen_in_run: set[str] = set()
+    unique = []
+    for kw in candidates:
+        if not isinstance(kw, str):
+            continue
+        normalized = kw.strip().lower()
+        if normalized and normalized not in used_set and normalized not in seen_in_run:
+            unique.append(kw.strip())
+            seen_in_run.add(normalized)
 
     return unique
