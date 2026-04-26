@@ -5,7 +5,7 @@ from typing import AsyncGenerator
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.dependencies import get_db_session
 from app.main import app
@@ -17,31 +17,45 @@ _PG_URL = os.environ.get("DATABASE_TEST_URL")
 
 
 @pytest_asyncio.fixture(scope="function")
-async def pg_session() -> AsyncGenerator[AsyncSession, None]:
-    # Пропускаем тест если PostgreSQL не сконфигурирован
+async def pg_engine():
+    # Базовая фикстура движка: create_all → yield → drop_all → dispose
+    # Выделена отдельно, чтобы pg_session и pg_client оба строились от
+    # одного и того же физического движка, но через НЕЗАВИСИМЫЕ сессии
     if not _PG_URL:
         pytest.skip("DATABASE_TEST_URL не задан — PostgreSQL-тесты пропущены")
 
     engine = create_async_engine(_PG_URL, echo=False)
 
-    # Создаем все таблицы с нуля для каждого теста — полная изоляция
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    async with AsyncSession(engine, expire_on_commit=False) as session:
-        yield session
+    yield engine
 
-    # Убираем все таблицы после теста — следующий тест получит чистую схему
+    # Полная очистка схемы: следующий тест получит чистую БД
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
 
 
 @pytest_asyncio.fixture(scope="function")
-async def pg_client(pg_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
-    # FastAPI использует pg_session вместо продакшн-сессии
+async def pg_session(pg_engine) -> AsyncGenerator[AsyncSession, None]:
+    # Отдельная сессия для прямых операций с БД внутри теста
+    # (например: seed-данные через add_all/commit перед HTTP-запросом).
+    # Независима от сессий, которые создаёт pg_client — гонки невозможны
+    async with AsyncSession(pg_engine, expire_on_commit=False) as session:
+        yield session
+
+
+@pytest_asyncio.fixture(scope="function")
+async def pg_client(pg_engine) -> AsyncGenerator[AsyncClient, None]:
+    # Каждый запрос FastAPI получает СОБСТВЕННУЮ сессию через sessionmaker.
+    # Это устраняет гонку «Session is already flushing» при asyncio.gather:
+    # конкурирующие запросы больше не делят одну сессию
+    maker = async_sessionmaker(pg_engine, expire_on_commit=False)
+
     async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
-        yield pg_session
+        async with maker() as session:
+            yield session
 
     app.dependency_overrides[get_db_session] = override_get_db
     async with AsyncClient(

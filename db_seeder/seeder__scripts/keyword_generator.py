@@ -1,8 +1,6 @@
-import asyncio
 import json
 from datetime import date
 
-import re
 import httpx
 
 # Тематические кластеры в рамках Artificial Intelligence and Neural Network Technologies

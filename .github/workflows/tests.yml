@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - master
+
   pull_request:
     branches:
       - main
@@ -56,7 +57,7 @@ jobs:
         pip install -r requirements.txt
         pip install pytest pytest-asyncio aiosqlite httpx
 
-    # 4. Запускаем Pytest c целевым покрытием в 80%
+    # 4. Запускаем Pytest c целевым покрытием в 75%
     # Исключаем requires_pg — они требуют реальный PostgreSQL, которого здесь нет
     - name: Run Pytest with Coverage
       run: |
@@ -113,4 +114,4 @@ jobs:
       # Запускаем только тесты с маркером requires_pg
       - name: Run PostgreSQL integration tests
         run: |
-          python -m pytest tests/integration/test_search_history_api.py -vv -m requires_pg
+          python -m pytest tests/integration -vv -m requires_pg

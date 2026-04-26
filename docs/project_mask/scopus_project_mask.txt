@@ -11,7 +11,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import PostgresDsn
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8')
+    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8', extra='ignore')
     SCOPUS_API_KEY: str
     DATABASE_URL: str | PostgresDsn
     SECRET_KEY: str
@@ -45,10 +45,51 @@ FILE: app\core\__init__.py
 FILE: app\core\dependencies.py
 ============================================================
 from typing import AsyncGenerator
+import httpx
+from fastapi import Depends
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.security import decode_access_token, oauth2_scheme
 from app.infrastructure.database import async_session_maker
+from app.infrastructure.postgres_article_repo import PostgresArticleRepository
+from app.infrastructure.postgres_catalog_repo import PostgresCatalogRepository
+from app.infrastructure.postgres_search_history_repo import PostgresSearchHistoryRepository
+from app.infrastructure.postgres_search_result_repo import PostgresSearchResultRepository
+from app.infrastructure.postgres_user_repo import PostgresUserRepository
+from app.infrastructure.scopus_client import ScopusHTTPClient
+from app.models.user import User
+from app.services.article_service import ArticleService
+from app.services.catalog_service import CatalogService
+from app.services.search_history_service import SearchHistoryService
+from app.services.search_service import SearchService
+from app.services.user_service import UserService
+_oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl='users/login', auto_error=False)
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+    pass
+
+def get_user_service(session: AsyncSession=Depends(get_db_session)) -> UserService:
+    pass
+
+async def get_current_user(token: str=Depends(oauth2_scheme), service: UserService=Depends(get_user_service)) -> User:
+    pass
+
+async def get_optional_current_user(token: str | None=Depends(_oauth2_scheme_optional), service: UserService=Depends(get_user_service)) -> User | None:
+    pass
+
+async def get_scopus_client() -> AsyncGenerator[ScopusHTTPClient, None]:
+    pass
+
+def get_article_service(session: AsyncSession=Depends(get_db_session)) -> ArticleService:
+    pass
+
+def get_catalog_service(session: AsyncSession=Depends(get_db_session)) -> CatalogService:
+    pass
+
+def get_search_service(session: AsyncSession=Depends(get_db_session), scopus_client: ScopusHTTPClient=Depends(get_scopus_client)) -> SearchService:
+    pass
+
+def get_search_history_service(session: AsyncSession=Depends(get_db_session)) -> SearchHistoryService:
     pass
 
 ============================================================
@@ -116,7 +157,7 @@ FILE: app\infrastructure\postgres_article_repo.py
 ============================================================
 from typing import List
 import sqlalchemy as sa
-from sqlalchemy import cast, desc, func, select
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.article import Article
@@ -127,23 +168,70 @@ class PostgresArticleRepository(IArticleRepository):
     def __init__(self, session: AsyncSession):
         pass
 
+    async def upsert_many(self, articles: List[Article]) -> List[Article]:
+        """Bulk-upsert статей, возвращает записи с заполненным id из БД.
+
+Два батча INSERT:
+  1) Статьи с DOI   — ON CONFLICT (doi) WHERE doi IS NOT NULL DO UPDATE
+  2) Статьи без DOI — ON CONFLICT (title, publication_date, author)
+     WHERE doi IS NULL DO UPDATE (использует ix_articles_no_doi_unique)
+
+Затем два батча SELECT для перечитывания записей с серверными id/created_at.
+Использует flush() — commit() остается за вызывающим кодом.
+
+keyword и is_seeded намеренно исключены из values и set_:
+ON CONFLICT DO UPDATE не трогает эти поля в существующих строках.
+Seeded-статьи сохраняют is_seeded=True и keyword до удаления колонок
+в миграции 0007 (Фаза 3)."""
+
+    async def get_by_id(self, article_id: int, user_id: int | None=None) -> Article | None:
+        """GET /articles/{article_id} — публичный доступ по id.
+
+Доступ по правилам видимости (ТЗ раздел 3):
+  - статья видна, если она есть в catalog_articles (is_seeded)
+  - статья видна, если user_id указан и она есть в его search_result_articles
+  - если user_id=None — проверяем только catalog_articles"""
+
+============================================================
+FILE: app\infrastructure\postgres_catalog_repo.py
+============================================================
+from typing import List
+import sqlalchemy as sa
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.interfaces.catalog_repository import ICatalogRepository
+from app.models.article import Article
+from app.models.catalog_article import CatalogArticle
+from app.utils.db_utils import escape_ilike
+
+class PostgresCatalogRepository(ICatalogRepository):
+
+    def __init__(self, session: AsyncSession):
+        pass
+
     async def get_all(self, limit: int, offset: int, keyword: str | None=None, search: str | None=None) -> List[Article]:
-        pass
+        """Статьи каталога с пагинацией и опциональными фильтрами.
 
-    async def get_by_id(self, article_id: int) -> Article | None:
-        pass
-
-    async def save_many(self, articles: List[Article]) -> List[Article]:
-        pass
+keyword: точное совпадение catalog_articles.keyword (ключевое слово сидера).
+search:  ILIKE-поиск по title и author через escape_ilike()."""
 
     async def get_total_count(self, keyword: str | None=None, search: str | None=None) -> int:
-        pass
+        """COUNT с теми же фильтрами что get_all — для корректной пагинации."""
 
-    async def get_search_stats(self, search: str) -> dict:
-        pass
+    async def save_seeded(self, articles: List[Article], keyword: str) -> List[Article]:
+        """Записывает статьи сидера в catalog_articles.
+
+Предполагает, что articles уже сохранены в таблице articles
+(т.е. имеют заполненный id после upsert_many в article_repo).
+ON CONFLICT DO NOTHING: повторный вызов с теми же статьями идемпотентен.
+Только flush() — commit() остаётся за CatalogService."""
 
     async def get_stats(self) -> dict:
-        pass
+        """Агрегированная статистика по каталогу сидера.
+
+Один round-trip: CTE + несколько подзапросов-агрегатов.
+Агрегирует только статьи из catalog_articles (не весь реестр articles)."""
 
 ============================================================
 FILE: app\infrastructure\postgres_search_history_repo.py
@@ -171,6 +259,48 @@ class PostgresSearchHistoryRepository(ISearchHistoryRepository):
 
     async def get_oldest_in_window_created_at(self, user_id: int, since: datetime.datetime) -> datetime.datetime | None:
         pass
+
+============================================================
+FILE: app\infrastructure\postgres_search_result_repo.py
+============================================================
+import datetime
+from typing import List
+import sqlalchemy as sa
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.interfaces.search_result_repo import ISearchResultRepository
+from app.models.article import Article
+from app.models.search_history import SearchHistory
+from app.models.search_result_article import SearchResultArticle
+from app.utils.db_utils import escape_ilike
+
+class PostgresSearchResultRepository(ISearchResultRepository):
+
+    def __init__(self, session: AsyncSession):
+        pass
+
+    async def save_results(self, search_history_id: int, articles: List[Article]) -> None:
+        """Батчевый INSERT статей поиска в search_result_articles с сохранением rank.
+
+rank = порядковый индекс статьи в выдаче Scopus (0-based).
+articles должны иметь заполненный id (после upsert_many в article_repo).
+Только flush() — commit() остаётся за SearchService."""
+
+    async def get_results_by_history_id(self, search_history_id: int, user_id: int) -> List[Article] | None:
+        """Статьи конкретного поиска, упорядоченные по rank.
+
+Один атомарный JOIN-запрос с проверкой ownership:
+search_history.user_id должен совпадать с user_id.
+Возвращает None если запись поиска не найдена или принадлежит другому пользователю.
+TOCTOU-safe: нет раздельных SELECT — одна атомарная транзакция."""
+
+    async def get_search_stats_for_user(self, user_id: int, search: str | None=None, since: datetime.datetime | None=None) -> dict:
+        """Агрегаты по статьям из поисков конкретного пользователя.
+
+Фильтрует по search_history.user_id, опционально:
+search: ILIKE по title/author статей через escape_ilike().
+since:  только поиски начиная с этой даты (search_history.created_at >= since)."""
 
 ============================================================
 FILE: app\infrastructure\postgres_user_repo.py
@@ -238,41 +368,48 @@ from app.models.article import Article
 class IArticleRepository(ABC):
 
     @abstractmethod
-    async def save_many(self, articles: List[Article]) -> List[Article]:
-        """Сохраняет пачку статей в БД и возвращает их с заполненными id из БД"""
+    async def upsert_many(self, articles: List[Article]) -> List[Article]:
+        """INSERT ON CONFLICT DO UPDATE для пачки статей.
+Возвращает статьи с заполненными id из БД.
+Не вызывает commit() — управление транзакцией на стороне вызывающего кода."""
+
+    @abstractmethod
+    async def get_by_id(self, article_id: int, user_id: int | None=None) -> Article | None:
+        """Возвращает статью по первичному ключу или None если не найдена.
+user_id: если передан — дополнительно проверяет видимость статьи для пользователя
+         (статья есть в каталоге ИЛИ в поисках этого пользователя);
+         если None — возвращает статью без проверки владения."""
+
+============================================================
+FILE: app\interfaces\catalog_repository.py
+============================================================
+from abc import ABC, abstractmethod
+from typing import List
+from app.models.article import Article
+
+class ICatalogRepository(ABC):
 
     @abstractmethod
     async def get_all(self, limit: int, offset: int, keyword: str | None=None, search: str | None=None) -> List[Article]:
-        """Возвращает статьи из БД с поддержкой пагинации и опциональными фильтрами.
-limit: сколько статей вернуть (размер страницы).
-offset: сколько статей пропустить с начала.
-keyword: если передан — фильтрует по точному совпадению с полем keyword
-         (фраза сидера); если None — без фильтра по этому полю.
-search: если передан — fulltext ILIKE по полям title и author;
-        если None — без fulltext-фильтра."""
-
-    @abstractmethod
-    async def get_by_id(self, article_id: int) -> Article | None:
-        """Возвращает статью по первичному ключу или None если не найдена"""
+        """Возвращает статьи каталога с пагинацией и опциональными фильтрами.
+keyword: точное совпадение с ключевым словом сидера; None — без фильтра.
+search: ILIKE-поиск по title и author; None — без fulltext-фильтра."""
 
     @abstractmethod
     async def get_total_count(self, keyword: str | None=None, search: str | None=None) -> int:
-        """Считает общее количество статей в базе.
-keyword: если передан — считает только статьи с этим ключевым словом;
-         если None — считает все статьи.
-search: если передан — считает только статьи, matching ILIKE по title/author;
-        если None — без fulltext-фильтра."""
+        """Считает статьи каталога с теми же фильтрами, что get_all — для корректной пагинации."""
 
     @abstractmethod
-    async def get_search_stats(self, search: str) -> dict:
-        """Возвращает агрегаты (total, by_year, by_journal, by_country, by_doc_type)
-по статьям, matching ILIKE-поиску по title/author.
-search обязателен: метод не имеет смысла без фильтра.
-Реализуется одним CTE-запросом — один round-trip к БД."""
+    async def save_seeded(self, articles: List[Article], keyword: str) -> List[Article]:
+        """Сохраняет пачку статей сидера: upsert в articles + запись в catalog_articles.
+Возвращает статьи с заполненными id из БД.
+Не вызывает commit() — управление транзакцией на стороне вызывающего кода."""
 
     @abstractmethod
     async def get_stats(self) -> dict:
-        """Возвращает агрегированную статистику по сидированным статьям (is_seeded=True)"""
+        """Возвращает агрегированную статистику по каталогу:
+total_articles, total_journals, total_countries, open_access_count,
+by_year, by_journal, by_country, by_doc_type, top_keywords."""
 
 ============================================================
 FILE: app\interfaces\search_client.py
@@ -335,6 +472,35 @@ reset_at = oldest_created_at + 7 days.
 Возвращает None если окно пустое (использованных запросов нет)."""
 
 ============================================================
+FILE: app\interfaces\search_result_repo.py
+============================================================
+import datetime
+from abc import ABC, abstractmethod
+from typing import List
+from app.models.article import Article
+
+class ISearchResultRepository(ABC):
+
+    @abstractmethod
+    async def save_results(self, search_history_id: int, articles: List[Article]) -> None:
+        """Связывает статьи с записью истории поиска через search_result_articles.
+articles должны иметь заполненные id (получены после upsert в articles).
+Не вызывает commit() — управление транзакцией на стороне вызывающего кода."""
+
+    @abstractmethod
+    async def get_results_by_history_id(self, search_history_id: int, user_id: int) -> List[Article] | None:
+        """Возвращает статьи конкретного поиска, упорядоченные по rank.
+user_id используется для проверки ownership через JOIN с search_history.
+Возвращает None если запись не найдена или принадлежит другому пользователю."""
+
+    @abstractmethod
+    async def get_search_stats_for_user(self, user_id: int, search: str | None=None, since: datetime.datetime | None=None) -> dict:
+        """Возвращает агрегаты по статьям из поисков конкретного пользователя:
+total, by_year, by_journal, by_country, by_doc_type.
+search: опциональный ILIKE-фильтр по title/author статей.
+since: опциональный фильтр — только поиски начиная с этой даты."""
+
+============================================================
 FILE: app\interfaces\user_repository.py
 ============================================================
 from abc import ABC, abstractmethod
@@ -364,6 +530,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.config import settings
 from app.routers import articles, users, health
 from app.routers import auth
+from app.routers.seeder_router import router as seeder_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -379,6 +546,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(articles.router)
 app.include_router(health.router)
+app.include_router(seeder_router)
 
 @app.get('/', tags=['Health'])
 async def root() -> dict[str, str]:
@@ -393,7 +561,7 @@ FILE: app\models\__init__.py
 FILE: app\models\article.py
 ============================================================
 import datetime
-from sqlalchemy import Boolean, Date, DateTime, Index, Integer, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func, text
 from app.models.base import Base
@@ -407,12 +575,10 @@ class Article(Base):
     author: Mapped[str] = mapped_column(String(255), nullable=True)
     publication_date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
     doi: Mapped[str] = mapped_column(String(255), nullable=True)
-    keyword: Mapped[str] = mapped_column(String(100), nullable=False)
     cited_by_count: Mapped[int] = mapped_column(Integer, nullable=True)
     document_type: Mapped[str] = mapped_column(String(100), nullable=True)
     open_access: Mapped[bool] = mapped_column(Boolean, nullable=True)
     affiliation_country: Mapped[str] = mapped_column(String(100), nullable=True)
-    is_seeded: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default='false')
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     def __repr__(self) -> str:
@@ -425,6 +591,26 @@ from sqlalchemy.orm import DeclarativeBase
 
 class Base(DeclarativeBase):
     pass
+
+============================================================
+FILE: app\models\catalog_article.py
+============================================================
+import datetime
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.sql import func
+from app.models.base import Base
+
+class CatalogArticle(Base):
+    __tablename__ = 'catalog_articles'
+    __table_args__ = (UniqueConstraint('article_id', name='uq_catalog_articles_article_id'), Index('ix_catalog_articles_article_id', 'article_id'), Index('ix_catalog_articles_keyword', 'keyword'))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    article_id: Mapped[int] = mapped_column(Integer, ForeignKey('articles.id', ondelete='CASCADE'), nullable=False)
+    keyword: Mapped[str] = mapped_column(String(100), nullable=False)
+    seeded_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    def __repr__(self) -> str:
+        pass
 
 ============================================================
 FILE: app\models\refresh_token.py
@@ -485,6 +671,24 @@ class SearchHistory(Base):
         pass
 
 ============================================================
+FILE: app\models\search_result_article.py
+============================================================
+from sqlalchemy import ForeignKey, Index, Integer, SmallInteger, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column
+from app.models.base import Base
+
+class SearchResultArticle(Base):
+    __tablename__ = 'search_result_articles'
+    __table_args__ = (UniqueConstraint('search_history_id', 'article_id', name='uq_sra_history_article'), Index('ix_sra_search_history_id', 'search_history_id'))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    search_history_id: Mapped[int] = mapped_column(Integer, ForeignKey('search_history.id', ondelete='CASCADE'), nullable=False)
+    article_id: Mapped[int] = mapped_column(Integer, ForeignKey('articles.id', ondelete='RESTRICT'), nullable=False)
+    rank: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+
+    def __repr__(self) -> str:
+        pass
+
+============================================================
 FILE: app\models\seeder_keyword.py
 ============================================================
 import datetime
@@ -531,73 +735,65 @@ FILE: app\routers\__init__.py
 ============================================================
 FILE: app\routers\articles.py
 ============================================================
-import datetime
-from datetime import timezone, timedelta
-from typing import AsyncGenerator, Any
-import httpx
+from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.dependencies import get_db_session
-from app.infrastructure.postgres_article_repo import PostgresArticleRepository
-from app.infrastructure.postgres_search_history_repo import PostgresSearchHistoryRepository
-from app.infrastructure.scopus_client import ScopusHTTPClient
-from app.interfaces.search_client import ISearchClient
+from app.core.dependencies import get_catalog_service, get_db_session, get_current_user, get_optional_current_user, get_search_service, get_search_history_service
+from app.infrastructure.postgres_search_result_repo import PostgresSearchResultRepository
+from app.models.search_history import SearchHistory
 from app.models.user import User
-from app.routers.users import get_current_user
-from app.schemas.article_schemas import ArticleResponse, PaginatedArticleResponse, SearchStatsResponse, StatsResponse, CountByField
-from app.schemas.search_history_schemas import QuotaResponse, SearchHistoryResponse
+from app.schemas.article_schemas import ArticleResponse, CountByField, PaginatedArticleResponse, SearchStatsResponse, StatsResponse
+from app.schemas.search_history_schemas import QuotaResponse, SearchHistoryResponse, SearchResultsResponse
 from app.services.article_service import ArticleService
+from app.services.catalog_service import CatalogService
 from app.services.search_history_service import SearchHistoryService
 from app.services.search_service import SearchService
+from app.interfaces.search_client import ISearchClient
 router = APIRouter(prefix='/articles', tags=['Articles'])
 
-def get_article_service(session: AsyncSession=Depends(get_db_session)) -> ArticleService:
+def _get_article_service(session: AsyncSession=Depends(get_db_session)) -> 'ArticleService':
     pass
 
-async def get_scopus_client() -> AsyncGenerator[ScopusHTTPClient, None]:
+def _get_search_result_repo(session: AsyncSession=Depends(get_db_session)) -> PostgresSearchResultRepository:
     pass
-
-def get_search_service(session: AsyncSession=Depends(get_db_session), scopus_client: ScopusHTTPClient=Depends(get_scopus_client)) -> SearchService:
-    pass
-
-def get_search_history_service(session: AsyncSession=Depends(get_db_session)) -> SearchHistoryService:
-    pass
+_WINDOW_DAYS = 7
 
 @router.get('/stats', response_model=StatsResponse, tags=['Analytics'])
-async def get_stats(service: ArticleService=Depends(get_article_service)) -> StatsResponse:
+async def get_stats(service: CatalogService=Depends(get_catalog_service)) -> StatsResponse:
     pass
 
 @router.get('/', response_model=PaginatedArticleResponse)
-async def get_articles(page: int=Query(1, ge=1, description='Номер страницы'), size: int=Query(10, ge=1, le=100, description='Количество статей на странице'), keyword: str | None=Query(None, min_length=2, description='Фильтр по ключевому слову сидера (точное совпадение)'), search: str | None=Query(None, min_length=2, description='Fulltext-поиск по названию и первому автору (ILIKE, без учета регистра)'), service: ArticleService=Depends(get_article_service)) -> PaginatedArticleResponse:
+async def get_articles(page: int=Query(1, ge=1, description='Номер страницы'), size: int=Query(10, ge=1, le=100, description='Количество статей на странице'), keyword: str | None=Query(None, min_length=2, description='Фильтр по ключевому слову сидера (точное совпадение)'), search: str | None=Query(None, min_length=2, description='Fulltext-поиск по названию и первому автору (ILIKE, без учета регистра)'), service: CatalogService=Depends(get_catalog_service)) -> PaginatedArticleResponse:
     pass
 
 @router.get('/search/stats', response_model=SearchStatsResponse, tags=['Analytics'])
-async def get_search_stats(search: str=Query(..., min_length=2, description='Поисковый запрос — возвращает агрегаты только по matching статьям (ILIKE по title/author)'), service: ArticleService=Depends(get_article_service), current_user: User=Depends(get_current_user)) -> SearchStatsResponse:
+async def get_search_stats(search: str=Query(..., min_length=2, description='Поисковый запрос — агрегаты по matching статьям из поисков пользователя'), result_repo: PostgresSearchResultRepository=Depends(_get_search_result_repo), current_user: User=Depends(get_current_user)) -> SearchStatsResponse:
     pass
-_QUOTA_LIMIT = 200
-_WINDOW_DAYS = 7
 
 @router.get('/find', response_model=list[ArticleResponse])
-async def find_articles(response: Response, keyword: str=Query(..., min_length=2, description='Ключевое слово для поиска'), count: int=Query(25, ge=1, le=25, description='Сколько статей запросить из Scopus (макс 25)'), year_from: int | None=Query(None, description='Фильтр: год публикации от'), year_to: int | None=Query(None, description='Фильтр: год публикации до'), doc_types: list[str] | None=Query(None, description='Фильтр: типы документов'), open_access: bool | None=Query(None, description='Фильтр: только open-access'), country: list[str] | None=Query(None, description='Фильтр: страны'), service: SearchService=Depends(get_search_service), session: AsyncSession=Depends(get_db_session), current_user: User=Depends(get_current_user)) -> Any:
-    pass
-
-@router.get('/history', response_model=SearchHistoryResponse)
-async def get_search_history(n: int=Query(100, ge=1, le=100, description='Количество последних записей истории'), service: SearchHistoryService=Depends(get_search_history_service), current_user: User=Depends(get_current_user)) -> SearchHistoryResponse:
+async def find_articles(response: Response, keyword: str=Query(..., min_length=2, description='Ключевое слово для поиска'), count: int=Query(25, ge=1, le=25, description='Сколько статей запросить из Scopus (макс 25)'), year_from: int | None=Query(None, description='Фильтр: год публикации от'), year_to: int | None=Query(None, description='Фильтр: год публикации до'), doc_types: list[str] | None=Query(None, description='Фильтр: типы документов'), open_access: bool | None=Query(None, description='Фильтр: только open-access'), country: list[str] | None=Query(None, description='Фильтр: страны'), service: SearchService=Depends(get_search_service), history_service: SearchHistoryService=Depends(get_search_history_service), session: AsyncSession=Depends(get_db_session), current_user: User=Depends(get_current_user)) -> Any:
     pass
 
 @router.get('/find/quota', response_model=QuotaResponse)
 async def get_find_quota(service: SearchHistoryService=Depends(get_search_history_service), current_user: User=Depends(get_current_user)) -> QuotaResponse:
     pass
 
+@router.get('/history', response_model=SearchHistoryResponse)
+async def get_search_history(n: int=Query(100, ge=1, le=100, description='Количество последних записей истории'), service: SearchHistoryService=Depends(get_search_history_service), current_user: User=Depends(get_current_user)) -> SearchHistoryResponse:
+    pass
+
+@router.get('/history/{search_id}/results', response_model=SearchResultsResponse)
+async def get_search_results(search_id: int, result_repo: PostgresSearchResultRepository=Depends(_get_search_result_repo), session: AsyncSession=Depends(get_db_session), current_user: User=Depends(get_current_user)) -> SearchResultsResponse:
+    pass
+
 @router.get('/{article_id}', response_model=ArticleResponse)
-async def get_article_by_id(article_id: int, service: ArticleService=Depends(get_article_service)) -> ArticleResponse:
+async def get_article_by_id(article_id: int, service: 'ArticleService'=Depends(_get_article_service), current_user: User | None=Depends(get_optional_current_user)) -> ArticleResponse:
     pass
 
 ============================================================
 FILE: app\routers\auth.py
 ============================================================
-import secrets
 from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -644,8 +840,34 @@ from sqlalchemy import text
 from app.core.dependencies import get_db_session
 router = APIRouter(prefix='/health', tags=['Health'])
 
-@router.api_route('/db', methods=['GET', 'HEAD'], status_code=status.HTTP_200_OK)
+@router.api_route('', methods=['GET'], status_code=status.HTTP_200_OK)
+async def health_check() -> dict[str, str]:
+    pass
+
+@router.api_route('/db', methods=['GET'], status_code=status.HTTP_200_OK)
 async def health_db(session: AsyncSession=Depends(get_db_session)) -> dict[str, str]:
+    pass
+
+============================================================
+FILE: app\routers\seeder_router.py
+============================================================
+import os
+from fastapi import APIRouter, Depends, Header, HTTPException, status
+import httpx
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.dependencies import get_db_session
+from app.infrastructure.postgres_article_repo import PostgresArticleRepository
+from app.infrastructure.postgres_catalog_repo import PostgresCatalogRepository
+from app.infrastructure.scopus_client import ScopusHTTPClient
+from app.services.catalog_service import CatalogService
+router = APIRouter(prefix='/seeder', tags=['seeder'])
+_SEEDER_SECRET: str = os.environ.get('SEEDER_SECRET', '')
+
+def _check_secret(x_seeder_secret: str=Header(...)):
+    pass
+
+@router.post('/seed', dependencies=[Depends(_check_secret)])
+async def seed_keyword(keyword: str, count: int=25, session: AsyncSession=Depends(get_db_session)):
     pass
 
 ============================================================
@@ -706,7 +928,6 @@ class ArticleResponse(BaseModel):
     author: str | None
     publication_date: date
     doi: str | None
-    keyword: str
     cited_by_count: int | None
     document_type: str | None
     open_access: bool | None
@@ -743,7 +964,8 @@ class SearchStatsResponse(BaseModel):
 FILE: app\schemas\search_history_schemas.py
 ============================================================
 import datetime
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, computed_field
+from app.schemas.article_schemas import ArticleResponse
 
 class SearchHistoryItemResponse(BaseModel):
     id: int
@@ -751,6 +973,11 @@ class SearchHistoryItemResponse(BaseModel):
     created_at: datetime.datetime
     result_count: int
     filters: dict
+
+    @computed_field
+    @property
+    def results_available(self) -> bool:
+        pass
     model_config = ConfigDict(from_attributes=True)
 
 class SearchHistoryResponse(BaseModel):
@@ -763,6 +990,13 @@ class QuotaResponse(BaseModel):
     remaining: int
     reset_at: datetime.datetime | None
     window_days: int
+
+class SearchResultsResponse(BaseModel):
+    search_id: int
+    query: str
+    created_at: datetime.datetime
+    articles: list[ArticleResponse]
+    total: int
 
 ============================================================
 FILE: app\schemas\user_schemas.py
@@ -813,25 +1047,52 @@ FILE: app\services\__init__.py
 ============================================================
 FILE: app\services\article_service.py
 ============================================================
-from app.schemas.article_schemas import ArticleResponse, PaginatedArticleResponse
 from app.interfaces.article_repository import IArticleRepository
+from app.schemas.article_schemas import ArticleResponse
 
 class ArticleService:
 
     def __init__(self, article_repo: IArticleRepository):
         pass
 
-    async def get_articles_paginated(self, page: int, size: int, keyword: str | None=None, search: str | None=None) -> PaginatedArticleResponse:
+    async def get_by_id(self, article_id: int, user_id: int | None=None) -> ArticleResponse | None:
+        """Возвращает статью по id с опциональной проверкой видимости.
+
+user_id: если передан — статья должна быть в каталоге ИЛИ
+         в результатах поисков этого пользователя (visibility check
+         реализован в postgres_article_repo.get_by_id).
+user_id=None — без проверки владения (для admin/seeder сценариев)."""
+
+============================================================
+FILE: app\services\catalog_service.py
+============================================================
+from typing import List
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.interfaces.article_repository import IArticleRepository
+from app.interfaces.catalog_repository import ICatalogRepository
+from app.models.article import Article
+from app.schemas.article_schemas import ArticleResponse, CountByField, PaginatedArticleResponse, StatsResponse
+
+class CatalogService:
+
+    def __init__(self, article_repo: IArticleRepository, catalog_repo: ICatalogRepository, session: AsyncSession):
         pass
 
-    async def get_by_id(self, article_id: int) -> ArticleResponse | None:
-        pass
+    async def get_catalog_paginated(self, page: int, size: int, keyword: str | None=None, search: str | None=None) -> PaginatedArticleResponse:
+        """Пагинированный список статей каталога с опциональными фильтрами.
 
-    async def get_search_stats(self, search: str) -> dict:
-        pass
+keyword: точное совпадение по ключевому слову сидера.
+search:  ILIKE-поиск по title/author."""
 
-    async def get_stats(self) -> dict:
-        pass
+    async def get_stats(self) -> StatsResponse:
+        """Агрегированная статистика по каталогу сидера."""
+
+    async def seed(self, articles: List[Article], keyword: str) -> List[Article]:
+        """Сохраняет статьи сидера: upsert в articles → запись в catalog_articles.
+
+Единственный метод, который вызывает commit().
+Атомарность: либо обе таблицы обновлены, либо ни одна.
+Вызывающий код (сидер) не должен делать commit()."""
 
 ============================================================
 FILE: app\services\search_history_service.py
@@ -858,18 +1119,34 @@ class SearchHistoryService:
 FILE: app\services\search_service.py
 ============================================================
 from typing import List
-from app.models.article import Article
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.interfaces.article_repository import IArticleRepository
 from app.interfaces.search_client import ISearchClient
 from app.interfaces.search_history_repo import ISearchHistoryRepository
+from app.interfaces.search_result_repo import ISearchResultRepository
+from app.models.article import Article
 
 class SearchService:
+    """Оркестрирует поиск: Scopus API → upsert статей → история → связка результатов.
 
-    def __init__(self, search_client: ISearchClient, article_repo: IArticleRepository, history_repo: ISearchHistoryRepository):
+    Не знает ни про httpx, ни про SQLAlchemy напрямую.
+    Единственная точка, где происходит commit() для всей транзакции поиска.
+    """
+
+    def __init__(self, search_client: ISearchClient, article_repo: IArticleRepository, history_repo: ISearchHistoryRepository, search_result_repo: ISearchResultRepository, session: AsyncSession):
         pass
 
     async def find_and_save(self, keyword: str, count: int=25, *, user_id: int, filters: dict | None=None) -> List[Article]:
-        pass
+        """Выполняет поиск и атомарно сохраняет все результаты.
+
+Порядок операций (все в одной транзакции):
+1. Запрос к Scopus API
+2. upsert статей в таблицу articles → получаем id
+3. INSERT в search_history → получаем search_history.id
+4. INSERT в search_result_articles с rank = порядок в выдаче Scopus
+5. commit()
+
+Если любой шаг бросает исключение — транзакция откатывается целиком."""
 
 ============================================================
 FILE: app\services\user_service.py
@@ -902,12 +1179,21 @@ class UserService:
         pass
 
 ============================================================
+FILE: app\utils\__init__.py
+============================================================
+
+
+============================================================
+FILE: app\utils\db_utils.py
+============================================================
+def escape_ilike(s: str) -> str:
+    pass
+
+============================================================
 FILE: db_seeder\seeder__scripts\keyword_generator.py
 ============================================================
-import asyncio
 import json
 from datetime import date
-import re
 import httpx
 CLUSTERS = ['Large Language Models', 'Generative Adversarial Networks', 'Neuromorphic Computing', 'AI Hardware Accelerators', 'AutoML and Self-Improving Systems']
 OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
@@ -931,16 +1217,13 @@ import httpx
 from colorama import Fore, Style, init
 from keyword_generator import generate_keywords
 init(autoreset=True)
-BASE_URL = 'https://scopus-search-code.up.railway.app'
+BASE_URL = os.environ.get('SEEDER_BASE_URL', 'https://scopus-search-code.up.railway.app')
 ARTICLES_PER_QUERY = 25
 DELAY_BETWEEN_REQUESTS = 2.0
 RATE_LIMIT_STOP_THRESHOLD = 500
 KEYWORDS_TO_USE = 100
 
-def _get_secrets() -> tuple[str, str, str]:
-    pass
-
-async def _get_jwt_token(client: httpx.AsyncClient, email: str, password: str) -> str:
+def _get_secrets() -> tuple[str, str]:
     pass
 
 async def _fetch_used_keywords(db_url: str) -> tuple[list[str], dict[str, str]]:
@@ -962,6 +1245,8 @@ FILE: tests\__init__.py
 ============================================================
 FILE: tests\conftest.py
 ============================================================
+from dotenv import load_dotenv
+load_dotenv(override=False)
 from typing import AsyncGenerator
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
@@ -1016,18 +1301,22 @@ from typing import AsyncGenerator
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from app.core.dependencies import get_db_session
 from app.main import app
 from app.models.base import Base
 _PG_URL = os.environ.get('DATABASE_TEST_URL')
 
 @pytest_asyncio.fixture(scope='function')
-async def pg_session() -> AsyncGenerator[AsyncSession, None]:
+async def pg_engine():
     pass
 
 @pytest_asyncio.fixture(scope='function')
-async def pg_client(pg_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
+async def pg_session(pg_engine) -> AsyncGenerator[AsyncSession, None]:
+    pass
+
+@pytest_asyncio.fixture(scope='function')
+async def pg_client(pg_engine) -> AsyncGenerator[AsyncClient, None]:
     pass
 
 @pytest_asyncio.fixture(scope='function')
@@ -1069,7 +1358,6 @@ from typing import AsyncGenerator
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from app.core.dependencies import get_db_session
 from app.infrastructure.postgres_article_repo import PostgresArticleRepository
@@ -1078,9 +1366,12 @@ from app.models.article import Article
 from app.models.base import Base
 from app.schemas.article_schemas import ArticleResponse
 from app.services.article_service import ArticleService
-from tests.conftest import fetch_article_after_insert
+from app.infrastructure.postgres_catalog_repo import PostgresCatalogRepository
+from app.services.catalog_service import CatalogService
 _TEST_DB_URL = 'sqlite+aiosqlite:///:memory:'
-_ARTICLE_KWARGS = dict(title='Neural Networks in Drug Discovery', journal='Nature Machine Intelligence', author='Ivanov I.', publication_date=datetime.date(2024, 3, 15), doi='10.1234/test-doi-001', keyword='drug discovery AI', cited_by_count=42, document_type='Article', open_access=True, affiliation_country='Russia', is_seeded=True)
+_TEST_DOI: str = '10.1234/test-doi-001'
+_TEST_KEYWORD: str = 'drug discovery AI'
+_ARTICLE_KWARGS = dict(title='Neural Networks in Drug Discovery', journal='Nature Machine Intelligence', author='Ivanov I.', publication_date=datetime.date(2024, 3, 15), doi=_TEST_DOI, cited_by_count=42, document_type='Article', open_access=True, affiliation_country='Russia')
 
 @pytest_asyncio.fixture(scope='function')
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
@@ -1092,11 +1383,7 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
 
 @pytest_asyncio.fixture(scope='function')
 async def saved_article(db_session: AsyncSession) -> Article:
-    """Сохраняет одну тестовую статью через save_many(), возвращает ORM-объект с id.
-
-save_many() использует Core INSERT (insert().on_conflict_do_update) — объект
-не попадает в identity_map сессии, поэтому refresh() недопустим.
-Вместо этого загружаем статью из БД заново через SELECT по doi."""
+    """Сохраняет тестовую статью через CatalogService.seed() — полный путь как в продакшне."""
 
 class TestArticleResponseSchema:
     """Пункт 1 сводной таблицы: id: int в ArticleResponse."""
@@ -1215,8 +1502,7 @@ class TestArticleIdRouting:
 
     @pytest.mark.asyncio
     async def test_multiple_ids_independent(self, client: AsyncClient, db_session: AsyncSession):
-        """Несколько разных статей возвращаются корректно по своим id —
-симулирует переходы между карточками в UI."""
+        pass
 
 ============================================================
 FILE: tests\integration\test_article_by_id_e2e.py
@@ -1225,8 +1511,8 @@ FILE: tests\integration\test_article_by_id_e2e.py
 
 Запускать ТОЛЬКО когда Railway-деплой из ветки database-search-debugging активен:
 
-    BASE_URL=https://scopus-search-code.up.railway.app \\
-    TEST_EMAIL=your@email.com TEST_PASSWORD=YourPass123! \\
+    E2E_BASE_URL=https://scopus-search-code-staging.up.railway.app \\
+    E2E_TEST_EMAIL=your@email.com E2E_TEST_PASSWORD=YourPass123! \\
     pytest tests/integration/test_article_by_id_e2e.py -v -s
 
 Тесты используют httpx.AsyncClient напрямую к живому API.
@@ -1236,10 +1522,10 @@ from __future__ import annotations
 import os
 import httpx
 import pytest
-BASE_URL = os.getenv('BASE_URL', 'https://scopus-search-code.up.railway.app')
-TEST_EMAIL = os.getenv('TEST_EMAIL', '')
-TEST_PASSWORD = os.getenv('TEST_PASSWORD', '')
-pytestmark = pytest.mark.skipif(not os.getenv('BASE_URL'), reason='BASE_URL не задан — E2E-тесты пропущены. Установите BASE_URL для запуска.')
+BASE_URL = os.getenv('E2E_BASE_URL', '')
+TEST_EMAIL = os.getenv('E2E_TEST_EMAIL', '')
+TEST_PASSWORD = os.getenv('E2E_TEST_PASSWORD', '')
+pytestmark = pytest.mark.skipif(not os.getenv('E2E_BASE_URL'), reason='E2E_BASE_URL не задан — E2E-тесты пропущены. Установите E2E_BASE_URL для запуска.')
 
 async def _get_access_token(client: httpx.AsyncClient) -> str | None:
     """Логинится под тестовым пользователем, возвращает AT или None.
@@ -1284,7 +1570,7 @@ async def test_e2e_find_requires_auth():
 @pytest.mark.asyncio
 async def test_e2e_authenticated_find(monkeypatch):
     """GET /articles/find с токеном — авторизованный live-поиск через Scopus.
-Пропускается если TEST_EMAIL/TEST_PASSWORD не заданы."""
+Пропускается если E2E_TEST_EMAIL/E2E_TEST_PASSWORD не заданы."""
 
 ============================================================
 FILE: tests\integration\test_articles_api.py
@@ -1308,7 +1594,7 @@ FILE: tests\integration\test_articles_headers.py
 import pytest
 from httpx import AsyncClient
 from app.main import app
-from app.routers.articles import get_scopus_client
+from app.core.dependencies import get_scopus_client
 from app.services.search_service import SearchService
 from app.interfaces.search_client import ISearchClient
 
@@ -1356,10 +1642,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.article import Article
 from app.models.search_history import SearchHistory
-from app.main import app
-from app.routers.articles import get_scopus_client
-from app.interfaces.search_client import ISearchClient
-from app.services.search_service import SearchService
 
 @pytest.fixture
 def mock_scopus_two_articles(monkeypatch):
@@ -1399,14 +1681,13 @@ FILE: tests\integration\test_find_articles_postgres.py
   - ровно один свободный слот при 199 предзаполненных строках → один 200 и остальные 429;
   - разные user_id не блокируют друг друга.
 
-Skipped if DATABASE_TEST_URL не задан (см. tests/integration/conftest.py::pg_session).
+Skipped if DATABASE_TEST_URL не задан (см. tests/integration/conftest.py::pg_engine).
 """
 import asyncio
 import datetime
 from datetime import date, timezone, timedelta
 import pytest
 from httpx import AsyncClient, ASGITransport
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from app.core.dependencies import get_db_session
 from app.main import app
@@ -1421,7 +1702,11 @@ def _mock_scopus(monkeypatch):
 @pytest.mark.asyncio
 @pytest.mark.requires_pg
 async def test_single_slot_allows_exactly_one_success(pg_authenticated_client: AsyncClient, pg_session: AsyncSession, _mock_scopus):
-    """При 199 свежих строках → ровно 1 ответ 200 и остальные 429 на N-параллельных запросах."""
+    """При 199 свежих строках → ровно 1 ответ 200 и остальные 429 на N-параллельных запросах.
+
+После рефакторинга conftest pg_client выдаёт каждому HTTP-запросу
+собственную сессию, поэтому advisory-lock реально сериализует конкурентные
+проверки квоты. Ассерт точный: == 1 / == 4."""
 
 @pytest.mark.asyncio
 @pytest.mark.requires_pg
@@ -1429,12 +1714,21 @@ async def test_parallel_requests_near_quota_boundary(_mock_scopus, tmp_path):
     """Жёсткая конкурентная проверка: несколько одновременных подключений,
 каждое со своей сессией, бьют в /articles/find одного пользователя
 при 199 предзаполненных строках. Advisory-lock обеспечивает: ровно 1 x 200,
-остальные x 429."""
+остальные x 429.
+
+Тест намеренно создаёт собственный движок и не использует pg_engine
+из conftest — это обеспечивает полную изоляцию от других тестов и
+максимально реалистичную конкуренцию на уровне PG-соединений."""
 
 @pytest.mark.asyncio
 @pytest.mark.requires_pg
 async def test_different_users_do_not_share_lock(_mock_scopus, tmp_path):
-    """Разные user_id → разные advisory-lock ключи → не блокируют друг друга."""
+    """Разные user_id → разные advisory-lock ключи → не блокируют друг друга.
+
+Тест намеренно создаёт собственный движок: ему нужны два независимых
+AsyncClient с разными сессиями, никак не связанных с pg_authenticated_client
+из conftest. Использование pg_engine из conftest создало бы неявную связанность
+между тестами через teardown-порядок."""
 
 ============================================================
 FILE: tests\integration\test_rt_e2e.py
@@ -1603,49 +1897,145 @@ FILE: tests\unit\test_article_service.py
 from datetime import date
 from typing import List
 import pytest
-from app.models.article import Article
-from app.schemas.article_schemas import PaginatedArticleResponse
-from app.services.article_service import ArticleService
 from app.interfaces.article_repository import IArticleRepository
+from app.models.article import Article
+from app.schemas.article_schemas import ArticleResponse
+from app.services.article_service import ArticleService
+
+class FakeArticleRepository(IArticleRepository):
+    """Заглушка IArticleRepository — реализует только методы, существующие в интерфейсе."""
+
+    def __init__(self, articles: list[Article] | None=None):
+        pass
+
+    async def upsert_many(self, articles: List[Article]) -> List[Article]:
+        pass
+
+    async def get_by_id(self, article_id: int, user_id: int | None=None) -> Article | None:
+        pass
+
+def _mk_article(article_id: int, doi: str | None=None) -> Article:
+    pass
+
+@pytest.mark.asyncio
+async def test_get_by_id_found_returns_article_response():
+    pass
+
+@pytest.mark.asyncio
+async def test_get_by_id_not_found_returns_none():
+    pass
+
+@pytest.mark.asyncio
+async def test_get_by_id_passes_user_id_to_repo():
+    """Сервис должен передавать user_id в репозиторий (visibility check)."""
+
+@pytest.mark.asyncio
+async def test_get_by_id_without_user_id_passes_none():
+    """Вызов без user_id — в репозиторий передаётся None (без visibility check)."""
+
+@pytest.mark.asyncio
+async def test_get_by_id_found_maps_all_fields():
+    """model_validate корректно проецирует ORM-объект в ArticleResponse."""
+
+============================================================
+FILE: tests\unit\test_catalog_service.py
+============================================================
+from datetime import date
+from typing import List
+import pytest
+from typing import cast
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.interfaces.article_repository import IArticleRepository
+from app.interfaces.catalog_repository import ICatalogRepository
+from app.models.article import Article
+from app.schemas.article_schemas import PaginatedArticleResponse, StatsResponse
+from app.services.catalog_service import CatalogService
 
 class FakeArticleRepository(IArticleRepository):
 
     def __init__(self):
         pass
 
-    async def save_many(self, articles: List[Article]) -> None:
+    async def upsert_many(self, articles: List[Article]) -> List[Article]:
+        pass
+
+    async def get_by_id(self, article_id: int, user_id: int | None=None) -> Article | None:
+        pass
+
+class FakeCatalogRepository(ICatalogRepository):
+
+    def __init__(self, articles: List[Article] | None=None, total: int=0):
         pass
 
     async def get_all(self, limit: int, offset: int, keyword: str | None=None, search: str | None=None) -> List[Article]:
         pass
 
-    async def get_by_id(self, article_id: int) -> Article | None:
+    async def get_total_count(self, keyword: str | None=None, search: str | None=None) -> int:
         pass
 
-    async def get_total_count(self, keyword: str | None=None, search: str | None=None) -> int:
+    async def save_seeded(self, articles: List[Article], keyword: str) -> List[Article]:
         pass
 
     async def get_stats(self) -> dict:
         pass
 
-    async def get_search_stats(self, search: str) -> dict:
+class FakeSession:
+
+    def __init__(self):
         pass
 
-@pytest.fixture
-def article_service() -> tuple[ArticleService, FakeArticleRepository]:
+    async def commit(self) -> None:
+        pass
+
+def _mk_article(article_id: int) -> Article:
+    pass
+
+def _mk_service(articles: List[Article] | None=None, total: int=0) -> tuple[CatalogService, FakeArticleRepository, FakeCatalogRepository, FakeSession]:
     pass
 
 @pytest.mark.asyncio
-async def test_get_articles_paginated_page_1(article_service):
+async def test_get_catalog_paginated_page1_correct_limit_offset():
     pass
 
 @pytest.mark.asyncio
-async def test_get_articles_paginated_page_3(article_service):
+async def test_get_catalog_paginated_page3_partial():
     pass
 
 @pytest.mark.asyncio
-async def test_get_articles_paginated_negative_page(article_service):
+async def test_get_catalog_paginated_negative_page_clamped_to_1():
     pass
+
+@pytest.mark.asyncio
+async def test_get_catalog_paginated_passes_filters():
+    pass
+
+@pytest.mark.asyncio
+async def test_get_stats_returns_stats_response():
+    pass
+
+@pytest.mark.asyncio
+async def test_get_stats_maps_by_year_to_count_by_field():
+    pass
+
+@pytest.mark.asyncio
+async def test_get_stats_maps_top_keywords():
+    pass
+
+@pytest.mark.asyncio
+async def test_get_stats_delegates_to_catalog_repo():
+    pass
+
+@pytest.mark.asyncio
+async def test_seed_calls_upsert_then_save_seeded_then_commit():
+    """seed() должен: upsert_many → save_seeded → commit() — в таком порядке."""
+
+@pytest.mark.asyncio
+async def test_seed_passes_keyword_to_save_seeded():
+    pass
+
+@pytest.mark.asyncio
+async def test_seed_upsert_failure_skips_save_seeded_and_commit():
+    """Если upsert_many бросил — save_seeded и commit не вызываются."""
 
 ============================================================
 FILE: tests\unit\test_scopus_client.py
@@ -1723,9 +2113,12 @@ import datetime
 from datetime import date
 from typing import List
 import pytest
+from typing import cast
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.interfaces.article_repository import IArticleRepository
 from app.interfaces.search_client import ISearchClient
 from app.interfaces.search_history_repo import ISearchHistoryRepository
+from app.interfaces.search_result_repo import ISearchResultRepository
 from app.models.article import Article
 from app.models.search_history import SearchHistory
 from app.services.search_service import SearchService
@@ -1755,22 +2148,10 @@ class FakeArticleRepository(IArticleRepository):
     def __init__(self, raise_exc: Exception | None=None):
         pass
 
-    async def save_many(self, articles: List[Article]) -> List[Article]:
+    async def upsert_many(self, articles: List[Article]) -> List[Article]:
         pass
 
-    async def get_all(self, limit, offset, keyword=None, search=None):
-        pass
-
-    async def get_by_id(self, article_id):
-        pass
-
-    async def get_total_count(self, keyword=None, search=None):
-        pass
-
-    async def get_search_stats(self, search):
-        pass
-
-    async def get_stats(self):
+    async def get_by_id(self, article_id: int, user_id: int | None=None) -> Article | None:
         pass
 
 class FakeSearchHistoryRepository(ISearchHistoryRepository):
@@ -1781,37 +2162,51 @@ class FakeSearchHistoryRepository(ISearchHistoryRepository):
     async def insert_row(self, user_id: int, query: str, result_count: int, filters: dict | None=None) -> SearchHistory:
         pass
 
-    async def count_in_window(self, user_id, since):
+    async def count_in_window(self, user_id: int, since: datetime.datetime) -> int:
         pass
 
-    async def get_last_n(self, user_id, n=100):
+    async def get_last_n(self, user_id: int, n: int=100):
         pass
 
-    async def get_oldest_in_window_created_at(self, user_id, since):
+    async def get_oldest_in_window_created_at(self, user_id: int, since: datetime.datetime) -> datetime.datetime | None:
+        pass
+
+class FakeSearchResultRepository(ISearchResultRepository):
+
+    def __init__(self):
+        pass
+
+    async def save_results(self, search_history_id: int, articles: List[Article]) -> None:
+        pass
+
+    async def get_results_by_history_id(self, search_history_id: int, user_id: int) -> List[Article] | None:
+        pass
+
+    async def get_search_stats_for_user(self, user_id: int, search: str | None=None, since: datetime.datetime | None=None) -> dict:
+        pass
+
+class FakeSession:
+    """Минимальная заглушка AsyncSession — только commit()."""
+
+    def __init__(self):
+        pass
+
+    async def commit(self) -> None:
         pass
 
 def _mk_article(doi: str='10.test/1') -> Article:
     pass
 
-@pytest.mark.asyncio
-async def test_constructor_stores_history_repo():
+def _mk_service(articles: List[Article] | None=None, search_raise: Exception | None=None, upsert_raise: Exception | None=None) -> tuple[SearchService, FakeSearchClient, FakeArticleRepository, FakeSearchHistoryRepository, FakeSearchResultRepository, FakeSession]:
     pass
 
 @pytest.mark.asyncio
-async def test_find_and_save_success_calls_save_then_insert_row():
+async def test_constructor_stores_all_dependencies():
     pass
 
 @pytest.mark.asyncio
-async def test_find_and_save_empty_returns_and_does_not_insert_history():
-    pass
-
-@pytest.mark.asyncio
-async def test_find_and_save_search_exception_does_not_save_or_insert():
-    pass
-
-@pytest.mark.asyncio
-async def test_find_and_save_save_exception_does_not_insert_history():
-    pass
+async def test_find_and_save_success_full_pipeline():
+    """Успешный путь: search → upsert_many → insert_row → save_results → commit."""
 
 @pytest.mark.asyncio
 async def test_find_and_save_passes_count_to_search_client():
@@ -1820,6 +2215,18 @@ async def test_find_and_save_passes_count_to_search_client():
 @pytest.mark.asyncio
 async def test_find_and_save_filters_default_none_passed_through():
     pass
+
+@pytest.mark.asyncio
+async def test_find_and_save_empty_returns_empty_and_skips_pipeline():
+    """Если Scopus вернул 0 статей — никаких записей в БД, commit не вызван."""
+
+@pytest.mark.asyncio
+async def test_find_and_save_search_exception_skips_all_db_ops():
+    """Если Scopus упал — ничего в БД не пишем, commit не вызван."""
+
+@pytest.mark.asyncio
+async def test_find_and_save_upsert_exception_skips_history_and_results():
+    """Если upsert_many упал — история и search_results не пишутся, commit не вызван."""
 
 ============================================================
 FILE: tests\unit\test_user_service.py

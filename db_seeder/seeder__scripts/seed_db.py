@@ -1,3 +1,4 @@
+# db_seeder/seeder__scripts/seed_db.py
 import os
 import asyncio
 import httpx
@@ -9,35 +10,22 @@ from keyword_generator import generate_keywords
 init(autoreset=True)
 
 # ================== КОНСТАНТЫ ==================
-BASE_URL = "https://scopus-search-code.up.railway.app"
+# BASE_URL читается из окружения — фолбэк на production для обратной совместимости
+# При запуске сидера для staging передается через SEEDER_BASE_URL в seeder.yml
+BASE_URL = os.environ.get("SEEDER_BASE_URL", "https://scopus-search-code.up.railway.app")
 ARTICLES_PER_QUERY = 25  # Максимум статей за 1 запрос к Scopus
 DELAY_BETWEEN_REQUESTS = 2.0  # Секунд между запросами — защита от DDoS Railway и Scopus
 RATE_LIMIT_STOP_THRESHOLD = 500  # Остановиться, если Scopus осталось < 500 запросов
 KEYWORDS_TO_USE = 100  # Из 120 сгенерированных используем 100
 
 
-def _get_secrets() -> tuple[str, str, str]:
+def _get_secrets() -> tuple[str, str]:
     # Читаем секреты через os.environ[] — fail-fast: KeyError если переменная не задана
+    # SEEDER_EMAIL и SEEDER_PASSWORD удалены: JWT-логин заменен на статичный SEEDER_SECRET
     return (
         os.environ["DATABASE_URL"],
-        os.environ["SEEDER_EMAIL"],
-        os.environ["SEEDER_PASSWORD"],
+        os.environ["SEEDER_SECRET"],
     )
-
-
-async def _get_jwt_token(client: httpx.AsyncClient, email: str, password: str) -> str:
-    # Автологин через эндпоинт FastAPI — UserLoginRequest ждет JSON с полем email
-    response = await client.post(
-        f"{BASE_URL}/users/login",
-        json={"email": email, "password": password},
-    )
-    if response.status_code != 200:
-        raise RuntimeError(f"Автологин не удался: {response.status_code} {response.text}")
-    token = response.json().get("access_token")
-    if not token:
-        raise RuntimeError("В ответе /users/login нет поля access_token")
-    print(f"{Fore.GREEN}Токен получен успешно.")
-    return token
 
 
 async def _fetch_used_keywords(db_url: str) -> tuple[list[str], dict[str, str]]:
@@ -85,30 +73,29 @@ async def seed_database() -> None:
     print(f"BASE_URL: {BASE_URL}\n")
 
     # Читаем секреты через os.environ[] — KeyError = немедленный fail-fast
-    db_url, email, password = _get_secrets()
+    db_url, seeder_secret = _get_secrets()
     openrouter_key = os.environ["OPENROUTER_API_KEY"]
 
     async with httpx.AsyncClient(timeout=30.0) as client:
 
-        # Шаг 1: автологин и получение JWT-токена
-        token = await _get_jwt_token(client, email, password)
+        # Заголовки для вызова POST /seeder/seed — статичный секрет вместо JWT
+        # Секрет не истекает, блок повторного логина не нужен
+        headers = {
+            "X-Seeder-Secret": seeder_secret,
+            "Accept": "application/json",
+        }
 
-        # Шаг 2: загрузка истории использованных фраз из Supabase
+        # Шаг 1: загрузка истории использованных фраз из Supabase
         print(f"{Fore.CYAN}Читаем историю из Supabase...")
         used_keywords, _ = await _fetch_used_keywords(db_url)
         print(f"Сохранено фраз в базе: {len(used_keywords)}\n")
 
-        # Шаг 3: генерация 120 фраз через OpenRouter, берем 100 уникальных
+        # Шаг 2: генерация 120 фраз через OpenRouter, берем 100 уникальных
         print(f"{Fore.CYAN}Генерируем ключевые фразы через OpenRouter...")
         all_keywords, cluster = await generate_keywords(used_keywords, openrouter_key)
         keywords = all_keywords[:KEYWORDS_TO_USE]
         print(f"Кластер: {Fore.YELLOW}{cluster}{Style.RESET_ALL}")
         print(f"Фраз для обработки: {len(keywords)}\n")
-
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/json",
-        }
 
         for i, keyword in enumerate(keywords, 1):
             print(
@@ -117,36 +104,28 @@ async def seed_database() -> None:
             )
 
             try:
-                response = await client.get(
-                    f"{BASE_URL}/articles/find",
+                # POST /seeder/seed: Scopus-запрос и сохранение в catalog_articles
+                # выполняются атомарно внутри приложения через CatalogService.seed()
+                response = await client.post(
+                    f"{BASE_URL}/seeder/seed",
                     headers=headers,
                     params={"keyword": keyword, "count": ARTICLES_PER_QUERY},
                 )
-
-                # Токен протух — перелогиниваемся и повторяем запрос
-                if response.status_code == 401:
-                    print(f"{Fore.YELLOW}Токен протух, переполучаем...")
-                    token = await _get_jwt_token(client, email, password)
-                    headers["Authorization"] = f"Bearer {token}"
-                    response = await client.get(
-                        f"{BASE_URL}/articles/find",
-                        headers=headers,
-                        params={"keyword": keyword, "count": ARTICLES_PER_QUERY},
-                    )
 
                 if response.status_code != 200:
                     print(f"{Fore.RED}Ошибка {response.status_code}: {response.text[:100]}")
                     continue
 
+                # Ответ: {"keyword": "...", "saved": N, "rate_remaining": "..."}
                 data = response.json()
-                articles_found = len(data) if isinstance(data, list) else 0
-                print(f"{Fore.GREEN}Сохранено: {articles_found} шт.")
+                articles_found = data.get("saved", 0)
+                print(f"{Fore.GREEN}Сохранено в каталог: {articles_found} шт.")
 
-                # Проверяем остаток лимита Scopus из заголовков ответа
-                rate_remaining = response.headers.get("X-RateLimit-Remaining")
+                # rate_remaining теперь приходит в теле ответа (пробрасывается из ScopusHTTPClient)
+                rate_remaining = data.get("rate_remaining")
                 if rate_remaining is not None and int(rate_remaining) < RATE_LIMIT_STOP_THRESHOLD:
                     print(
-                        f"\n{Fore.RED}Aлерт! Остаток лимита Scopus: {rate_remaining} запросов. "
+                        f"\n{Fore.RED}Алерт! Остаток лимита Scopus: {rate_remaining} запросов. "
                         f"Останавливаемся."
                     )
                     await _save_keyword_result(db_url, keyword, cluster, articles_found)

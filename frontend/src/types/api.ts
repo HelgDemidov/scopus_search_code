@@ -127,6 +127,7 @@ export interface SearchHistoryItem {
   created_at: string;
   result_count: number;
   filters: Record<string, unknown>;
+  results_available: boolean;      // вычисляется бэкендом как result_count > 0
 }
 
 export interface QuotaResponse {
@@ -135,4 +136,18 @@ export interface QuotaResponse {
   remaining: number;
   reset_at: string;
   window_days?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Результаты конкретного поиска (GET /articles/history/{search_id}/results)
+// Поле search_id — намеренное переименование от ТЗ-имени search_history_id;
+// принято командой как окончательное имя контракта (коммит 4ea6488)
+// ---------------------------------------------------------------------------
+
+export interface SearchResultsResponse {
+  search_id: number;               // соответствует search_id в URL /history/{search_id}/results
+  query: string;                   // исходный поисковый запрос
+  created_at: string;              // ISO 8601 datetime поиска
+  articles: ArticleResponse[];
+  total: number;
 }

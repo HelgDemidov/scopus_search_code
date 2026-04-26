@@ -11,6 +11,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.config import settings
 from app.routers import articles, users, health
 from app.routers import auth
+from app.routers.seeder_router import router as seeder_router
 
 
 @asynccontextmanager
@@ -63,7 +64,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(articles.router)
 app.include_router(health.router)
-
+app.include_router(seeder_router)
 
 @app.get("/", tags=["Health"])
 async def root() -> dict[str, str]:

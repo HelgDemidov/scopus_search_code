@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv(override=False)
+
 from typing import AsyncGenerator
 
 import pytest_asyncio
