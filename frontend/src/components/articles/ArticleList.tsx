@@ -2,6 +2,7 @@ import { useRef, useEffect } from 'react';
 import { Skeleton } from '../ui/skeleton';
 import { ArticleCard } from './ArticleCard';
 import { PaginationBar } from './PaginationBar';
+import type { PageSize } from './PaginationBar';
 import type { ArticleResponse } from '../../types/api';
 
 interface ArticleListProps {
@@ -12,7 +13,7 @@ interface ArticleListProps {
   onSortChange: (sort: 'date' | 'citations') => void;
   // Новые props пагинации — все обязательны (controlled component, нет разумных defaults)
   page: number;
-  size: number;
+  size: PageSize;
   total: number;
   appendMode: boolean;
   onPageChange: (p: number) => void;
@@ -133,7 +134,7 @@ export function ArticleList({
       {/* Пагинация: PaginationBar (numbered) или sentinel (append/infinite scroll) */}
       {!isLoading && articles.length > 0 && (
         appendMode
-          ? <div ref={sentinelRef} className="h-6" aria-hidden="true" />
+          ? <div ref={sentinelRef} className="h-6" aria-hidden="true" data-testid="sentinel" />
           : <PaginationBar
               page={page}
               size={size}
