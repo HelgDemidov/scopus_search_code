@@ -9,6 +9,7 @@ import { ArticleList } from '../components/articles/ArticleList';
 import { ScopusQuotaBadge } from '../components/articles/ScopusQuotaBadge';
 import { SearchResultsDashboard } from '../components/search/SearchResultsDashboard';
 import { Skeleton } from '../components/ui/skeleton';
+import type { PageSize } from '../components/articles/PaginationBar';
 import type { ArticleResponse, SearchStatsResponse } from '../types/api';
 
 // Клиентская сортировка по цитированиям (Сортед within current page — §4.1)
@@ -113,7 +114,7 @@ export default function HomePage() {
 
   // Смена размера страницы: setSize сбрасывает page=1 автоматически (Шаг 1)
   const handleSizeChange = useCallback(
-    (s: number) => {
+    (s: PageSize) => {
       setSize(s);
       fetchArticles();
     },

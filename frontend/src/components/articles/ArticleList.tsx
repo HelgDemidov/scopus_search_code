@@ -17,7 +17,7 @@ interface ArticleListProps {
   total: number;
   appendMode: boolean;
   onPageChange: (p: number) => void;
-  onSizeChange: (s: number) => void;
+  onSizeChange: (s: PageSize) => void;
   onToggleMode: () => void;
 }
 
