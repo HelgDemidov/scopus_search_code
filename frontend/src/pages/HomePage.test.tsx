@@ -74,11 +74,15 @@ function makeArticleState(overrides: Record<string, unknown> = {}) {
   };
 }
 
-// Мок useArticleStore — при каждом тесте создаём новый стейт
+// Мок useArticleStore — при каждом тесте создаём новый стейт.
+// selector опционален: HomePage вызывает useArticleStore() без аргумента
+// (деструктурирует весь стор), поэтому при selector === undefined возвращаем
+// весь articleState, иначе — selector(articleState).
+// Это точно воспроизводит поведение реального Zustand-хука.
 let articleState = makeArticleState();
 vi.mock('../stores/articleStore', () => ({
-  useArticleStore: (selector: (s: ReturnType<typeof makeArticleState>) => unknown) =>
-    selector(articleState),
+  useArticleStore: (selector?: (s: ReturnType<typeof makeArticleState>) => unknown) =>
+    selector ? selector(articleState) : articleState,
 }));
 
 // Мок useAuthStore — переключается через authState
