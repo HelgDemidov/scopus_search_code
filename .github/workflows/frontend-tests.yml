@@ -1,10 +1,11 @@
-name: Frontend tests — pagination
+name: Frontend tests
 
-# Запускается при каждом push в ветку anonymous-pagination
+# Запускается при каждом push в ветки anonymous-pagination и main
 on:
   push:
     branches:
       - anonymous-pagination
+      - main
     # Запускаем только когда меняется frontend или сам воркфлоу
     paths:
       - 'frontend/**'
