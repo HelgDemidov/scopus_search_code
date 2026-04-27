@@ -1,4 +1,5 @@
 import { render, screen, act } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import { vi, beforeEach, describe, it, expect } from 'vitest';
 import { ArticleList } from './ArticleList';
@@ -56,31 +57,37 @@ function makePage(count: number, startId = 1): ArticleResponse[] {
 }
 
 // ---------------------------------------------------------------------------
+// renderList — обёртка render с обязательным MemoryRouter.
+// ArticleCard рендерится реальным (интеграция!) и использует <Link to="/article/:id">.
+// Без Router-контекста react-router бросает TypeError при деструктуризации basename.
+// ---------------------------------------------------------------------------
+
+function renderList(ui: React.ReactElement) {
+  return render(<MemoryRouter>{ui}</MemoryRouter>);
+}
+
+// ---------------------------------------------------------------------------
 // makePropsFromStore — читает актуальный стейт стора и возвращает props
 // для ArticleList; sortBy фиксирован (локальный useState в HomePage)
 // ---------------------------------------------------------------------------
 
 function makePropsFromStore() {
   const s = useArticleStore.getState();
-  return {
-    articles: s.articles,
-    isLoading: s.isLoading,
-    sortBy: 'date' as const,
-    onSortChange: vi.fn(),
-    page: s.page,
-    size: s.size,
-    total: s.total,
-    appendMode: s.appendMode,
-    onPageChange: (p: number) => {
-      s.setPage(p);
-      void s.fetchArticles();
-    },
-    onSizeChange: (sz: PageSize) => {
-      s.setSize(sz);
-      void s.fetchArticles();
-    },
-    onToggleMode: () => s.setAppendMode(!s.appendMode),
-  };
+  return (
+    <ArticleList
+      articles={s.articles}
+      isLoading={s.isLoading}
+      sortBy="date"
+      onSortChange={vi.fn()}
+      page={s.page}
+      size={s.size}
+      total={s.total}
+      appendMode={s.appendMode}
+      onPageChange={(p: number) => { s.setPage(p); void s.fetchArticles(); }}
+      onSizeChange={(sz: PageSize) => { s.setSize(sz); void s.fetchArticles(); }}
+      onToggleMode={() => s.setAppendMode(!s.appendMode)}
+    />
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -127,23 +134,19 @@ function triggerIntersection(isIntersecting: boolean) {
 describe('Integration — numbered pagination', () => {
 
   it('1. total=35, size=10 → PaginationBar показывает кнопки страниц 1–4', async () => {
-    // Настраиваем мок: 10 статей, total=35 → 4 страницы
     vi.mocked(getArticles).mockResolvedValue({
       articles: makePage(10),
       total: 35,
     } satisfies PaginatedArticleResponse);
 
-    // Выполняем первую загрузку
     await act(async () => {
       await useArticleStore.getState().fetchArticles();
     });
 
-    render(<ArticleList {...makePropsFromStore()} />);
+    renderList(makePropsFromStore());
 
-    // PaginationBar должен рендерить кнопки 1, 2, 3, 4
     expect(screen.getByRole('button', { name: '1' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '4' })).toBeInTheDocument();
-    // Кнопки 5+ отсутствуют
     expect(screen.queryByRole('button', { name: '5' })).toBeNull();
   });
 
@@ -157,12 +160,10 @@ describe('Integration — numbered pagination', () => {
       await useArticleStore.getState().fetchArticles();
     });
 
-    render(<ArticleList {...makePropsFromStore()} />);
+    renderList(makePropsFromStore());
 
-    // Клик по кнопке страницы 2
     await userEvent.click(screen.getByRole('button', { name: '2' }));
 
-    // Проверяем последний вызов getArticles
     expect(vi.mocked(getArticles)).toHaveBeenLastCalledWith(
       expect.objectContaining({ page: 2, size: 10 }),
     );
@@ -178,13 +179,11 @@ describe('Integration — numbered pagination', () => {
       await useArticleStore.getState().fetchArticles();
     });
 
-    render(<ArticleList {...makePropsFromStore()} />);
+    renderList(makePropsFromStore());
 
-    // PaginationBar содержит <select> (combobox) для выбора размера страницы
     const select = screen.getByRole('combobox');
     await userEvent.selectOptions(select, '25');
 
-    // setSize сбрасывает page → 1; затем fetchArticles идёт с size=25
     expect(vi.mocked(getArticles)).toHaveBeenLastCalledWith(
       expect.objectContaining({ page: 1, size: 25 }),
     );
@@ -197,8 +196,7 @@ describe('Integration — numbered pagination', () => {
 
 describe('Integration — infinite scroll / append mode', () => {
 
-  it('4. appendMode=true, total=20 → sentinel рендерится, PaginationBar отсутствует', async () => {
-    // Устанавливаем appendMode и одну страницу статей напрямую в стор
+  it('4. appendMode=true, total=20 → sentinel рендерится, PaginationBar отсутствует', () => {
     useArticleStore.setState({
       appendMode: true,
       articles: makePage(10),
@@ -207,14 +205,13 @@ describe('Integration — infinite scroll / append mode', () => {
       size: 10,
     });
 
-    render(<ArticleList {...makePropsFromStore()} />);
+    renderList(makePropsFromStore());
 
     expect(screen.getByTestId('sentinel')).toBeInTheDocument();
     expect(screen.queryByTestId('pagination-bar')).toBeNull();
   });
 
   it('5. Sentinel входит в viewport → getArticles вызван с { page: 2 }, статьи накапливаются', async () => {
-    // Страница 1 уже загружена
     const page1 = makePage(10, 1);
     const page2 = makePage(10, 11);
 
@@ -226,29 +223,23 @@ describe('Integration — infinite scroll / append mode', () => {
       size: 10,
     });
 
-    // Следующий вызов getArticles вернёт страницу 2
     vi.mocked(getArticles).mockResolvedValue({ articles: page2, total: 20 });
 
-    render(<ArticleList {...makePropsFromStore()} />);
+    renderList(makePropsFromStore());
 
-    // Имитируем попадание sentinel в viewport (IO trigger)
     await act(async () => {
       triggerIntersection(true);
-      // Даём промисам раскрутиться
       await Promise.resolve();
     });
 
-    // getArticles должен получить page: 2
     expect(vi.mocked(getArticles)).toHaveBeenLastCalledWith(
       expect.objectContaining({ page: 2 }),
     );
 
-    // После append стор содержит 20 статей (10 + 10)
     expect(useArticleStore.getState().articles).toHaveLength(20);
   });
 
   it('6. Последняя страница достигнута → IO trigger → getArticles не вызван повторно', () => {
-    // page=2, total=20, size=10 → totalPages=2 → page === totalPages → нет запроса
     useArticleStore.setState({
       appendMode: true,
       articles: makePage(10, 11),
@@ -257,12 +248,10 @@ describe('Integration — infinite scroll / append mode', () => {
       size: 10,
     });
 
-    render(<ArticleList {...makePropsFromStore()} />);
+    renderList(makePropsFromStore());
 
-    // IO trigger при достигнутой последней странице
     triggerIntersection(true);
 
-    // getArticles не должен быть вызван
     expect(vi.mocked(getArticles)).toHaveBeenCalledTimes(0);
   });
 });
@@ -282,27 +271,26 @@ describe('Integration — toggle pagination mode', () => {
       size: 10,
     });
 
-    const { rerender } = render(<ArticleList {...makePropsFromStore()} />);
+    const { rerender } = renderList(makePropsFromStore());
 
-    // В исходном состоянии — PaginationBar, нет sentinel
     expect(screen.queryByTestId('pagination-bar')).toBeInTheDocument();
     expect(screen.queryByTestId('sentinel')).toBeNull();
 
-    // Кликаем «Scroll» — вызывается setAppendMode(true)
     await userEvent.click(screen.getByRole('button', { name: 'Scroll' }));
 
-    // Перерендериваем с обновлёнными props из стора
-    rerender(<ArticleList {...makePropsFromStore()} />);
+    // rerender сохраняет существующий MemoryRouter-контекст
+    rerender(
+      <MemoryRouter>
+        {makePropsFromStore()}
+      </MemoryRouter>,
+    );
 
     expect(screen.getByTestId('sentinel')).toBeInTheDocument();
     expect(screen.queryByTestId('pagination-bar')).toBeNull();
-
-    // getArticles НЕ должен вызываться при смене режима
     expect(vi.mocked(getArticles)).not.toHaveBeenCalled();
   });
 
   it('8. appendMode=true → клик «Pages» → стор: appendMode=false, articles не сбрасываются fetchArticles не вызывается', async () => {
-    // 20 накопленных статей, page=2
     useArticleStore.setState({
       appendMode: true,
       articles: makePage(20),
@@ -311,18 +299,17 @@ describe('Integration — toggle pagination mode', () => {
       size: 10,
     });
 
-    const { rerender } = render(<ArticleList {...makePropsFromStore()} />);
+    const { rerender } = renderList(makePropsFromStore());
 
-    // Кликаем «Pages» — setAppendMode(false)
     await userEvent.click(screen.getByRole('button', { name: 'Pages' }));
 
-    rerender(<ArticleList {...makePropsFromStore()} />);
+    rerender(
+      <MemoryRouter>
+        {makePropsFromStore()}
+      </MemoryRouter>,
+    );
 
-    // Стор: режим сменился на numbered pagination
     expect(useArticleStore.getState().appendMode).toBe(false);
-
-    // handleToggleMode вызывает только setAppendMode — без fetchArticles
-    // Это корректное поведение (подтверждено в плане, п. 8)
     expect(vi.mocked(getArticles)).not.toHaveBeenCalled();
   });
 });
