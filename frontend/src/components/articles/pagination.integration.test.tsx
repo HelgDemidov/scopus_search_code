@@ -67,7 +67,7 @@ function renderList(ui: React.ReactElement) {
 }
 
 // ---------------------------------------------------------------------------
-// makePropsFromStore — читает актуальный стейт стора и возвращает props
+// makePropsFromStore — читает актуальный стейт стора и возвращает JSX
 // для ArticleList; sortBy фиксирован (локальный useState в HomePage)
 // ---------------------------------------------------------------------------
 
@@ -88,6 +88,16 @@ function makePropsFromStore() {
       onToggleMode={() => s.setAppendMode(!s.appendMode)}
     />
   );
+}
+
+// ---------------------------------------------------------------------------
+// Хелперы для проверки наличия/отсутствия блоков пагинации
+// PaginationBar рендерится как <nav aria-label="Навигация по страницам"> —
+// data-testid="pagination-bar" в реальном компоненте отсутствует.
+// ---------------------------------------------------------------------------
+
+function queryPaginationNav() {
+  return screen.queryByRole('navigation', { name: 'Навигация по страницам' });
 }
 
 // ---------------------------------------------------------------------------
@@ -181,9 +191,11 @@ describe('Integration — numbered pagination', () => {
 
     renderList(makePropsFromStore());
 
-    const select = screen.getByRole('combobox');
-    await userEvent.selectOptions(select, '25');
+    // PaginationBar использует кнопки-сегменты (10 / 25 / 50), а не <select>.
+    // Кликаем по кнопке «25» в группе «Строк на странице»
+    await userEvent.click(screen.getByRole('button', { name: '25' }));
 
+    // setSize сбрасывает page → 1; затем fetchArticles идёт с size=25
     expect(vi.mocked(getArticles)).toHaveBeenLastCalledWith(
       expect.objectContaining({ page: 1, size: 25 }),
     );
@@ -208,7 +220,7 @@ describe('Integration — infinite scroll / append mode', () => {
     renderList(makePropsFromStore());
 
     expect(screen.getByTestId('sentinel')).toBeInTheDocument();
-    expect(screen.queryByTestId('pagination-bar')).toBeNull();
+    expect(queryPaginationNav()).toBeNull();
   });
 
   it('5. Sentinel входит в viewport → getArticles вызван с { page: 2 }, статьи накапливаются', async () => {
@@ -273,9 +285,11 @@ describe('Integration — toggle pagination mode', () => {
 
     const { rerender } = renderList(makePropsFromStore());
 
-    expect(screen.queryByTestId('pagination-bar')).toBeInTheDocument();
+    // Проверяем начальное состояние: nav-пагинация есть, sentinel отсутствует
+    expect(queryPaginationNav()).toBeInTheDocument();
     expect(screen.queryByTestId('sentinel')).toBeNull();
 
+    // Кликаем «Scroll» — вызывается setAppendMode(true)
     await userEvent.click(screen.getByRole('button', { name: 'Scroll' }));
 
     // rerender сохраняет существующий MemoryRouter-контекст
@@ -285,8 +299,11 @@ describe('Integration — toggle pagination mode', () => {
       </MemoryRouter>,
     );
 
+    // После смены режима: sentinel появился, nav-пагинация исчезла
     expect(screen.getByTestId('sentinel')).toBeInTheDocument();
-    expect(screen.queryByTestId('pagination-bar')).toBeNull();
+    expect(queryPaginationNav()).toBeNull();
+
+    // getArticles НЕ должен вызываться при смене режима
     expect(vi.mocked(getArticles)).not.toHaveBeenCalled();
   });
 
@@ -301,6 +318,7 @@ describe('Integration — toggle pagination mode', () => {
 
     const { rerender } = renderList(makePropsFromStore());
 
+    // Кликаем «Pages» — setAppendMode(false)
     await userEvent.click(screen.getByRole('button', { name: 'Pages' }));
 
     rerender(
@@ -309,7 +327,10 @@ describe('Integration — toggle pagination mode', () => {
       </MemoryRouter>,
     );
 
+    // Стор: режим сменился на numbered pagination
     expect(useArticleStore.getState().appendMode).toBe(false);
+
+    // handleToggleMode вызывает только setAppendMode — без fetchArticles
     expect(vi.mocked(getArticles)).not.toHaveBeenCalled();
   });
 });
