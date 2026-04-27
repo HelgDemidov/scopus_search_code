@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuthStore } from '../stores/authStore';
@@ -9,6 +9,7 @@ import { ArticleList } from '../components/articles/ArticleList';
 import { ScopusQuotaBadge } from '../components/articles/ScopusQuotaBadge';
 import { SearchResultsDashboard } from '../components/search/SearchResultsDashboard';
 import { Skeleton } from '../components/ui/skeleton';
+import type { PageSize } from '../components/articles/PaginationBar';
 import type { ArticleResponse, SearchStatsResponse } from '../types/api';
 
 // Клиентская сортировка по цитированиям (Сортед within current page — §4.1)
@@ -43,7 +44,7 @@ function AnonHero({ onSearch }: { onSearch: (q: string) => void }) {
       </div>
       <p className="text-xs text-slate-500 dark:text-slate-400 text-center max-w-md">
         Поиск без авторизации осуществляется по статьям тематической коллекции
-        «Artificial Intelligence and Neural Network Technologies».
+        «Артифициальный интеллект и технологии нейронных сетей».
         Для поиска по глобальной базе Scopus пройдите{' '}
         <Link to="/auth" className="text-blue-800 dark:text-blue-400 hover:underline">
           авторизацию
@@ -63,8 +64,16 @@ export default function HomePage() {
     isLiveSearching,
     error,
     filters,
+    // Новые поля стора для пагинации (Шаг 4)
+    page,
+    size,
+    total,
+    appendMode,
     setFilters,
     fetchArticles,
+    setPage,
+    setSize,
+    setAppendMode,
     searchScopusLive,
   } = useArticleStore();
   const [sortBy, setSortBy] = useState<'date' | 'citations'>('date');
@@ -93,6 +102,30 @@ export default function HomePage() {
     [displayArticles, sortBy],
   );
 
+  // Перелистывание страницы: setPage + fetchArticles явно;
+  // useCallback стабилизирует ссылку для dep-array IntersectionObserver в ArticleList
+  const handlePageChange = useCallback(
+    (p: number) => {
+      setPage(p);
+      fetchArticles();
+    },
+    [setPage, fetchArticles],
+  );
+
+  // Смена размера страницы: setSize сбрасывает page=1 автоматически (Шаг 1)
+  const handleSizeChange = useCallback(
+    (s: PageSize) => {
+      setSize(s);
+      fetchArticles();
+    },
+    [setSize, fetchArticles],
+  );
+
+  // Переключатель режима: setAppendMode сбрасывает page=1 и articles=[] (Шаг 1)
+  const handleToggleMode = useCallback(() => {
+    setAppendMode(!appendMode);
+  }, [setAppendMode, appendMode]);
+
   async function handleSearch(query: string) {
     setHasSearched(true);
 
@@ -110,6 +143,7 @@ export default function HomePage() {
         setIsStatsLoading(false);
       }
     } else {
+      // setFilters сбрасывает page=1 и articles=[] автоматически (Шаг 1)
       setFilters({ search: query, keyword: undefined });
       fetchArticles();
     }
@@ -122,11 +156,19 @@ export default function HomePage() {
           <AnonHero onSearch={handleSearch} />
           {hasSearched && (
             <div className="mx-auto w-full max-w-screen-lg px-4 pb-12">
+              {/* Анонимный режим: полный wire-up пагинации */}
               <ArticleList
                 articles={sortedArticles}
                 isLoading={isLoading}
                 sortBy={sortBy}
                 onSortChange={setSortBy}
+                page={page}
+                size={size}
+                total={total}
+                appendMode={appendMode}
+                onPageChange={handlePageChange}
+                onSizeChange={handleSizeChange}
+                onToggleMode={handleToggleMode}
               />
             </div>
           )}
@@ -146,11 +188,19 @@ export default function HomePage() {
 
           <div className="flex gap-6 items-start">
             <div className="flex-1 min-w-0 flex flex-col gap-4">
+              {/* Авторизованный режим: нейтральные заглушки — live-результаты max 25 шт., пагинация не нужна */}
               <ArticleList
                 articles={sortedArticles}
                 isLoading={isLiveSearching}
                 sortBy={sortBy}
                 onSortChange={setSortBy}
+                page={1}
+                size={25}
+                total={liveResults.length}
+                appendMode={false}
+                onPageChange={() => {}}
+                onSizeChange={() => {}}
+                onToggleMode={() => {}}
               />
             </div>
           </div>

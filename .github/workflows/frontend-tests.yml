@@ -1,0 +1,109 @@
+name: Frontend tests
+
+# Запускается при каждом push в ветки anonymous-pagination и main
+on:
+  push:
+    branches:
+      - anonymous-pagination
+      - main
+    # Запускаем только когда меняется frontend или сам воркфлоу
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-tests.yml'
+
+# Node.js 24 обязателен для actions/setup-node@v4 начиная с 02.06.2026
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1: 56 unit-тестов
+  # Запускает все *.test.{ts,tsx} кроме интеграционного файла
+  # ---------------------------------------------------------------------------
+  unit:
+    name: Unit tests (56)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Исключаем интеграционный файл через glob-паттерн:
+      # vitest принимает positional-аргументы как include-паттерны
+      - name: Run unit tests
+        run: |
+          npx vitest run \
+            --reporter=verbose \
+            --exclude 'src/**/*.integration.test.*' \
+            src/**/*.test.ts \
+            src/**/*.test.tsx
+
+  # ---------------------------------------------------------------------------
+  # Job 2: 8 интеграционных тестов
+  # Запускает строго один файл pagination.integration.test.tsx
+  # ---------------------------------------------------------------------------
+  integration:
+    name: Integration tests — pagination (8)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Запускаем только интеграционный файл с покрытием для целевых модулей
+      - name: Run integration tests
+        run: |
+          npx vitest run \
+            --reporter=verbose \
+            src/components/articles/pagination.integration.test.tsx
+
+      # Покрытие — отдельный шаг, чтобы не прерывать run при threshold-failures
+      - name: Collect coverage for pagination modules
+        run: |
+          npx vitest run \
+            --coverage \
+            src/components/articles/pagination.integration.test.tsx
+
+      # Публикуем coverage summary в GitHub Actions Job Summary
+      - name: Post coverage summary
+        if: always()
+        run: |
+          echo '## Coverage — pagination modules' >> $GITHUB_STEP_SUMMARY
+          cat coverage/coverage-summary.json \
+            | npx --yes json -e '
+              const r = this.total;
+              console.log(`| Module | Stmts | Branch | Funcs | Lines |`);
+              console.log(`|---|---|---|---|---|`);
+              Object.entries(this).filter(([k])=>k!="total").forEach(([f,v])=>{
+                const s=(x)=>x.pct+"%";
+                console.log(`| ${f.split("/").slice(-1)[0]} | ${s(v.statements)} | ${s(v.branches)} | ${s(v.functions)} | ${s(v.lines)} |`);
+              });
+            ' >> $GITHUB_STEP_SUMMARY || true

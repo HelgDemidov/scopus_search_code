@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { getArticles, findArticles } from '../api/articles';
+import type { PageSize } from '../components/articles/PaginationBar';
 import type { ArticleResponse, ArticleFilters, ArticleClientFilters } from '../types/api';
 
 // Интерфейс стора статей — §4.1
@@ -11,9 +12,12 @@ interface ArticleStore {
 
   // Параметры запроса к GET /articles/
   page: number;
-  size: number;
+  size: PageSize;   // 10 | 25 | 50 — совпадает с PaginationBar.SIZE_OPTIONS
   filters: ArticleFilters;
   sortBy: 'date' | 'citations';
+
+  // Режим накопления страниц (true = append, false = replace)
+  appendMode: boolean;
 
   // Live-поиск через Scopus API (только для авторизованных)
   liveResults: ArticleResponse[];
@@ -28,6 +32,8 @@ interface ArticleStore {
   fetchArticles: (keyword?: string) => Promise<void>;
   setFilters: (filters: Partial<ArticleFilters>) => void;
   setPage: (page: number) => void;
+  setSize: (size: PageSize) => void;
+  setAppendMode: (mode: boolean) => void;
   setSortBy: (sortBy: 'date' | 'citations') => void;
   searchScopusLive: (keyword: string) => Promise<void>;
 }
@@ -74,9 +80,10 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
   articles: [],
   total: 0,
   page: 1,
-  size: 10,
+  size: 10,   // PageSize — минимальный вариант из SIZE_OPTIONS
   filters: {},
   sortBy: 'date',
+  appendMode: false,
   liveResults: [],
   scopusQuota: null,
   isLoading: false,
@@ -89,6 +96,7 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
   // keyword из аргумента имеет приоритет над filters.keyword: вызывающий код
   // передаёт его явно сразу после setFilters, не дожидаясь обновления стейта
   fetchArticles: async (keyword?: string) => {
+    // Снепшот №1 — параметры запроса (до await, пока page/size/filters актуальны)
     const { page, size, filters } = get();
     const effectiveKeyword = keyword !== undefined ? keyword : filters.keyword;
     set({ isLoading: true, error: null });
@@ -111,23 +119,37 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
               (a, b) => (b.cited_by_count ?? 0) - (a.cited_by_count ?? 0),
             )
           : filtered;
-      set({ articles: sorted, total: data.total, isLoading: false });
+      // Снепшот №2 — читаем appendMode и prev ПОСЛЕ await, чтобы не поймать
+      // устаревший стейт из замыкания (пользователь мог сменить страницу)
+      const { appendMode, articles: prev, page: currentPage } = get();
+      set({
+        articles: appendMode && currentPage > 1 ? [...prev, ...sorted] : sorted,
+        total: data.total,
+        isLoading: false,
+      });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load articles';
       set({ error: message, isLoading: false });
     }
   },
 
-  // Обновляем серверные фильтры и сбрасываем на первую страницу
+  // Обновляем серверные фильтры, сбрасываем на первую страницу и очищаем список
   setFilters: (newFilters: Partial<ArticleFilters>) => {
     set((state) => ({
       filters: { ...state.filters, ...newFilters },
       page: 1,
+      articles: [],  // сброс списка при смене фильтра — критично для appendMode
     }));
   },
 
   // Обновляем текущую страницу
   setPage: (page: number) => set({ page }),
+
+  // Меняем размер страницы — сбрасываем на первую и очищаем список
+  setSize: (size: PageSize) => set({ size, page: 1, articles: [] }),
+
+  // Включаем/выключаем режим накопления страниц
+  setAppendMode: (mode: boolean) => set({ appendMode: mode }),
 
   // Переключаем сортировку и немедленно пересортируем текущий список
   setSortBy: (sortBy: 'date' | 'citations') => {

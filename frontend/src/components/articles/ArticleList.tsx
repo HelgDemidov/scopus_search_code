@@ -1,12 +1,24 @@
+import { useRef, useEffect } from 'react';
 import { Skeleton } from '../ui/skeleton';
 import { ArticleCard } from './ArticleCard';
+import { PaginationBar } from './PaginationBar';
+import type { PageSize } from './PaginationBar';
 import type { ArticleResponse } from '../../types/api';
 
 interface ArticleListProps {
+  // Существующие props — без изменений
   articles: ArticleResponse[];
   isLoading: boolean;
   sortBy: 'date' | 'citations';
   onSortChange: (sort: 'date' | 'citations') => void;
+  // Новые props пагинации — все обязательны (controlled component, нет разумных defaults)
+  page: number;
+  size: PageSize;
+  total: number;
+  appendMode: boolean;
+  onPageChange: (p: number) => void;
+  onSizeChange: (s: PageSize) => void;
+  onToggleMode: () => void;
 }
 
 // Скелетон-карточка: повторяет структуру ArticleCard
@@ -28,21 +40,61 @@ export function ArticleList({
   isLoading,
   sortBy,
   onSortChange,
+  page,
+  size,
+  total,
+  appendMode,
+  onPageChange,
+  onSizeChange,
+  onToggleMode,
 }: ArticleListProps) {
+  // Sentinel-элемент для IntersectionObserver в режиме infinite scroll
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // Observer активен только в appendMode; отключается в cleanup при смене deps
+  useEffect(() => {
+    if (!appendMode) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting || isLoading) return;
+        const totalPages = Math.ceil(total / size);
+        if (page < totalPages) onPageChange(page + 1);
+      },
+      { threshold: 0.1 },
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [appendMode, isLoading, page, total, size, onPageChange]);
+
   return (
     <div className="flex flex-col gap-3">
       {/* Строка сортировки */}
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          {/* Подсказка client-side сортировки по §4.1 */}
-          {sortBy === 'citations' && (
-            <span className="text-amber-600 dark:text-amber-400">
-              Sorted within current page
-            </span>
+        {/* Счётчик статей и переключатель режима пагинации */}
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {total > 0 ? `${total.toLocaleString('ru-RU')} articles` : ''}
+            {sortBy === 'citations' && (
+              <span className="text-amber-600 dark:text-amber-400 ml-1">
+                · sorted within page
+              </span>
+            )}
+          </p>
+          {total > 0 && (
+            <button
+              onClick={onToggleMode}
+              className="text-xs text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300 underline-offset-2 hover:underline transition-colors"
+            >
+              {appendMode ? 'Pages' : 'Scroll'}
+            </button>
           )}
-        </p>
+        </div>
 
-        {/* Переключатель сортировки */}
+        {/* Переключатель сортировки — без изменений */}
         <div className="flex items-center gap-1 text-xs">
           <button
             onClick={() => onSortChange('date')}
@@ -67,7 +119,7 @@ export function ArticleList({
         </div>
       </div>
 
-      {/* Сетка grid-cols-2 по §7.2.6 */}
+      {/* Сетка grid-cols-2 по §7.2.6 — без изменений */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {isLoading
           ? // Скелетон-заглушки: 6 карточек
@@ -79,7 +131,20 @@ export function ArticleList({
           : null}
       </div>
 
-      {/* Empty state: нет статей и не загрузка */}
+      {/* Пагинация: PaginationBar (numbered) или sentinel (append/infinite scroll) */}
+      {!isLoading && articles.length > 0 && (
+        appendMode
+          ? <div ref={sentinelRef} className="h-6" aria-hidden="true" data-testid="sentinel" />
+          : <PaginationBar
+              page={page}
+              size={size}
+              total={total}
+              onPageChange={onPageChange}
+              onSizeChange={onSizeChange}
+            />
+      )}
+
+      {/* Empty state: нет статей и не загрузка — без изменений */}
       {!isLoading && articles.length === 0 && (
         <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
           {/* Пиктограмма пустого состояния */}
