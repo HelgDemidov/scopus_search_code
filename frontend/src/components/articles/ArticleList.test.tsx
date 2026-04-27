@@ -1,7 +1,8 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi, beforeEach, describe, it, expect } from 'vitest';
 import { ArticleList } from './ArticleList';
+import type { ArticleListProps } from './ArticleList';
 import type { ArticleResponse } from '../../types/api';
 
 // ---------------------------------------------------------------------------
@@ -28,7 +29,7 @@ vi.mock('./ArticleCard', () => ({
 // Вспомогательные фабрики
 // ---------------------------------------------------------------------------
 
-// Фабрика статьи с минимальными полями ArticleResponse
+// Фабрика статьи — только поля, реально существующие в ArticleResponse
 function makeArticle(id: number): ArticleResponse {
   return {
     id,
@@ -36,23 +37,18 @@ function makeArticle(id: number): ArticleResponse {
     author: null,
     publication_date: '2024-01-01',
     cited_by_count: 0,
-    scopus_id: null,
     doi: `doi-${id}`,
-    abstract: null,
     journal: null,
-    volume: null,
-    issue: null,
-    pages: null,
     document_type: null,
     open_access: false,
     affiliation_country: null,
-    keyword: null,
-    source_url: null,
-  } as ArticleResponse;
+    keyword: 'seeder_migration', // тип string; единственное реальное значение в коллекции
+  };
 }
 
-// Фабрика полного набора props — все 10 обязательных props с разумными дефолтами
-function makeProps(overrides: Record<string, unknown> = {}) {
+// Фабрика полного набора props — возвращаемый тип ArticleListProps фиксирует
+// size как PageSize (10 | 25 | 50), исключая widening до number
+function makeProps(overrides: Partial<ArticleListProps> = {}): ArticleListProps {
   return {
     articles: [] as ArticleResponse[],
     isLoading: false,
