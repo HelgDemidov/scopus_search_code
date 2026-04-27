@@ -69,7 +69,9 @@ function makeProps(overrides: Partial<ArticleListProps> = {}): ArticleListProps 
 }
 
 // ---------------------------------------------------------------------------
-// IntersectionObserver мок — сохраняем каллбак для ручного trigger
+// IntersectionObserver мок — сохраняем каллбак для ручного trigger.
+// Используем class, а не vi.fn(arrow), потому что компонент вызывает
+// `new IntersectionObserver(cb)` — движок требует конструктор с prototype.
 // ---------------------------------------------------------------------------
 
 let ioCallback: IntersectionObserverCallback | null = null;
@@ -81,13 +83,16 @@ beforeEach(() => {
   vi.clearAllMocks();
   ioCallback = null;
 
-  // Глобальный stub IntersectionObserver — запоминаем каллбак для triggerа
+  // Глобальный stub IntersectionObserver — класс, пригодный для вызова через new
   vi.stubGlobal(
     'IntersectionObserver',
-    vi.fn((cb: IntersectionObserverCallback) => {
-      ioCallback = cb;
-      return { observe: ioObserveMock, disconnect: ioDisconnectMock };
-    }),
+    class {
+      constructor(cb: IntersectionObserverCallback) {
+        ioCallback = cb;
+      }
+      observe = ioObserveMock;
+      disconnect = ioDisconnectMock;
+    },
   );
 });
 
@@ -107,7 +112,10 @@ describe('ArticleList — счётчик и переключатель режи�
 
   it('total=0 — счётчик и кнопка-переключатель не рендерятся', () => {
     render(<ArticleList {...makeProps({ total: 0 })} />);
-    expect(screen.queryByText(/articles/i)).toBeNull();
+    // Regex /\d.*articles/i специально сужен, чтобы не задевать empty-state
+    // («No articles found.»), который рендерится при articles.length === 0.
+    // Счётчик всегда содержит цифру перед словом articles: «150 articles».
+    expect(screen.queryByText(/\d.*articles/i)).toBeNull();
     expect(screen.queryByRole('button', { name: /Scroll|Pages/i })).toBeNull();
   });
 
