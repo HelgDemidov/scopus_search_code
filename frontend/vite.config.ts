@@ -73,10 +73,11 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json-summary'],
-      // Покрытие только для целевых файлов пагинации
+      // Покрытие для целевых файлов пагинации и стора статей
       include: [
         'src/components/articles/PaginationBar.tsx',
         'src/hooks/usePagination.ts',
+        'src/stores/articleStore.ts',
       ],
     },
   },
