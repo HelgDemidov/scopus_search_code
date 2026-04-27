@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { getArticles, findArticles } from '../api/articles';
+import type { PageSize } from '../components/articles/PaginationBar';
 import type { ArticleResponse, ArticleFilters, ArticleClientFilters } from '../types/api';
 
 // Интерфейс стора статей — §4.1
@@ -11,7 +12,7 @@ interface ArticleStore {
 
   // Параметры запроса к GET /articles/
   page: number;
-  size: number;
+  size: PageSize;   // 10 | 25 | 50 — совпадает с PaginationBar.SIZE_OPTIONS
   filters: ArticleFilters;
   sortBy: 'date' | 'citations';
 
@@ -31,7 +32,7 @@ interface ArticleStore {
   fetchArticles: (keyword?: string) => Promise<void>;
   setFilters: (filters: Partial<ArticleFilters>) => void;
   setPage: (page: number) => void;
-  setSize: (size: number) => void;
+  setSize: (size: PageSize) => void;
   setAppendMode: (mode: boolean) => void;
   setSortBy: (sortBy: 'date' | 'citations') => void;
   searchScopusLive: (keyword: string) => Promise<void>;
@@ -79,7 +80,7 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
   articles: [],
   total: 0,
   page: 1,
-  size: 10,
+  size: 10,   // PageSize — минимальный вариант из SIZE_OPTIONS
   filters: {},
   sortBy: 'date',
   appendMode: false,
@@ -145,7 +146,7 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
   setPage: (page: number) => set({ page }),
 
   // Меняем размер страницы — сбрасываем на первую и очищаем список
-  setSize: (size: number) => set({ size, page: 1, articles: [] }),
+  setSize: (size: PageSize) => set({ size, page: 1, articles: [] }),
 
   // Включаем/выключаем режим накопления страниц
   setAppendMode: (mode: boolean) => set({ appendMode: mode }),
