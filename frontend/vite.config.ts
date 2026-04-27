@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
@@ -57,6 +58,26 @@ export default defineConfig({
           }
         },
       },
+    },
+  },
+
+  test: {
+    // jsdom эмулирует браузерный DOM — нужен для RTL-тестов компонентов
+    environment: 'jsdom',
+    // globals:true → describe/it/expect доступны без импорта (как в Jest)
+    globals: true,
+    // Подключаем jest-dom матчеры перед каждым тестом
+    setupFiles: ['./src/test/setup.ts'],
+    // Ищем тесты только в src/ — не захватываем node_modules и dist
+    include: ['src/**/*.test.{ts,tsx}'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json-summary'],
+      // Покрытие только для целевых файлов пагинации
+      include: [
+        'src/components/articles/PaginationBar.tsx',
+        'src/hooks/usePagination.ts',
+      ],
     },
   },
 })
