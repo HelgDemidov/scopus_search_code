@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
 import type { PaginatedArticleResponse } from '../types/api';
 import type { ArticleResponse } from '../types/api';
+import type { PageSize } from '../components/articles/PaginationBar';
 
 // ---------------------------------------------------------------------------
 // Моки модулей — объявляем ДО первого импорта стора
@@ -35,12 +36,13 @@ import { getArticles } from '../api/articles';
 // Вспомогательные данные
 // ---------------------------------------------------------------------------
 
-// Начальное состояние стора — используется для сброса в beforeEach
+// Начальное состояние стора — используется для сброса в beforeEach.
+// size аннотируем как PageSize (10 | 25 | 50), иначе TS2345: number not assignable to PageSize
 const INITIAL_STATE = {
   articles: [] as ArticleResponse[],
   total: 0,
   page: 1,
-  size: 10,
+  size: 10 as PageSize,
   filters: {},
   sortBy: 'date' as const,
   appendMode: false,
@@ -51,7 +53,8 @@ const INITIAL_STATE = {
   error: null,
 };
 
-// Фабрика минимальной статьи с нужными полями ArticleResponse
+// Фабрика минимальной статьи — только поля, существующие в ArticleResponse.
+// keyword: string (не null) — TS2352 при null, потому что ArticleResponse.keyword: string
 function makeArticle(id: number): ArticleResponse {
   return {
     id,
@@ -59,27 +62,22 @@ function makeArticle(id: number): ArticleResponse {
     author: null,
     publication_date: '2024-01-01',
     cited_by_count: 0,
-    scopus_id: null,
     doi: null,
-    abstract: null,
     journal: null,
-    volume: null,
-    issue: null,
-    pages: null,
     document_type: null,
     open_access: false,
     affiliation_country: null,
-    keyword: null,
-    source_url: null,
-  } as ArticleResponse;
+    keyword: 'seeder_migration',
+  };
 }
 
-// Фабрика ответа getArticles
+// Фабрика ответа getArticles.
+// PaginatedArticleResponse = { articles, total } — без page и size (TS2353 при наличии)
 function makePaginatedResponse(
   articles: ArticleResponse[],
   total = articles.length,
 ): PaginatedArticleResponse {
-  return { articles, total, page: 1, size: 10 };
+  return { articles, total };
 }
 
 // Типизированный мок getArticles
@@ -103,7 +101,7 @@ describe('setSize', () => {
   it('обновляет size, сбрасывает page=1 и articles=[]', () => {
     // Предустанавливаем ненулевое состояние
     useArticleStore.setState({
-      size: 10,
+      size: 10 as PageSize,
       page: 3,
       articles: [makeArticle(1)],
     });

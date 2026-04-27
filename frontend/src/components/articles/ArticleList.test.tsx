@@ -2,8 +2,11 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi, beforeEach, describe, it, expect } from 'vitest';
 import { ArticleList } from './ArticleList';
-import type { ArticleListProps } from './ArticleList';
 import type { ArticleResponse } from '../../types/api';
+
+// Тип props компонента выводим из сигнатуры самого компонента —
+// ArticleListProps не экспортирован из модуля, поэтому используем Parameters<>
+type ArticleListProps = Parameters<typeof ArticleList>[0];
 
 // ---------------------------------------------------------------------------
 // Моки модулей — объявляем ДО импорта тестируемого модуля
