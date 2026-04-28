@@ -91,13 +91,13 @@ function makePropsFromStore() {
 }
 
 // ---------------------------------------------------------------------------
-// Хелперы для проверки наличия/отсутствия блоков пагинации
-// PaginationBar рендерится как <nav aria-label="Навигация по страницам"> —
+// Хелперы для проверки наличия/отсутствия блоков пагинации.
+// PaginationBar рендерится как <nav aria-label="Page navigation"> —
 // data-testid="pagination-bar" в реальном компоненте отсутствует.
 // ---------------------------------------------------------------------------
 
 function queryPaginationNav() {
-  return screen.queryByRole('navigation', { name: 'Навигация по страницам' });
+  return screen.queryByRole('navigation', { name: 'Page navigation' });
 }
 
 // ---------------------------------------------------------------------------
@@ -195,7 +195,7 @@ describe('Integration — numbered pagination', () => {
     // Кликаем по кнопке «25» в группе «Строк на странице»
     await userEvent.click(screen.getByRole('button', { name: '25' }));
 
-    // setSize сбрасывает page → 1; затем fetchArticles идёт с size=25
+    // setSize сбрасывает page → 1; затем fetchArticles идет с size=25
     expect(vi.mocked(getArticles)).toHaveBeenLastCalledWith(
       expect.objectContaining({ page: 1, size: 25 }),
     );
