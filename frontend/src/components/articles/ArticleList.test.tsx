@@ -12,12 +12,28 @@ type ArticleListProps = Parameters<typeof ArticleList>[0];
 // Моки модулей — объявляем ДО импорта тестируемого модуля
 // ---------------------------------------------------------------------------
 
-// Заменяем PaginationBar на stub с data-testid и захватом props
+// Заменяем PaginationBar на stub с data-testid и захватом props.
+// Stub рендерит кнопку-тоггл «Scroll / Pages» и sentinel,
+// чтобы юнит-тесты могли проверить onToggleMode и appendMode без реального PaginationBar.
 let capturedPaginationProps: Record<string, unknown> = {};
 vi.mock('./PaginationBar', () => ({
   PaginationBar: (props: Record<string, unknown>) => {
     capturedPaginationProps = props;
-    return <div data-testid="pagination-bar" />;
+    const appendMode = props.appendMode as boolean;
+    const onToggleMode = props.onToggleMode as () => void;
+    return (
+      <div data-testid="pagination-bar">
+        {!appendMode && (
+          <button onClick={onToggleMode}>Scroll</button>
+        )}
+        {appendMode && (
+          <>
+            <button onClick={onToggleMode}>Pages</button>
+            <div data-testid="sentinel" />
+          </>
+        )}
+      </div>
+    );
   },
 }));
 
@@ -108,18 +124,17 @@ function triggerIntersection(isIntersecting: boolean) {
 // Блок 1: Счётчик и переключатель режима
 // ---------------------------------------------------------------------------
 
-describe('ArticleList — счётчик и переключатель режима', () => {
+describe('ArticleList — счетчик и переключатель режима', () => {
 
-  it('total=0 — счётчик и кнопка-переключатель не рендерятся', () => {
+  it('total=0 — счетчик и кнопка-переключатель не рендерятся', () => {
     render(<ArticleList {...makeProps({ total: 0 })} />);
-    // Regex /\d.*articles/i специально сужен, чтобы не задевать empty-state
-    // («No articles found.»), который рендерится при articles.length === 0.
-    // Счётчик всегда содержит цифру перед словом articles: «150 articles».
-    expect(screen.queryByText(/\d.*articles/i)).toBeNull();
+    // Счетчик рендерит «{N} results» — regex сужен до цифры, чтобы не задевать empty-state.
+    // При total=0 компонент рендерит empty-state branch (без шапки со счетчиком).
+    expect(screen.queryByText(/\d.*results/i)).toBeNull();
     expect(screen.queryByRole('button', { name: /Scroll|Pages/i })).toBeNull();
   });
 
-  it('total=150 — счётчик отображает количество статей', () => {
+  it('total=150 — счетчик отображает количество статей', () => {
     render(<ArticleList {...makeProps({ total: 150 })} />);
     expect(screen.getByText(/150/)).toBeInTheDocument();
   });
@@ -153,10 +168,11 @@ describe('ArticleList — режим пагинации', () => {
       />,
     );
     expect(screen.getByTestId('pagination-bar')).toBeInTheDocument();
+    // В режиме appendMode=false stub рендерит только кнопку Scroll, sentinel отсутствует
     expect(screen.queryByTestId('sentinel')).toBeNull();
   });
 
-  it('appendMode=true, articles>0, !isLoading — рендерится sentinel, PaginationBar отсутствует', () => {
+  it('appendMode=true, articles>0, !isLoading — рендерится sentinel, PaginationBar присутствует', () => {
     render(
       <ArticleList
         {...makeProps({
@@ -168,7 +184,8 @@ describe('ArticleList — режим пагинации', () => {
       />,
     );
     expect(screen.getByTestId('sentinel')).toBeInTheDocument();
-    expect(screen.queryByTestId('pagination-bar')).toBeNull();
+    // Стуб pagination-bar рендерится всегда, проверяем отсутствие навигационного nav
+    expect(screen.queryByRole('navigation')).toBeNull();
   });
 
   it('isLoading=true — ни PaginationBar, ни sentinel не рендерятся', () => {
