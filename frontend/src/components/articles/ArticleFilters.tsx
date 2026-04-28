@@ -26,21 +26,21 @@ import { useStatsStore } from '../../stores/statsStore';
 import { useHistoryStore } from '../../stores/historyStore';
 import type { ArticleClientFilters } from '../../types/api';
 
-// Внутренний компонент: содержимое sidebar'а фильтров
+// Inner component: sidebar filter content
 function FiltersContent() {
   const stats = useStatsStore((s) => s.stats);
-  // Фильтры теперь живут в historyStore согласно §1.3 (filter-slice split)
+  // Filters live in historyStore per §1.3 (filter-slice split)
   const { historyFilters: filters, setHistoryFilters: setFilters } = useHistoryStore();
   const [countriesOpen, setCountriesOpen] = useState(false);
 
-  // Данные для фильтров: все из useStatsStore().stats по §4.1 (Б-6)
+  // Filter data: all from useStatsStore().stats per §4.1 (Б-6)
   const docTypes = stats?.by_doc_type.map((d) => d.label) ?? [];
   const countries = stats?.by_country.map((c) => c.label) ?? [];
   const years = stats?.by_year.map((y) => parseInt(y.label, 10)).filter(Boolean) ?? [];
   const minYear = years.length ? Math.min(...years) : 2000;
   const maxYear = years.length ? Math.max(...years) : new Date().getFullYear();
 
-  // Тоггл типа документа в списке выбранных
+  // Toggle document type in the selection list
   function toggleDocType(type: string) {
     const current = filters.docTypes ?? [];
     const updated = current.includes(type)
@@ -49,7 +49,7 @@ function FiltersContent() {
     setFilters({ docTypes: updated.length ? updated : undefined });
   }
 
-  // Тоггл страны в мульти-селекте
+  // Toggle country in the multi-select
   function toggleCountry(country: string) {
     const current = filters.countries ?? [];
     const updated = current.includes(country)
@@ -58,7 +58,7 @@ function FiltersContent() {
     setFilters({ countries: updated.length ? updated : undefined });
   }
 
-  // Сброс всех фильтров (кроме keyword — он серверный, живёт в articleStore)
+  // Reset all filters (keyword stays in articleStore — it is server-side)
   function clearFilters() {
     setFilters({
       yearFrom: undefined,
@@ -77,190 +77,169 @@ function FiltersContent() {
     (filters.countries?.length ?? 0) > 0;
 
   return (
-    <div className="flex flex-col gap-5 p-4">
-      {/* Шапка + кнопка сброса */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-          Фильтры
-        </h3>
-        {hasActiveFilters && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearFilters}
-            className="h-6 px-2 text-xs text-slate-500"
-          >
-            Сбросить все
-          </Button>
-        )}
-      </div>
+    <div className="flex flex-col gap-5 py-2">
 
-      {/* Год публикации: два поля yearFrom / yearTo */}
-      <div className="flex flex-col gap-2">
-        <p className="text-xs font-medium text-slate-700 dark:text-slate-300 uppercase tracking-wide">
-          Год публикации
+      {/* Year range */}
+      <section>
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">
+          Year
         </p>
-        <div className="flex items-center gap-2">
+        <div className="flex gap-2 items-center">
           <input
             type="number"
             min={minYear}
             max={filters.yearTo ?? maxYear}
-            placeholder={String(minYear)}
             value={filters.yearFrom ?? ''}
+            placeholder={String(minYear)}
             onChange={(e) =>
-              setFilters({ yearFrom: e.target.value ? Number(e.target.value) : undefined })
+              setFilters({ yearFrom: e.target.value ? +e.target.value : undefined })
             }
-            className="w-20 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-xs text-slate-900 dark:text-slate-100"
+            className="w-20 rounded border border-slate-200 dark:border-slate-600 bg-transparent px-2 py-1 text-sm"
+            aria-label="Year from"
           />
-          <span className="text-xs text-slate-400">—</span>
+          <span className="text-slate-400">–</span>
           <input
             type="number"
             min={filters.yearFrom ?? minYear}
             max={maxYear}
-            placeholder={String(maxYear)}
             value={filters.yearTo ?? ''}
+            placeholder={String(maxYear)}
             onChange={(e) =>
-              setFilters({ yearTo: e.target.value ? Number(e.target.value) : undefined })
+              setFilters({ yearTo: e.target.value ? +e.target.value : undefined })
             }
-            className="w-20 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-xs text-slate-900 dark:text-slate-100"
+            className="w-20 rounded border border-slate-200 dark:border-slate-600 bg-transparent px-2 py-1 text-sm"
+            aria-label="Year to"
           />
         </div>
-      </div>
+      </section>
 
-      {/* Тип документа: чекбоксы со счётчиком */}
-      {docTypes.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <p className="text-xs font-medium text-slate-700 dark:text-slate-300 uppercase tracking-wide">
-            Тип документа
-          </p>
-          <div className="flex flex-col gap-1.5">
-            {docTypes.map((type) => {
-              const count = stats?.by_doc_type.find((d) => d.label === type)?.count ?? 0;
-              const checked = (filters.docTypes ?? []).includes(type);
-              return (
-                <label
-                  key={type}
-                  className="flex items-center gap-2 cursor-pointer group"
-                >
-                  <Checkbox
-                    checked={checked}
-                    onCheckedChange={() => toggleDocType(type)}
-                    id={`doctype-${type}`}
-                  />
-                  <span className="text-xs text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100 flex-1 truncate">
-                    {type}
-                  </span>
-                  <span className="text-xs text-slate-400">{count}</span>
-                </label>
-              );
-            })}
+      {/* Document types */}
+      <section>
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">
+          Document type
+        </p>
+        <div className="flex flex-col gap-1.5">
+          {docTypes.map((type) => (
+            <label key={type} className="flex items-center gap-2 text-sm cursor-pointer">
+              <Checkbox
+                checked={(filters.docTypes ?? []).includes(type)}
+                onCheckedChange={() => toggleDocType(type)}
+              />
+              {type}
+            </label>
+          ))}
+        </div>
+      </section>
+
+      {/* Open Access toggle */}
+      <section>
+        <label className="flex items-center gap-2 text-sm cursor-pointer">
+          <Switch
+            checked={!!filters.openAccessOnly}
+            onCheckedChange={(checked) => setFilters({ openAccessOnly: checked || undefined })}
+          />
+          <span>Open Access only</span>
+        </label>
+      </section>
+
+      {/* Countries multi-select (Popover + Command) */}
+      <section>
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">
+          Country
+        </p>
+        <Popover open={countriesOpen} onOpenChange={setCountriesOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={countriesOpen}
+              className="w-full justify-between text-sm font-normal"
+            >
+              {(filters.countries?.length ?? 0) > 0
+                ? `${filters.countries!.length} selected`
+                : 'Select countries'}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-64 p-0">
+            <Command>
+              <CommandInput placeholder="Search country…" />
+              <CommandEmpty>No countries found</CommandEmpty>
+              <CommandGroup className="max-h-52 overflow-y-auto">
+                {countries.map((country) => (
+                  <CommandItem
+                    key={country}
+                    value={country}
+                    onSelect={() => toggleCountry(country)}
+                    className="flex items-center gap-2"
+                  >
+                    <Checkbox checked={(filters.countries ?? []).includes(country)} />
+                    {country}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </Command>
+          </PopoverContent>
+        </Popover>
+
+        {/* Selected countries badges */}
+        {(filters.countries?.length ?? 0) > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {filters.countries!.map((c) => (
+              <Badge
+                key={c}
+                variant="secondary"
+                className="cursor-pointer"
+                onClick={() => toggleCountry(c)}
+              >
+                {c} ×
+              </Badge>
+            ))}
           </div>
-        </div>
-      )}
+        )}
+      </section>
 
-      {/* Open Access — toggle */}
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
-          Только Open Access
-        </span>
-        <Switch
-          checked={!!filters.openAccessOnly}
-          onCheckedChange={(checked) =>
-            setFilters({ openAccessOnly: checked || undefined })
-          }
-        />
-      </div>
-
-      {/* Страна аффиляции: Popover + Command для multi-select с поиском */}
-      {countries.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <p className="text-xs font-medium text-slate-700 dark:text-slate-300 uppercase tracking-wide">
-            Страна
-          </p>
-
-          {/* Выбранные страны как badges */}
-          {(filters.countries?.length ?? 0) > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {filters.countries!.map((c) => (
-                <Badge
-                  key={c}
-                  variant="secondary"
-                  className="text-xs cursor-pointer"
-                  onClick={() => toggleCountry(c)}
-                >
-                  {c} ×
-                </Badge>
-              ))}
-            </div>
-          )}
-
-          <Popover open={countriesOpen} onOpenChange={setCountriesOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="w-full justify-start text-xs font-normal text-slate-500">
-                Выбрать страны…
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-60 p-0" align="start">
-              <Command>
-                <CommandInput placeholder="Поиск страны…" className="h-8 text-xs" />
-                <CommandEmpty className="text-xs py-4 text-center">
-                  Страна не найдена.
-                </CommandEmpty>
-                <CommandGroup className="max-h-52 overflow-y-auto">
-                  {countries.map((country) => {
-                    const selected = (filters.countries ?? []).includes(country);
-                    return (
-                      <CommandItem
-                        key={country}
-                        onSelect={() => toggleCountry(country)}
-                        className="text-xs"
-                      >
-                        {/* Галочка если страна выбрана */}
-                        <span className={`mr-2 ${selected ? 'opacity-100' : 'opacity-0'}`}>&#10003;</span>
-                        {country}
-                      </CommandItem>
-                    );
-                  })}
-                </CommandGroup>
-              </Command>
-            </PopoverContent>
-          </Popover>
-        </div>
+      {/* Clear filters button */}
+      {hasActiveFilters && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={clearFilters}
+          className="text-xs text-slate-500 hover:text-rose-500 self-start"
+        >
+          Clear filters
+        </Button>
       )}
     </div>
   );
 }
 
-// Десктоп: фильтры как постоянный sidebar
-// Мобайл: выдвижной <Sheet> снизу по §4.1
-export function ArticleFilters() {
+// Desktop sidebar: always visible on lg+
+export function ArticleFiltersSidebar() {
   return (
-    <>
-      {/* Desktop sidebar (видим от lg) */}
-      <aside className="hidden lg:block w-56 flex-shrink-0 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/50 self-start sticky top-[4.5rem]">
-        <FiltersContent />
-      </aside>
+    <aside className="hidden lg:flex flex-col w-56 shrink-0">
+      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">Filters</p>
+      <FiltersContent />
+    </aside>
+  );
+}
 
-      {/* Mobile: кнопка + Sheet (дравер снизу) */}
-      <div className="lg:hidden">
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="outline" size="sm" className="flex items-center gap-1.5 text-xs">
-              {/* Иконка фильтра */}
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5" aria-hidden="true">
-                <path d="M2 4h12M4 8h8M6 12h4" strokeLinecap="round" />
-              </svg>
-              Фильтры
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto">
-            <SheetHeader>
-              <SheetTitle className="text-sm">Фильтры</SheetTitle>
-            </SheetHeader>
-            <FiltersContent />
-          </SheetContent>
-        </Sheet>
-      </div>
-    </>
+// Mobile: Sheet triggered by a button
+export function ArticleFiltersMobile() {
+  return (
+    <div className="lg:hidden">
+      <Sheet>
+        <SheetTrigger asChild>
+          <Button variant="outline" size="sm">
+            Filters
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="w-72 overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Filters</SheetTitle>
+          </SheetHeader>
+          <FiltersContent />
+        </SheetContent>
+      </Sheet>
+    </div>
   );
 }
