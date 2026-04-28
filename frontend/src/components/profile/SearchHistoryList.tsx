@@ -1,19 +1,16 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useHistoryStore } from '../../stores/historyStore';
 import { Skeleton } from '../ui/skeleton';
-import { Badge } from '../ui/badge';
 
-// HistoryItem.status badge colours
-const STATUS_VARIANT: Record<string, string> = {
-  success: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
-  no_results: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400',
-  error: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400',
+// Цветовые классы бейджа по полю results_available
+const AVAILABILITY_STYLE: Record<'yes' | 'no', string> = {
+  yes: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
+  no:  'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400',
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  success: 'Success',
-  no_results: 'No results',
-  error: 'Error',
+const AVAILABILITY_LABEL: Record<'yes' | 'no', string> = {
+  yes: 'Available',
+  no:  'No results',
 };
 
 function formatDate(iso: string): string {
@@ -91,13 +88,18 @@ export function SearchHistoryList() {
                       {item.result_count.toLocaleString('en-US')} results
                     </span>
                   )}
-                  {item.status && (
-                    <span
-                      className={`px-1.5 py-0.5 rounded text-xs font-medium ${STATUS_VARIANT[item.status] ?? ''}`}
-                    >
-                      {STATUS_LABEL[item.status] ?? item.status}
-                    </span>
-                  )}
+                  {/* Бейдж доступности — использует results_available из SearchHistoryItem */}
+                  <span
+                    className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                      item.results_available
+                        ? AVAILABILITY_STYLE.yes
+                        : AVAILABILITY_STYLE.no
+                    }`}
+                  >
+                    {item.results_available
+                      ? AVAILABILITY_LABEL.yes
+                      : AVAILABILITY_LABEL.no}
+                  </span>
                 </div>
               </li>
             ))}
