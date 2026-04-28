@@ -5,14 +5,14 @@ import { Button } from '../ui/button';
 interface SearchBarProps {
   onSearch: (query: string) => void;
   placeholder?: string;
-  // inputId позволяет избежать дублирования id если SearchBar рендерится
-  // дважды на одной странице (например, мобильный и десктопный хедер)
+  // inputId avoids duplicate ids when SearchBar is rendered twice on the same
+  // page (e.g. mobile and desktop header)
   inputId?: string;
 }
 
 export function SearchBar({
   onSearch,
-  placeholder = 'Поиск статей\u2026',
+  placeholder = 'Search articles…',
   inputId = 'article-search',
 }: SearchBarProps) {
   const [value, setValue] = useState('');
@@ -25,9 +25,9 @@ export function SearchBar({
 
   return (
     <form onSubmit={handleSubmit} className="flex gap-2 w-full">
-      {/* Скрытый label связан с полем через htmlFor — доступность для скринридеров */}
+      {/* Hidden label linked to the input via htmlFor — accessibility for screen readers */}
       <label htmlFor={inputId} className="sr-only">
-        Поиск статей
+        Search articles
       </label>
       <Input
         id={inputId}
@@ -41,7 +41,7 @@ export function SearchBar({
         type="submit"
         className="bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400 text-white shrink-0"
       >
-        Найти
+        Search
       </Button>
     </form>
   );

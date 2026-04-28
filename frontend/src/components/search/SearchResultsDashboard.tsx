@@ -1,13 +1,13 @@
-// Дашборд агрегатов по пользовательскому поисковому запросу.
-// Данные получаются через пропы — компонент не знает о сторе и не делает fetch.
-// Чарты загружаются лениво по паттерну ExplorePage.
+// Dashboard of aggregates for a user search query.
+// Data is received via props — the component is unaware of the store and makes no fetch calls.
+// Charts are lazy-loaded following the ExplorePage pattern.
 
 import { lazy, Suspense } from 'react';
 import { Skeleton } from '../ui/skeleton';
 import type { SearchStatsResponse } from '../../types/api';
 
-// Переиспользуем существующие чарты: их пропы data: StatsItem[] совместимы
-// с полями SearchStatsResponse (оба — LabelCount[])
+// Reuse existing charts: their data: StatsItem[] props are compatible
+// with SearchStatsResponse fields (both are LabelCount[])
 const PublicationsByYearChart = lazy(() =>
   import('../charts/PublicationsByYearChart').then(m => ({ default: m.PublicationsByYearChart }))
 );
@@ -21,7 +21,7 @@ const TopJournalsChart = lazy(() =>
   import('../charts/TopJournalsChart').then(m => ({ default: m.TopJournalsChart }))
 );
 
-// Скелетон сетки чартов — показывается пока JS-чанк Tremor скачивается
+// Chart grid skeleton — shown while the Tremor JS chunk is downloading
 function ChartsSkeleton() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -40,19 +40,19 @@ interface SearchResultsDashboardProps {
 export function SearchResultsDashboard({ stats, query }: SearchResultsDashboardProps) {
   return (
     <div className="flex flex-col gap-6 mt-6">
-      {/* Заголовок дашборда + KPI кол-ва совпавших статей */}
+      {/* Dashboard heading + KPI: number of matched articles */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
           <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
             Analytics for «{query}»
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            {stats.total.toLocaleString()} articles matched
+            {stats.total.toLocaleString('en-US')} articles matched
           </p>
         </div>
       </div>
 
-      {/* Сетка чартов: lazy-loaded через Suspense */}
+      {/* Chart grid: lazy-loaded via Suspense */}
       <Suspense fallback={<ChartsSkeleton />}>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <PublicationsByYearChart data={stats.by_year}     isLoading={false} />
