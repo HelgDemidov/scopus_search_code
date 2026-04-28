@@ -4,13 +4,13 @@ import { CHART_COLOR_OA, CHART_COLOR_CLOSED } from './chartColors';
 import type { StatsItem } from '../../types/api';
 
 interface OpenAccessDonutProps {
-  /** Передаём by_doc_type или by_open_access stats-массив */
+  /** Pass the by_doc_type or by_open_access stats array */
   data: StatsItem[];
   isLoading: boolean;
 }
 
 export function OpenAccessDonut({ data, isLoading }: OpenAccessDonutProps) {
-  // Суммаризация данных в 2 сегмента: Open Access и Closed
+  // Summarise data into 2 segments: Open Access and Closed
   const oaCount = data
     .filter((d) => d.label.toLowerCase().includes('open'))
     .reduce((s, d) => s + d.count, 0);

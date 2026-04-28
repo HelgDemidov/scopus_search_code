@@ -16,7 +16,7 @@ import {
 import { Button } from '../ui/button';
 import { useAuthStore } from '../../stores/authStore';
 
-// Генерация двух буквенных инициалов для аватара
+// Generate two-letter initials for the avatar
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
@@ -27,12 +27,12 @@ export function Header() {
   const { user, isAuthenticated, logout } = useAuthStore();
   const navigate = useNavigate();
 
-  // Имя для отображения: username ?? часть email до @
+  // Display name: username ?? part of email before @
   const displayName = user
     ? (user.username ?? user.email.split('@')[0])
     : '';
 
-  // Выход из аккаунта: чистим стор, редирект на главную
+  // Sign out: clear store, redirect to home
   function handleLogout() {
     logout();
     navigate('/');
@@ -41,12 +41,12 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-700 dark:bg-slate-900/95">
       <div className="mx-auto flex h-14 max-w-screen-xl items-center justify-between px-4">
-        {/* Логотип — aria-label сохраняем на английском (исключение по ТЗ §1.6) */}
+        {/* Logo — aria-label kept in English per spec §1.6 */}
         <Link
           to="/"
           className="flex items-center gap-2 text-slate-900 no-underline dark:text-slate-100"
         >
-          {/* Инлайн SVG-логотип */}
+          {/* Inline SVG logo */}
           <svg
             aria-label="Scopus Search"
             viewBox="0 0 32 32"
@@ -60,29 +60,29 @@ export function Header() {
           <span className="font-semibold text-sm tracking-tight">Scopus Search</span>
         </Link>
 
-        {/* Навигация + правая часть */}
+        {/* Navigation + right-side controls */}
         <div className="flex items-center gap-2">
           <NavigationMenu>
             <NavigationMenuList>
-              {/* Ссылка «Исследовать» — всегда видна */}
+              {/* "Explore" link — always visible */}
               <NavigationMenuItem>
                 <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
-                  <Link to="/explore">Исследовать</Link>
+                  <Link to="/explore">Explore</Link>
                 </NavigationMenuLink>
               </NavigationMenuItem>
 
-              {/* Ссылка «Личный кабинет» — только для авторизованных, верхний уровень */}
+              {/* "Profile" link — authenticated users only */}
               {isAuthenticated && (
                 <NavigationMenuItem>
                   <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
-                    <Link to="/profile">Личный кабинет</Link>
+                    <Link to="/profile">Profile</Link>
                   </NavigationMenuLink>
                 </NavigationMenuItem>
               )}
             </NavigationMenuList>
           </NavigationMenu>
 
-          {/* Анонимный вариант: кнопка «Авторизоваться» */}
+          {/* Anonymous state: "Sign in" button */}
           {!isAuthenticated && (
             <Button
               asChild
@@ -90,23 +90,23 @@ export function Header() {
               size="sm"
               className="bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400"
             >
-              <Link to="/auth">Авторизоваться</Link>
+              <Link to="/auth">Sign in</Link>
             </Button>
           )}
 
-          {/* Авторизованный вариант: аватар + дропдаун */}
+          {/* Authenticated state: avatar + dropdown */}
           {isAuthenticated && user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  aria-label={`Меню пользователя ${displayName}`}
+                  aria-label={`User menu for ${displayName}`}
                   className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-800 text-xs font-semibold text-white hover:bg-blue-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-800 dark:bg-blue-500 dark:hover:bg-blue-400"
                 >
                   {getInitials(displayName)}
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                {/* Имя и email — только просмотр */}
+                {/* Name and email — read-only display */}
                 <div className="px-2 py-1.5">
                   <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
                     {displayName}
@@ -117,14 +117,14 @@ export function Header() {
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link to="/profile">Личный кабинет</Link>
+                  <Link to="/profile">Profile</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={handleLogout}
                   className="text-rose-600 focus:text-rose-600 dark:text-rose-400"
                 >
-                  Выйти
+                  Sign out
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

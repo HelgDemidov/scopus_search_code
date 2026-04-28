@@ -9,7 +9,7 @@ interface TopCountriesChartProps {
 }
 
 export function TopCountriesChart({ data, isLoading }: TopCountriesChartProps) {
-  // Top-10 стран по количеству статей
+  // Top-10 countries by article count
   const top10 = [...data]
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
