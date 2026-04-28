@@ -76,6 +76,49 @@ describe('ScopusPaginationBar — страничная навигация (liveS
     );
     expect(onPageChange).toHaveBeenCalledWith(2);
   });
+
+  // -- Граничные случаи --
+
+  // Regression guard: safePage = Math.max(1, livePage).
+  // livePage=0 невозможен в нормальном флоу (handleSearch сбрасывает в 1
+  // до ре-рендера), но контракт должен быть явно задокументирован тестом —
+  // защита от будущих рефакторингов (URL-параметры, SSR-гидратация и т.д.)
+  it('при livePage=0 safePage=1: Prev disabled, строка «1–10 из 25»', () => {
+    render(
+      <ScopusPaginationBar {...defaults} livePage={0} total={25} />,
+    );
+    // safePage = Math.max(1, 0) = 1 → Prev недоступен
+    expect(
+      screen.getByRole('button', { name: /предыдущая страница/i }),
+    ).toBeDisabled();
+    // from=(1-1)*10+1=1, to=min(1*10,25)=10
+    expect(screen.getByText(/1–10 из 25/)).toBeInTheDocument();
+  });
+
+  // Граничный максимум Scopus API: 25 записей → ceil(25/10) = 3 страницы
+  it('при total=25 рендерятся кнопки страниц [1][2][3]', () => {
+    render(
+      <ScopusPaginationBar {...defaults} livePage={1} total={25} />,
+    );
+    expect(screen.getByRole('button', { name: '1' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '2' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '3' })).toBeInTheDocument();
+  });
+
+  // Прямой клик по номеру страницы — отдельный code path от Prev/Next
+  it('клик на кнопку страницы [2] вызывает onPageChange(2)', async () => {
+    const onPageChange = vi.fn();
+    render(
+      <ScopusPaginationBar
+        {...defaults}
+        livePage={1}
+        total={25}
+        onPageChange={onPageChange}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: '2' }));
+    expect(onPageChange).toHaveBeenCalledWith(2);
+  });
 });
 
 // ---------------------------------------------------------------------------
