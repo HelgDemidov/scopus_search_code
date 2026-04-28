@@ -1,29 +1,29 @@
 /**
- * ScopusPaginationBar — client-side пагинатор для live-результатов Scopus.
- * НЕ путать с PaginationBar (серверная пагинация GET /articles/).
+ * ScopusPaginationBar — client-side paginator for live Scopus results.
+ * NOT to be confused with PaginationBar (server-side pagination GET /articles/).
  *
- * Scopus API отдаёт max 25 результатов за запрос — весь массив уже в памяти
- * (articleStore.liveResults). Этот компонент управляет только тем, какой
- * срез массива показывать: по 10 (до 3 страниц) или сразу все.
+ * The Scopus API returns max 25 results per request — the full array is already
+ * in memory (articleStore.liveResults). This component only controls which
+ * slice of the array to display: 10 at a time (up to 3 pages) or all at once.
  *
- * Controlled-компонент: livePage живёт в useState родителя (HomePage),
- * liveSize — в articleStore.liveSize. Коллбэки onPageChange/onSizeChange
- * пробрасываются снаружи — компонент не читает стор напрямую.
+ * Controlled component: livePage lives in useState of the parent (HomePage),
+ * liveSize lives in articleStore.liveSize. Callbacks onPageChange/onSizeChange
+ * are passed from outside — the component does not read the store directly.
  *
- * Монтируется рядом с блоком live-результатов в HomePage,
- * аналогично тому, как PaginationBar монтируется рядом с ArticleList.
+ * Mounted alongside the live-results block in HomePage,
+ * analogous to how PaginationBar is mounted alongside ArticleList.
  */
 
 import { Button } from '../ui/button';
 
-// Варианты отображения live-результатов — зеркало articleStore.liveSize
+// Display mode options for live results — mirrors articleStore.liveSize
 export type LiveSize = 10 | 'all';
 
 export interface ScopusPaginationBarProps {
-  livePage: number;                    // текущая страница, 1-based; живёт в useState родителя
-  liveSize: LiveSize;                  // из articleStore.liveSize
+  livePage: number;                    // current page, 1-based; lives in parent useState
+  liveSize: LiveSize;                  // from articleStore.liveSize
   total: number;                       // liveResults.length
-  onPageChange: (p: number) => void;   // сеттер livePage из родителя
+  onPageChange: (p: number) => void;   // livePage setter from parent
   onSizeChange: (s: LiveSize) => void; // articleStore.setLiveSize
 }
 
@@ -34,42 +34,42 @@ export function ScopusPaginationBar({
   onPageChange,
   onSizeChange,
 }: ScopusPaginationBarProps) {
-  // При total <= 10 всё влезает без пагинации — ни страницы, ни тоггл не нужны
+  // If total <= 10 everything fits without pagination — neither pages nor toggle needed
   if (total <= 10) return null;
 
-  // Защита от transient livePage:0 при сбросе
+  // Guard against transient livePage:0 on reset
   const safePage = Math.max(1, livePage);
 
-  // Scopus API отдаёт max 25 результатов → max ceil(25/10) = 3 страницы
-  // В режиме 'all' — одна виртуальная страница, навигация скрыта
+  // Scopus API returns max 25 results → max ceil(25/10) = 3 pages
+  // In 'all' mode — one virtual page, navigation is hidden
   const totalPages = liveSize === 'all' ? 1 : Math.ceil(total / 10);
   const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
 
   const hasPrev = safePage > 1;
   const hasNext = safePage < totalPages;
 
-  // Вычисляем диапазон для строки состояния
+  // Compute range for the status line
   const from = liveSize === 'all' ? 1 : (safePage - 1) * 10 + 1;
-  const to = liveSize === 'all' ? total : Math.min(safePage * 10, total);
+  const to   = liveSize === 'all' ? total : Math.min(safePage * 10, total);
 
   return (
-    <nav aria-label="Навигация по результатам Scopus" className="mt-4">
+    <nav aria-label="Scopus results navigation" className="mt-4">
       <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-4">
 
-        {/* Строка состояния: «Показано X–Y из Z» */}
+        {/* Status line: “Showing X–Y of Z” */}
         <span className="text-xs text-slate-500 dark:text-slate-400 select-none">
-          Показано {from}–{to} из {total}
+          Showing {from}–{to} of {total}
         </span>
 
-        {/* Кнопки страниц — только в режиме по 10 */}
+        {/* Page buttons — shown only in 10-per-page mode */}
         {liveSize === 10 && (
-          <div className="flex items-center gap-1" role="group" aria-label="Страницы">
+          <div className="flex items-center gap-1" role="group" aria-label="Pages">
             <Button
               size="sm"
               variant="outline"
               disabled={!hasPrev}
               onClick={() => onPageChange(safePage - 1)}
-              aria-label="Предыдущая страница"
+              aria-label="Previous page"
             >
               ← Prev
             </Button>
@@ -91,31 +91,31 @@ export function ScopusPaginationBar({
               variant="outline"
               disabled={!hasNext}
               onClick={() => onPageChange(safePage + 1)}
-              aria-label="Следующая страница"
+              aria-label="Next page"
             >
               Next →
             </Button>
           </div>
         )}
 
-        {/* Тоггл «По 10 / Все» */}
-        <div className="flex items-center gap-1.5" role="group" aria-label="Режим отображения">
+        {/* Toggle “10 per page / All” */}
+        <div className="flex items-center gap-1.5" role="group" aria-label="Display mode">
           <span className="text-xs text-slate-500 dark:text-slate-400 mr-1 select-none">
-            Показать:
+            Show:
           </span>
           <Button
             size="sm"
             variant={liveSize === 10 ? 'default' : 'outline'}
             onClick={() => onSizeChange(10)}
           >
-            По 10
+            10 per page
           </Button>
           <Button
             size="sm"
             variant={liveSize === 'all' ? 'default' : 'outline'}
             onClick={() => onSizeChange('all')}
           >
-            Все ({total})
+            All ({total})
           </Button>
         </div>
 

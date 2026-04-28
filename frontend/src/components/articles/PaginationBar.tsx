@@ -1,64 +1,68 @@
 /**
- * PaginationBar — пагинатор с size-selector для ArticleList / ProfilePage.
- * НЕ путать с ui/PaginationControls (shadcn-wrapper для других мест).
+ * PaginationBar — paginator with size selector for ArticleList / ProfilePage.
+ * NOT to be confused with ui/PaginationControls (shadcn wrapper used elsewhere).
  *
- * Монтируется рядом с ArticleList на уровне страницы (HomePage / ProfilePage),
- * а не внутри ArticleList — чтобы не нарушать SRP последнего.
+ * Mounted alongside ArticleList at the page level (HomePage / ProfilePage),
+ * not inside ArticleList — to keep the latter single-responsibility.
  *
- * Управление состоянием: articleStore.setPage / articleStore.setSize.
- * setSize уже делает page:1 + articles:[] внутри стора —
- * не дублируй этот сброс в onSizeChange на уровне родителя.
+ * State management: articleStore.setPage / articleStore.setSize.
+ * setSize already resets page:1 + articles:[] inside the store —
+ * do NOT duplicate this reset in onSizeChange at the parent level.
  */
 
 import { usePagination } from '../../hooks/usePagination';
 import { Button } from '../ui/button';
 
-// Допустимые варианты размера страницы; совпадают с дефолтом стора (size: 10)
+// Allowed page size options; match the store default (size: 10)
 export const SIZE_OPTIONS = [10, 25, 50] as const;
 export type PageSize = typeof SIZE_OPTIONS[number]; // 10 | 25 | 50
 
 export interface PaginationBarProps {
-  page: number;    // текущая страница, 1-based
-  size: PageSize;  // текущий размер страницы
-  total: number;   // общее число записей (PaginatedArticleResponse.total)
+  page: number;    // current page, 1-based
+  size: PageSize;  // current page size
+  total: number;   // total record count (PaginatedArticleResponse.total)
+  totalPages: number;
+  appendMode: boolean;
   onPageChange: (p: number) => void;
   onSizeChange: (s: PageSize) => void;
+  onToggleMode: () => void;
 }
 
 export function PaginationBar({
   page,
   size,
   total,
+  totalPages,
   onPageChange,
   onSizeChange,
 }: PaginationBarProps) {
-  // Защита от transient page:0 при быстрой смене фильтров в articleStore
+  // Guard against transient page:0 on rapid filter changes in articleStore
   const safePage = Math.max(1, page);
 
-  const { totalPages, pages, hasPrev, hasNext } = usePagination(total, safePage, size);
+  const { pages, hasPrev, hasNext } = usePagination(total, safePage, size);
 
-  // При одной странице (или нулевом total) пагинация бессмысленна
+  // Single page (or zero total) — pagination is pointless
   if (totalPages <= 1) return null;
 
   return (
-    <nav aria-label="Навигация по страницам" className="mt-4">
+    <nav aria-label="Page navigation" className="mt-4">
       <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-4">
 
-        {/* Кнопки страниц: Prev + номера + Next */}
-        <div className="flex items-center gap-1" role="group" aria-label="Страницы">
+        {/* Page buttons: Prev + numbers + Next */}
+        <div className="flex items-center gap-1" role="group" aria-label="Pages">
           <Button
             size="sm"
             variant="outline"
             disabled={!hasPrev}
             onClick={() => onPageChange(safePage - 1)}
-            aria-label="Предыдущая страница"
+            aria-label="Previous page"
           >
             ← Prev
           </Button>
 
           {pages.map((p, i) =>
             p === 'ellipsis' ? (
-              // Элипсис не кликабелен — span, не Button
+              // Ellipsis is not clickable — span, not Button
               <span
                 key={`ell-${i}`}
                 aria-hidden="true"
@@ -84,14 +88,14 @@ export function PaginationBar({
             variant="outline"
             disabled={!hasNext}
             onClick={() => onPageChange(safePage + 1)}
-            aria-label="Следующая страница"
+            aria-label="Next page"
           >
             Next →
           </Button>
         </div>
 
-        {/* Размер страницы */}
-        <div className="flex items-center gap-1.5" role="group" aria-label="Строк на странице">
+        {/* Page size selector */}
+        <div className="flex items-center gap-1.5" role="group" aria-label="Rows per page">
           <span className="text-xs text-slate-500 dark:text-slate-400 mr-1 select-none">
             Per page:
           </span>
