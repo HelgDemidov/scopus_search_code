@@ -34,9 +34,11 @@ function FiltersContent() {
   const [countriesOpen, setCountriesOpen] = useState(false);
 
   // Filter data: all from useStatsStore().stats per §4.1 (Б-6)
-  const docTypes = stats?.by_doc_type.map((d) => d.label) ?? [];
-  const countries = stats?.by_country.map((c) => c.label) ?? [];
-  const years = stats?.by_year.map((y) => parseInt(y.label, 10)).filter(Boolean) ?? [];
+  // stats?.X guards against stats===null/undefined; stats?.X?.map() also
+  // guards against the sub-field being undefined (e.g. during store init)
+  const docTypes  = stats?.by_doc_type?.map((d) => d.label) ?? [];
+  const countries = stats?.by_country?.map((c) => c.label) ?? [];
+  const years     = stats?.by_year?.map((y) => parseInt(y.label, 10)).filter(Boolean) ?? [];
   const minYear = years.length ? Math.min(...years) : 2000;
   const maxYear = years.length ? Math.max(...years) : new Date().getFullYear();
 
