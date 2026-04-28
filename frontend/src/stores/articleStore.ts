@@ -23,6 +23,11 @@ interface ArticleStore {
   liveResults: ArticleResponse[];
   scopusQuota: { remaining: number; limit: number } | null;
 
+  // Режим отображения live-результатов Scopus:
+  //   10 — показывать по 10 результатов с пагинатором (макс. 3 страницы)
+  //   'all' — показать все вернувшиеся результаты (до 25) без пагинатора
+  liveSize: 10 | 'all';
+
   // UI-состояние
   isLoading: boolean;
   isLiveSearching: boolean;
@@ -35,6 +40,7 @@ interface ArticleStore {
   setSize: (size: PageSize) => void;
   setAppendMode: (mode: boolean) => void;
   setSortBy: (sortBy: 'date' | 'citations') => void;
+  setLiveSize: (s: 10 | 'all') => void;
   searchScopusLive: (keyword: string) => Promise<void>;
 }
 
@@ -86,6 +92,7 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
   appendMode: false,
   liveResults: [],
   scopusQuota: null,
+  liveSize: 10,   // дефолт — постраничный режим по 10 результатов
   isLoading: false,
   isLiveSearching: false,
   error: null,
@@ -166,6 +173,10 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
     });
   },
 
+  // Переключает режим отображения live-результатов;
+  // сброс livePage в 1 — ответственность компонента (livePage живёт в useState)
+  setLiveSize: (s: 10 | 'all') => set({ liveSize: s }),
+
   // Live-поиск через Scopus API; сохраняем квоту из заголовков ответа
   searchScopusLive: async (keyword: string) => {
     set({ isLiveSearching: true, error: null });
@@ -175,6 +186,7 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
         liveResults: articles,
         scopusQuota: quota,
         isLiveSearching: false,
+        liveSize: 10,   // сбрасываем режим при каждом новом запросе к Scopus
       });
       // После live-поиска обновляем quotaStore через fetchQuota():
       // /articles/find/quota возвращает полный QuotaResponse (limit, used, remaining, reset_at),

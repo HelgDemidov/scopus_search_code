@@ -17,6 +17,15 @@ vi.mock('../components/articles/ArticleList', () => ({
   },
 }));
 
+// Захват props ScopusPaginationBar — каждый рендер перезаписывает объект
+let capturedScopusPaginationBarProps: Record<string, unknown> = {};
+vi.mock('../components/articles/ScopusPaginationBar', () => ({
+  ScopusPaginationBar: (props: Record<string, unknown>) => {
+    capturedScopusPaginationBarProps = props;
+    return <div data-testid="scopus-pagination-bar" />;
+  },
+}));
+
 // Заглушки компонентов без логики, нужных HomePage
 vi.mock('../components/search/SearchBar', () => ({
   SearchBar: ({ onSearch }: { onSearch: (q: string) => void }) => (
@@ -64,12 +73,15 @@ function makeArticleState(overrides: Record<string, unknown> = {}) {
     size: 10 as PageSize,
     total: 0,
     appendMode: false,
+    // Поля авторизованной пагинации (добавлены в коммите 1)
+    liveSize: 10 as 10 | 'all',
     setFilters: vi.fn(),
     fetchArticles: vi.fn().mockResolvedValue(undefined),
     setPage: vi.fn(),
     setSize: vi.fn(),
     setAppendMode: vi.fn(),
     searchScopusLive: vi.fn().mockResolvedValue(undefined),
+    setLiveSize: vi.fn(),
     ...overrides,
   };
 }
@@ -78,7 +90,6 @@ function makeArticleState(overrides: Record<string, unknown> = {}) {
 // selector опционален: HomePage вызывает useArticleStore() без аргумента
 // (деструктурирует весь стор), поэтому при selector === undefined возвращаем
 // весь articleState, иначе — selector(articleState).
-// Это точно воспроизводит поведение реального Zustand-хука.
 let articleState = makeArticleState();
 vi.mock('../stores/articleStore', () => ({
   useArticleStore: (selector?: (s: ReturnType<typeof makeArticleState>) => unknown) =>
@@ -98,6 +109,7 @@ vi.mock('../stores/authStore', () => ({
 
 beforeEach(() => {
   capturedArticleListProps = {};
+  capturedScopusPaginationBarProps = {};
   authIsAuthenticated = false;
   articleState = makeArticleState();
   vi.clearAllMocks();
@@ -111,9 +123,7 @@ describe('HomePage — anon hero', () => {
 
   it('до поиска: AnonHero виден, ArticleList не рендерится', () => {
     render(<HomePage />);
-    // Заголовок hero-блока присутствует
     expect(screen.getByText(/Поиск публикаций Scopus/i)).toBeInTheDocument();
-    // ArticleList появляется только после hasSearched=true
     expect(screen.queryByTestId('article-list')).toBeNull();
   });
 
@@ -133,7 +143,6 @@ describe('HomePage — pagination wire-up (anon)', () => {
   it('page/size/total/appendMode из стора прокидываются в ArticleList', async () => {
     articleState = makeArticleState({ page: 3, size: 25 as PageSize, total: 75, appendMode: true });
     render(<HomePage />);
-    // Триггерим поиск, чтобы hasSearched=true
     await userEvent.click(screen.getByTestId('search-bar'));
     expect(capturedArticleListProps.page).toBe(3);
     expect(capturedArticleListProps.size).toBe(25);
@@ -148,7 +157,6 @@ describe('HomePage — pagination wire-up (anon)', () => {
     render(<HomePage />);
     await userEvent.click(screen.getByTestId('search-bar'));
 
-    // Вызываем onPageChange напрямую из захваченных props
     await act(async () => {
       (capturedArticleListProps.onPageChange as (p: number) => void)(2);
     });
@@ -203,31 +211,111 @@ describe('HomePage — toggle mode', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Блок 4: Авторизованный режим — нейтральные заглушки пагинации
+// Блок 4: Auth mode — ScopusPaginationBar wire-up
 // ---------------------------------------------------------------------------
 
-describe('HomePage — auth mode (pagination stubs)', () => {
+describe('HomePage — auth mode (ScopusPaginationBar wire-up)', () => {
 
-  it('ArticleList получает page=1, size=25 независимо от стора', async () => {
+  it('ScopusPaginationBar рендерится в auth-режиме', () => {
     authIsAuthenticated = true;
-    // page/size в сторе отличаются от ожидаемых заглушек
-    articleState = makeArticleState({ page: 5, size: 50 as PageSize, total: 200 });
     render(<HomePage />);
-    // В auth-режиме ArticleList виден сразу (нет условия hasSearched)
-    expect(screen.getByTestId('article-list')).toBeInTheDocument();
-    expect(capturedArticleListProps.page).toBe(1);
-    expect(capturedArticleListProps.size).toBe(25);
+    expect(screen.getByTestId('scopus-pagination-bar')).toBeInTheDocument();
   });
 
-  it('ArticleList получает total=liveResults.length, appendMode=false', () => {
+  it('total в ScopusPaginationBar = sortedArticles.length (liveResults.length)', () => {
     authIsAuthenticated = true;
-    articleState = makeArticleState({
-      liveResults: [{ id: 1, title: 'X' }, { id: 2, title: 'Y' }] as never,
-      total: 999,     // total стора игнорируется в auth-режиме
-      appendMode: true, // appendMode стора тоже игнорируется
-    });
+    const liveResults = [
+      { id: 1, title: 'A', cited_by_count: 5 },
+      { id: 2, title: 'B', cited_by_count: 1 },
+      { id: 3, title: 'C', cited_by_count: 3 },
+    ] as never;
+    articleState = makeArticleState({ liveResults });
     render(<HomePage />);
-    expect(capturedArticleListProps.total).toBe(2); // liveResults.length
+    // total = liveResults.length = 3
+    expect(capturedScopusPaginationBarProps.total).toBe(3);
+  });
+
+  it('livePage сбрасывается в 1 при новом поиске', async () => {
+    authIsAuthenticated = true;
+    render(<HomePage />);
+
+    // Симулируем смену страницы до нового поиска
+    await act(async () => {
+      (capturedScopusPaginationBarProps.onPageChange as (p: number) => void)(2);
+    });
+    expect(capturedScopusPaginationBarProps.livePage).toBe(2);
+
+    // Новый поиск — livePage должен вернуться в 1
+    await act(async () => {
+      await userEvent.click(screen.getByTestId('search-bar'));
+    });
+    expect(capturedScopusPaginationBarProps.livePage).toBe(1);
+  });
+
+  it('onSizeChange вызывает setLiveSize и сбрасывает livePage в 1', async () => {
+    authIsAuthenticated = true;
+    const setLiveSize = vi.fn();
+    articleState = makeArticleState({ setLiveSize });
+    render(<HomePage />);
+
+    // Переходим на страницу 2
+    await act(async () => {
+      (capturedScopusPaginationBarProps.onPageChange as (p: number) => void)(2);
+    });
+    expect(capturedScopusPaginationBarProps.livePage).toBe(2);
+
+    // Меняем liveSize — должен вызваться setLiveSize и сброситься livePage
+    await act(async () => {
+      (capturedScopusPaginationBarProps.onSizeChange as (s: 'all') => void)('all');
+    });
+    expect(setLiveSize).toHaveBeenCalledWith('all');
+    expect(capturedScopusPaginationBarProps.livePage).toBe(1);
+  });
+
+  it('ArticleList получает срез [0..9] при liveSize=10, livePage=1, total=15', () => {
+    authIsAuthenticated = true;
+    // 15 статей: id 1..15
+    const liveResults = Array.from({ length: 15 }, (_, i) => ({
+      id: i + 1,
+      title: `Article ${i + 1}`,
+      cited_by_count: 0,
+    })) as never;
+    articleState = makeArticleState({ liveResults, liveSize: 10 as const });
+    render(<HomePage />);
+
+    // visibleLiveResults = sortedArticles.slice(0, 10) = первые 10 статей
+    const articles = capturedArticleListProps.articles as Array<{ id: number }>;
+    expect(articles).toHaveLength(10);
+    expect(articles[0].id).toBe(1);
+    expect(articles[9].id).toBe(10);
+  });
+
+  it('при liveSize="all" ArticleList получает весь sortedArticles', () => {
+    authIsAuthenticated = true;
+    const liveResults = Array.from({ length: 15 }, (_, i) => ({
+      id: i + 1,
+      title: `Article ${i + 1}`,
+      cited_by_count: 0,
+    })) as never;
+    articleState = makeArticleState({ liveResults, liveSize: 'all' as const });
+    render(<HomePage />);
+
+    const articles = capturedArticleListProps.articles as Array<{ id: number }>;
+    expect(articles).toHaveLength(15);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Блок 5: Auth mode — нейтральные заглушки ArticleList
+// ---------------------------------------------------------------------------
+
+describe('HomePage — auth mode (ArticleList neutral stubs)', () => {
+
+  it('ArticleList получает appendMode=false и page=1 независимо от стора', () => {
+    authIsAuthenticated = true;
+    articleState = makeArticleState({ page: 5, size: 50 as PageSize, total: 200, appendMode: true });
+    render(<HomePage />);
     expect(capturedArticleListProps.appendMode).toBe(false);
+    expect(capturedArticleListProps.page).toBe(1);
   });
 });

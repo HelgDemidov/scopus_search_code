@@ -7,12 +7,14 @@ import { getSearchStats } from '../api/articles';
 import { SearchBar } from '../components/search/SearchBar';
 import { ArticleList } from '../components/articles/ArticleList';
 import { ScopusQuotaBadge } from '../components/articles/ScopusQuotaBadge';
+import { ScopusPaginationBar } from '../components/articles/ScopusPaginationBar';
 import { SearchResultsDashboard } from '../components/search/SearchResultsDashboard';
 import { Skeleton } from '../components/ui/skeleton';
 import type { PageSize } from '../components/articles/PaginationBar';
+import type { LiveSize } from '../components/articles/ScopusPaginationBar';
 import type { ArticleResponse, SearchStatsResponse } from '../types/api';
 
-// Клиентская сортировка по цитированиям (Сортед within current page — §4.1)
+// Клиентская сортировка по цитированиям (сортед within current page — §4.1)
 function sortArticles(
   articles: ArticleResponse[],
   sortBy: 'date' | 'citations',
@@ -54,7 +56,6 @@ function AnonHero({ onSearch }: { onSearch: (q: string) => void }) {
   );
 }
 
-// Блок результатов для авторизованных
 export default function HomePage() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const {
@@ -64,7 +65,7 @@ export default function HomePage() {
     isLiveSearching,
     error,
     filters,
-    // Новые поля стора для пагинации (Шаг 4)
+    // Поля стора для анонимной пагинации
     page,
     size,
     total,
@@ -75,13 +76,19 @@ export default function HomePage() {
     setSize,
     setAppendMode,
     searchScopusLive,
+    // Поля стора для авторизованной пагинации (добавлены в коммите 1)
+    liveSize,
+    setLiveSize,
   } = useArticleStore();
+
   const [sortBy, setSortBy] = useState<'date' | 'citations'>('date');
-
   const [hasSearched, setHasSearched] = useState(false);
-
   const [searchStats, setSearchStats] = useState<SearchStatsResponse | null>(null);
   const [isStatsLoading, setIsStatsLoading] = useState(false);
+
+  // livePage живёт в useState: эфемерное UI-состояние без сайд-эффектов на стор.
+  // Сбрасывается в 1 при каждом новом поиске и при смене liveSize
+  const [livePage, setLivePage] = useState(1);
 
   useEffect(() => {
     if (!error || !isAuthenticated) return;
@@ -92,18 +99,26 @@ export default function HomePage() {
     }
   }, [error, isAuthenticated]);
 
-  // Для авторизованных показываем live-результаты из Scopus,
-  // для анонимных — статьи локальной коллекции
+  // Для авторизованных — live-результаты из Scopus, для анонимных — локальная коллекция
   const displayArticles = isAuthenticated ? liveResults : articles;
 
-  // Сортировка по текущим данным стора
+  // Сортировка применяется ко всему массиву до слайса, чтобы смена сортировки
+  // не конфликтовала со сменой страницы
   const sortedArticles = useMemo(
     () => sortArticles(displayArticles, sortBy),
     [displayArticles, sortBy],
   );
 
-  // Перелистывание страницы: setPage + fetchArticles явно;
-  // useCallback стабилизирует ссылку для dep-array IntersectionObserver в ArticleList
+  // Срез sortedArticles для текущей страницы/режима в авторизованной зоне.
+  // В анонимном режиме не используется — передаётся sortedArticles напрямую
+  const visibleLiveResults = useMemo(() => {
+    if (!isAuthenticated) return sortedArticles;
+    if (liveSize === 'all') return sortedArticles;
+    const from = (livePage - 1) * 10;
+    return sortedArticles.slice(from, from + 10);
+  }, [isAuthenticated, sortedArticles, liveSize, livePage]);
+
+  // Обработчики для анонимной зоны — fetchArticles явно после мутации стора
   const handlePageChange = useCallback(
     (p: number) => {
       setPage(p);
@@ -112,7 +127,6 @@ export default function HomePage() {
     [setPage, fetchArticles],
   );
 
-  // Смена размера страницы: setSize сбрасывает page=1 автоматически (Шаг 1)
   const handleSizeChange = useCallback(
     (s: PageSize) => {
       setSize(s);
@@ -121,15 +135,25 @@ export default function HomePage() {
     [setSize, fetchArticles],
   );
 
-  // Переключатель режима: setAppendMode сбрасывает page=1 и articles=[] (Шаг 1)
   const handleToggleMode = useCallback(() => {
     setAppendMode(!appendMode);
   }, [setAppendMode, appendMode]);
+
+  // Обработчик смены liveSize: setLiveSize + сброс livePage в 1
+  const handleLiveSizeChange = useCallback(
+    (s: LiveSize) => {
+      setLiveSize(s);
+      setLivePage(1);
+    },
+    [setLiveSize],
+  );
 
   async function handleSearch(query: string) {
     setHasSearched(true);
 
     if (isAuthenticated) {
+      // Новый запрос — всегда возвращаемся на первую страницу
+      setLivePage(1);
       void searchScopusLive(query);
 
       setIsStatsLoading(true);
@@ -143,7 +167,7 @@ export default function HomePage() {
         setIsStatsLoading(false);
       }
     } else {
-      // setFilters сбрасывает page=1 и articles=[] автоматически (Шаг 1)
+      // setFilters сбрасывает page=1 и articles=[] автоматически (коммит 1)
       setFilters({ search: query, keyword: undefined });
       fetchArticles();
     }
@@ -156,7 +180,7 @@ export default function HomePage() {
           <AnonHero onSearch={handleSearch} />
           {hasSearched && (
             <div className="mx-auto w-full max-w-screen-lg px-4 pb-12">
-              {/* Анонимный режим: полный wire-up пагинации */}
+              {/* Анонимный режим: полный wire-up пагинации через ArticleList/PaginationBar */}
               <ArticleList
                 articles={sortedArticles}
                 isLoading={isLoading}
@@ -183,24 +207,43 @@ export default function HomePage() {
             <ScopusQuotaBadge />
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Выдача результатов поиска по живой базе Scopus ограничена 25 статьями за 1 запрос
+            Поиск по базе Scopus — до 25 статей за запрос.{' '}
+            Поиск по тематической коллекции{' '}
+            <span className="font-medium text-slate-700 dark:text-slate-300">
+              AI &amp; Neural Network Technologies
+            </span>{' '}
+            доступен в режиме{' '}
+            <span className="font-medium text-slate-700 dark:text-slate-300">
+              Коллекция
+            </span>{' '}
+            (в разработке).
           </p>
 
           <div className="flex gap-6 items-start">
             <div className="flex-1 min-w-0 flex flex-col gap-4">
-              {/* Авторизованный режим: нейтральные заглушки — live-результаты max 25 шт., пагинация не нужна */}
+              {/* Авторизованный режим: ArticleList отображает видимый срез.
+                  Пагинацией управляет ScopusPaginationBar, а не ArticleList/PaginationBar */}
               <ArticleList
-                articles={sortedArticles}
+                articles={visibleLiveResults}
                 isLoading={isLiveSearching}
                 sortBy={sortBy}
                 onSortChange={setSortBy}
                 page={1}
                 size={25}
-                total={liveResults.length}
+                total={visibleLiveResults.length}
                 appendMode={false}
                 onPageChange={() => {}}
                 onSizeChange={() => {}}
                 onToggleMode={() => {}}
+              />
+
+              {/* ScopusPaginationBar: total = весь sortedArticles, не только срез */}
+              <ScopusPaginationBar
+                livePage={livePage}
+                liveSize={liveSize}
+                total={sortedArticles.length}
+                onPageChange={setLivePage}
+                onSizeChange={handleLiveSizeChange}
               />
             </div>
           </div>

@@ -48,6 +48,7 @@ const INITIAL_STATE = {
   appendMode: false,
   liveResults: [] as ArticleResponse[],
   scopusQuota: null,
+  liveSize: 10 as 10 | 'all',
   isLoading: false,
   isLiveSearching: false,
   error: null,
@@ -302,5 +303,41 @@ describe('setFilters', () => {
     expect(filters.keyword).toBe('gnn');
     // search не затронут — должен остаться
     expect(filters.search).toBe('transformer');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Блок 5: setLiveSize
+// ---------------------------------------------------------------------------
+
+describe('setLiveSize', () => {
+  it('setLiveSize("all") устанавливает liveSize="all"', () => {
+    act(() => {
+      useArticleStore.getState().setLiveSize('all');
+    });
+    expect(useArticleStore.getState().liveSize).toBe('all');
+  });
+
+  it('setLiveSize(10) устанавливает liveSize=10', () => {
+    useArticleStore.setState({ liveSize: 'all' });
+
+    act(() => {
+      useArticleStore.getState().setLiveSize(10);
+    });
+
+    expect(useArticleStore.getState().liveSize).toBe(10);
+  });
+
+  it('не затрагивает другие поля стора', () => {
+    useArticleStore.setState({ page: 3, appendMode: true, liveResults: [makeArticle(1)] });
+
+    act(() => {
+      useArticleStore.getState().setLiveSize('all');
+    });
+
+    const { page, appendMode, liveResults } = useArticleStore.getState();
+    expect(page).toBe(3);
+    expect(appendMode).toBe(true);
+    expect(liveResults).toHaveLength(1);
   });
 });
