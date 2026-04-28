@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 
 /**
- * Обработчик Google OAuth redirect — Вариант A (§4.3).
- * Бэкенд возвращает RedirectResponse на /auth/callback?token=<jwt>.
- * Компонент читает параметр token, сохраняет его 和 редиректит на главную.
+ * Google OAuth redirect handler — Variant A (§4.3).
+ * The backend returns a RedirectResponse to /auth/callback?token=<jwt>.
+ * This component reads the token param, stores it, and redirects to the home page.
  */
 export default function OAuthCallback() {
   const navigate = useNavigate();
@@ -16,11 +16,11 @@ export default function OAuthCallback() {
     const token = params.get('token');
 
     if (token) {
-      // Сохраняем токен в localStorage и стор, затем загружаем профиль
+      // Store the token in localStorage and the store, then load the user profile
       setToken(token);
       fetchUser().then(() => navigate('/'));
     } else {
-      // Токен отсутствует — что-то пошло не так
+      // Token is missing — something went wrong
       navigate('/auth?error=oauth_failed');
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -29,7 +29,7 @@ export default function OAuthCallback() {
     <div className="flex min-h-[60vh] items-center justify-center">
       <div className="flex flex-col items-center gap-3 text-slate-500 dark:text-slate-400">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-800 dark:border-slate-700 dark:border-t-blue-500" />
-        <p className="text-sm">Выполняется вход…</p>
+        <p className="text-sm">Signing in…</p>
       </div>
     </div>
   );
