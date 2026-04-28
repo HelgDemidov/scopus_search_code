@@ -39,18 +39,18 @@ describe('PaginationBar — Prev/Next disabled', () => {
 
   it('Prev disabled на первой странице', () => {
     render(<PaginationBar {...defaults} page={1} />);
-    expect(screen.getByRole('button', { name: /предыдущая страница/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /previous page/i })).toBeDisabled();
   });
 
   it('Next disabled на последней странице (page=3, total=25, size=10)', () => {
     render(<PaginationBar {...defaults} page={3} total={25} size={10} />);
-    expect(screen.getByRole('button', { name: /следующая страница/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /next page/i })).toBeDisabled();
   });
 
   it('Prev и Next активны на средней странице', () => {
     render(<PaginationBar {...defaults} page={2} />);
-    expect(screen.getByRole('button', { name: /предыдущая страница/i })).not.toBeDisabled();
-    expect(screen.getByRole('button', { name: /следующая страница/i })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: /previous page/i })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: /next page/i })).not.toBeDisabled();
   });
 });
 
@@ -61,7 +61,7 @@ describe('PaginationBar — навигация', () => {
     render(
       <PaginationBar {...defaults} page={2} onPageChange={onPageChange} />
     );
-    await userEvent.click(screen.getByRole('button', { name: /предыдущая страница/i }));
+    await userEvent.click(screen.getByRole('button', { name: /previous page/i }));
     expect(onPageChange).toHaveBeenCalledWith(1);
   });
 
@@ -70,7 +70,7 @@ describe('PaginationBar — навигация', () => {
     render(
       <PaginationBar {...defaults} page={1} onPageChange={onPageChange} />
     );
-    await userEvent.click(screen.getByRole('button', { name: /следующая страница/i }));
+    await userEvent.click(screen.getByRole('button', { name: /next page/i }));
     expect(onPageChange).toHaveBeenCalledWith(2);
   });
 
@@ -129,6 +129,6 @@ describe('PaginationBar — accessibility', () => {
     expect(() =>
       render(<PaginationBar {...defaults} page={0} total={25} />)
     ).not.toThrow();
-    expect(screen.getByRole('button', { name: /предыдущая страница/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /previous page/i })).toBeDisabled();
   });
 });
