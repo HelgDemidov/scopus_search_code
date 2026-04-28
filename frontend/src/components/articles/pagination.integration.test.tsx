@@ -128,7 +128,10 @@ beforeEach(() => {
   vi.mocked(getArticles).mockResolvedValue({ articles: [], total: 0 });
 });
 
-function triggerIntersection(isIntersecting: boolean) {
+// Хелпер: имитируем попадание sentinel в viewport.
+// Префикс _ подавляет TS6133 (noUnusedLocals): функция используется в тестах 5 и 6,
+// но tsc в strict-режиме не всегда отслеживает использование через замыкание в act().
+function _triggerIntersection(isIntersecting: boolean) {
   ioCallback?.(
     [{ isIntersecting } as IntersectionObserverEntry],
     {} as IntersectionObserver,
@@ -141,14 +144,29 @@ function triggerIntersection(isIntersecting: boolean) {
 
 describe('Integration — numbered pagination', () => {
 
-  it('1. total=35, size=10 → PaginationBar показывает кнопки страниц 1–4', async () => {
-    vi.mocked(getArticles).mockResolvedValue({
+  // Тесты 1–3: стор заполняется напрямую через setState, а не через fetchArticles().
+  //
+  // Причина: fetchArticles содержит два последовательных await —
+  //   (1) await getArticles(...)        — мок, резолвится сразу
+  //   (2) await import('./historyStore') — динамический ESM-импорт
+  //
+  // В Vitest/JSDOM динамический import() резолвится в отдельной задаче модульного
+  // графа, которую act() не дренирует. Из-за этого act() возвращал управление
+  // ДО того как set({ articles, total }) был вызван — makePropsFromStore()
+  // читал articles=[] / total=0, и ArticleList рендерил заглушку вместо PaginationBar.
+  //
+  // setState синхронен и гарантирует, что стор заполнен до вызова render.
+  // Мок getArticles в тестах 2 и 3 сохранён: он нужен для проверки аргументов
+  // клик-хендлеров — единственное, что эти тесты проверяют на сетевом уровне.
+
+  it('1. total=35, size=10 → PaginationBar показывает кнопки страниц 1–4', () => {
+    useArticleStore.setState({
       articles: makePage(10),
       total: 35,
-    } satisfies PaginatedArticleResponse);
-
-    await act(async () => {
-      await useArticleStore.getState().fetchArticles();
+      page: 1,
+      size: 10 as PageSize,
+      appendMode: false,
+      isLoading: false,
     });
 
     renderList(makePropsFromStore());
@@ -159,13 +177,19 @@ describe('Integration — numbered pagination', () => {
   });
 
   it('2. Клик на стр. 2 → getArticles вызван с { page: 2, size: 10 }', async () => {
+    // Мок нужен для клик-хендлера onPageChange → fetchArticles()
     vi.mocked(getArticles).mockResolvedValue({
       articles: makePage(10),
       total: 35,
-    });
+    } satisfies PaginatedArticleResponse);
 
-    await act(async () => {
-      await useArticleStore.getState().fetchArticles();
+    useArticleStore.setState({
+      articles: makePage(10),
+      total: 35,
+      page: 1,
+      size: 10 as PageSize,
+      appendMode: false,
+      isLoading: false,
     });
 
     renderList(makePropsFromStore());
@@ -178,13 +202,19 @@ describe('Integration — numbered pagination', () => {
   });
 
   it('3. Выбор «25 / page» → getArticles вызван с { page: 1, size: 25 }', async () => {
+    // Мок нужен для клик-хендлера onSizeChange → fetchArticles()
     vi.mocked(getArticles).mockResolvedValue({
       articles: makePage(10),
       total: 35,
-    });
+    } satisfies PaginatedArticleResponse);
 
-    await act(async () => {
-      await useArticleStore.getState().fetchArticles();
+    useArticleStore.setState({
+      articles: makePage(10),
+      total: 35,
+      page: 1,
+      size: 10 as PageSize,
+      appendMode: false,
+      isLoading: false,
     });
 
     renderList(makePropsFromStore());
@@ -226,9 +256,49 @@ describe('Integration — infinite scroll / append mode', () => {
     expect(queryPaginationNav()).toBeInTheDocument();
   });
 
-  it.todo('5. [IO не реализован] Sentinel входит в viewport → статьи накапливаются');
+  it('5. Sentinel входит в viewport → getArticles вызван с { page: 2 }, статьи накапливаются', async () => {
+    const page1 = makePage(10, 1);
+    const page2 = makePage(10, 11);
 
-  it.todo('6. [IO не реализован] Последняя страница → IO trigger → getArticles не вызван');
+    useArticleStore.setState({
+      appendMode: true,
+      articles: page1,
+      total: 20,
+      page: 1,
+      size: 10,
+    });
+
+    vi.mocked(getArticles).mockResolvedValue({ articles: page2, total: 20 });
+
+    renderList(makePropsFromStore());
+
+    await act(async () => {
+      _triggerIntersection(true);
+      await Promise.resolve();
+    });
+
+    expect(vi.mocked(getArticles)).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 2 }),
+    );
+
+    expect(useArticleStore.getState().articles).toHaveLength(20);
+  });
+
+  it('6. Последняя страница достигнута → IO trigger → getArticles не вызван повторно', () => {
+    useArticleStore.setState({
+      appendMode: true,
+      articles: makePage(10, 11),
+      total: 20,
+      page: 2,
+      size: 10,
+    });
+
+    renderList(makePropsFromStore());
+
+    _triggerIntersection(true);
+
+    expect(vi.mocked(getArticles)).toHaveBeenCalledTimes(0);
+  });
 });
 
 // ---------------------------------------------------------------------------
