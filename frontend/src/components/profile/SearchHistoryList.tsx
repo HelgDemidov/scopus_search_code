@@ -1,284 +1,134 @@
-import { useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { useMemo, useState, useEffect } from 'react';
 import { useHistoryStore } from '../../stores/historyStore';
-import { Button } from '../ui/button';
-import { Checkbox } from '../ui/checkbox';
-import { Switch } from '../ui/switch';
-import { Badge } from '../ui/badge';
 import { Skeleton } from '../ui/skeleton';
-import type { SearchHistoryItem } from '../../types/api';
+import { Badge } from '../ui/badge';
 
-function formatCreatedAt(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat('ru-RU', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(iso));
-  } catch {
-    return iso;
-  }
-}
+// HistoryItem.status badge colours
+const STATUS_VARIANT: Record<string, string> = {
+  success: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
+  no_results: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400',
+  error: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400',
+};
 
-function filterEntries(item: SearchHistoryItem): Array<{ key: string; label: string }> {
-  const out: Array<{ key: string; label: string }> = [];
-  const filters = item.filters ?? {};
-  for (const [key, raw] of Object.entries(filters)) {
-    if (raw === undefined || raw === null || raw === '') continue;
-    if (Array.isArray(raw)) {
-      if (raw.length === 0) continue;
-      out.push({ key, label: `${key}: ${raw.map((v) => String(v)).join(', ')}` });
-    } else if (typeof raw === 'boolean') {
-      if (raw) out.push({ key, label: key });
-    } else {
-      out.push({ key, label: `${key}: ${String(raw)}` });
-    }
-  }
-  return out;
-}
+const STATUS_LABEL: Record<string, string> = {
+  success: 'Success',
+  no_results: 'No results',
+  error: 'Error',
+};
 
-function entryYear(iso: string): number | null {
-  if (!iso || iso.length < 4) return null;
-  const y = parseInt(iso.slice(0, 4), 10);
-  return Number.isFinite(y) ? y : null;
-}
-
-function entryOpenAccess(item: SearchHistoryItem): boolean {
-  const v = (item.filters ?? {})['openAccessOnly'] ?? (item.filters ?? {})['open_access'];
-  return v === true;
-}
-
-// Skeleton-заглушка списка — повторяет структуру реальных строк истории
-function HistoryListSkeleton() {
-  return (
-    <ul className="flex flex-col divide-y divide-slate-100 dark:divide-slate-700">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <li key={i} className="py-3 flex flex-col gap-2">
-          <div className="flex items-center justify-between gap-3">
-            <Skeleton className="h-4 w-2/3" />
-            <Skeleton className="h-3 w-20" />
-          </div>
-          <Skeleton className="h-3 w-24" />
-        </li>
-      ))}
-    </ul>
-  );
+function formatDate(iso: string): string {
+  return new Intl.DateTimeFormat('en-US', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(iso));
 }
 
 export function SearchHistoryList() {
-  const { items, historyFilters, setHistoryFilters, isLoading } = useHistoryStore();
+  const { items, isLoading, fetchHistory } = useHistoryStore();
 
-  const filtered = useMemo(() => {
-    return items.filter((item) => {
-      const y = entryYear(item.created_at);
-      if (historyFilters.yearFrom && (y === null || y < historyFilters.yearFrom)) return false;
-      if (historyFilters.yearTo && (y === null || y > historyFilters.yearTo)) return false;
-      if (historyFilters.openAccessOnly && !entryOpenAccess(item)) return false;
-      // Фильтр по типу документа — проверяем пересечение с docTypes в item.filters
-      if (historyFilters.docTypes && historyFilters.docTypes.length > 0) {
-        const raw = (item.filters ?? {})['docTypes'];
-        const itemTypes: string[] = Array.isArray(raw)
-          ? raw.map(String)
-          : typeof raw === 'string' && raw
-          ? [raw]
-          : [];
-        if (!historyFilters.docTypes.some((t) => itemTypes.includes(t))) return false;
-      }
-      // Фильтр по стране аффиляции — поддерживаем оба ключа (countries и country)
-      if (historyFilters.countries && historyFilters.countries.length > 0) {
-        const raw = (item.filters ?? {})['countries'] ?? (item.filters ?? {})['country'];
-        const itemCountries: string[] = Array.isArray(raw)
-          ? raw.map(String)
-          : typeof raw === 'string' && raw
-          ? [raw]
-          : [];
-        if (!historyFilters.countries.some((c) => itemCountries.includes(c))) return false;
-      }
-      return true;
-    });
-  }, [items, historyFilters]);
+  // Pagination state: 10 items per page
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
 
-  // Уникальные значения для чекбоксов: берём из items, не из statsStore
-  // statsStore.by_doc_type — коллекция сидера, здесь нужны типы из истории пользователя
-  const availableDocTypes = useMemo(() => {
-    const seen = new Set<string>();
-    for (const item of items) {
-      const raw = (item.filters ?? {})['docTypes'];
-      if (Array.isArray(raw)) raw.forEach((v) => v && seen.add(String(v)));
-      else if (typeof raw === 'string' && raw) seen.add(raw);
-    }
-    return Array.from(seen).sort();
-  }, [items]);
+  // Reset to page 1 when items list changes (e.g. after refetch)
+  useEffect(() => {
+    setPage(1);
+  }, [items.length]);
 
-  const availableCountries = useMemo(() => {
-    const seen = new Set<string>();
-    for (const item of items) {
-      const raw = (item.filters ?? {})['countries'] ?? (item.filters ?? {})['country'];
-      if (Array.isArray(raw)) raw.forEach((v) => v && seen.add(String(v)));
-      else if (typeof raw === 'string' && raw) seen.add(raw);
-    }
-    return Array.from(seen).sort();
-  }, [items]);
-
-  function resetFilters() {
-    setHistoryFilters({
-      yearFrom: undefined,
-      yearTo: undefined,
-      openAccessOnly: undefined,
-      docTypes: undefined,
-      countries: undefined,
-    });
-  }
-
-  function toggleDocType(type: string) {
-    const current = historyFilters.docTypes ?? [];
-    const updated = current.includes(type)
-      ? current.filter((t) => t !== type)
-      : [...current, type];
-    setHistoryFilters({ docTypes: updated.length ? updated : undefined });
-  }
-
-  function toggleCountry(country: string) {
-    const current = historyFilters.countries ?? [];
-    const updated = current.includes(country)
-      ? current.filter((c) => c !== country)
-      : [...current, country];
-    setHistoryFilters({ countries: updated.length ? updated : undefined });
-  }
+  const totalPages = Math.ceil(items.length / PAGE_SIZE);
+  const pageItems = useMemo(
+    () => items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [items, page],
+  );
 
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 flex flex-col gap-4">
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="flex flex-col">
-          <label className="text-xs text-slate-500 dark:text-slate-400">Год с</label>
-          <input
-            type="number"
-            value={historyFilters.yearFrom ?? ''}
-            onChange={(e) =>
-              setHistoryFilters({
-                yearFrom: e.target.value ? Number(e.target.value) : undefined,
-              })
-            }
-            className="w-24 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-xs text-slate-900 dark:text-slate-100"
-          />
-        </div>
-        <div className="flex flex-col">
-          <label className="text-xs text-slate-500 dark:text-slate-400">Год по</label>
-          <input
-            type="number"
-            value={historyFilters.yearTo ?? ''}
-            onChange={(e) =>
-              setHistoryFilters({
-                yearTo: e.target.value ? Number(e.target.value) : undefined,
-              })
-            }
-            className="w-24 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-xs text-slate-900 dark:text-slate-100"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <Switch
-            checked={!!historyFilters.openAccessOnly}
-            onCheckedChange={(checked) =>
-              setHistoryFilters({ openAccessOnly: checked || undefined })
-            }
-          />
-          <span className="text-xs text-slate-700 dark:text-slate-300">Только Open Access</span>
-        </div>
-
-        {/* Тип документа: чекбоксы по значениям из истории пользователя */}
-        {availableDocTypes.length > 0 && (
-          <div className="flex flex-col gap-1">
-            <span className="text-xs text-slate-500 dark:text-slate-400">Тип документа</span>
-            <div className="flex flex-col gap-1">
-              {availableDocTypes.map((type) => (
-                <label key={type} className="flex items-center gap-2 cursor-pointer">
-                  <Checkbox
-                    checked={(historyFilters.docTypes ?? []).includes(type)}
-                    onCheckedChange={() => toggleDocType(type)}
-                    id={`hist-doctype-${type}`}
-                  />
-                  <span className="text-xs text-slate-700 dark:text-slate-300 truncate">
-                    {type}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Страна аффиляции: чекбоксы по значениям из истории пользователя */}
-        {availableCountries.length > 0 && (
-          <div className="flex flex-col gap-1">
-            <span className="text-xs text-slate-500 dark:text-slate-400">Страна</span>
-            <div className="flex flex-col gap-1">
-              {availableCountries.map((country) => (
-                <label key={country} className="flex items-center gap-2 cursor-pointer">
-                  <Checkbox
-                    checked={(historyFilters.countries ?? []).includes(country)}
-                    onCheckedChange={() => toggleCountry(country)}
-                    id={`hist-country-${country}`}
-                  />
-                  <span className="text-xs text-slate-700 dark:text-slate-300 truncate">
-                    {country}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <Button variant="ghost" size="sm" onClick={resetFilters} className="text-xs">
-          Сбросить
-        </Button>
-      </div>
-
-      {/* Skeleton-список при загрузке вместо текстовой заглушки */}
-      {isLoading ? (
-        <HistoryListSkeleton />
-      ) : filtered.length === 0 ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400">История поиска пуста</p>
-      ) : (
-        <ul className="flex flex-col divide-y divide-slate-100 dark:divide-slate-700">
-          {filtered.map((item) => {
-            const chips = filterEntries(item);
-            return (
-              <li key={item.id} className="py-3 flex flex-col gap-1">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-slate-900 dark:text-slate-100 break-words">
-                    {item.query}
-                  </p>
-                  <p className="text-xs text-slate-400 whitespace-nowrap">
-                    {formatCreatedAt(item.created_at)}
-                  </p>
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {item.result_count.toLocaleString('ru-RU')} статей
-                </p>
-                {chips.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {chips.map((chip) => (
-                      <Badge key={chip.key} variant="secondary" className="text-xs">
-                        {chip.label}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
-      <div className="pt-2 border-t border-slate-100 dark:border-slate-700">
-        <Link
-          to="/explore?mode=personal"
-          className="text-sm text-blue-800 dark:text-blue-400 hover:underline"
+    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+          Search History
+        </p>
+        <button
+          onClick={() => fetchHistory()}
+          className="text-xs text-blue-700 dark:text-blue-400 hover:underline"
+          aria-label="Refresh search history"
         >
-          Перейти в аналитику по моим поискам →
-        </Link>
+          Refresh
+        </button>
       </div>
+
+      {isLoading ? (
+        <div className="flex flex-col gap-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full rounded" />
+          ))}
+        </div>
+      ) : items.length === 0 ? (
+        <p className="text-sm text-slate-400 text-center py-6">
+          No search history yet
+        </p>
+      ) : (
+        <>
+          <ul className="flex flex-col gap-2">
+            {pageItems.map((item) => (
+              <li
+                key={item.id}
+                className="flex items-start justify-between gap-3 rounded-lg px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700/40"
+              >
+                <div className="flex flex-col gap-0.5 min-w-0">
+                  <span className="font-medium text-slate-800 dark:text-slate-200 truncate">
+                    {item.query}
+                  </span>
+                  <span className="text-xs text-slate-400">
+                    {formatDate(item.created_at)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {item.result_count != null && (
+                    <span className="text-xs tabular-nums text-slate-500 dark:text-slate-400">
+                      {item.result_count.toLocaleString('en-US')} results
+                    </span>
+                  )}
+                  {item.status && (
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-xs font-medium ${STATUS_VARIANT[item.status] ?? ''}`}
+                    >
+                      {STATUS_LABEL[item.status] ?? item.status}
+                    </span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          {/* Pagination controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-3">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="text-xs text-slate-500 hover:text-slate-800 disabled:opacity-40 dark:text-slate-400 dark:hover:text-slate-200"
+                aria-label="Previous page"
+              >
+                &larr;
+              </button>
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                {page} / {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="text-xs text-slate-500 hover:text-slate-800 disabled:opacity-40 dark:text-slate-400 dark:hover:text-slate-200"
+                aria-label="Next page"
+              >
+                &rarr;
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
