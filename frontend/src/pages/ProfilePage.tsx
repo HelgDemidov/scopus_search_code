@@ -8,24 +8,24 @@ import { Skeleton } from '../components/ui/skeleton';
 import { LiveSearchQuotaCounter } from '../components/profile/LiveSearchQuotaCounter';
 import { SearchHistoryList } from '../components/profile/SearchHistoryList';
 
-// Форматируем дату регистрации: DD MMM YYYY
+// Format registration date: DD MMM YYYY
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
-  return new Intl.DateTimeFormat('ru-RU', {
+  return new Intl.DateTimeFormat('en-US', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
   }).format(new Date(iso));
 }
 
-// Генерация двух буквенных инициалов для аватара
+// Generate two-letter initials for the avatar
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-// Skeleton-заглушка страницы — повторяет структуру блока идентификации
+// Page skeleton — mirrors the identity block structure
 function ProfilePageSkeleton() {
   return (
     <div className="mx-auto max-w-screen-sm px-4 py-10">
@@ -56,7 +56,7 @@ export default function ProfilePage() {
 
   const displayName = user ? (user.username ?? user.email.split('@')[0]) : '';
 
-  // Guard: если авторизация потеряна — немедленный редирект вместо бесконечного спиннера
+  // Guard: redirect immediately if authentication is lost
   useEffect(() => {
     if (isAuthenticated === false) {
       navigate('/auth', { replace: true });
@@ -73,16 +73,16 @@ export default function ProfilePage() {
     navigate('/');
   }
 
-  // Skeleton вместо spinner — визуально согласован со структурой страницы
+  // Skeleton instead of spinner — visually consistent with the page structure
   if (!user) {
     return <ProfilePageSkeleton />;
   }
 
   return (
     <div className="mx-auto max-w-screen-sm px-4 py-10">
-      <h1 className="mb-6 text-xl font-semibold text-slate-900 dark:text-slate-100">Профиль</h1>
+      <h1 className="mb-6 text-xl font-semibold text-slate-900 dark:text-slate-100">Profile</h1>
 
-      {/* Блок идентификации */}
+      {/* Identity block */}
       <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6">
         <div className="flex items-center gap-4 mb-6">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-800 text-white text-lg font-semibold dark:bg-blue-500">
@@ -97,7 +97,7 @@ export default function ProfilePage() {
         </div>
 
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-          <dt className="text-slate-500 dark:text-slate-400">Имя пользователя</dt>
+          <dt className="text-slate-500 dark:text-slate-400">Username</dt>
           <dd className="font-medium text-slate-900 dark:text-slate-100">
             {user.username ?? '—'}
           </dd>
@@ -107,31 +107,31 @@ export default function ProfilePage() {
             {user.email}
           </dd>
 
-          <dt className="text-slate-500 dark:text-slate-400">Дата регистрации</dt>
+          <dt className="text-slate-500 dark:text-slate-400">Member since</dt>
           <dd className="font-medium text-slate-900 dark:text-slate-100">
             {formatDate(user.created_at)}
           </dd>
         </dl>
       </div>
 
-      {/* Квота live-поиска Scopus */}
+      {/* Scopus live-search quota */}
       <div className="mt-4">
         <LiveSearchQuotaCounter />
       </div>
 
-      {/* История поиска */}
+      {/* Search history */}
       <div className="mt-4">
         <SearchHistoryList />
       </div>
 
-      {/* Выход */}
+      {/* Sign out */}
       <div className="mt-6">
         <Button
           variant="outline"
           onClick={handleSignOut}
           className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-900/30"
         >
-          Выйти
+          Sign out
         </Button>
       </div>
     </div>
