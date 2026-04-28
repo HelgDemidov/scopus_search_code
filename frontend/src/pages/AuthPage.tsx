@@ -9,35 +9,35 @@ import { Input } from '../components/ui/input';
 import { useAuthStore } from '../stores/authStore';
 import { login, register as registerUser } from '../api/auth';
 
-// Zod-схема для формы входа
+// Zod schema for the sign-in form
 const loginSchema = z.object({
-  email: z.string().email('Некорректный email'),
-  password: z.string().min(1, 'Введите пароль'),
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(1, 'Password is required'),
 });
 
-// Zod-схема для формы регистрации — зеркалит требования Pydantic-валидатора бэкенда
+// Zod schema for the registration form — mirrors the backend Pydantic validator requirements
 const registerSchema = z
   .object({
-    username: z.string().min(2, 'Имя пользователя: минимум 2 символа'),
-    email: z.string().email('Некорректный email'),
+    username: z.string().min(2, 'Username must be at least 2 characters'),
+    email: z.string().email('Invalid email address'),
     password: z
       .string()
-      .min(8, 'Минимум 8 символов')
-      .regex(/[A-Z]/, 'Нужна хотя бы одна заглавная буква')
-      .regex(/[a-z]/, 'Нужна хотя бы одна строчная буква')
-      .regex(/[0-9]/, 'Нужна хотя бы одна цифра')
-      .regex(/[^A-Za-z0-9]/, 'Нужен хотя бы один спецсимвол (!@#$%^&* и др.)'),
-    password_confirm: z.string().min(1, 'Подтвердите пароль'),
+      .min(8, 'Minimum 8 characters')
+      .regex(/[A-Z]/, 'At least one uppercase letter required')
+      .regex(/[a-z]/, 'At least one lowercase letter required')
+      .regex(/[0-9]/, 'At least one digit required')
+      .regex(/[^A-Za-z0-9]/, 'At least one special character required (!@#$%^&* etc.)'),
+    password_confirm: z.string().min(1, 'Please confirm your password'),
   })
   .refine((data) => data.password === data.password_confirm, {
-    message: 'Пароли не совпадают',
+    message: 'Passwords do not match',
     path: ['password_confirm'],
   });
 
 type LoginFormData = z.infer<typeof loginSchema>;
 type RegisterFormData = z.infer<typeof registerSchema>;
 
-// Форма входа
+// Sign-in form
 function SignInForm() {
   const navigate = useNavigate();
   const { setToken, fetchUser } = useAuthStore();
@@ -60,8 +60,8 @@ function SignInForm() {
       const status = (err as { response?: { status?: number } })?.response?.status;
       setServerError(
         status === 401
-          ? 'Неверный email или пароль'
-          : 'Ошибка сервера. Попробуйте ещё раз.',
+          ? 'Invalid email or password'
+          : 'Server error. Please try again.',
       );
     }
   }
@@ -70,7 +70,7 @@ function SignInForm() {
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <label htmlFor="login-email" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-          Электронная почта
+          Email
         </label>
         <Input
           id="login-email"
@@ -86,7 +86,7 @@ function SignInForm() {
 
       <div className="flex flex-col gap-1">
         <label htmlFor="login-password" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-          Пароль
+          Password
         </label>
         <PasswordInput id="login-password" register={register('password')} />
         {errors.password && (
@@ -99,13 +99,13 @@ function SignInForm() {
       )}
 
       <Button type="submit" disabled={isSubmitting} className="w-full bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400">
-        {isSubmitting ? 'Вход…' : 'Войти'}
+        {isSubmitting ? 'Signing in…' : 'Sign in'}
       </Button>
     </form>
   );
 }
 
-// Форма регистрации
+// Registration form
 function CreateAccountForm() {
   const navigate = useNavigate();
   const { setToken, fetchUser } = useAuthStore();
@@ -120,7 +120,7 @@ function CreateAccountForm() {
   async function onSubmit(data: RegisterFormData) {
     setServerError(null);
     try {
-      // Шаг 1: регистрация — JSON body
+      // Step 1: register — JSON body
       await registerUser({
         username: data.username,
         email: data.email,
@@ -128,7 +128,7 @@ function CreateAccountForm() {
         password_confirm: data.password_confirm,
       });
 
-      // Шаг 2: автологин
+      // Step 2: auto-login
       const { access_token } = await login({ email: data.email, password: data.password });
       setToken(access_token);
       await fetchUser();
@@ -141,20 +141,20 @@ function CreateAccountForm() {
       } | undefined;
 
       if (status === 409) {
-        setServerError('Пользователь с таким email уже зарегистрирован');
+        setServerError('An account with this email already exists');
       } else if (status === 422) {
-        // Pydantic возвращает detail как массив объектов с полем msg
+        // Pydantic returns detail as an array of objects with a msg field
         const detail = data?.detail;
         if (Array.isArray(detail) && detail.length > 0) {
-          // Убираем префикс "Value error, " который добавляет Pydantic
+          // Strip the "Value error, " prefix added by Pydantic
           setServerError(detail[0].msg.replace(/^Value error,\s*/i, ''));
         } else if (typeof detail === 'string') {
           setServerError(detail);
         } else {
-          setServerError('Проверьте правильность заполнения полей');
+          setServerError('Please check that all fields are filled in correctly');
         }
       } else {
-        setServerError('Ошибка сервера. Попробуйте ещё раз.');
+        setServerError('Server error. Please try again.');
       }
     }
   }
@@ -163,7 +163,7 @@ function CreateAccountForm() {
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <label htmlFor="reg-username" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-          Имя пользователя
+          Username
         </label>
         <Input id="reg-username" placeholder="johndoe" {...register('username')} />
         {errors.username && (
@@ -173,7 +173,7 @@ function CreateAccountForm() {
 
       <div className="flex flex-col gap-1">
         <label htmlFor="reg-email" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-          Электронная почта
+          Email
         </label>
         <Input id="reg-email" type="email" autoComplete="email" placeholder="you@example.com" {...register('email')} />
         {errors.email && (
@@ -183,7 +183,7 @@ function CreateAccountForm() {
 
       <div className="flex flex-col gap-1">
         <label htmlFor="reg-password" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-          Пароль
+          Password
         </label>
         <PasswordInput id="reg-password" register={register('password')} />
         {errors.password && (
@@ -193,7 +193,7 @@ function CreateAccountForm() {
 
       <div className="flex flex-col gap-1">
         <label htmlFor="reg-confirm" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-          Подтверждение пароля
+          Confirm password
         </label>
         <PasswordInput id="reg-confirm" register={register('password_confirm')} />
         {errors.password_confirm && (
@@ -206,13 +206,13 @@ function CreateAccountForm() {
       )}
 
       <Button type="submit" disabled={isSubmitting} className="w-full bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400">
-        {isSubmitting ? 'Создание аккаунта…' : 'Создать аккаунт'}
+        {isSubmitting ? 'Creating account…' : 'Create account'}
       </Button>
     </form>
   );
 }
 
-// Вспомогательный компонент: поле пароля с toggle показать/скрыть
+// Helper component: password field with show/hide toggle
 function PasswordInput({
   id,
   register,
@@ -233,7 +233,7 @@ function PasswordInput({
       <button
         type="button"
         onClick={() => setShow((v) => !v)}
-        aria-label={show ? 'Скрыть пароль' : 'Показать пароль'}
+        aria-label={show ? 'Hide password' : 'Show password'}
         className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
       >
         {show ? (
@@ -259,24 +259,24 @@ export default function AuthPage() {
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm">
-        {/* Заголовок */}
+        {/* Page heading */}
         <div className="mb-6 text-center">
           <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
-            Добро пожаловать в Scopus Search
+            Welcome to Scopus Search
           </h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Войдите, чтобы получить доступ к живому поиску Scopus
+            Sign in to access live Scopus search
           </p>
         </div>
 
-        {/* Ошибка OAuth */}
+        {/* OAuth error */}
         {oauthError && (
           <div className="mb-4 rounded-md bg-rose-50 dark:bg-rose-900/30 px-3 py-2 text-xs text-rose-700 dark:text-rose-400">
-            Вход через Google не удался. Попробуйте ещё раз.
+            Google sign-in failed. Please try again.
           </div>
         )}
 
-        {/* Кнопка Google OAuth */}
+        {/* Google OAuth button */}
         <button
           onClick={() => { window.location.href = '/auth/google/login'; }}
           className="mb-4 flex w-full items-center justify-center gap-2.5 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
@@ -287,21 +287,21 @@ export default function AuthPage() {
             <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
             <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
           </svg>
-          Продолжить через Google
+          Continue with Google
         </button>
 
-        {/* Разделитель */}
+        {/* Divider */}
         <div className="relative my-4 flex items-center gap-2">
           <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
-          <span className="text-xs text-slate-400">— или —</span>
+          <span className="text-xs text-slate-400">&mdash; or &mdash;</span>
           <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
         </div>
 
-        {/* Табы Sign In / Create Account */}
+        {/* Sign In / Create Account tabs */}
         <Tabs defaultValue="signin">
           <TabsList className="w-full mb-4">
-            <TabsTrigger value="signin" className="flex-1">Вход</TabsTrigger>
-            <TabsTrigger value="register" className="flex-1">Регистрация</TabsTrigger>
+            <TabsTrigger value="signin" className="flex-1">Sign in</TabsTrigger>
+            <TabsTrigger value="register" className="flex-1">Register</TabsTrigger>
           </TabsList>
           <TabsContent value="signin">
             <SignInForm />
