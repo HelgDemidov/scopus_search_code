@@ -9,17 +9,30 @@ import type { ArticleResponse, PaginatedArticleResponse } from '../../types/api'
 import type { PageSize } from './PaginationBar';
 
 // ---------------------------------------------------------------------------
-// Моки внешнего I/O — только два: сетевой вызов и динамический импорт стора
+// Моки внешнего I/O
 // ---------------------------------------------------------------------------
 
 // Мокируем только сетевой слой; ArticleList, PaginationBar, ArticleCard — реальные
 vi.mock('../../api/articles');
 
-// Мок useHistoryStore: callable hook (не plain object) — FiltersContent вызывает
-// useHistoryStore() как функцию; { getState } без вызова вызывало TypeError
-vi.mock('../../stores/historyStore', () => ({
-  useHistoryStore: () => ({ historyFilters: {}, setHistoryFilters: vi.fn() }),
-}));
+// Мок useHistoryStore должен удовлетворять ДВУМ контрактам одновременно:
+//
+//  1. Компоненты (FiltersContent) вызывают useHistoryStore() как функцию-хук:
+//       const { historyFilters } = useHistoryStore();
+//
+//  2. fetchArticles внутри articleStore вызывает статический метод Zustand-стора:
+//       const { useHistoryStore } = await import('./historyStore');
+//       const { historyFilters } = useHistoryStore.getState();
+//
+// Решение: Object.assign делает функцию callable-объектом с методом getState.
+// Оба вызова возвращают { historyFilters: {} } — пустые фильтры, не блокирующие
+// applyClientFilters внутри fetchArticles.
+vi.mock('../../stores/historyStore', () => {
+  const state = { historyFilters: {}, setHistoryFilters: vi.fn() };
+  const hookFn = () => state;
+  Object.assign(hookFn, { getState: () => state });
+  return { useHistoryStore: hookFn };
+});
 
 // Мок useStatsStore: FiltersContent вызывает useStatsStore(selector) —
 // возвращаем stub с stats: null (без реальных данных для фильтров)
@@ -128,8 +141,8 @@ beforeEach(() => {
   vi.mocked(getArticles).mockResolvedValue({ articles: [], total: 0 });
 });
 
-// Подавляем TS6133 (noUnusedLocals) для ioCallback/ioObserveMock/ioDisconnectMock:
-// переменные нужны для корректной работы stub-класса IntersectionObserver выше.
+// Подавляем TS6133 (noUnusedLocals) для stub-переменных IntersectionObserver:
+// они нужны для корректной работы stub-класса выше, но не используются напрямую.
 void ioCallback;
 void ioObserveMock;
 void ioDisconnectMock;
@@ -237,7 +250,7 @@ describe('Integration — infinite scroll / append mode', () => {
   it('4. appendMode=true, total=20, size=10 → PaginationBar рендерится (totalPages=2>1)', () => {
     // Реальный PaginationBar: appendMode не скрывает nav-пагинацию.
     // Тест проверяет, что numbered-nav присутствует при appendMode=true
-    // и реальном PaginationBar (appendMode/sentinel не реализованы в продакшн)
+    // и реальном PaginationBar (sentinel не реализован в продакшн на этой ветке)
     useArticleStore.setState({
       appendMode: true,
       articles: makePage(10),
@@ -257,11 +270,11 @@ describe('Integration — infinite scroll / append mode', () => {
     // при appendMode=true && page>1 новые статьи конкатенируются к предыдущим
     // ([...prev, ...sorted]). Именно это и есть логика infinite scroll в сторе.
     //
-    // Sentinel/IO не реализованы в ArticleList.tsx на этой ветке — имитировать
-    // _triggerIntersection бессмысленно: ioCallback остаётся null, no-op.
-    //
-    // import('./historyStore') внутри fetchArticles уже замокирован через vi.mock
-    // вверху файла — резолвится из кеша мока синхронно, act() дренирует корректно.
+    // Ключевой момент мока historyStore (см. начало файла):
+    // fetchArticles вызывает useHistoryStore.getState() (Zustand API),
+    // а не useHistoryStore() (React hook). Мок объединяет оба контракта
+    // через Object.assign — без .getState() fetchArticles бросал TypeError
+    // в catch, set({ articles }) не вызывался, статьи не накапливались.
     const page2 = makePage(10, 11);
 
     useArticleStore.setState({
