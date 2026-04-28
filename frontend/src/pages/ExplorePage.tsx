@@ -12,7 +12,7 @@ import {
 import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
 
-// Чарты загружаются лениво: Tremor/Recharts не попадают в основной чанк ExplorePage.
+// Charts are lazy-loaded: Tremor/Recharts do not land in the main ExplorePage chunk
 const DocumentTypesChart = lazy(() =>
   import('../components/charts/DocumentTypesChart').then(m => ({ default: m.DocumentTypesChart }))
 );
@@ -55,7 +55,7 @@ function KpiCard({
       ) : (
         <>
           <p className="text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-100">
-            {value.toLocaleString('ru-RU')}
+            {value.toLocaleString('en-US')}
           </p>
           <p className="text-sm text-slate-500 dark:text-slate-400">{label}</p>
         </>
@@ -97,13 +97,13 @@ export default function ExplorePage() {
     };
   }, [mode, historyItems]);
 
-  // KPI значения для коллекции
+  // KPI values for the collection
   const totalArticles = stats?.total_articles ?? 0;
   const totalCountries = stats?.total_countries ?? 0;
   const openAccessCount = stats?.open_access_count ?? 0;
   const totalDocTypes = stats?.by_doc_type.length ?? 0;
 
-  // KPI значения для personal-режима
+  // KPI values for personal mode
   const personalTotal = historyItems.length;
   const personalResultSum = historyItems.reduce((acc, it) => acc + (it.result_count ?? 0), 0);
   const personalCountries = personalData?.by_country.length ?? 0;
@@ -123,21 +123,21 @@ export default function ExplorePage() {
     <div className="mx-auto max-w-screen-xl px-4 py-8 flex flex-col gap-8">
       <div>
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
-          Аналитика
+          Analytics
         </h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           {mode === 'personal'
-            ? 'Агрегированная статистика по вашим поисковым запросам.'
-            : 'Агрегированная статистика по коллекции статей.'}
+            ? 'Aggregated statistics from your search queries.'
+            : 'Aggregated statistics for the article collection.'}
         </p>
       </div>
 
-      {/* Переключатель режима для авторизованных */}
+      {/* Mode switcher for authenticated users */}
       {isAuthenticated && (
         <div
           className="flex gap-2"
           role="group"
-          aria-label="Режим аналитики"
+          aria-label="Analytics mode"
         >
           <Button
             variant={mode === 'collection' ? 'default' : 'outline'}
@@ -145,7 +145,7 @@ export default function ExplorePage() {
             onClick={() => switchMode('collection')}
             aria-pressed={mode === 'collection'}
           >
-            По коллекции
+            Collection
           </Button>
           <Button
             variant={mode === 'personal' ? 'default' : 'outline'}
@@ -153,31 +153,31 @@ export default function ExplorePage() {
             onClick={() => switchMode('personal')}
             aria-pressed={mode === 'personal'}
           >
-            По моим поискам
+            My searches
           </Button>
         </div>
       )}
 
-      {/* KPI-карточки */}
+      {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {mode === 'personal' ? (
           <>
-            <KpiCard label="Всего поисков" value={personalTotal} isLoading={historyLoading} />
-            <KpiCard label="Найдено статей" value={personalResultSum} isLoading={historyLoading} />
-            <KpiCard label="Стран" value={personalCountries} isLoading={historyLoading} />
-            <KpiCard label="Типов документов" value={personalDocTypes} isLoading={historyLoading} />
+            <KpiCard label="Total searches" value={personalTotal} isLoading={historyLoading} />
+            <KpiCard label="Articles found" value={personalResultSum} isLoading={historyLoading} />
+            <KpiCard label="Countries" value={personalCountries} isLoading={historyLoading} />
+            <KpiCard label="Document types" value={personalDocTypes} isLoading={historyLoading} />
           </>
         ) : (
           <>
-            <KpiCard label="Статей в индексе" value={totalArticles} isLoading={isLoading} />
-            <KpiCard label="Стран" value={totalCountries} isLoading={isLoading} />
+            <KpiCard label="Articles indexed" value={totalArticles} isLoading={isLoading} />
+            <KpiCard label="Countries" value={totalCountries} isLoading={isLoading} />
             <KpiCard label="Open Access" value={openAccessCount} isLoading={isLoading} />
-            <KpiCard label="Типов документов" value={totalDocTypes} isLoading={isLoading} />
+            <KpiCard label="Document types" value={totalDocTypes} isLoading={isLoading} />
           </>
         )}
       </div>
 
-      {/* Графики */}
+      {/* Charts */}
       {showCollectionLoading || showPersonalLoading ? (
         <ChartsSkeleton />
       ) : mode === 'personal' && personalData ? (
@@ -200,19 +200,20 @@ export default function ExplorePage() {
         </Suspense>
       ) : null}
 
-      {/* CTA-баннер для анонимных */}
+      {/* CTA banner for anonymous users */}
       {!isAuthenticated && (
         <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <p className="text-sm text-blue-900 dark:text-blue-200">
-              Вы просматриваете аналитику по тематической коллекции "Artificial Intelligence and Neural Network Technologies". Авторизуйтесь, чтобы видеть аналитику по своим запросам.
+              You are viewing analytics for the &ldquo;Artificial Intelligence and Neural Network Technologies&rdquo; collection.
+              Sign in to see analytics based on your own searches.
             </p>
           </div>
           <Link
             to="/auth"
             className="flex-shrink-0 rounded-md bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400 text-white text-sm font-medium px-4 py-2 transition-colors"
           >
-            Войти
+            Sign in
           </Link>
         </div>
       )}
