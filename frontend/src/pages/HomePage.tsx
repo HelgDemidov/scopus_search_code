@@ -14,7 +14,7 @@ import type { PageSize } from '../components/articles/PaginationBar';
 import type { LiveSize } from '../components/articles/ScopusPaginationBar';
 import type { ArticleResponse, SearchStatsResponse } from '../types/api';
 
-// Клиентская сортировка по цитированиям (сортед within current page — §4.1)
+// Клиентская сортировка по цитированиям (применяется ко всему массиву до слайса)
 function sortArticles(
   articles: ArticleResponse[],
   sortBy: 'date' | 'citations',
@@ -65,7 +65,7 @@ export default function HomePage() {
     isLiveSearching,
     error,
     filters,
-    // Поля стора для анонимной пагинации
+    // Поля стора для анонимной / каталожной пагинации
     page,
     size,
     total,
@@ -76,7 +76,7 @@ export default function HomePage() {
     setSize,
     setAppendMode,
     searchScopusLive,
-    // Поля стора для авторизованной пагинации (добавлены в коммите 1)
+    // Поля стора для авторизованной Scopus-пагинации
     liveSize,
     setLiveSize,
   } = useArticleStore();
@@ -86,9 +86,16 @@ export default function HomePage() {
   const [searchStats, setSearchStats] = useState<SearchStatsResponse | null>(null);
   const [isStatsLoading, setIsStatsLoading] = useState(false);
 
-  // livePage живёт в useState: эфемерное UI-состояние без сайд-эффектов на стор.
-  // Сбрасывается в 1 при каждом новом поиске и при смене liveSize
+  // livePage — эфемерное UI-состояние, живёт вне стора;
+  // сбрасывается при каждом новом Scopus-поиске и при смене liveSize
   const [livePage, setLivePage] = useState(1);
+
+  // Переключатель режима поиска для авторизованных пользователей:
+  //   'scopus'  — живой поиск по глобальной базе Scopus (до 25 результатов)
+  //   'catalog' — поиск по тематической коллекции AI & Neural Network Technologies
+  // Дефолт 'scopus' — основной сценарий авторизованного пользователя.
+  // При logout компонент размонтируется, при следующем логине useState сбросится
+  const [searchMode, setSearchMode] = useState<'scopus' | 'catalog'>('scopus');
 
   useEffect(() => {
     if (!error || !isAuthenticated) return;
@@ -99,26 +106,29 @@ export default function HomePage() {
     }
   }, [error, isAuthenticated]);
 
-  // Для авторизованных — live-результаты из Scopus, для анонимных — локальная коллекция
-  const displayArticles = isAuthenticated ? liveResults : articles;
-
-  // Сортировка применяется ко всему массиву до слайса, чтобы смена сортировки
-  // не конфликтовала со сменой страницы
-  const sortedArticles = useMemo(
-    () => sortArticles(displayArticles, sortBy),
-    [displayArticles, sortBy],
+  // Сортировка live-результатов (Scopus-режим): применяется ко всему массиву до слайса,
+  // чтобы смена sortBy не конфликтовала со сменой страницы
+  const sortedLiveArticles = useMemo(
+    () => sortArticles(liveResults, sortBy),
+    [liveResults, sortBy],
   );
 
-  // Срез sortedArticles для текущей страницы/режима в авторизованной зоне.
-  // В анонимном режиме не используется — передаётся sortedArticles напрямую
-  const visibleLiveResults = useMemo(() => {
-    if (!isAuthenticated) return sortedArticles;
-    if (liveSize === 'all') return sortedArticles;
-    const from = (livePage - 1) * 10;
-    return sortedArticles.slice(from, from + 10);
-  }, [isAuthenticated, sortedArticles, liveSize, livePage]);
+  // Сортировка статей каталога (catalog-режим и анонимный режим):
+  // articles — серверная страница из стора, уже отфильтрованная
+  const sortedCatalogArticles = useMemo(
+    () => sortArticles(articles, sortBy),
+    [articles, sortBy],
+  );
 
-  // Обработчики для анонимной зоны — fetchArticles явно после мутации стора
+  // Срез sortedLiveArticles для текущей страницы в Scopus-режиме.
+  // В catalog/анонимном режимах не используется
+  const visibleLiveResults = useMemo(() => {
+    if (liveSize === 'all') return sortedLiveArticles;
+    const from = (livePage - 1) * 10;
+    return sortedLiveArticles.slice(from, from + 10);
+  }, [sortedLiveArticles, liveSize, livePage]);
+
+  // Обработчики для анонимного и каталожного режима (переиспользуются без дублирования)
   const handlePageChange = useCallback(
     (p: number) => {
       setPage(p);
@@ -152,22 +162,29 @@ export default function HomePage() {
     setHasSearched(true);
 
     if (isAuthenticated) {
-      // Новый запрос — всегда возвращаемся на первую страницу
-      setLivePage(1);
-      void searchScopusLive(query);
+      if (searchMode === 'scopus') {
+        // Живой поиск по Scopus — новый запрос всегда сбрасывает livePage в 1
+        setLivePage(1);
+        void searchScopusLive(query);
 
-      setIsStatsLoading(true);
-      setSearchStats(null);
-      try {
-        const stats = await getSearchStats(query);
-        setSearchStats(stats);
-      } catch {
-        // Ошибка статистики не блокирует список — тихо проглатываем
-      } finally {
-        setIsStatsLoading(false);
+        // Статистика запроса — только в Scopus-режиме; fire-and-forget
+        setIsStatsLoading(true);
+        setSearchStats(null);
+        try {
+          const stats = await getSearchStats(query);
+          setSearchStats(stats);
+        } catch {
+          // Ошибка статистики не блокирует список — тихо проглатываем
+        } finally {
+          setIsStatsLoading(false);
+        }
+      } else {
+        // Поиск по тематической коллекции: тот же путь, что у анонима
+        setFilters({ search: query, keyword: undefined });
+        fetchArticles();
       }
     } else {
-      // setFilters сбрасывает page=1 и articles=[] автоматически (коммит 1)
+      // Анонимный режим: setFilters сбрасывает page=1 и articles=[] автоматически
       setFilters({ search: query, keyword: undefined });
       fetchArticles();
     }
@@ -182,7 +199,7 @@ export default function HomePage() {
             <div className="mx-auto w-full max-w-screen-lg px-4 pb-12">
               {/* Анонимный режим: полный wire-up пагинации через ArticleList/PaginationBar */}
               <ArticleList
-                articles={sortedArticles}
+                articles={sortedCatalogArticles}
                 isLoading={isLoading}
                 sortBy={sortBy}
                 onSortChange={setSortBy}
@@ -199,63 +216,105 @@ export default function HomePage() {
         </div>
       ) : (
         <div className="mx-auto max-w-screen-xl px-4 py-6 flex flex-col gap-4">
-          {/* SearchBar + quota badge */}
+
+          {/* Переключатель режима поиска */}
+          <div
+            role="group"
+            aria-label="Режим поиска"
+            className="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden self-start"
+          >
+            <button
+              aria-pressed={searchMode === 'scopus'}
+              onClick={() => setSearchMode('scopus')}
+              className={
+                'px-4 py-2 text-sm font-medium transition-colors ' +
+                (searchMode === 'scopus'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800')
+              }
+            >
+              Поиск по базе Scopus
+            </button>
+            <button
+              aria-pressed={searchMode === 'catalog'}
+              onClick={() => setSearchMode('catalog')}
+              className={
+                'px-4 py-2 text-sm font-medium transition-colors border-l border-slate-200 dark:border-slate-700 ' +
+                (searchMode === 'catalog'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800')
+              }
+            >
+              Поиск по коллекции AI &amp; Neural Network Technologies
+            </button>
+          </div>
+
+          {/* SearchBar + quota badge (только в Scopus-режиме нужен badge) */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
             <div className="flex-1 w-full">
               <SearchBar onSearch={handleSearch} />
             </div>
-            <ScopusQuotaBadge />
+            {searchMode === 'scopus' && <ScopusQuotaBadge />}
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Поиск по базе Scopus — до 25 статей за запрос.{' '}
-            Поиск по тематической коллекции{' '}
-            <span className="font-medium text-slate-700 dark:text-slate-300">
-              AI &amp; Neural Network Technologies
-            </span>{' '}
-            доступен в режиме{' '}
-            <span className="font-medium text-slate-700 dark:text-slate-300">
-              Коллекция
-            </span>{' '}
-            (в разработке).
-          </p>
 
-          <div className="flex gap-6 items-start">
-            <div className="flex-1 min-w-0 flex flex-col gap-4">
-              {/* Авторизованный режим: ArticleList отображает видимый срез.
-                  Пагинацией управляет ScopusPaginationBar, а не ArticleList/PaginationBar */}
+          {searchMode === 'scopus' ? (
+            <div className="flex gap-6 items-start">
+              <div className="flex-1 min-w-0 flex flex-col gap-4">
+                {/* Scopus-режим: ArticleList отображает видимый срез.
+                    Пагинацией управляет ScopusPaginationBar, а не ArticleList/PaginationBar */}
+                <ArticleList
+                  articles={visibleLiveResults}
+                  isLoading={isLiveSearching}
+                  sortBy={sortBy}
+                  onSortChange={setSortBy}
+                  page={1}
+                  size={25}
+                  total={visibleLiveResults.length}
+                  appendMode={false}
+                  onPageChange={() => {}}
+                  onSizeChange={() => {}}
+                  onToggleMode={() => {}}
+                />
+
+                {/* ScopusPaginationBar: total = весь sortedLiveArticles, не только срез */}
+                <ScopusPaginationBar
+                  livePage={livePage}
+                  liveSize={liveSize}
+                  total={sortedLiveArticles.length}
+                  onPageChange={setLivePage}
+                  onSizeChange={handleLiveSizeChange}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 min-w-0">
+              {/* Catalog-режим: те же ArticleList/PaginationBar и handlers, что у анонима.
+                  articles и total — из стора (серверная пагинация GET /articles/) */}
               <ArticleList
-                articles={visibleLiveResults}
-                isLoading={isLiveSearching}
+                articles={sortedCatalogArticles}
+                isLoading={isLoading}
                 sortBy={sortBy}
                 onSortChange={setSortBy}
-                page={1}
-                size={25}
-                total={visibleLiveResults.length}
-                appendMode={false}
-                onPageChange={() => {}}
-                onSizeChange={() => {}}
-                onToggleMode={() => {}}
-              />
-
-              {/* ScopusPaginationBar: total = весь sortedArticles, не только срез */}
-              <ScopusPaginationBar
-                livePage={livePage}
-                liveSize={liveSize}
-                total={sortedArticles.length}
-                onPageChange={setLivePage}
-                onSizeChange={handleLiveSizeChange}
+                page={page}
+                size={size}
+                total={total}
+                appendMode={appendMode}
+                onPageChange={handlePageChange}
+                onSizeChange={handleSizeChange}
+                onToggleMode={handleToggleMode}
               />
             </div>
-          </div>
+          )}
 
-          {filters.search && isStatsLoading && (
+          {/* SearchResultsDashboard — только в Scopus-режиме */}
+          {searchMode === 'scopus' && filters.search && isStatsLoading && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
               {Array.from({ length: 4 }).map((_, i) => (
                 <Skeleton key={i} className="h-64 w-full rounded-xl" />
               ))}
             </div>
           )}
-          {filters.search && searchStats && searchStats.total > 0 && (
+          {searchMode === 'scopus' && filters.search && searchStats && searchStats.total > 0 && (
             <SearchResultsDashboard stats={searchStats} query={filters.search} />
           )}
         </div>

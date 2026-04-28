@@ -73,7 +73,7 @@ function makeArticleState(overrides: Record<string, unknown> = {}) {
     size: 10 as PageSize,
     total: 0,
     appendMode: false,
-    // Поля авторизованной пагинации (добавлены в коммите 1)
+    // Поля авторизованной Scopus-пагинации
     liveSize: 10 as 10 | 'all',
     setFilters: vi.fn(),
     fetchArticles: vi.fn().mockResolvedValue(undefined),
@@ -216,13 +216,13 @@ describe('HomePage — toggle mode', () => {
 
 describe('HomePage — auth mode (ScopusPaginationBar wire-up)', () => {
 
-  it('ScopusPaginationBar рендерится в auth-режиме', () => {
+  it('ScopusPaginationBar рендерится в auth-режиме (searchMode=scopus по дефолту)', () => {
     authIsAuthenticated = true;
     render(<HomePage />);
     expect(screen.getByTestId('scopus-pagination-bar')).toBeInTheDocument();
   });
 
-  it('total в ScopusPaginationBar = sortedArticles.length (liveResults.length)', () => {
+  it('total в ScopusPaginationBar = sortedLiveArticles.length (liveResults.length)', () => {
     authIsAuthenticated = true;
     const liveResults = [
       { id: 1, title: 'A', cited_by_count: 5 },
@@ -231,7 +231,6 @@ describe('HomePage — auth mode (ScopusPaginationBar wire-up)', () => {
     ] as never;
     articleState = makeArticleState({ liveResults });
     render(<HomePage />);
-    // total = liveResults.length = 3
     expect(capturedScopusPaginationBarProps.total).toBe(3);
   });
 
@@ -239,13 +238,11 @@ describe('HomePage — auth mode (ScopusPaginationBar wire-up)', () => {
     authIsAuthenticated = true;
     render(<HomePage />);
 
-    // Симулируем смену страницы до нового поиска
     await act(async () => {
       (capturedScopusPaginationBarProps.onPageChange as (p: number) => void)(2);
     });
     expect(capturedScopusPaginationBarProps.livePage).toBe(2);
 
-    // Новый поиск — livePage должен вернуться в 1
     await act(async () => {
       await userEvent.click(screen.getByTestId('search-bar'));
     });
@@ -258,13 +255,11 @@ describe('HomePage — auth mode (ScopusPaginationBar wire-up)', () => {
     articleState = makeArticleState({ setLiveSize });
     render(<HomePage />);
 
-    // Переходим на страницу 2
     await act(async () => {
       (capturedScopusPaginationBarProps.onPageChange as (p: number) => void)(2);
     });
     expect(capturedScopusPaginationBarProps.livePage).toBe(2);
 
-    // Меняем liveSize — должен вызваться setLiveSize и сброситься livePage
     await act(async () => {
       (capturedScopusPaginationBarProps.onSizeChange as (s: 'all') => void)('all');
     });
@@ -274,7 +269,6 @@ describe('HomePage — auth mode (ScopusPaginationBar wire-up)', () => {
 
   it('ArticleList получает срез [0..9] при liveSize=10, livePage=1, total=15', () => {
     authIsAuthenticated = true;
-    // 15 статей: id 1..15
     const liveResults = Array.from({ length: 15 }, (_, i) => ({
       id: i + 1,
       title: `Article ${i + 1}`,
@@ -283,14 +277,13 @@ describe('HomePage — auth mode (ScopusPaginationBar wire-up)', () => {
     articleState = makeArticleState({ liveResults, liveSize: 10 as const });
     render(<HomePage />);
 
-    // visibleLiveResults = sortedArticles.slice(0, 10) = первые 10 статей
     const articles = capturedArticleListProps.articles as Array<{ id: number }>;
     expect(articles).toHaveLength(10);
     expect(articles[0].id).toBe(1);
     expect(articles[9].id).toBe(10);
   });
 
-  it('при liveSize="all" ArticleList получает весь sortedArticles', () => {
+  it('при liveSize="all" ArticleList получает весь sortedLiveArticles', () => {
     authIsAuthenticated = true;
     const liveResults = Array.from({ length: 15 }, (_, i) => ({
       id: i + 1,
@@ -317,5 +310,74 @@ describe('HomePage — auth mode (ArticleList neutral stubs)', () => {
     render(<HomePage />);
     expect(capturedArticleListProps.appendMode).toBe(false);
     expect(capturedArticleListProps.page).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Блок 6: Auth mode — searchMode toggle
+// ---------------------------------------------------------------------------
+
+describe('HomePage — auth mode (searchMode toggle)', () => {
+
+  it('обе кнопки переключателя рендерятся: Scopus active, Catalog inactive', () => {
+    authIsAuthenticated = true;
+    render(<HomePage />);
+    const scopusBtn = screen.getByRole('button', { name: /Поиск по базе Scopus/i });
+    const catalogBtn = screen.getByRole('button', { name: /Поиск по коллекции/i });
+    // Дефолт — Scopus активен
+    expect(scopusBtn).toHaveAttribute('aria-pressed', 'true');
+    expect(catalogBtn).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('клик на «Поиск по коллекции» меняет aria-pressed', async () => {
+    authIsAuthenticated = true;
+    render(<HomePage />);
+    await userEvent.click(screen.getByRole('button', { name: /Поиск по коллекции/i }));
+    expect(screen.getByRole('button', { name: /Поиск по коллекции/i })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /Поиск по базе Scopus/i })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('в catalog-режиме handleSearch вызывает setFilters+fetchArticles, не searchScopusLive', async () => {
+    authIsAuthenticated = true;
+    const setFilters = vi.fn();
+    const fetchArticles = vi.fn().mockResolvedValue(undefined);
+    const searchScopusLive = vi.fn().mockResolvedValue(undefined);
+    articleState = makeArticleState({ setFilters, fetchArticles, searchScopusLive });
+    render(<HomePage />);
+
+    // Переключаемся в catalog
+    await userEvent.click(screen.getByRole('button', { name: /Поиск по коллекции/i }));
+    // Запускаем поиск
+    await act(async () => {
+      await userEvent.click(screen.getByTestId('search-bar'));
+    });
+
+    expect(setFilters).toHaveBeenCalledWith({ search: 'ai', keyword: undefined });
+    expect(fetchArticles).toHaveBeenCalled();
+    expect(searchScopusLive).not.toHaveBeenCalled();
+  });
+
+  it('в catalog-режиме ArticleList получает page/size/total из стора', async () => {
+    authIsAuthenticated = true;
+    articleState = makeArticleState({
+      page: 2,
+      size: 25 as PageSize,
+      total: 50,
+      appendMode: false,
+    });
+    render(<HomePage />);
+
+    await userEvent.click(screen.getByRole('button', { name: /Поиск по коллекции/i }));
+
+    expect(capturedArticleListProps.page).toBe(2);
+    expect(capturedArticleListProps.size).toBe(25);
+    expect(capturedArticleListProps.total).toBe(50);
+  });
+
+  it('в catalog-режиме ScopusPaginationBar не рендерится', async () => {
+    authIsAuthenticated = true;
+    render(<HomePage />);
+    await userEvent.click(screen.getByRole('button', { name: /Поиск по коллекции/i }));
+    expect(screen.queryByTestId('scopus-pagination-bar')).toBeNull();
   });
 });
