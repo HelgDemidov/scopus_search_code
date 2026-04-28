@@ -1,10 +1,11 @@
 name: Frontend tests
 
-# Запускается при каждом push в ветки anonymous-pagination и main
+# Запускается при каждом push в ветки anonymous-pagination, authorized-pagination и main
 on:
   push:
     branches:
       - anonymous-pagination
+      - authorized-pagination
       - main
     # Запускаем только когда меняется frontend или сам воркфлоу
     paths:
@@ -17,11 +18,11 @@ env:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # Job 1: 56 unit-тестов
+  # Job 1: 77 unit-тестов
   # Запускает все *.test.{ts,tsx} кроме интеграционного файла
   # ---------------------------------------------------------------------------
   unit:
-    name: Unit tests (56)
+    name: Unit tests (77)
     runs-on: ubuntu-latest
 
     defaults:
