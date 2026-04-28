@@ -7,8 +7,11 @@ const defaults = {
   page: 1,
   size: 10 as PageSize,
   total: 25,
+  totalPages: 3,          // Math.ceil(25/10)
+  appendMode: false,
   onPageChange: vi.fn(),
   onSizeChange: vi.fn(),
+  onToggleMode: vi.fn(),
 };
 
 beforeEach(() => {
@@ -18,19 +21,21 @@ beforeEach(() => {
 describe('PaginationBar — null cases', () => {
 
   it('возвращает null при total=0 (totalPages=1)', () => {
-    const { container } = render(<PaginationBar {...defaults} total={0} />);
+    const { container } = render(
+      <PaginationBar {...defaults} total={0} totalPages={0} />
+    );
     expect(container.firstChild).toBeNull();
   });
 
   it('возвращает null при ровно 1 странице (total=10, size=10)', () => {
     const { container } = render(
-      <PaginationBar {...defaults} total={10} size={10} />
+      <PaginationBar {...defaults} total={10} size={10} totalPages={1} />
     );
     expect(container.firstChild).toBeNull();
   });
 
   it('рендерится при total=11, size=10 (2 страницы)', () => {
-    render(<PaginationBar {...defaults} total={11} />);
+    render(<PaginationBar {...defaults} total={11} totalPages={2} />);
     expect(screen.getByRole('navigation')).toBeInTheDocument();
   });
 });
@@ -43,7 +48,7 @@ describe('PaginationBar — Prev/Next disabled', () => {
   });
 
   it('Next disabled на последней странице (page=3, total=25, size=10)', () => {
-    render(<PaginationBar {...defaults} page={3} total={25} size={10} />);
+    render(<PaginationBar {...defaults} page={3} total={25} size={10} totalPages={3} />);
     expect(screen.getByRole('button', { name: /next page/i })).toBeDisabled();
   });
 
@@ -115,7 +120,7 @@ describe('PaginationBar — accessibility', () => {
   it('ellipsis — span с aria-hidden, а не button', () => {
     // 10 страниц при size=10 → ellipsis появляется когда page=1
     render(
-      <PaginationBar {...defaults} page={1} total={100} size={10} />
+      <PaginationBar {...defaults} page={1} total={100} size={10} totalPages={10} />
     );
     // Кнопки с текстом «…» быть не должно
     expect(screen.queryByRole('button', { name: '…' })).toBeNull();
@@ -127,7 +132,7 @@ describe('PaginationBar — accessibility', () => {
   it('safePage: page=0 не вызывает ошибок (Math.max защита)', () => {
     // page=0 → safePage=1 → компонент ведёт себя как page=1
     expect(() =>
-      render(<PaginationBar {...defaults} page={0} total={25} />)
+      render(<PaginationBar {...defaults} page={0} total={25} totalPages={3} />)
     ).not.toThrow();
     expect(screen.getByRole('button', { name: /previous page/i })).toBeDisabled();
   });
