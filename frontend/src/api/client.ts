@@ -6,18 +6,42 @@
 // Request interceptor: добавляет Authorization: Bearer <token> к каждому запросу,
 // если токен присутствует в localStorage.
 //
-// Response interceptor: при получении 401 Unauthorized
+// Response interceptor (401): при получении 401 Unauthorized
 // пытается тихо обновить AT через RT cookie (silent refresh).
 // Если RT тоже истёк — диспатчит CustomEvent('auth:logout-required');
 // App.tsx слушает событие и вызывает store.logout() —
 // PrivateRoute редиректит на /auth через React Router без hard reload.
 // Параллельные 401 ждут один Promise-синглтон — race condition исключён.
+//
+// Response interceptor (non-401): сетевые ошибки и 5xx показывают
+// toast-уведомление через sonner; отменённые запросы (AbortController)
+// пропускаются без уведомления.
 
 import axios from 'axios';
+import { toast } from 'sonner';
 
-// Базовый URL берется из переменной окружения Vite;
-// при локальной разработке Vite proxy перехватывает /api → localhost:8000
+// Базовый URL берется из переменной окружения Vite.
+// Production: VITE_API_BASE_URL = 'https://scopus-search-code.up.railway.app' (Railway)
+// Dev: задать в .env.local как VITE_API_BASE_URL=http://localhost:8000
+// Фоллбэк '' работает только если настроен Vercel rewrites /api/:path* → Railway
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
+
+// Валидация переменной окружения при инициализации модуля
+if (!BASE_URL) {
+  if (import.meta.env.DEV) {
+    // В dev режиме предупреждаем — запросы без baseURL пойдут на Vite dev-сервер
+    console.warn(
+      '[apiClient] VITE_API_BASE_URL не задан. ' +
+      'Создайте frontend/.env.local с VITE_API_BASE_URL=http://localhost:8000'
+    );
+  } else {
+    // В production пустой BASE_URL означает сломанную конфигурацию Vercel
+    console.error(
+      '[apiClient] VITE_API_BASE_URL не задан в production. ' +
+      'Все API-запросы упадут. Проверьте Environment Variables в Vercel.'
+    );
+  }
+}
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,
@@ -50,7 +74,7 @@ apiClient.interceptors.request.use((config) => {
 let refreshingPromise: Promise<string> | null = null;
 
 // ---------------------------------------------------------------------------
-// Response interceptor — обработка 401 с silent refresh
+// Response interceptor — 401 (silent refresh) + non-401 (global error handler)
 // ---------------------------------------------------------------------------
 
 apiClient.interceptors.response.use(
@@ -60,7 +84,7 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Обрабатываем только 401 и только один раз (_retry защита от цикла)
+    // --- Блок 1: 401 — silent refresh (существующая логика, не изменена) ---
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
@@ -75,34 +99,49 @@ apiClient.interceptors.response.use(
           return refreshAccessToken();
         })()
           .then((newToken) => {
-            // Сохраняем новый AT в localStorage
             localStorage.setItem('access_token', newToken);
-            // Уведомляем authStore через CustomEvent — избегаем прямого импорта стора
             window.dispatchEvent(
               new CustomEvent('auth:token-refreshed', { detail: newToken })
             );
             return newToken;
           })
           .catch((err) => {
-            // RT истёк или отозван mid-session — диспатчим событие logout.
-            // App.tsx вызывает logout(), который чистит стор и localStorage.
-            // PrivateRoute реагирует на isAuthenticated: false через React Router —
-            // никакого hard reload, никакого window.location.href
             window.dispatchEvent(new CustomEvent('auth:logout-required'));
             return Promise.reject(err);
           })
           .finally(() => {
-            // Сбрасываем синглтон после завершения — следующий цикл refresh стартует чисто
             refreshingPromise = null;
           });
       }
 
-      // Все параллельные 401 ждут один промис — при resolve каждый получает новый токен
       const newToken = await refreshingPromise;
       originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
       return apiClient(originalRequest);
     }
 
+    // --- Блок 2: non-401 глобальный обработчик ошибок ---
+
+    // Отменённые запросы (AbortController из fetchArticles) — пропускаем молча
+    if (axios.isCancel(error)) {
+      return Promise.reject(error);
+    }
+
+    // Сетевые ошибки и таймауты (!error.response — ответа от сервера нет вообще)
+    if (!error.response) {
+      toast.warning('Network error. Check your connection and try again.');
+      return Promise.reject(error);
+    }
+
+    const status = error.response.status;
+
+    // 5xx — ошибки на стороне сервера, пользователь должен знать
+    if (status >= 500) {
+      toast.error(`Server error (${status}). Please try again later.`);
+      return Promise.reject(error);
+    }
+
+    // 4xx (403, 404, 422, 429 и др.) — контекстные ошибки;
+    // каждый стор обрабатывает их самостоятельно с точным сообщением
     return Promise.reject(error);
   },
 );
