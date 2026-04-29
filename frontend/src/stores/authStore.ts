@@ -23,23 +23,16 @@ interface AuthStore {
   setHydrating: (value: boolean) => void;
 }
 
-// Читаем токен синхронно до create() — до первого рендера React.
-// Без этого PrivateRoute видит isAuthenticated=false и редиректит на /auth.
-// localStorage будет убран в Commit 3; пока сохраняем для совместимости.
-const _initialToken = localStorage.getItem('access_token');
-
 export const useAuthStore = create<AuthStore>((set) => ({
-  // Синхронная инициализация — токен извлекаем до первого рендера
-  token: _initialToken,
-  isAuthenticated: !!_initialToken,
+  // AT хранится только в памяти — localStorage не используется (Commit 3).
+  // isHydrating: true до завершения refreshAccessToken() в App.tsx
+  token: null,
+  isAuthenticated: false,
   user: null,
-  // Гидрация начинается при монтировании App; завершается в finally refreshAccessToken
   isHydrating: true,
 
-  // Сохраняем токен и в localStorage, и в стор одновременно.
-  // localStorage убирается в Commit 3
+  // Сохраняем AT только в памяти стора — localStorage не пишем
   setToken: (token: string) => {
-    localStorage.setItem('access_token', token);
     set({ token, isAuthenticated: true });
   },
 
@@ -61,7 +54,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
     }
   },
 
-  // Серверный logout: отзываем RT на бэкенде, затем очищаем локальное состояние
+  // Серверный logout: отзываем RT на бэкенде, затем очищаем состояние
   logout: async () => {
     try {
       // Динамический импорт разрывает циклическую зависимость store ← api/auth ← client ← store
@@ -70,7 +63,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
     } catch {
       // Сетевая ошибка — выполняем локальный logout в любом случае
     } finally {
-      localStorage.removeItem('access_token');
+      // AT хранится только в памяти — localStorage больше не трогаем
       set({ token: null, user: null, isAuthenticated: false });
     }
   },

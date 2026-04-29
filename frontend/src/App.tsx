@@ -90,38 +90,32 @@ const router = createBrowserRouter([
 // ---------------------------------------------------------------------------
 
 export default function App() {
-  const { setToken, fetchUser, setHydrating } = useAuthStore();
+  const { setToken, fetchUser, logout, setHydrating } = useAuthStore();
   const fetchStats = useStatsStore((state) => state.fetchStats);
 
   useEffect(() => {
-    // Фаст-путь: синхронная гидрация из localStorage (сохраняется до Commit 3).
-    // Позволяет Header немедленно отобразить имя пользователя при перезагрузке,
-    // не дожидаясь завершения refreshAccessToken.
-    const token = localStorage.getItem('access_token');
-    if (token) {
-      setToken(token);
-      fetchUser();
-    }
+    // Однократная очистка legacy-записи 'access_token' из localStorage.
+    // После Commit 3 AT хранится только в памяти; у существующих пользователей
+    // после деплоя могла остаться старая запись — удаляем её при первом запуске.
+    localStorage.removeItem('access_token');
 
     // Silent refresh при старте — единственный авторитетный способ проверить
     // валидность сессии: RT cookie отправляется браузером автоматически.
-    // Успех: получаем свежий AT → обновляем стор.
-    // Провал: RT истёк/отозван → очищаем localStorage; setHydrating(false)
-    //   позволит PrivateRoute принять решение о редиректе.
-    // Примечание: динамический импорт разрывает циклическую зависимость
+    // Успех: получаем свежий AT → setToken обновляет стор в памяти.
+    // Провал: RT истёк/отозван → стор остаётся isAuthenticated: false;
+    //   setHydrating(false) позволит PrivateRoute принять решение о редиректе.
+    // Динамический импорт разрывает циклическую зависимость:
     //   App.tsx → api/auth → client.ts → authStore → App.tsx
     import('./api/auth').then(({ refreshAccessToken }) =>
       refreshAccessToken()
         .then((newToken) => {
-          // Успешный refresh — обновляем AT и профиль
+          // Успешный refresh — обновляем AT в памяти и загружаем профиль
           setToken(newToken);
           fetchUser();
         })
         .catch(() => {
-          // RT отсутствует или истёк — очищаем устаревший AT из localStorage.
-          // Не вызываем полный logout(): избегаем лишнего POST /auth/logout
-          // для анонимного пользователя (у него RT никогда не было)
-          localStorage.removeItem('access_token');
+          // RT отсутствует или истёк — стор уже isAuthenticated: false,
+          // ничего дополнительно делать не нужно
         })
         .finally(() => {
           // Гидрация завершена в любом случае — PrivateRoute может принимать решения
@@ -129,10 +123,9 @@ export default function App() {
         }),
     );
 
-    // Слушаем событие от interceptor — обновляем AT в сторе без прямой зависимости.
-    // После silent refresh вызываем fetchUser() повторно: fetchUser(), завершившийся
-    // с catch{} до refresh, не перезапускается автоматически — без этого authStore.user
-    // остаётся null и ProfilePage зависает на skeleton бесконечно.
+    // Слушаем успешный silent refresh из response interceptor.
+    // Вызываем setToken + fetchUser: без этого authStore.user остаётся null
+    // и ProfilePage бесконечно показывает skeleton после истечения AT mid-session.
     const handleTokenRefresh = (e: Event) => {
       const newToken = (e as CustomEvent<string>).detail;
       if (newToken) {
@@ -142,11 +135,18 @@ export default function App() {
     };
     window.addEventListener('auth:token-refreshed', handleTokenRefresh);
 
+    // Слушаем принудительный logout от response interceptor (RT истёк mid-session).
+    // logout() очищает стор → isAuthenticated: false → PrivateRoute редиректит на /auth
+    // через React Router без hard reload страницы.
+    const handleLogoutRequired = () => { logout(); };
+    window.addEventListener('auth:logout-required', handleLogoutRequired);
+
     // Предзагружаем статистику: она нужна и /explore, и sidebar фильтров главной
     fetchStats();
 
     return () => {
       window.removeEventListener('auth:token-refreshed', handleTokenRefresh);
+      window.removeEventListener('auth:logout-required', handleLogoutRequired);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
