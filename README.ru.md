@@ -1,376 +1,285 @@
 # Scopus Search API
 
-[![Python Tests](https://github.com/HelgDemidov/scopus_search_code/actions/workflows/tests.yml/badge.svg)](https://github.com/HelgDemidov/scopus_search_code/actions/workflows/tests.yml)
+[![Backend Tests](https://github.com/HelgDemidov/scopus_search_code/actions/workflows/tests.yml/badge.svg)](https://github.com/HelgDemidov/scopus_search_code/actions/workflows/tests.yml)
+[![Frontend Tests](https://github.com/HelgDemidov/scopus_search_code/actions/workflows/frontend-tests.yml/badge.svg)](https://github.com/HelgDemidov/scopus_search_code/actions/workflows/frontend-tests.yml)
 
 Версия на английском: [README.md](README.md)
 
-Scopus Search API — учебно-практический fullstack-проект для поиска, сохранения, фильтрации и визуализации научных публикаций из базы Scopus. Репозиторий включает FastAPI-бэкенд и React/Vite-фронтенд с публичной лентой статей, приватным профилем пользователя, аналитическим Explore-разделом и live-поиском через Scopus API.
-
-Проект строится вокруг двух сценариев: **накопление собственной локальной базы публикаций** и **онлайн-поиск новых статей через Scopus**. Бэкенд отвечает за аутентификацию, доступ к данным, агрегации и интеграцию со Scopus; фронтенд — за пользовательский интерфейс с поиском, графиками и защищёнными пользовательскими разделами.
+**Scopus Search API** — production fullstack-сервис для поиска, накопления и визуализации научных публикаций. В основе — интеграция с глобальной базой [Elsevier Scopus](https://www.scopus.com/). Сервис работает в двух режимах: **публичный поиск** по тематической коллекции «AI & Neural Network Technologies» (доступен без регистрации) и **live-поиск** по всей базе Scopus (требует авторизации).
 
 ---
 
-## Что реализовано
+## Возможности
 
-### Backend
-
-- FastAPI-приложение с роутерами `users`, `auth`, `articles`, `health`
-- JWT-аутентификация: access token (Bearer) + refresh token в `httpOnly` cookie, ротация токенов
-- Регистрация, логин, Google OAuth, профиль пользователя, запрос на сброс пароля
-- Публичная выдача сохранённых статей из PostgreSQL с пагинацией и ILIKE-поиском
-- Публичная агрегированная статистика по накопленной базе статей
-- Приватный live-поиск через Scopus API: `GET /articles/find` (только для авторизованных)
-- Недельный лимит live-поиска на пользователя (200 запросов); при превышении — HTTP 429
-- Таблица `search_history`: история поисковых запросов пользователя с фильтрами, датой и количеством найденных статей
-- Приватные эндпоинты истории поиска и квоты: `GET /articles/history`, `GET /articles/find/quota`
-- Асинхронный стек: SQLAlchemy 2.0 + asyncpg + Alembic; repository pattern и DI
-
-### Frontend
-
-- React + TypeScript + Vite SPA; все тексты интерфейса на русском языке
-- Маршруты: `/`, `/explore`, `/profile`, `/auth`, `/article/:id`
-- **Главная страница:** поведение зависит от статуса авторизации:
-  - анонимный пользователь — поиск по локальной тематической коллекции «Artificial Intelligence and Neural Network Technologies»
-  - авторизованный пользователь — live-поиск через Scopus API (до 25 статей за запрос)
-  - фильтровая боковая панель на главной странице отсутствует
-- **Explore (`/explore`):** аналитика в двух режимах — по накопленной коллекции и по личным поискам пользователя; режим переключается кнопками и сохраняется в URL-параметре `?mode=`
-- **Профиль (`/profile`):** история поиска с датой, запросом, количеством результатов и фильтровыми метками; фильтрация истории по году, типу документа, Open Access и стране; счётчик недельной квоты Scopus
-- **Страница авторизации (`/auth`):** логин, регистрация, Google OAuth
-- **Страница статьи (`/article/:id`):** детальная карточка публикации
-- Zustand-сторы: `authStore`, `articleStore`, `statsStore`, `historyStore`, `quotaStore`
-- Axios-клиент с автоматическим refresh access token
-
-### Инфраструктура
-
-- PostgreSQL 16 (Supabase)
-- Railway для деплоя приложения
-- GitHub Actions: два CI-job'а — `test` (SQLite) и `test-pg` (PostgreSQL 16 в сервисном контейнере)
-- Docker / Docker Compose для локального запуска
+| Режим | Функциональность |
+|---|---|
+| **Без авторизации** | Поиск и просмотр статей из тематической коллекции (~39 500 публикаций); детальные карточки статей; аналитика коллекции |
+| **С авторизацией** | Live-поиск по базе Scopus (до 25 статей за запрос); история поисков с фильтрацией; счётчик недельной квоты; аналитика личных поисков |
 
 ---
 
-## Технологический стек
+## Инфраструктура и стек
 
-### Backend
+```
+GitHub ──► Vercel (Frontend SPA)
+                │
+                ▼ REST API (HTTPS)
+           Railway (Backend FastAPI)
+                │
+                ▼ asyncpg / SQLAlchemy
+           Supabase (PostgreSQL 17)
 
-- Python 3.12+, FastAPI, SQLAlchemy 2.0 (async), Alembic, PostgreSQL 16 / Supabase
-- asyncpg, Pydantic v2, PyJWT, pwdlib / bcrypt / argon2, httpx
-
-### Frontend
-
-- React 19, TypeScript, Vite, React Router, Zustand, Axios
-- Recharts, shadcn/ui, Tailwind CSS, Zod, React Hook Form
-
-### DevOps и окружение
-
-- Docker, Docker Compose, Railway, GitHub Actions
-- OpenRouter API (генерация поисковых фраз сидера)
-
----
-
-## Архитектура проекта
-
-Бэкенд построен как многослойное приложение с явным разделением ответственности.
-
-### Слои backend-приложения
-
-1. **Routers** — принимают HTTP-запросы, валидируют входные данные, вызывают сервисы.
-2. **Services** — бизнес-логика пользовательских сценариев.
-3. **Infrastructure / Repositories** — инкапсулируют доступ к PostgreSQL и внешним сервисам.
-4. **Models** — ORM-модели таблиц базы данных.
-5. **Schemas** — Pydantic-схемы запросов и ответов.
-6. **Core** — безопасность, DI, refresh-token утилиты, конфиг.
-
-### Структура репозитория
-
-```text
-scopus_search_code/
-├── app/                              # Backend-приложение
-│   ├── core/                         # Безопасность, DI, refresh-token утилиты
-│   ├── infrastructure/               # Репозитории PostgreSQL и Scopus client
-│   ├── interfaces/                   # Абстракции репозиториев и внешних клиентов
-│   ├── models/                       # ORM-модели: article, user, refresh_token,
-│   │                                 #   seeder_keyword, search_history, base
-│   ├── routers/                      # HTTP-эндпоинты: users, auth, articles, health
-│   ├── schemas/                      # Pydantic-схемы: article, user, search_history
-│   └── services/                     # Бизнес-логика: article, search, search_history, user
-├── alembic/                          # Миграции Alembic (PostgreSQL / Supabase)
-│   └── versions/                     # Файлы ревизий (0001–0005 + дополнительные)
-├── db_seeder/                        # Автоматизированный сидер базы данных
-│   └── seeder__scripts/
-│       ├── seed_db.py                # Оркестратор: логин, запросы к Scopus, сохранение статей
-│       └── keyword_generator.py     # LLM-генератор поисковых фраз (OpenRouter)
-├── docs/                             # Документация: техспек фронтенда, маски, деревья проекта
-├── frontend/                         # SPA-клиент React + TypeScript + Vite
-│   └── src/
-│       ├── api/                      # Axios-клиент и функции обращения к API
-│       ├── components/               # UI-компоненты (articles, charts, layout, profile, search, ui)
-│       ├── hooks/                    # Кастомные React-хуки
-│       ├── pages/                    # Страницы: Home, Explore, Profile, Auth, Article
-│       ├── stores/                   # Zustand-сторы: auth, articles, stats, history, quota
-│       └── types/                    # TypeScript-типы и интерфейсы API
-├── tests/
-│   ├── integration/                  # Интеграционные тесты (HTTP + БД + внешние клиенты)
-│   └── unit/                         # Юнит-тесты (изолированная бизнес-логика)
-├── .github/workflows/                # GitHub Actions: tests (SQLite + PG), сидер
-├── docker-compose.yml
-├── Dockerfile
-├── requirements.txt
-├── pyproject.toml                    # ruff, mypy, import-linter
-├── pytest.ini
-├── README.md
-└── README.ru.md
+GitHub Actions ──► db_seeder (ежедневный cron)
+                       │
+                       ▼ POST /seeder/seed
+                  Railway (Backend)
 ```
 
-> Backend располагается в `app/`, frontend — в `frontend/`.
-
----
-
-## База данных и модели
-
-Актуальные ORM-модели и соответствующие таблицы PostgreSQL:
-
-| Модель | Таблица | Назначение |
+| Уровень | Технология | Хостинг |
 |---|---|---|
-| `User` | `users` | Пользователи сервиса |
-| `Article` | `articles` | Сохранённые публикации |
-| `RefreshToken` | `refresh_tokens` | Refresh-токены аутентификации |
-| `SeederKeyword` | `seeder_keywords` | История поисковых фраз сидера |
-| `SearchHistory` | `search_history` | История live-поисков пользователя |
-
-<details>
-<summary>Подробнее о таблице <code>search_history</code></summary>
-
-Колонки: `id`, `user_id` (FK → `users.id` ON DELETE CASCADE), `query`, `created_at`, `result_count`, `filters` (JSONB, `default '{}'`).
-
-Составной индекс: `(user_id, created_at DESC)` — создаётся миграцией `0005_add_search_history.py`.
-
-Запись вставляется только при успешном ответе Scopus API в рамках той же транзакции, что и сохранение статей. При ошибке Scopus запись не создаётся (откат транзакции).
-
-</details>
+| **Frontend** | React 19, TypeScript, Vite, Zustand, Axios, Recharts, shadcn/ui, Tailwind CSS | Vercel |
+| **Backend** | Python 3.12, FastAPI, SQLAlchemy 2.0 async, Alembic, Pydantic v2, httpx, Authlib | Railway |
+| **База данных** | PostgreSQL 17 (Supabase), Session Pooler | Supabase (eu-west-1) |
+| **CI/CD** | GitHub Actions (backend pytest + frontend Vitest) | GitHub |
+| **Сидер** | Python + httpx + asyncpg + OpenRouter LLM | GitHub Actions (cron) |
 
 ---
 
-## Backend-эндпоинты
+## Архитектура
 
-### Users
+### Backend
 
-- `POST /users/register` — регистрация
-- `POST /users/login` — логин, возврат access token и установка refresh token cookie
-- `GET /users/me` — текущий пользователь
-- `POST /users/password-reset-request` — запрос на сброс пароля
+Многослойная Clean Architecture с явным разделением ответственности:
 
-### Auth
+```
+app/
+├── routers/          # HTTP-эндпоинты: articles, auth, users, health, seeder
+├── services/         # Бизнес-логика: SearchService, CatalogService,
+│                     #   SearchHistoryService, UserService
+├── infrastructure/   # Репозитории PostgreSQL + ScopusHTTPClient
+├── interfaces/       # ABC-интерфейсы репозиториев и клиентов
+├── models/           # SQLAlchemy ORM-модели (5 таблиц)
+├── schemas/          # Pydantic v2 схемы запросов и ответов
+├── core/             # DI, JWT, refresh-token утилиты, зависимости
+├── config.py         # Pydantic Settings — единый источник конфигурации
+└── main.py           # FastAPI app: middleware, роутеры, lifespan
+```
 
-- `GET /auth/google/login` — начало OAuth-флоу через Google
-- `GET /auth/google/callback` — callback после авторизации Google
-- `POST /auth/refresh` — обновление access token по refresh token cookie
-- `POST /auth/logout` — отзыв refresh token и очистка cookie
+### Frontend
 
-### Articles
+React SPA с маршрутизацией через React Router и глобальным состоянием через Zustand:
 
-- `GET /articles/` — публичный список статей с пагинацией; поддерживает `keyword` (фильтр по полю сидера) и `search` (ILIKE по title / author)
-- `GET /articles/stats` — агрегированная статистика по накопленной базе (публичный)
-- `GET /articles/search/stats` — статистика по конкретному поисковому запросу (приватный)
-- `GET /articles/find` — live-поиск в Scopus API, до 25 результатов; сохраняет статьи и запись в `search_history`; проверяет недельную квоту (приватный)
-- `GET /articles/history` — история поиска текущего пользователя, до 100 записей (приватный)
-- `GET /articles/find/quota` — использование недельной квоты: `limit`, `used`, `remaining`, `reset_at` (приватный)
-- `GET /articles/{article_id}` — одна статья по id (публичный)
-
-### Health
-
-- `GET /health` — health-check
-
-<details>
-<summary>Детали квоты и конкурентного доступа</summary>
-
-Недельный лимит — 200 live-поисков на пользователя. При превышении эндпоинт возвращает HTTP 429 без обращения к Scopus и без вставки в историю.
-
-Для предотвращения гонок при параллельных запросах от одного пользователя используется `pg_advisory_xact_lock(user_id)` — блокировка берётся до проверки счётчика и снимается вместе с транзакцией. Это гарантирует, что 201-й запрос получит 429 даже при одновременных обращениях.
-
-</details>
+```
+frontend/src/
+├── api/              # Axios-клиент (client.ts) + модули articles, auth, stats, users
+├── stores/           # articleStore, authStore, historyStore, quotaStore, statsStore
+├── pages/            # HomePage, ExplorePage, ProfilePage, AuthPage,
+│                     #   ArticlePage, OAuthCallback
+├── components/       # articles/, charts/, layout/, profile/, search/, ui/
+├── hooks/            # usePagination и другие кастомные хуки
+└── types/            # TypeScript-типы и интерфейсы API
+```
 
 ---
 
-## Frontend: ключевые сценарии
+## API эндпоинты
 
-### Главная страница `/`
+### Публичные
 
-Поведение зависит от статуса авторизации. Фильтровая панель на главной странице отсутствует.
-
-**Анонимный пользователь** видит баннер:
-> «Поиск без авторизации осуществляется по статьям тематической коллекции «Artificial Intelligence and Neural Network Technologies». Для поиска по глобальной базе Scopus пройдите авторизацию.»
-
-Поиск выполняется через `GET /articles/` по локальной БД.
-
-**Авторизованный пользователь** видит баннер:
-> «Выдача результатов поиска по живой базе Scopus ограничена 25 статьями за 1 запрос.»
-
-Поиск выполняется через `GET /articles/find` (Scopus API, live-результаты). При исчерпании квоты отображается toast-уведомление: «Недельный лимит поиска исчерпан».
-
-### Explore `/explore`
-
-Раздел работает в двух режимах, переключаемых кнопками; режим сохраняется в URL-параметре `?mode=`.
-
-| Режим | Данные | Доступ |
+| Метод | Путь | Описание |
 |---|---|---|
-| По коллекции (умолчание) | `GET /articles/stats` — агрегаты по накопленной базе | для всех |
-| По моим поискам | агрегация `historyStore` на клиенте по истории пользователя | только авторизованным |
+| `GET` | `/articles/` | Пагинированный список из тематической коллекции (`page`, `size`, `keyword`, `search`) |
+| `GET` | `/articles/stats` | Агрегированная статистика коллекции (по годам, журналам, странам, типам) |
+| `GET` | `/articles/{id}` | Детальная карточка статьи |
+| `GET` | `/health` | Health-check |
 
-KPI в режиме «По моим поискам»: число запросов, суммарно найдено статей, число стран и типов документов. Переключатель режимов виден только авторизованным; анонимный пользователь всегда видит режим «По коллекции».
+### Авторизация
 
-### Профиль `/profile`
+| Метод | Путь | Описание |
+|---|---|---|
+| `POST` | `/users/register` | Регистрация по email/паролю |
+| `POST` | `/users/login` | Логин; возвращает AT, устанавливает RT cookie |
+| `GET` | `/users/me` | Профиль текущего пользователя |
+| `GET` | `/auth/google/login` | Запуск Google OAuth flow |
+| `GET` | `/auth/google/callback` | OAuth callback; редирект на фронтенд с токеном |
+| `POST` | `/auth/refresh` | Обмен RT cookie на новый AT + ротация RT |
+| `POST` | `/auth/logout` | Отзыв RT, очистка cookie |
 
-При монтировании страницы загружаются история поиска (`GET /articles/history`) и квота (`GET /articles/find/quota`).
+### Приватные (требуют JWT)
 
-**`LiveSearchQuotaCounter`** — отображает `limit`, `used`, `remaining` и дату сброса `reset_at` в виде четырёх ячеек.
-
-**`SearchHistoryList`** — список записей с запросом, датой, числом результатов и фильтровыми бейджами. Поддерживает клиентскую фильтрацию по году, типу документа, Open Access и стране аффилиации. Ссылка «Перейти в аналитику по моим поискам» ведёт на `/explore?mode=personal`.
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/articles/find` | Live-поиск в Scopus (до 25 статей); проверяет квоту; сохраняет статьи и историю |
+| `GET` | `/articles/find/quota` | Состояние недельной квоты: `limit`, `used`, `remaining`, `reset_at` |
+| `GET` | `/articles/history` | История поисков пользователя (до 100 записей) |
+| `GET` | `/articles/search/stats` | Агрегаты по статьям из личных поисков |
 
 <details>
-<summary>Архитектура клиентских фильтров (historyStore / articleStore)</summary>
+<summary>Квота и конкурентный доступ</summary>
 
-Серверные фильтры (`keyword`, `search`) хранятся в `articleStore`. Клиентские фильтры (`yearFrom`, `yearTo`, `docTypes`, `openAccessOnly`, `countries`) — в `historyStore` как `HistoryFilters`. `articleStore.fetchArticles()` применяет клиентские фильтры к загруженной странице через `applyClientFilters()`, получая их из `historyStore.getState()`.
+Лимит — **200 live-поисков / 7 дней** (скользящее окно) на пользователя. При превышении — HTTP 429, Scopus не вызывается, запись в историю не создаётся.
 
-После успешного live-поиска `articleStore.searchScopusLive()` обновляет `quotaStore` через `fetchQuota()` (fire-and-forget, не блокирует завершение поиска).
+Для защиты от гонок при параллельных запросах применяется `pg_advisory_xact_lock(user_id)` — блокировка берётся до проверки счётчика и снимается вместе с транзакцией. Это гарантирует корректную обработку даже при одновременных обращениях.
+
+Заголовки Scopus Rate Limit (`X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`) проксируются в ответ фронтенду.
 
 </details>
+
+---
+
+## База данных
+
+Актуальная версия миграций: `0007_drop_article_legacy_columns`.
+
+| Таблица | Назначение | Записей (prod) |
+|---|---|---|
+| `articles` | Нормализованный реестр публикаций Scopus | ~39 800 |
+| `catalog_articles` | Принадлежность статей к тематической коллекции (keyword сидера) | ~39 500 |
+| `search_history` | История live-поисков пользователей (JSONB `filters`) | ~14 |
+| `search_result_articles` | Junction-таблица: поиск → статьи с `rank` | ~350 |
+| `seeder_keywords` | Использованные фразы сидера с кластерами и датами | ~4 750 |
+| `users` | Пользователи сервиса | ~9 |
+| `refresh_tokens` | Активные refresh-токены с поддержкой ротации | ~133 |
 
 ---
 
 ## Аутентификация и безопасность
 
-- **Access token** — Bearer JWT, короткоживущий.
-- **Refresh token** — хранится в `httpOnly` cookie, поддерживается ротация.
-- Приватные эндпоинты (`/articles/find`, `/articles/history`, `/articles/find/quota`, `/articles/search/stats`) защищены зависимостью `get_current_user`.
+- **Access Token** — Bearer JWT, живёт 30 минут, хранится в `localStorage`.
+- **Refresh Token** — хранится в `httpOnly; Secure; SameSite=None` cookie (30 дней), поддерживается ротация при каждом `/auth/refresh`. Отзыв — через `/auth/logout`.
+- **Silent refresh** — Axios-interceptor на фронтенде перехватывает 401, вызывает `POST /auth/refresh` ровно один раз (Promise-синглтон предотвращает race condition), затем повторяет исходный запрос.
+- **Google OAuth** — Authlib + Starlette SessionMiddleware; state в подписанной cookie — защита от CSRF.
+- **CSRF guard** на `/auth/refresh` — заголовок `X-Requested-With: XMLHttpRequest` обязателен.
+- **CORS** — строгий список origins из `ALLOWED_ORIGINS`; wildcard `*` с `credentials: true` не используется.
+- **Seeder** — аутентификация через статичный секрет `X-Seeder-Secret` header (не пользовательский JWT).
+- Чувствительные поля (`input`) вырезаются из Pydantic 422-ответов кастомным exception handler.
 
 ---
 
 ## Автоматизированный сидер
 
-Сидер регулярно пополняет локальную базу публикаций через GitHub Actions, работая от имени служебного пользователя.
+Ежедневный GitHub Actions workflow наполняет тематическую коллекцию, не расходуя пользовательскую квоту.
 
-**Как работает:**
-1. Логин в приложение, получение JWT.
-2. Чтение уже использованных фраз из `seeder_keywords`.
-3. Генерация новых поисковых фраз через OpenRouter API (LLM).
-4. Последовательная отправка запросов к `GET /articles/find`.
-5. Сохранение статей и фиксация использованных фраз в `seeder_keywords`.
+**Алгоритм запуска:**
+1. Определяется тематический кластер дня (ротация по расписанию).
+2. Из таблицы `seeder_keywords` читаются уже использованные фразы активного кластера.
+3. Через OpenRouter API (LLM) генерируются до 120 новых уникальных поисковых фраз.
+4. Для каждой фразы вызывается `POST /seeder/seed` на Railway-бэкенде.
+5. Бэкенд запрашивает Scopus, атомарно сохраняет статьи в `articles` + `catalog_articles`, возвращает `rate_remaining`.
+6. Сидер записывает результат в `seeder_keywords` и останавливается при `rate_remaining < 500`.
 
-Это позволяет проекту накапливать базу публикаций автоматически, не расходуя пользовательскую недельную квоту.
+<details>
+<summary>Конфигурация сидера</summary>
 
----
+Сидер читает переменные окружения: `DATABASE_URL`, `SEEDER_SECRET`, `OPENROUTER_API_KEY`, `SEEDER_BASE_URL`.
 
-## Облачная база данных Supabase
+Параметры в `seed_db.py`: `ARTICLES_PER_QUERY = 25`, `DELAY_BETWEEN_REQUESTS = 2.0` сек, `KEYWORDS_TO_USE = 120`, `RATE_LIMIT_STOP_THRESHOLD = 500`.
 
-Проект подключается к PostgreSQL через переменную `DATABASE_URL`. Используются два режима подключения:
+Подключение к Supabase через `asyncpg` с `statement_cache_size=0` (требование PgBouncer transaction mode).
 
-- **Session Pooler** — для FastAPI-приложения (SQLAlchemy + asyncpg).
-- **Transaction Pooler** — для сидера (короткоживущие соединения).
-
-Тесты не используют Supabase: unit-тесты работают на SQLite in-memory, интеграционные PostgreSQL-тесты (помечены `@pytest.mark.requires_pg`) — на сервисном контейнере PostgreSQL 16 в GitHub Actions.
+</details>
 
 ---
 
 ## Тестирование
 
-Проект покрыт unit- и integration-тестами на `pytest` + `pytest-asyncio`.
+**Бэкенд:** `pytest` + `pytest-asyncio`; 100% тестов зелёные.
+
+| Файл | Тип | Покрытие |
+|---|---|---|
+| `test_find_articles.py` | Integration (SQLite) | `/articles/find`, квота, история |
+| `test_find_articles_postgres.py` | Integration (PG) | `pg_advisory_xact_lock`, параллельные запросы |
+| `test_search_history_api.py` | Integration | История, фильтры, агрегаты |
+| `test_article_by_id.py` | Integration | Детальная карточка, публичный доступ |
+| `test_article_by_id_e2e.py` | E2E (Staging) | Реальный бэкенд + Supabase staging |
+| `test_rt_e2e.py` / `test_rt_edge_cases.py` | E2E / Integration | RT ротация, logout, edge-cases |
+| `test_articles_api.py` / `test_articles_headers.py` | Integration | Пагинация, заголовки Rate Limit |
+| `test_users_api.py` | Integration | Регистрация, логин, профиль |
+
+**Фронтенд:** Vitest; **92/92 тестов** зелёные (unit + integration).
 
 <details>
-<summary>Что тестируется</summary>
+<summary>Запуск тестов</summary>
 
-- Сервисная логика: пользователи, поиск, история поиска (`SearchHistoryService`).
-- Роуты `/users` и `/articles` (включая `find`, `history`, `find/quota`).
-- Repository: `FakeSearchHistoryRepository` (9 unit-тестов), `PostgresSearchHistoryRepository` (9 integration-тестов, `requires_pg`).
-- Конкурентный доступ и `pg_advisory_xact_lock` (3 PG-теста: «ровно один слот», изоляция блокировок разных пользователей).
-- Сценарии с аутентификацией; работа без обращения к реальной Supabase БД.
-
-</details>
-
-### Запуск тестов
-
-```bash
-# Только SQLite-тесты (без PostgreSQL)
+```powershell
+# Backend — только SQLite (без PostgreSQL)
 pytest tests -vv -m "not requires_pg"
 
-# Все тесты (требуется PostgreSQL)
+# Backend — все тесты (требуется PostgreSQL)
 pytest tests -vv
+
+# Frontend
+cd frontend
+npm run test
 ```
 
----
-
-## Настройка окружения
-
-Создайте `.env` на основе `.env.example`:
-
-```env
-SCOPUS_API_KEY=YOUR_SCOPUS_API_KEY
-DATABASE_URL=postgresql+asyncpg://user:password@your-instance.example.com:5432/postgres
-SECRET_KEY=YOUR_SECRET_KEY
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-
-GOOGLE_CLIENT_ID=YOUR_GOOGLE_CLIENT_ID
-GOOGLE_CLIENT_SECRET=YOUR_GOOGLE_CLIENT_SECRET
-GOOGLE_REDIRECT_URI=https://your-instance.example.com/auth/google/callback
-FRONTEND_URL=http://localhost:5173
-
-# Только для сидера
-SEEDER_EMAIL=user@example.com
-SEEDER_PASSWORD=YOUR_SEEDER_PASSWORD
-OPENROUTER_API_KEY=YOUR_OPENROUTER_API_KEY
-```
-
-> Перед публикацией проверьте README и `.env.example` на реальные домены, email-адреса, токены и любые секретоподобные строки — замените на нейтральные placeholders.
+</details>
 
 ---
 
 ## Локальный запуск
 
-### Backend через Docker Compose
+<details>
+<summary>Backend через Docker Compose</summary>
 
-```bash
+```powershell
 docker compose up --build
 ```
 
-API: `http://localhost:8000` · Swagger UI: `http://localhost:8000/docs`
+API: `http://localhost:8000` · Swagger: `http://localhost:8000/docs`
 
-### Backend без Docker
+</details>
 
-```bash
-python -m venv .venv && source .venv/bin/activate
+<details>
+<summary>Backend без Docker</summary>
+
+```powershell
+python -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
-# настройте .env
+# Настройте .env на основе .env.example
 alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-### Frontend
+</details>
 
-```bash
+<details>
+<summary>Frontend</summary>
+
+```powershell
 cd frontend
 npm install
 npm run dev
 # http://localhost:5173
 ```
 
----
+Переменные окружения фронтенда задаются в `frontend/.env.local`:
+```
+VITE_API_BASE_URL=http://localhost:8000
+```
 
-## Соответствие исходному ТЗ
+</details>
 
 <details>
-<summary>Исходное ТЗ и его статус</summary>
+<summary>Переменные окружения (.env.example)</summary>
 
-Исходное ТЗ требовало: регистрацию и авторизацию, получение текущего пользователя, интеграцию со Scopus API, сохранение публикаций в PostgreSQL, публичный список статей с пагинацией, Swagger-документацию, запуск через Docker Compose и README. Всё закрыто.
+| Переменная | Описание |
+|---|---|
+| `SCOPUS_API_KEY` | API-ключ Elsevier (dev.elsevier.com) |
+| `DATABASE_URL` | Connection string Supabase Session Pooler (asyncpg) |
+| `SECRET_KEY` | Секрет для подписи JWT |
+| `ALGORITHM` | Алгоритм JWT (HS256) |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | TTL access token (30) |
+| `SESSION_SECRET_KEY` | Секрет Starlette SessionMiddleware (OAuth state) |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+| `OAUTH_REDIRECT_URI` | Callback URI для Google OAuth |
+| `FRONTEND_URL` | URL фронтенда (CORS + OAuth redirect) |
+| `ALLOWED_ORIGINS` | Список CORS origins через запятую |
+| `SEEDER_SECRET` | Статичный секрет для `X-Seeder-Secret` header |
+| `OPENROUTER_API_KEY` | API-ключ OpenRouter (генерация фраз сидера) |
 
-**Сверх исходного ТЗ реализовано:**
-- Frontend-приложение на React/Vite с полным UI на русском языке
-- Приватный live-поиск Scopus с недельным лимитом и историей запросов
-- Explore-раздел с аналитическими графиками (два режима: коллекция / личные поиски)
-- Профиль пользователя: история поиска, фильтрация, счётчик квоты
-- Refresh token flow через `httpOnly` cookie, ротация токенов
-- Google OAuth
-- Автоматизированный сидер базы статей через GitHub Actions
-- CI с двумя тест-окружениями: SQLite и PostgreSQL 16
+> **Перед публикацией** проверьте `.env.example` и README на реальные домены, email-адреса и токены — замените на нейтральные placeholders.
 
 </details>
