@@ -55,6 +55,7 @@ jobs:
   # ---------------------------------------------------------------------------
   # Job 1: unit-тесты
   # Запускает все *.test.{ts,tsx} кроме интеграционных файлов
+  # Глобы в одиночных кавычках — vitest делает матчинг самостоятельно
   # ---------------------------------------------------------------------------
   unit:
     name: Unit tests
@@ -78,19 +79,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Исключаем интеграционные файлы через glob-паттерн:
-      # vitest принимает positional-аргументы как include-паттерны
+      # Глобы в кавычках — bash не раскрывает **, vitest делает glob-матчинг самостоятельно
       - name: Run unit tests
         run: |
           npx vitest run \
             --reporter=verbose \
             --exclude 'src/**/*.integration.test.*' \
-            src/**/*.test.ts \
-            src/**/*.test.tsx
+            'src/**/*.test.ts' \
+            'src/**/*.test.tsx'
 
   # ---------------------------------------------------------------------------
   # Job 2: интеграционные тесты
-  # Glob-паттерн покрывает все *.integration.test.* файлы:
+  # Glob-паттерн в кавычках покрывает все *.integration.test.* файлы:
   #   - pagination.integration.test.tsx
   #   - auth.integration.test.ts (event bus, коммит afb7ba3)
   # ---------------------------------------------------------------------------
@@ -116,19 +116,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Запускаем все интеграционные тесты через единый glob-паттерн
+      # Глоб в кавычках — bash не раскрывает **, vitest находит файлы самостоятельно
       - name: Run integration tests
         run: |
           npx vitest run \
             --reporter=verbose \
-            src/**/*.integration.test.*
+            'src/**/*.integration.test.*'
 
       # Покрытие — отдельный шаг, чтобы не прерывать run при threshold-failures
       - name: Collect coverage for pagination modules
         run: |
           npx vitest run \
             --coverage \
-            src/**/*.integration.test.*
+            'src/**/*.integration.test.*'
 
       # Публикуем coverage summary в GitHub Actions Job Summary
       - name: Post coverage summary
