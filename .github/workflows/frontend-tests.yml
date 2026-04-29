@@ -1,12 +1,14 @@
 name: Frontend tests
 
-# Запускается при каждом push в ветки anonymous-pagination, authorized-pagination, english-version и main
+# Запускается при каждом push в ветки anonymous-pagination, authorized-pagination,
+# english-version, fixing-vulnerabilities и main
 on:
   push:
     branches:
       - anonymous-pagination
       - authorized-pagination
       - english-version
+      - fixing-vulnerabilities
       - main
     # Запускаем только когда меняется frontend или сам воркфлоу
     paths:
@@ -51,11 +53,11 @@ jobs:
         run: npx tsc --noEmit
 
   # ---------------------------------------------------------------------------
-  # Job 1: 82 unit-теста
-  # Запускает все *.test.{ts,tsx} кроме интеграционного файла
+  # Job 1: unit-тесты
+  # Запускает все *.test.{ts,tsx} кроме интеграционных файлов
   # ---------------------------------------------------------------------------
   unit:
-    name: Unit tests (82)
+    name: Unit tests
     runs-on: ubuntu-latest
 
     defaults:
@@ -76,7 +78,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Исключаем интеграционный файл через glob-паттерн:
+      # Исключаем интеграционные файлы через glob-паттерн:
       # vitest принимает positional-аргументы как include-паттерны
       - name: Run unit tests
         run: |
@@ -87,11 +89,13 @@ jobs:
             src/**/*.test.tsx
 
   # ---------------------------------------------------------------------------
-  # Job 2: 8 интеграционных тестов
-  # Запускает строго один файл pagination.integration.test.tsx
+  # Job 2: интеграционные тесты
+  # Glob-паттерн покрывает все *.integration.test.* файлы:
+  #   - pagination.integration.test.tsx
+  #   - auth.integration.test.ts (event bus, коммит afb7ba3)
   # ---------------------------------------------------------------------------
   integration:
-    name: Integration tests — pagination (8)
+    name: Integration tests
     runs-on: ubuntu-latest
 
     defaults:
@@ -112,25 +116,25 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Запускаем только интеграционный файл с покрытием для целевых модулей
+      # Запускаем все интеграционные тесты через единый glob-паттерн
       - name: Run integration tests
         run: |
           npx vitest run \
             --reporter=verbose \
-            src/components/articles/pagination.integration.test.tsx
+            src/**/*.integration.test.*
 
       # Покрытие — отдельный шаг, чтобы не прерывать run при threshold-failures
       - name: Collect coverage for pagination modules
         run: |
           npx vitest run \
             --coverage \
-            src/components/articles/pagination.integration.test.tsx
+            src/**/*.integration.test.*
 
       # Публикуем coverage summary в GitHub Actions Job Summary
       - name: Post coverage summary
         if: always()
         run: |
-          echo '## Coverage — pagination modules' >> $GITHUB_STEP_SUMMARY
+          echo '## Coverage — integration modules' >> $GITHUB_STEP_SUMMARY
           cat coverage/coverage-summary.json \
             | npx --yes json -e '
               const r = this.total;
