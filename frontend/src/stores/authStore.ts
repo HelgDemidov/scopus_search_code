@@ -12,15 +12,20 @@ interface AuthStore {
     created_at: string | null;
   } | null;
   isAuthenticated: boolean;
+  // Флаг гидрации: true пока приложение не завершило проверку сессии на старте.
+  // PrivateRoute показывает spinner вместо редиректа, пока isHydrating === true
+  isHydrating: boolean;
 
   // Экшены
   setToken: (token: string) => void;
   fetchUser: () => Promise<void>;
   logout: () => Promise<void>;
+  setHydrating: (value: boolean) => void;
 }
 
-// Читаем токен синхронно до create() — до первого рендера React
-// Без этого PrivateRoute видит isAuthenticated=false и редиректит на /auth
+// Читаем токен синхронно до create() — до первого рендера React.
+// Без этого PrivateRoute видит isAuthenticated=false и редиректит на /auth.
+// localStorage будет убран в Commit 3; пока сохраняем для совместимости.
 const _initialToken = localStorage.getItem('access_token');
 
 export const useAuthStore = create<AuthStore>((set) => ({
@@ -28,14 +33,17 @@ export const useAuthStore = create<AuthStore>((set) => ({
   token: _initialToken,
   isAuthenticated: !!_initialToken,
   user: null,
+  // Гидрация начинается при монтировании App; завершается в finally refreshAccessToken
+  isHydrating: true,
 
-  // Сохраняем токен и в localStorage, и в стор одновременно
+  // Сохраняем токен и в localStorage, и в стор одновременно.
+  // localStorage убирается в Commit 3
   setToken: (token: string) => {
     localStorage.setItem('access_token', token);
     set({ token, isAuthenticated: true });
   },
 
-  // Запрашиваем профиль текущего пользователя через GET /users/me
+  // Запрашиваем профиль текущего пользователя через GET /users/me.
   // Вызывается после setToken (OAuth callback, login, hydration)
   fetchUser: async () => {
     try {
@@ -66,4 +74,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       set({ token: null, user: null, isAuthenticated: false });
     }
   },
+
+  // Управляет флагом гидрации; вызывается из App.tsx в finally блоке
+  setHydrating: (value: boolean) => set({ isHydrating: value }),
 }));

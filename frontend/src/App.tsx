@@ -90,19 +90,44 @@ const router = createBrowserRouter([
 // ---------------------------------------------------------------------------
 
 export default function App() {
-  const { setToken, fetchUser } = useAuthStore();
+  const { setToken, fetchUser, setHydrating } = useAuthStore();
   const fetchStats = useStatsStore((state) => state.fetchStats);
 
   useEffect(() => {
-    // Hydration токена из localStorage без немедленной валидации (§4.3)
-    // Токен будет проверен при первом приватном запросе GET /users/me;
-    // если истёк — axios interceptor попытается silent refresh через RT cookie
+    // Фаст-путь: синхронная гидрация из localStorage (сохраняется до Commit 3).
+    // Позволяет Header немедленно отобразить имя пользователя при перезагрузке,
+    // не дожидаясь завершения refreshAccessToken.
     const token = localStorage.getItem('access_token');
     if (token) {
       setToken(token);
-      // Загружаем профиль сразу — чтобы Header отобразил имя
       fetchUser();
     }
+
+    // Silent refresh при старте — единственный авторитетный способ проверить
+    // валидность сессии: RT cookie отправляется браузером автоматически.
+    // Успех: получаем свежий AT → обновляем стор.
+    // Провал: RT истёк/отозван → очищаем localStorage; setHydrating(false)
+    //   позволит PrivateRoute принять решение о редиректе.
+    // Примечание: динамический импорт разрывает циклическую зависимость
+    //   App.tsx → api/auth → client.ts → authStore → App.tsx
+    import('./api/auth').then(({ refreshAccessToken }) =>
+      refreshAccessToken()
+        .then((newToken) => {
+          // Успешный refresh — обновляем AT и профиль
+          setToken(newToken);
+          fetchUser();
+        })
+        .catch(() => {
+          // RT отсутствует или истёк — очищаем устаревший AT из localStorage.
+          // Не вызываем полный logout(): избегаем лишнего POST /auth/logout
+          // для анонимного пользователя (у него RT никогда не было)
+          localStorage.removeItem('access_token');
+        })
+        .finally(() => {
+          // Гидрация завершена в любом случае — PrivateRoute может принимать решения
+          setHydrating(false);
+        }),
+    );
 
     // Слушаем событие от interceptor — обновляем AT в сторе без прямой зависимости.
     // После silent refresh вызываем fetchUser() повторно: fetchUser(), завершившийся
@@ -123,7 +148,7 @@ export default function App() {
     return () => {
       window.removeEventListener('auth:token-refreshed', handleTokenRefresh);
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
