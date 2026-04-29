@@ -1,6 +1,8 @@
 scopus_search_code/
 ├── .github
 │   └── workflows
+│       ├── e2e.yml
+│       ├── frontend-tests.yml
 │       ├── seeder.yml
 │       └── tests.yml
 ├── .import_linter_cache
@@ -10,10 +12,14 @@ scopus_search_code/
 │   └── CACHEDIR.TAG
 ├── alembic
 │   ├── versions
+│   │   ├── 0000_fix_alembic_version_column.py
 │   │   ├── 0002_add_is_seeded_to_articles.py
 │   │   ├── 0003_create_refresh_tokens_table.py
 │   │   ├── 0004_replace_doi_unique_constraint_with_partial_index.py
 │   │   ├── 0005_add_search_history.py
+│   │   ├── 0005b_rename_date_add_scopus_fields.py
+│   │   ├── 0006_refactor_article_ownership.py
+│   │   ├── 0007_drop_article_legacy_columns.py
 │   │   ├── a1b2c3d4e5f6_create_seeder_keywords_table.py
 │   │   ├── c7493a459c08_add_created_at_to_users.py
 │   │   ├── c8f5490cc436_merge_auth_and_main_heads.py
@@ -33,21 +39,27 @@ scopus_search_code/
 │   │   ├── __init__.py
 │   │   ├── database.py
 │   │   ├── postgres_article_repo.py
+│   │   ├── postgres_catalog_repo.py
 │   │   ├── postgres_search_history_repo.py
+│   │   ├── postgres_search_result_repo.py
 │   │   ├── postgres_user_repo.py
 │   │   └── scopus_client.py
 │   ├── interfaces
 │   │   ├── __init__.py
 │   │   ├── article_repository.py
+│   │   ├── catalog_repository.py
 │   │   ├── search_client.py
 │   │   ├── search_history_repo.py
+│   │   ├── search_result_repo.py
 │   │   └── user_repository.py
 │   ├── models
 │   │   ├── __init__.py
 │   │   ├── article.py
 │   │   ├── base.py
+│   │   ├── catalog_article.py
 │   │   ├── refresh_token.py
 │   │   ├── search_history.py
+│   │   ├── search_result_article.py
 │   │   ├── seeder_keyword.py
 │   │   └── user.py
 │   ├── routers
@@ -55,6 +67,7 @@ scopus_search_code/
 │   │   ├── articles.py
 │   │   ├── auth.py
 │   │   ├── health.py
+│   │   ├── seeder_router.py
 │   │   └── users.py
 │   ├── schemas
 │   │   ├── __init__.py
@@ -64,9 +77,13 @@ scopus_search_code/
 │   ├── services
 │   │   ├── __init__.py
 │   │   ├── article_service.py
+│   │   ├── catalog_service.py
 │   │   ├── search_history_service.py
 │   │   ├── search_service.py
 │   │   └── user_service.py
+│   ├── utils
+│   │   ├── __init__.py
+│   │   └── db_utils.py
 │   ├── __init__.py
 │   ├── config.py
 │   └── main.py
@@ -76,9 +93,6 @@ scopus_search_code/
 │       └── seed_db.py
 ├── docs
 │   ├── frontend_tech_spec
-│   │   ├── 16_04_frontend_action_plan.md
-│   │   ├── 16_04_frontend_tech_spec_v05.1.md
-│   │   └── 21_04_tech_spec_frontend_v5_DONE.md
 │   ├── project_mask
 │   │   ├── export_skeleton.py
 │   │   ├── pre-push-hook
@@ -135,6 +149,9 @@ scopus_search_code/
 │   │   │   ├── loose-envify
 │   │   │   ├── loose-envify.cmd
 │   │   │   ├── loose-envify.ps1
+│   │   │   ├── lz-string
+│   │   │   ├── lz-string.cmd
+│   │   │   ├── lz-string.ps1
 │   │   │   ├── msw
 │   │   │   ├── msw.cmd
 │   │   │   ├── msw.ps1
@@ -185,22 +202,28 @@ scopus_search_code/
 │   │   │   ├── update-browserslist-db.ps1
 │   │   │   ├── vite
 │   │   │   ├── vite.cmd
-│   │   │   └── vite.ps1
+│   │   │   ├── vite.ps1
+│   │   │   ├── vitest
+│   │   │   ├── vitest.cmd
+│   │   │   ├── vitest.ps1
+│   │   │   ├── why-is-node-running
+│   │   │   ├── why-is-node-running.cmd
+│   │   │   └── why-is-node-running.ps1
 │   │   ├── .vite
-│   │   │   └── deps
-│   │   │       ├── _metadata.json
-│   │   │       ├── chunk-REFQX4J5.js
-│   │   │       ├── chunk-REFQX4J5.js.map
-│   │   │       ├── package.json
-│   │   │       ├── react-dom.js
-│   │   │       ├── react-dom.js.map
-│   │   │       ├── react.js
-│   │   │       ├── react.js.map
-│   │   │       ├── react_jsx-dev-runtime.js
-│   │   │       ├── react_jsx-dev-runtime.js.map
-│   │   │       ├── react_jsx-runtime.js
-│   │   │       └── react_jsx-runtime.js.map
+│   │   │   └── vitest
+│   │   │       └── da39a3ee5e6b4b0d3255bfef95601890afd80709
+│   │   │           └── results.json
 │   │   ├── .vite-temp
+│   │   ├── @adobe
+│   │   │   └── css-tools
+│   │   │       ├── docs
+│   │   │       │   ├── API.md
+│   │   │       │   ├── AST.md
+│   │   │       │   ├── CHANGELOG.md
+│   │   │       │   └── EXAMPLES.md
+│   │   │       ├── LICENSE
+│   │   │       ├── package.json
+│   │   │       └── README.md
 │   │   ├── @alloc
 │   │   │   └── quick-lru
 │   │   │       ├── index.d.ts
@@ -208,6 +231,31 @@ scopus_search_code/
 │   │   │       ├── license
 │   │   │       ├── package.json
 │   │   │       └── readme.md
+│   │   ├── @asamuzakjp
+│   │   │   └── css-color
+│   │   │       ├── node_modules
+│   │   │       │   └── lru-cache
+│   │   │       │       ├── LICENSE
+│   │   │       │       ├── package.json
+│   │   │       │       └── README.md
+│   │   │       ├── src
+│   │   │       │   ├── js
+│   │   │       │   │   ├── cache.ts
+│   │   │       │   │   ├── color.ts
+│   │   │       │   │   ├── common.ts
+│   │   │       │   │   ├── constant.ts
+│   │   │       │   │   ├── convert.ts
+│   │   │       │   │   ├── css-calc.ts
+│   │   │       │   │   ├── css-gradient.ts
+│   │   │       │   │   ├── css-var.ts
+│   │   │       │   │   ├── relative-color.ts
+│   │   │       │   │   ├── resolve.ts
+│   │   │       │   │   ├── typedef.ts
+│   │   │       │   │   └── util.ts
+│   │   │       │   └── index.ts
+│   │   │       ├── LICENSE
+│   │   │       ├── package.json
+│   │   │       └── README.md
 │   │   ├── @babel
 │   │   │   ├── code-frame
 │   │   │   │   ├── lib
@@ -1445,6 +1493,47 @@ scopus_search_code/
 │   │   │       │   ├── index.js.flow
 │   │   │       │   └── index.js.map
 │   │   │       ├── LICENSE
+│   │   │       ├── package.json
+│   │   │       └── README.md
+│   │   ├── @bcoe
+│   │   │   └── v8-coverage
+│   │   │       ├── src
+│   │   │       │   └── lib
+│   │   │       │       ├── ascii.js
+│   │   │       │       ├── clone.js
+│   │   │       │       ├── compare.js
+│   │   │       │       ├── index.js
+│   │   │       │       ├── merge.js
+│   │   │       │       ├── normalize.js
+│   │   │       │       └── range-tree.js
+│   │   │       ├── LICENSE.md
+│   │   │       ├── LICENSE.txt
+│   │   │       ├── package.json
+│   │   │       └── README.md
+│   │   ├── @csstools
+│   │   │   ├── color-helpers
+│   │   │   │   ├── CHANGELOG.md
+│   │   │   │   ├── LICENSE.md
+│   │   │   │   ├── package.json
+│   │   │   │   └── README.md
+│   │   │   ├── css-calc
+│   │   │   │   ├── CHANGELOG.md
+│   │   │   │   ├── LICENSE.md
+│   │   │   │   ├── package.json
+│   │   │   │   └── README.md
+│   │   │   ├── css-color-parser
+│   │   │   │   ├── CHANGELOG.md
+│   │   │   │   ├── LICENSE.md
+│   │   │   │   ├── package.json
+│   │   │   │   └── README.md
+│   │   │   ├── css-parser-algorithms
+│   │   │   │   ├── CHANGELOG.md
+│   │   │   │   ├── LICENSE.md
+│   │   │   │   ├── package.json
+│   │   │   │   └── README.md
+│   │   │   └── css-tokenizer
+│   │   │       ├── CHANGELOG.md
+│   │   │       ├── LICENSE.md
 │   │   │       ├── package.json
 │   │   │       └── README.md
 │   │   ├── @dotenvx
@@ -3663,6 +3752,11 @@ scopus_search_code/
 │   │   │       ├── license
 │   │   │       ├── package.json
 │   │   │       └── readme.md
+│   │   ├── @standard-schema
+│   │   │   └── spec
+│   │   │       ├── LICENSE
+│   │   │       ├── package.json
+│   │   │       └── README.md
 │   │   ├── @swc
 │   │   │   └── helpers
 │   │   │       ├── _
@@ -4228,6 +4322,81 @@ scopus_search_code/
 │   │   │       │   └── utils.ts
 │   │   │       ├── LICENSE
 │   │   │       └── package.json
+│   │   ├── @testing-library
+│   │   │   ├── dom
+│   │   │   │   ├── types
+│   │   │   │   │   ├── config.d.ts
+│   │   │   │   │   ├── events.d.ts
+│   │   │   │   │   ├── get-node-text.d.ts
+│   │   │   │   │   ├── get-queries-for-element.d.ts
+│   │   │   │   │   ├── index.d.ts
+│   │   │   │   │   ├── matches.d.ts
+│   │   │   │   │   ├── pretty-dom.d.ts
+│   │   │   │   │   ├── queries.d.ts
+│   │   │   │   │   ├── query-helpers.d.ts
+│   │   │   │   │   ├── role-helpers.d.ts
+│   │   │   │   │   ├── screen.d.ts
+│   │   │   │   │   ├── suggestions.d.ts
+│   │   │   │   │   ├── wait-for-element-to-be-removed.d.ts
+│   │   │   │   │   └── wait-for.d.ts
+│   │   │   │   ├── LICENSE
+│   │   │   │   ├── package.json
+│   │   │   │   └── README.md
+│   │   │   ├── jest-dom
+│   │   │   │   ├── node_modules
+│   │   │   │   │   └── dom-accessibility-api
+│   │   │   │   │       ├── LICENSE.md
+│   │   │   │   │       ├── package.json
+│   │   │   │   │       └── README.md
+│   │   │   │   ├── types
+│   │   │   │   │   ├── __tests__
+│   │   │   │   │   │   ├── bun
+│   │   │   │   │   │   │   ├── bun-custom-expect-types.test.ts
+│   │   │   │   │   │   │   ├── bun-types.test.ts
+│   │   │   │   │   │   │   └── tsconfig.json
+│   │   │   │   │   │   ├── jest
+│   │   │   │   │   │   │   ├── jest-custom-expect-types.test.ts
+│   │   │   │   │   │   │   ├── jest-types.test.ts
+│   │   │   │   │   │   │   └── tsconfig.json
+│   │   │   │   │   │   ├── jest-globals
+│   │   │   │   │   │   │   ├── jest-globals-custom-expect-types.test.ts
+│   │   │   │   │   │   │   ├── jest-globals-types.test.ts
+│   │   │   │   │   │   │   └── tsconfig.json
+│   │   │   │   │   │   └── vitest
+│   │   │   │   │   │       ├── tsconfig.json
+│   │   │   │   │   │       ├── vitest-custom-expect-types.test.ts
+│   │   │   │   │   │       └── vitest-types.test.ts
+│   │   │   │   │   ├── bun.d.ts
+│   │   │   │   │   ├── index.d.ts
+│   │   │   │   │   ├── jest-globals.d.ts
+│   │   │   │   │   ├── jest.d.ts
+│   │   │   │   │   ├── matchers-standalone.d.ts
+│   │   │   │   │   ├── matchers.d.ts
+│   │   │   │   │   └── vitest.d.ts
+│   │   │   │   ├── CHANGELOG.md
+│   │   │   │   ├── jest-globals.d.ts
+│   │   │   │   ├── jest-globals.js
+│   │   │   │   ├── LICENSE
+│   │   │   │   ├── matchers.d.ts
+│   │   │   │   ├── matchers.js
+│   │   │   │   ├── package.json
+│   │   │   │   ├── README.md
+│   │   │   │   ├── vitest.d.ts
+│   │   │   │   └── vitest.js
+│   │   │   ├── react
+│   │   │   │   ├── types
+│   │   │   │   │   ├── index.d.ts
+│   │   │   │   │   └── pure.d.ts
+│   │   │   │   ├── dont-cleanup-after-each.js
+│   │   │   │   ├── LICENSE
+│   │   │   │   ├── package.json
+│   │   │   │   ├── pure.d.ts
+│   │   │   │   ├── pure.js
+│   │   │   │   └── README.md
+│   │   │   └── user-event
+│   │   │       ├── LICENSE
+│   │   │       ├── package.json
+│   │   │       └── README.md
 │   │   ├── @tremor
 │   │   │   └── react
 │   │   │       ├── License
@@ -4242,6 +4411,11 @@ scopus_search_code/
 │   │   │       ├── package.json
 │   │   │       └── readme.md
 │   │   ├── @types
+│   │   │   ├── aria-query
+│   │   │   │   ├── index.d.ts
+│   │   │   │   ├── LICENSE
+│   │   │   │   ├── package.json
+│   │   │   │   └── README.md
 │   │   │   ├── babel__core
 │   │   │   │   ├── index.d.ts
 │   │   │   │   ├── LICENSE
@@ -4262,6 +4436,12 @@ scopus_search_code/
 │   │   │   │   ├── LICENSE
 │   │   │   │   ├── package.json
 │   │   │   │   └── README.md
+│   │   │   ├── chai
+│   │   │   │   ├── index.d.ts
+│   │   │   │   ├── LICENSE
+│   │   │   │   ├── package.json
+│   │   │   │   ├── README.md
+│   │   │   │   └── register-should.d.ts
 │   │   │   ├── d3-array
 │   │   │   │   ├── index.d.ts
 │   │   │   │   ├── LICENSE
@@ -4303,6 +4483,11 @@ scopus_search_code/
 │   │   │   │   ├── package.json
 │   │   │   │   └── README.md
 │   │   │   ├── d3-timer
+│   │   │   │   ├── index.d.ts
+│   │   │   │   ├── LICENSE
+│   │   │   │   ├── package.json
+│   │   │   │   └── README.md
+│   │   │   ├── deep-eql
 │   │   │   │   ├── index.d.ts
 │   │   │   │   ├── LICENSE
 │   │   │   │   ├── package.json
@@ -4463,6 +4648,47 @@ scopus_search_code/
 │   │   │       └── vitest.config.mts
 │   │   ├── @vitejs
 │   │   │   └── plugin-react
+│   │   │       ├── LICENSE
+│   │   │       ├── package.json
+│   │   │       └── README.md
+│   │   ├── @vitest
+│   │   │   ├── coverage-v8
+│   │   │   │   ├── LICENSE
+│   │   │   │   ├── package.json
+│   │   │   │   └── README.md
+│   │   │   ├── expect
+│   │   │   │   ├── LICENSE
+│   │   │   │   ├── package.json
+│   │   │   │   └── README.md
+│   │   │   ├── mocker
+│   │   │   │   ├── LICENSE
+│   │   │   │   ├── package.json
+│   │   │   │   └── README.md
+│   │   │   ├── pretty-format
+│   │   │   │   ├── LICENSE
+│   │   │   │   ├── package.json
+│   │   │   │   └── README.md
+│   │   │   ├── runner
+│   │   │   │   ├── LICENSE
+│   │   │   │   ├── package.json
+│   │   │   │   ├── README.md
+│   │   │   │   ├── types.d.ts
+│   │   │   │   └── utils.d.ts
+│   │   │   ├── snapshot
+│   │   │   │   ├── environment.d.ts
+│   │   │   │   ├── LICENSE
+│   │   │   │   ├── manager.d.ts
+│   │   │   │   ├── package.json
+│   │   │   │   └── README.md
+│   │   │   ├── spy
+│   │   │   │   ├── LICENSE
+│   │   │   │   ├── optional-types.d.ts
+│   │   │   │   ├── package.json
+│   │   │   │   └── README.md
+│   │   │   └── utils
+│   │   │       ├── diff.d.ts
+│   │   │       ├── error.d.ts
+│   │   │       ├── helpers.d.ts
 │   │   │       ├── LICENSE
 │   │   │       ├── package.json
 │   │   │       └── README.md
@@ -4724,6 +4950,177 @@ scopus_search_code/
 │   │   │   ├── LICENSE
 │   │   │   ├── package.json
 │   │   │   └── README.md
+│   │   ├── aria-query
+│   │   │   ├── lib
+│   │   │   │   ├── etc
+│   │   │   │   │   └── roles
+│   │   │   │   │       ├── abstract
+│   │   │   │   │       │   ├── commandRole.js
+│   │   │   │   │       │   ├── compositeRole.js
+│   │   │   │   │       │   ├── inputRole.js
+│   │   │   │   │       │   ├── landmarkRole.js
+│   │   │   │   │       │   ├── rangeRole.js
+│   │   │   │   │       │   ├── roletypeRole.js
+│   │   │   │   │       │   ├── sectionheadRole.js
+│   │   │   │   │       │   ├── sectionRole.js
+│   │   │   │   │       │   ├── selectRole.js
+│   │   │   │   │       │   ├── structureRole.js
+│   │   │   │   │       │   ├── widgetRole.js
+│   │   │   │   │       │   └── windowRole.js
+│   │   │   │   │       ├── dpub
+│   │   │   │   │       │   ├── docAbstractRole.js
+│   │   │   │   │       │   ├── docAcknowledgmentsRole.js
+│   │   │   │   │       │   ├── docAfterwordRole.js
+│   │   │   │   │       │   ├── docAppendixRole.js
+│   │   │   │   │       │   ├── docBacklinkRole.js
+│   │   │   │   │       │   ├── docBiblioentryRole.js
+│   │   │   │   │       │   ├── docBibliographyRole.js
+│   │   │   │   │       │   ├── docBibliorefRole.js
+│   │   │   │   │       │   ├── docChapterRole.js
+│   │   │   │   │       │   ├── docColophonRole.js
+│   │   │   │   │       │   ├── docConclusionRole.js
+│   │   │   │   │       │   ├── docCoverRole.js
+│   │   │   │   │       │   ├── docCreditRole.js
+│   │   │   │   │       │   ├── docCreditsRole.js
+│   │   │   │   │       │   ├── docDedicationRole.js
+│   │   │   │   │       │   ├── docEndnoteRole.js
+│   │   │   │   │       │   ├── docEndnotesRole.js
+│   │   │   │   │       │   ├── docEpigraphRole.js
+│   │   │   │   │       │   ├── docEpilogueRole.js
+│   │   │   │   │       │   ├── docErrataRole.js
+│   │   │   │   │       │   ├── docExampleRole.js
+│   │   │   │   │       │   ├── docFootnoteRole.js
+│   │   │   │   │       │   ├── docForewordRole.js
+│   │   │   │   │       │   ├── docGlossaryRole.js
+│   │   │   │   │       │   ├── docGlossrefRole.js
+│   │   │   │   │       │   ├── docIndexRole.js
+│   │   │   │   │       │   ├── docIntroductionRole.js
+│   │   │   │   │       │   ├── docNoterefRole.js
+│   │   │   │   │       │   ├── docNoticeRole.js
+│   │   │   │   │       │   ├── docPagebreakRole.js
+│   │   │   │   │       │   ├── docPagelistRole.js
+│   │   │   │   │       │   ├── docPartRole.js
+│   │   │   │   │       │   ├── docPrefaceRole.js
+│   │   │   │   │       │   ├── docPrologueRole.js
+│   │   │   │   │       │   ├── docPullquoteRole.js
+│   │   │   │   │       │   ├── docQnaRole.js
+│   │   │   │   │       │   ├── docSubtitleRole.js
+│   │   │   │   │       │   ├── docTipRole.js
+│   │   │   │   │       │   └── docTocRole.js
+│   │   │   │   │       ├── graphics
+│   │   │   │   │       │   ├── graphicsDocumentRole.js
+│   │   │   │   │       │   ├── graphicsObjectRole.js
+│   │   │   │   │       │   └── graphicsSymbolRole.js
+│   │   │   │   │       ├── literal
+│   │   │   │   │       │   ├── alertdialogRole.js
+│   │   │   │   │       │   ├── alertRole.js
+│   │   │   │   │       │   ├── applicationRole.js
+│   │   │   │   │       │   ├── articleRole.js
+│   │   │   │   │       │   ├── bannerRole.js
+│   │   │   │   │       │   ├── blockquoteRole.js
+│   │   │   │   │       │   ├── buttonRole.js
+│   │   │   │   │       │   ├── captionRole.js
+│   │   │   │   │       │   ├── cellRole.js
+│   │   │   │   │       │   ├── checkboxRole.js
+│   │   │   │   │       │   ├── codeRole.js
+│   │   │   │   │       │   ├── columnheaderRole.js
+│   │   │   │   │       │   ├── comboboxRole.js
+│   │   │   │   │       │   ├── complementaryRole.js
+│   │   │   │   │       │   ├── contentinfoRole.js
+│   │   │   │   │       │   ├── definitionRole.js
+│   │   │   │   │       │   ├── deletionRole.js
+│   │   │   │   │       │   ├── dialogRole.js
+│   │   │   │   │       │   ├── directoryRole.js
+│   │   │   │   │       │   ├── documentRole.js
+│   │   │   │   │       │   ├── emphasisRole.js
+│   │   │   │   │       │   ├── feedRole.js
+│   │   │   │   │       │   ├── figureRole.js
+│   │   │   │   │       │   ├── formRole.js
+│   │   │   │   │       │   ├── genericRole.js
+│   │   │   │   │       │   ├── graphicsDocumentRole.js
+│   │   │   │   │       │   ├── graphicsObjectRole.js
+│   │   │   │   │       │   ├── graphicsSymbolRole.js
+│   │   │   │   │       │   ├── gridcellRole.js
+│   │   │   │   │       │   ├── gridRole.js
+│   │   │   │   │       │   ├── groupRole.js
+│   │   │   │   │       │   ├── headingRole.js
+│   │   │   │   │       │   ├── imgRole.js
+│   │   │   │   │       │   ├── insertionRole.js
+│   │   │   │   │       │   ├── linkRole.js
+│   │   │   │   │       │   ├── listboxRole.js
+│   │   │   │   │       │   ├── listitemRole.js
+│   │   │   │   │       │   ├── listRole.js
+│   │   │   │   │       │   ├── logRole.js
+│   │   │   │   │       │   ├── mainRole.js
+│   │   │   │   │       │   ├── markRole.js
+│   │   │   │   │       │   ├── marqueeRole.js
+│   │   │   │   │       │   ├── mathRole.js
+│   │   │   │   │       │   ├── menubarRole.js
+│   │   │   │   │       │   ├── menuitemcheckboxRole.js
+│   │   │   │   │       │   ├── menuitemradioRole.js
+│   │   │   │   │       │   ├── menuitemRole.js
+│   │   │   │   │       │   ├── menuRole.js
+│   │   │   │   │       │   ├── meterRole.js
+│   │   │   │   │       │   ├── navigationRole.js
+│   │   │   │   │       │   ├── noneRole.js
+│   │   │   │   │       │   ├── noteRole.js
+│   │   │   │   │       │   ├── optionRole.js
+│   │   │   │   │       │   ├── paragraphRole.js
+│   │   │   │   │       │   ├── presentationRole.js
+│   │   │   │   │       │   ├── progressbarRole.js
+│   │   │   │   │       │   ├── radiogroupRole.js
+│   │   │   │   │       │   ├── radioRole.js
+│   │   │   │   │       │   ├── regionRole.js
+│   │   │   │   │       │   ├── rowgroupRole.js
+│   │   │   │   │       │   ├── rowheaderRole.js
+│   │   │   │   │       │   ├── rowRole.js
+│   │   │   │   │       │   ├── scrollbarRole.js
+│   │   │   │   │       │   ├── searchboxRole.js
+│   │   │   │   │       │   ├── searchRole.js
+│   │   │   │   │       │   ├── separatorRole.js
+│   │   │   │   │       │   ├── sliderRole.js
+│   │   │   │   │       │   ├── spinbuttonRole.js
+│   │   │   │   │       │   ├── statusRole.js
+│   │   │   │   │       │   ├── strongRole.js
+│   │   │   │   │       │   ├── subscriptRole.js
+│   │   │   │   │       │   ├── superscriptRole.js
+│   │   │   │   │       │   ├── switchRole.js
+│   │   │   │   │       │   ├── tableRole.js
+│   │   │   │   │       │   ├── tablistRole.js
+│   │   │   │   │       │   ├── tabpanelRole.js
+│   │   │   │   │       │   ├── tabRole.js
+│   │   │   │   │       │   ├── termRole.js
+│   │   │   │   │       │   ├── textboxRole.js
+│   │   │   │   │       │   ├── timeRole.js
+│   │   │   │   │       │   ├── timerRole.js
+│   │   │   │   │       │   ├── toolbarRole.js
+│   │   │   │   │       │   ├── tooltipRole.js
+│   │   │   │   │       │   ├── treegridRole.js
+│   │   │   │   │       │   ├── treeitemRole.js
+│   │   │   │   │       │   └── treeRole.js
+│   │   │   │   │       ├── ariaAbstractRoles.js
+│   │   │   │   │       ├── ariaDpubRoles.js
+│   │   │   │   │       ├── ariaGraphicsRoles.js
+│   │   │   │   │       └── ariaLiteralRoles.js
+│   │   │   │   ├── util
+│   │   │   │   │   ├── iterationDecorator.js
+│   │   │   │   │   └── iteratorProxy.js
+│   │   │   │   ├── ariaPropsMap.js
+│   │   │   │   ├── domMap.js
+│   │   │   │   ├── elementRoleMap.js
+│   │   │   │   ├── index.js
+│   │   │   │   ├── roleElementMap.js
+│   │   │   │   └── rolesMap.js
+│   │   │   ├── CHANGELOG.md
+│   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── assertion-error
+│   │   │   ├── index.d.ts
+│   │   │   ├── index.js
+│   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   └── README.md
 │   │   ├── ast-types
 │   │   │   ├── lib
 │   │   │   │   ├── def
@@ -4831,6 +5228,17 @@ scopus_search_code/
 │   │   │   │   ├── types.d.ts
 │   │   │   │   ├── types.js
 │   │   │   │   └── types.js.map
+│   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── ast-v8-to-istanbul
+│   │   │   ├── node_modules
+│   │   │   │   └── js-tokens
+│   │   │   │       ├── index.d.ts
+│   │   │   │       ├── index.js
+│   │   │   │       ├── LICENSE
+│   │   │   │       ├── package.json
+│   │   │   │       └── README.md
 │   │   │   ├── LICENSE
 │   │   │   ├── package.json
 │   │   │   └── README.md
@@ -5986,6 +6394,14 @@ scopus_search_code/
 │   │   │   ├── LICENSE
 │   │   │   ├── package.json
 │   │   │   └── README.md
+│   │   ├── chai
+│   │   │   ├── index.js
+│   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   ├── README.md
+│   │   │   ├── register-assert.js
+│   │   │   ├── register-expect.js
+│   │   │   └── register-should.js
 │   │   ├── chalk
 │   │   │   ├── source
 │   │   │   │   ├── vendor
@@ -6230,6 +6646,11 @@ scopus_search_code/
 │   │   │   ├── LICENSE
 │   │   │   ├── package.json
 │   │   │   └── README.md
+│   │   ├── css.escape
+│   │   │   ├── css.escape.js
+│   │   │   ├── LICENSE-MIT.txt
+│   │   │   ├── package.json
+│   │   │   └── README.md
 │   │   ├── cssesc
 │   │   │   ├── bin
 │   │   │   │   └── cssesc
@@ -6237,6 +6658,129 @@ scopus_search_code/
 │   │   │   │   └── cssesc.1
 │   │   │   ├── cssesc.js
 │   │   │   ├── LICENSE-MIT.txt
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── cssstyle
+│   │   │   ├── lib
+│   │   │   │   ├── generated
+│   │   │   │   │   ├── allProperties.js
+│   │   │   │   │   ├── implementedProperties.js
+│   │   │   │   │   └── properties.js
+│   │   │   │   ├── properties
+│   │   │   │   │   ├── background.js
+│   │   │   │   │   ├── backgroundAttachment.js
+│   │   │   │   │   ├── backgroundColor.js
+│   │   │   │   │   ├── backgroundImage.js
+│   │   │   │   │   ├── backgroundPosition.js
+│   │   │   │   │   ├── backgroundRepeat.js
+│   │   │   │   │   ├── border.js
+│   │   │   │   │   ├── borderBottom.js
+│   │   │   │   │   ├── borderBottomColor.js
+│   │   │   │   │   ├── borderBottomStyle.js
+│   │   │   │   │   ├── borderBottomWidth.js
+│   │   │   │   │   ├── borderCollapse.js
+│   │   │   │   │   ├── borderColor.js
+│   │   │   │   │   ├── borderLeft.js
+│   │   │   │   │   ├── borderLeftColor.js
+│   │   │   │   │   ├── borderLeftStyle.js
+│   │   │   │   │   ├── borderLeftWidth.js
+│   │   │   │   │   ├── borderRight.js
+│   │   │   │   │   ├── borderRightColor.js
+│   │   │   │   │   ├── borderRightStyle.js
+│   │   │   │   │   ├── borderRightWidth.js
+│   │   │   │   │   ├── borderSpacing.js
+│   │   │   │   │   ├── borderStyle.js
+│   │   │   │   │   ├── borderTop.js
+│   │   │   │   │   ├── borderTopColor.js
+│   │   │   │   │   ├── borderTopStyle.js
+│   │   │   │   │   ├── borderTopWidth.js
+│   │   │   │   │   ├── borderWidth.js
+│   │   │   │   │   ├── bottom.js
+│   │   │   │   │   ├── clear.js
+│   │   │   │   │   ├── clip.js
+│   │   │   │   │   ├── color.js
+│   │   │   │   │   ├── flex.js
+│   │   │   │   │   ├── flexBasis.js
+│   │   │   │   │   ├── flexGrow.js
+│   │   │   │   │   ├── flexShrink.js
+│   │   │   │   │   ├── float.js
+│   │   │   │   │   ├── floodColor.js
+│   │   │   │   │   ├── font.js
+│   │   │   │   │   ├── fontFamily.js
+│   │   │   │   │   ├── fontSize.js
+│   │   │   │   │   ├── fontStyle.js
+│   │   │   │   │   ├── fontVariant.js
+│   │   │   │   │   ├── fontWeight.js
+│   │   │   │   │   ├── height.js
+│   │   │   │   │   ├── left.js
+│   │   │   │   │   ├── lightingColor.js
+│   │   │   │   │   ├── lineHeight.js
+│   │   │   │   │   ├── margin.js
+│   │   │   │   │   ├── marginBottom.js
+│   │   │   │   │   ├── marginLeft.js
+│   │   │   │   │   ├── marginRight.js
+│   │   │   │   │   ├── marginTop.js
+│   │   │   │   │   ├── opacity.js
+│   │   │   │   │   ├── outlineColor.js
+│   │   │   │   │   ├── padding.js
+│   │   │   │   │   ├── paddingBottom.js
+│   │   │   │   │   ├── paddingLeft.js
+│   │   │   │   │   ├── paddingRight.js
+│   │   │   │   │   ├── paddingTop.js
+│   │   │   │   │   ├── right.js
+│   │   │   │   │   ├── stopColor.js
+│   │   │   │   │   ├── top.js
+│   │   │   │   │   ├── webkitBorderAfterColor.js
+│   │   │   │   │   ├── webkitBorderBeforeColor.js
+│   │   │   │   │   ├── webkitBorderEndColor.js
+│   │   │   │   │   ├── webkitBorderStartColor.js
+│   │   │   │   │   ├── webkitColumnRuleColor.js
+│   │   │   │   │   ├── webkitTapHighlightColor.js
+│   │   │   │   │   ├── webkitTextEmphasisColor.js
+│   │   │   │   │   ├── webkitTextFillColor.js
+│   │   │   │   │   ├── webkitTextStrokeColor.js
+│   │   │   │   │   └── width.js
+│   │   │   │   ├── utils
+│   │   │   │   │   ├── camelize.js
+│   │   │   │   │   ├── propertyDescriptors.js
+│   │   │   │   │   └── strings.js
+│   │   │   │   ├── allExtraProperties.js
+│   │   │   │   ├── allWebkitProperties.js
+│   │   │   │   ├── CSSStyleDeclaration.js
+│   │   │   │   └── parsers.js
+│   │   │   ├── node_modules
+│   │   │   │   └── rrweb-cssom
+│   │   │   │       ├── lib
+│   │   │   │       │   ├── clone.js
+│   │   │   │       │   ├── CSSConditionRule.js
+│   │   │   │       │   ├── CSSContainerRule.js
+│   │   │   │       │   ├── CSSDocumentRule.js
+│   │   │   │       │   ├── CSSFontFaceRule.js
+│   │   │   │       │   ├── CSSGroupingRule.js
+│   │   │   │       │   ├── CSSHostRule.js
+│   │   │   │       │   ├── CSSImportRule.js
+│   │   │   │       │   ├── CSSKeyframeRule.js
+│   │   │   │       │   ├── CSSKeyframesRule.js
+│   │   │   │       │   ├── CSSLayerBlockRule.js
+│   │   │   │       │   ├── CSSMediaRule.js
+│   │   │   │       │   ├── CSSOM.js
+│   │   │   │       │   ├── CSSRule.js
+│   │   │   │       │   ├── CSSStartingStyleRule.js
+│   │   │   │       │   ├── CSSStyleDeclaration.js
+│   │   │   │       │   ├── CSSStyleRule.js
+│   │   │   │       │   ├── CSSStyleSheet.js
+│   │   │   │       │   ├── CSSSupportsRule.js
+│   │   │   │       │   ├── CSSValue.js
+│   │   │   │       │   ├── CSSValueExpression.js
+│   │   │   │       │   ├── index.js
+│   │   │   │       │   ├── MatcherList.js
+│   │   │   │       │   ├── MediaList.js
+│   │   │   │       │   ├── parse.js
+│   │   │   │       │   └── StyleSheet.js
+│   │   │   │       ├── LICENSE.txt
+│   │   │   │       ├── package.json
+│   │   │   │       └── README.mdown
+│   │   │   ├── LICENSE
 │   │   │   ├── package.json
 │   │   │   └── README.md
 │   │   ├── csstype
@@ -6632,6 +7176,13 @@ scopus_search_code/
 │   │   ├── data-uri-to-buffer
 │   │   │   ├── src
 │   │   │   │   └── index.ts
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── data-urls
+│   │   │   ├── lib
+│   │   │   │   ├── parser.js
+│   │   │   │   └── utils.js
+│   │   │   ├── LICENSE.txt
 │   │   │   ├── package.json
 │   │   │   └── README.md
 │   │   ├── date-fns
@@ -11625,6 +12176,13 @@ scopus_search_code/
 │   │   │   ├── LICENSE
 │   │   │   ├── package.json
 │   │   │   └── README.md
+│   │   ├── decimal.js
+│   │   │   ├── decimal.d.ts
+│   │   │   ├── decimal.js
+│   │   │   ├── decimal.mjs
+│   │   │   ├── LICENCE.md
+│   │   │   ├── package.json
+│   │   │   └── README.md
 │   │   ├── decimal.js-light
 │   │   │   ├── doc
 │   │   │   │   ├── API.html
@@ -11687,6 +12245,16 @@ scopus_search_code/
 │   │   │   ├── LICENSE
 │   │   │   ├── package.json
 │   │   │   └── Readme.md
+│   │   ├── dequal
+│   │   │   ├── lite
+│   │   │   │   ├── index.d.ts
+│   │   │   │   ├── index.js
+│   │   │   │   ├── index.min.js
+│   │   │   │   └── index.mjs
+│   │   │   ├── index.d.ts
+│   │   │   ├── license
+│   │   │   ├── package.json
+│   │   │   └── readme.md
 │   │   ├── detect-node-es
 │   │   │   ├── es5
 │   │   │   │   ├── browser.js
@@ -11851,6 +12419,11 @@ scopus_search_code/
 │   │   │   └── release-notes.md
 │   │   ├── dlv
 │   │   │   ├── index.js
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── dom-accessibility-api
+│   │   │   ├── .browserslistrc
+│   │   │   ├── LICENSE.md
 │   │   │   ├── package.json
 │   │   │   └── README.md
 │   │   ├── dom-helpers
@@ -12266,6 +12839,29 @@ scopus_search_code/
 │   │   │   ├── LICENSE
 │   │   │   ├── package.json
 │   │   │   └── README.md
+│   │   ├── entities
+│   │   │   ├── src
+│   │   │   │   ├── generated
+│   │   │   │   │   ├── .eslintrc.json
+│   │   │   │   │   ├── decode-data-html.ts
+│   │   │   │   │   ├── decode-data-xml.ts
+│   │   │   │   │   └── encode-html.ts
+│   │   │   │   ├── decode-codepoint.ts
+│   │   │   │   ├── decode.spec.ts
+│   │   │   │   ├── decode.ts
+│   │   │   │   ├── encode.spec.ts
+│   │   │   │   ├── encode.ts
+│   │   │   │   ├── escape.spec.ts
+│   │   │   │   ├── escape.ts
+│   │   │   │   ├── index.spec.ts
+│   │   │   │   └── index.ts
+│   │   │   ├── decode.d.ts
+│   │   │   ├── decode.js
+│   │   │   ├── escape.d.ts
+│   │   │   ├── escape.js
+│   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   └── readme.md
 │   │   ├── env-paths
 │   │   │   ├── index.d.ts
 │   │   │   ├── index.js
@@ -12316,6 +12912,13 @@ scopus_search_code/
 │   │   │   ├── type.js
 │   │   │   ├── uri.d.ts
 │   │   │   └── uri.js
+│   │   ├── es-module-lexer
+│   │   │   ├── types
+│   │   │   │   └── lexer.d.ts
+│   │   │   ├── lexer.js
+│   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   └── README.md
 │   │   ├── es-object-atoms
 │   │   │   ├── .github
 │   │   │   │   └── FUNDING.yml
@@ -12379,6 +12982,20 @@ scopus_search_code/
 │   │   │   │   └── esvalidate.js
 │   │   │   ├── ChangeLog
 │   │   │   ├── LICENSE.BSD
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── estree-walker
+│   │   │   ├── src
+│   │   │   │   ├── async.js
+│   │   │   │   ├── index.js
+│   │   │   │   ├── sync.js
+│   │   │   │   └── walker.js
+│   │   │   ├── types
+│   │   │   │   ├── async.d.ts
+│   │   │   │   ├── index.d.ts
+│   │   │   │   ├── sync.d.ts
+│   │   │   │   └── walker.d.ts
+│   │   │   ├── LICENSE
 │   │   │   ├── package.json
 │   │   │   └── README.md
 │   │   ├── etag
@@ -12581,6 +13198,11 @@ scopus_search_code/
 │   │   │   ├── license
 │   │   │   ├── package.json
 │   │   │   └── readme.md
+│   │   ├── expect-type
+│   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   ├── README.md
+│   │   │   └── SECURITY.md
 │   │   ├── express
 │   │   │   ├── lib
 │   │   │   │   ├── application.js
@@ -13455,6 +14077,12 @@ scopus_search_code/
 │   │   │   ├── version.d.ts
 │   │   │   ├── version.js
 │   │   │   └── version.mjs
+│   │   ├── has-flag
+│   │   │   ├── index.d.ts
+│   │   │   ├── index.js
+│   │   │   ├── license
+│   │   │   ├── package.json
+│   │   │   └── readme.md
 │   │   ├── has-symbols
 │   │   │   ├── .github
 │   │   │   │   └── FUNDING.yml
@@ -13565,9 +14193,33 @@ scopus_search_code/
 │   │   │   ├── LICENSE
 │   │   │   ├── package.json
 │   │   │   └── README.md
+│   │   ├── html-encoding-sniffer
+│   │   │   ├── lib
+│   │   │   │   └── html-encoding-sniffer.js
+│   │   │   ├── LICENSE.txt
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── html-escaper
+│   │   │   ├── cjs
+│   │   │   │   ├── index.js
+│   │   │   │   └── package.json
+│   │   │   ├── esm
+│   │   │   │   └── index.js
+│   │   │   ├── test
+│   │   │   │   ├── index.js
+│   │   │   │   └── package.json
+│   │   │   ├── index.js
+│   │   │   ├── LICENSE.txt
+│   │   │   ├── min.js
+│   │   │   ├── package.json
+│   │   │   └── README.md
 │   │   ├── http-errors
 │   │   │   ├── HISTORY.md
 │   │   │   ├── index.js
+│   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── http-proxy-agent
 │   │   │   ├── LICENSE
 │   │   │   ├── package.json
 │   │   │   └── README.md
@@ -13620,6 +14272,12 @@ scopus_search_code/
 │   │   │   ├── package.json
 │   │   │   └── README.md
 │   │   ├── import-fresh
+│   │   │   ├── index.d.ts
+│   │   │   ├── index.js
+│   │   │   ├── license
+│   │   │   ├── package.json
+│   │   │   └── readme.md
+│   │   ├── indent-string
 │   │   │   ├── index.d.ts
 │   │   │   ├── index.js
 │   │   │   ├── license
@@ -13755,6 +14413,11 @@ scopus_search_code/
 │   │   │   ├── license
 │   │   │   ├── package.json
 │   │   │   └── readme.md
+│   │   ├── is-potential-custom-element-name
+│   │   │   ├── index.js
+│   │   │   ├── LICENSE-MIT.txt
+│   │   │   ├── package.json
+│   │   │   └── README.md
 │   │   ├── is-promise
 │   │   │   ├── index.d.ts
 │   │   │   ├── index.js
@@ -13788,6 +14451,93 @@ scopus_search_code/
 │   │   │   └── readme.md
 │   │   ├── isexe
 │   │   │   ├── LICENSE.md
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── istanbul-lib-coverage
+│   │   │   ├── lib
+│   │   │   │   ├── coverage-map.js
+│   │   │   │   ├── coverage-summary.js
+│   │   │   │   ├── data-properties.js
+│   │   │   │   ├── file-coverage.js
+│   │   │   │   └── percent.js
+│   │   │   ├── CHANGELOG.md
+│   │   │   ├── index.js
+│   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── istanbul-lib-report
+│   │   │   ├── lib
+│   │   │   │   ├── context.js
+│   │   │   │   ├── file-writer.js
+│   │   │   │   ├── path.js
+│   │   │   │   ├── report-base.js
+│   │   │   │   ├── summarizer-factory.js
+│   │   │   │   ├── tree.js
+│   │   │   │   ├── watermarks.js
+│   │   │   │   └── xml-writer.js
+│   │   │   ├── CHANGELOG.md
+│   │   │   ├── index.js
+│   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── istanbul-reports
+│   │   │   ├── lib
+│   │   │   │   ├── clover
+│   │   │   │   │   └── index.js
+│   │   │   │   ├── cobertura
+│   │   │   │   │   └── index.js
+│   │   │   │   ├── html
+│   │   │   │   │   ├── assets
+│   │   │   │   │   │   ├── vendor
+│   │   │   │   │   │   │   ├── prettify.css
+│   │   │   │   │   │   │   └── prettify.js
+│   │   │   │   │   │   ├── base.css
+│   │   │   │   │   │   ├── block-navigation.js
+│   │   │   │   │   │   ├── favicon.png
+│   │   │   │   │   │   ├── sort-arrow-sprite.png
+│   │   │   │   │   │   └── sorter.js
+│   │   │   │   │   ├── annotator.js
+│   │   │   │   │   ├── index.js
+│   │   │   │   │   └── insertion-text.js
+│   │   │   │   ├── html-spa
+│   │   │   │   │   ├── assets
+│   │   │   │   │   │   ├── bundle.js
+│   │   │   │   │   │   ├── sort-arrow-sprite.png
+│   │   │   │   │   │   └── spa.css
+│   │   │   │   │   ├── src
+│   │   │   │   │   │   ├── fileBreadcrumbs.js
+│   │   │   │   │   │   ├── filterToggle.js
+│   │   │   │   │   │   ├── flattenToggle.js
+│   │   │   │   │   │   ├── getChildData.js
+│   │   │   │   │   │   ├── index.js
+│   │   │   │   │   │   ├── routing.js
+│   │   │   │   │   │   ├── summaryHeader.js
+│   │   │   │   │   │   ├── summaryTableHeader.js
+│   │   │   │   │   │   └── summaryTableLine.js
+│   │   │   │   │   ├── .babelrc
+│   │   │   │   │   ├── index.js
+│   │   │   │   │   └── webpack.config.js
+│   │   │   │   ├── json
+│   │   │   │   │   └── index.js
+│   │   │   │   ├── json-summary
+│   │   │   │   │   └── index.js
+│   │   │   │   ├── lcov
+│   │   │   │   │   └── index.js
+│   │   │   │   ├── lcovonly
+│   │   │   │   │   └── index.js
+│   │   │   │   ├── none
+│   │   │   │   │   └── index.js
+│   │   │   │   ├── teamcity
+│   │   │   │   │   └── index.js
+│   │   │   │   ├── text
+│   │   │   │   │   └── index.js
+│   │   │   │   ├── text-lcov
+│   │   │   │   │   └── index.js
+│   │   │   │   └── text-summary
+│   │   │   │       └── index.js
+│   │   │   ├── CHANGELOG.md
+│   │   │   ├── index.js
+│   │   │   ├── LICENSE
 │   │   │   ├── package.json
 │   │   │   └── README.md
 │   │   ├── jiti
@@ -13841,6 +14591,559 @@ scopus_search_code/
 │   │   │   │   └── type.js
 │   │   │   ├── index.js
 │   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── jsdom
+│   │   │   ├── lib
+│   │   │   │   ├── jsdom
+│   │   │   │   │   ├── browser
+│   │   │   │   │   │   ├── parser
+│   │   │   │   │   │   │   ├── html.js
+│   │   │   │   │   │   │   ├── index.js
+│   │   │   │   │   │   │   └── xml.js
+│   │   │   │   │   │   ├── resources
+│   │   │   │   │   │   │   ├── async-resource-queue.js
+│   │   │   │   │   │   │   ├── no-op-resource-loader.js
+│   │   │   │   │   │   │   ├── per-document-resource-loader.js
+│   │   │   │   │   │   │   ├── request-manager.js
+│   │   │   │   │   │   │   ├── resource-loader.js
+│   │   │   │   │   │   │   └── resource-queue.js
+│   │   │   │   │   │   ├── default-stylesheet.js
+│   │   │   │   │   │   ├── js-globals.json
+│   │   │   │   │   │   ├── not-implemented.js
+│   │   │   │   │   │   └── Window.js
+│   │   │   │   │   ├── level2
+│   │   │   │   │   │   └── style.js
+│   │   │   │   │   ├── level3
+│   │   │   │   │   │   └── xpath.js
+│   │   │   │   │   ├── living
+│   │   │   │   │   │   ├── aborting
+│   │   │   │   │   │   │   ├── AbortController-impl.js
+│   │   │   │   │   │   │   └── AbortSignal-impl.js
+│   │   │   │   │   │   ├── attributes
+│   │   │   │   │   │   │   ├── Attr-impl.js
+│   │   │   │   │   │   │   └── NamedNodeMap-impl.js
+│   │   │   │   │   │   ├── constraint-validation
+│   │   │   │   │   │   │   ├── DefaultConstraintValidation-impl.js
+│   │   │   │   │   │   │   └── ValidityState-impl.js
+│   │   │   │   │   │   ├── crypto
+│   │   │   │   │   │   │   └── Crypto-impl.js
+│   │   │   │   │   │   ├── cssom
+│   │   │   │   │   │   │   └── StyleSheetList-impl.js
+│   │   │   │   │   │   ├── custom-elements
+│   │   │   │   │   │   │   ├── CustomElementRegistry-impl.js
+│   │   │   │   │   │   │   └── ElementInternals-impl.js
+│   │   │   │   │   │   ├── domparsing
+│   │   │   │   │   │   │   ├── DOMParser-impl.js
+│   │   │   │   │   │   │   ├── InnerHTML-impl.js
+│   │   │   │   │   │   │   ├── parse5-adapter-serialization.js
+│   │   │   │   │   │   │   ├── serialization.js
+│   │   │   │   │   │   │   └── XMLSerializer-impl.js
+│   │   │   │   │   │   ├── events
+│   │   │   │   │   │   │   ├── CloseEvent-impl.js
+│   │   │   │   │   │   │   ├── CompositionEvent-impl.js
+│   │   │   │   │   │   │   ├── CustomEvent-impl.js
+│   │   │   │   │   │   │   ├── ErrorEvent-impl.js
+│   │   │   │   │   │   │   ├── Event-impl.js
+│   │   │   │   │   │   │   ├── EventModifierMixin-impl.js
+│   │   │   │   │   │   │   ├── EventTarget-impl.js
+│   │   │   │   │   │   │   ├── FocusEvent-impl.js
+│   │   │   │   │   │   │   ├── HashChangeEvent-impl.js
+│   │   │   │   │   │   │   ├── InputEvent-impl.js
+│   │   │   │   │   │   │   ├── KeyboardEvent-impl.js
+│   │   │   │   │   │   │   ├── MessageEvent-impl.js
+│   │   │   │   │   │   │   ├── MouseEvent-impl.js
+│   │   │   │   │   │   │   ├── PageTransitionEvent-impl.js
+│   │   │   │   │   │   │   ├── PopStateEvent-impl.js
+│   │   │   │   │   │   │   ├── ProgressEvent-impl.js
+│   │   │   │   │   │   │   ├── StorageEvent-impl.js
+│   │   │   │   │   │   │   ├── SubmitEvent-impl.js
+│   │   │   │   │   │   │   ├── TouchEvent-impl.js
+│   │   │   │   │   │   │   ├── UIEvent-impl.js
+│   │   │   │   │   │   │   └── WheelEvent-impl.js
+│   │   │   │   │   │   ├── fetch
+│   │   │   │   │   │   │   ├── header-list.js
+│   │   │   │   │   │   │   ├── header-types.js
+│   │   │   │   │   │   │   └── Headers-impl.js
+│   │   │   │   │   │   ├── file-api
+│   │   │   │   │   │   │   ├── Blob-impl.js
+│   │   │   │   │   │   │   ├── File-impl.js
+│   │   │   │   │   │   │   ├── FileList-impl.js
+│   │   │   │   │   │   │   └── FileReader-impl.js
+│   │   │   │   │   │   ├── generated
+│   │   │   │   │   │   │   ├── AbortController.js
+│   │   │   │   │   │   │   ├── AbortSignal.js
+│   │   │   │   │   │   │   ├── AbstractRange.js
+│   │   │   │   │   │   │   ├── AddEventListenerOptions.js
+│   │   │   │   │   │   │   ├── AssignedNodesOptions.js
+│   │   │   │   │   │   │   ├── Attr.js
+│   │   │   │   │   │   │   ├── BarProp.js
+│   │   │   │   │   │   │   ├── BinaryType.js
+│   │   │   │   │   │   │   ├── Blob.js
+│   │   │   │   │   │   │   ├── BlobCallback.js
+│   │   │   │   │   │   │   ├── BlobPropertyBag.js
+│   │   │   │   │   │   │   ├── CanPlayTypeResult.js
+│   │   │   │   │   │   │   ├── CDATASection.js
+│   │   │   │   │   │   │   ├── CharacterData.js
+│   │   │   │   │   │   │   ├── CloseEvent.js
+│   │   │   │   │   │   │   ├── CloseEventInit.js
+│   │   │   │   │   │   │   ├── Comment.js
+│   │   │   │   │   │   │   ├── CompositionEvent.js
+│   │   │   │   │   │   │   ├── CompositionEventInit.js
+│   │   │   │   │   │   │   ├── Crypto.js
+│   │   │   │   │   │   │   ├── CustomElementConstructor.js
+│   │   │   │   │   │   │   ├── CustomElementRegistry.js
+│   │   │   │   │   │   │   ├── CustomEvent.js
+│   │   │   │   │   │   │   ├── CustomEventInit.js
+│   │   │   │   │   │   │   ├── Document.js
+│   │   │   │   │   │   │   ├── DocumentFragment.js
+│   │   │   │   │   │   │   ├── DocumentReadyState.js
+│   │   │   │   │   │   │   ├── DocumentType.js
+│   │   │   │   │   │   │   ├── DOMException.js
+│   │   │   │   │   │   │   ├── DOMImplementation.js
+│   │   │   │   │   │   │   ├── DOMParser.js
+│   │   │   │   │   │   │   ├── DOMRect.js
+│   │   │   │   │   │   │   ├── DOMRectInit.js
+│   │   │   │   │   │   │   ├── DOMRectReadOnly.js
+│   │   │   │   │   │   │   ├── DOMStringMap.js
+│   │   │   │   │   │   │   ├── DOMTokenList.js
+│   │   │   │   │   │   │   ├── Element.js
+│   │   │   │   │   │   │   ├── ElementCreationOptions.js
+│   │   │   │   │   │   │   ├── ElementDefinitionOptions.js
+│   │   │   │   │   │   │   ├── ElementInternals.js
+│   │   │   │   │   │   │   ├── EndingType.js
+│   │   │   │   │   │   │   ├── ErrorEvent.js
+│   │   │   │   │   │   │   ├── ErrorEventInit.js
+│   │   │   │   │   │   │   ├── Event.js
+│   │   │   │   │   │   │   ├── EventHandlerNonNull.js
+│   │   │   │   │   │   │   ├── EventInit.js
+│   │   │   │   │   │   │   ├── EventListener.js
+│   │   │   │   │   │   │   ├── EventListenerOptions.js
+│   │   │   │   │   │   │   ├── EventModifierInit.js
+│   │   │   │   │   │   │   ├── EventTarget.js
+│   │   │   │   │   │   │   ├── External.js
+│   │   │   │   │   │   │   ├── File.js
+│   │   │   │   │   │   │   ├── FileList.js
+│   │   │   │   │   │   │   ├── FilePropertyBag.js
+│   │   │   │   │   │   │   ├── FileReader.js
+│   │   │   │   │   │   │   ├── FocusEvent.js
+│   │   │   │   │   │   │   ├── FocusEventInit.js
+│   │   │   │   │   │   │   ├── FormData.js
+│   │   │   │   │   │   │   ├── Function.js
+│   │   │   │   │   │   │   ├── GetRootNodeOptions.js
+│   │   │   │   │   │   │   ├── HashChangeEvent.js
+│   │   │   │   │   │   │   ├── HashChangeEventInit.js
+│   │   │   │   │   │   │   ├── Headers.js
+│   │   │   │   │   │   │   ├── History.js
+│   │   │   │   │   │   │   ├── HTMLAnchorElement.js
+│   │   │   │   │   │   │   ├── HTMLAreaElement.js
+│   │   │   │   │   │   │   ├── HTMLAudioElement.js
+│   │   │   │   │   │   │   ├── HTMLBaseElement.js
+│   │   │   │   │   │   │   ├── HTMLBodyElement.js
+│   │   │   │   │   │   │   ├── HTMLBRElement.js
+│   │   │   │   │   │   │   ├── HTMLButtonElement.js
+│   │   │   │   │   │   │   ├── HTMLCanvasElement.js
+│   │   │   │   │   │   │   ├── HTMLCollection.js
+│   │   │   │   │   │   │   ├── HTMLDataElement.js
+│   │   │   │   │   │   │   ├── HTMLDataListElement.js
+│   │   │   │   │   │   │   ├── HTMLDetailsElement.js
+│   │   │   │   │   │   │   ├── HTMLDialogElement.js
+│   │   │   │   │   │   │   ├── HTMLDirectoryElement.js
+│   │   │   │   │   │   │   ├── HTMLDivElement.js
+│   │   │   │   │   │   │   ├── HTMLDListElement.js
+│   │   │   │   │   │   │   ├── HTMLElement.js
+│   │   │   │   │   │   │   ├── HTMLEmbedElement.js
+│   │   │   │   │   │   │   ├── HTMLFieldSetElement.js
+│   │   │   │   │   │   │   ├── HTMLFontElement.js
+│   │   │   │   │   │   │   ├── HTMLFormControlsCollection.js
+│   │   │   │   │   │   │   ├── HTMLFormElement.js
+│   │   │   │   │   │   │   ├── HTMLFrameElement.js
+│   │   │   │   │   │   │   ├── HTMLFrameSetElement.js
+│   │   │   │   │   │   │   ├── HTMLHeadElement.js
+│   │   │   │   │   │   │   ├── HTMLHeadingElement.js
+│   │   │   │   │   │   │   ├── HTMLHRElement.js
+│   │   │   │   │   │   │   ├── HTMLHtmlElement.js
+│   │   │   │   │   │   │   ├── HTMLIFrameElement.js
+│   │   │   │   │   │   │   ├── HTMLImageElement.js
+│   │   │   │   │   │   │   ├── HTMLInputElement.js
+│   │   │   │   │   │   │   ├── HTMLLabelElement.js
+│   │   │   │   │   │   │   ├── HTMLLegendElement.js
+│   │   │   │   │   │   │   ├── HTMLLIElement.js
+│   │   │   │   │   │   │   ├── HTMLLinkElement.js
+│   │   │   │   │   │   │   ├── HTMLMapElement.js
+│   │   │   │   │   │   │   ├── HTMLMarqueeElement.js
+│   │   │   │   │   │   │   ├── HTMLMediaElement.js
+│   │   │   │   │   │   │   ├── HTMLMenuElement.js
+│   │   │   │   │   │   │   ├── HTMLMetaElement.js
+│   │   │   │   │   │   │   ├── HTMLMeterElement.js
+│   │   │   │   │   │   │   ├── HTMLModElement.js
+│   │   │   │   │   │   │   ├── HTMLObjectElement.js
+│   │   │   │   │   │   │   ├── HTMLOListElement.js
+│   │   │   │   │   │   │   ├── HTMLOptGroupElement.js
+│   │   │   │   │   │   │   ├── HTMLOptionElement.js
+│   │   │   │   │   │   │   ├── HTMLOptionsCollection.js
+│   │   │   │   │   │   │   ├── HTMLOutputElement.js
+│   │   │   │   │   │   │   ├── HTMLParagraphElement.js
+│   │   │   │   │   │   │   ├── HTMLParamElement.js
+│   │   │   │   │   │   │   ├── HTMLPictureElement.js
+│   │   │   │   │   │   │   ├── HTMLPreElement.js
+│   │   │   │   │   │   │   ├── HTMLProgressElement.js
+│   │   │   │   │   │   │   ├── HTMLQuoteElement.js
+│   │   │   │   │   │   │   ├── HTMLScriptElement.js
+│   │   │   │   │   │   │   ├── HTMLSelectElement.js
+│   │   │   │   │   │   │   ├── HTMLSlotElement.js
+│   │   │   │   │   │   │   ├── HTMLSourceElement.js
+│   │   │   │   │   │   │   ├── HTMLSpanElement.js
+│   │   │   │   │   │   │   ├── HTMLStyleElement.js
+│   │   │   │   │   │   │   ├── HTMLTableCaptionElement.js
+│   │   │   │   │   │   │   ├── HTMLTableCellElement.js
+│   │   │   │   │   │   │   ├── HTMLTableColElement.js
+│   │   │   │   │   │   │   ├── HTMLTableElement.js
+│   │   │   │   │   │   │   ├── HTMLTableRowElement.js
+│   │   │   │   │   │   │   ├── HTMLTableSectionElement.js
+│   │   │   │   │   │   │   ├── HTMLTemplateElement.js
+│   │   │   │   │   │   │   ├── HTMLTextAreaElement.js
+│   │   │   │   │   │   │   ├── HTMLTimeElement.js
+│   │   │   │   │   │   │   ├── HTMLTitleElement.js
+│   │   │   │   │   │   │   ├── HTMLTrackElement.js
+│   │   │   │   │   │   │   ├── HTMLUListElement.js
+│   │   │   │   │   │   │   ├── HTMLUnknownElement.js
+│   │   │   │   │   │   │   ├── HTMLVideoElement.js
+│   │   │   │   │   │   │   ├── InputEvent.js
+│   │   │   │   │   │   │   ├── InputEventInit.js
+│   │   │   │   │   │   │   ├── KeyboardEvent.js
+│   │   │   │   │   │   │   ├── KeyboardEventInit.js
+│   │   │   │   │   │   │   ├── Location.js
+│   │   │   │   │   │   │   ├── MessageEvent.js
+│   │   │   │   │   │   │   ├── MessageEventInit.js
+│   │   │   │   │   │   │   ├── MimeType.js
+│   │   │   │   │   │   │   ├── MimeTypeArray.js
+│   │   │   │   │   │   │   ├── MouseEvent.js
+│   │   │   │   │   │   │   ├── MouseEventInit.js
+│   │   │   │   │   │   │   ├── MutationCallback.js
+│   │   │   │   │   │   │   ├── MutationObserver.js
+│   │   │   │   │   │   │   ├── MutationObserverInit.js
+│   │   │   │   │   │   │   ├── MutationRecord.js
+│   │   │   │   │   │   │   ├── NamedNodeMap.js
+│   │   │   │   │   │   │   ├── Navigator.js
+│   │   │   │   │   │   │   ├── Node.js
+│   │   │   │   │   │   │   ├── NodeFilter.js
+│   │   │   │   │   │   │   ├── NodeIterator.js
+│   │   │   │   │   │   │   ├── NodeList.js
+│   │   │   │   │   │   │   ├── OnBeforeUnloadEventHandlerNonNull.js
+│   │   │   │   │   │   │   ├── OnErrorEventHandlerNonNull.js
+│   │   │   │   │   │   │   ├── PageTransitionEvent.js
+│   │   │   │   │   │   │   ├── PageTransitionEventInit.js
+│   │   │   │   │   │   │   ├── Performance.js
+│   │   │   │   │   │   │   ├── Plugin.js
+│   │   │   │   │   │   │   ├── PluginArray.js
+│   │   │   │   │   │   │   ├── PopStateEvent.js
+│   │   │   │   │   │   │   ├── PopStateEventInit.js
+│   │   │   │   │   │   │   ├── ProcessingInstruction.js
+│   │   │   │   │   │   │   ├── ProgressEvent.js
+│   │   │   │   │   │   │   ├── ProgressEventInit.js
+│   │   │   │   │   │   │   ├── RadioNodeList.js
+│   │   │   │   │   │   │   ├── Range.js
+│   │   │   │   │   │   │   ├── Screen.js
+│   │   │   │   │   │   │   ├── ScrollBehavior.js
+│   │   │   │   │   │   │   ├── ScrollIntoViewOptions.js
+│   │   │   │   │   │   │   ├── ScrollLogicalPosition.js
+│   │   │   │   │   │   │   ├── ScrollOptions.js
+│   │   │   │   │   │   │   ├── ScrollRestoration.js
+│   │   │   │   │   │   │   ├── Selection.js
+│   │   │   │   │   │   │   ├── SelectionMode.js
+│   │   │   │   │   │   │   ├── ShadowRoot.js
+│   │   │   │   │   │   │   ├── ShadowRootInit.js
+│   │   │   │   │   │   │   ├── ShadowRootMode.js
+│   │   │   │   │   │   │   ├── StaticRange.js
+│   │   │   │   │   │   │   ├── StaticRangeInit.js
+│   │   │   │   │   │   │   ├── Storage.js
+│   │   │   │   │   │   │   ├── StorageEvent.js
+│   │   │   │   │   │   │   ├── StorageEventInit.js
+│   │   │   │   │   │   │   ├── StyleSheetList.js
+│   │   │   │   │   │   │   ├── SubmitEvent.js
+│   │   │   │   │   │   │   ├── SubmitEventInit.js
+│   │   │   │   │   │   │   ├── SupportedType.js
+│   │   │   │   │   │   │   ├── SVGAnimatedString.js
+│   │   │   │   │   │   │   ├── SVGBoundingBoxOptions.js
+│   │   │   │   │   │   │   ├── SVGElement.js
+│   │   │   │   │   │   │   ├── SVGGraphicsElement.js
+│   │   │   │   │   │   │   ├── SVGNumber.js
+│   │   │   │   │   │   │   ├── SVGStringList.js
+│   │   │   │   │   │   │   ├── SVGSVGElement.js
+│   │   │   │   │   │   │   ├── SVGTitleElement.js
+│   │   │   │   │   │   │   ├── Text.js
+│   │   │   │   │   │   │   ├── TextTrackKind.js
+│   │   │   │   │   │   │   ├── TouchEvent.js
+│   │   │   │   │   │   │   ├── TouchEventInit.js
+│   │   │   │   │   │   │   ├── TreeWalker.js
+│   │   │   │   │   │   │   ├── UIEvent.js
+│   │   │   │   │   │   │   ├── UIEventInit.js
+│   │   │   │   │   │   │   ├── utils.js
+│   │   │   │   │   │   │   ├── ValidityState.js
+│   │   │   │   │   │   │   ├── VisibilityState.js
+│   │   │   │   │   │   │   ├── VoidFunction.js
+│   │   │   │   │   │   │   ├── WebSocket.js
+│   │   │   │   │   │   │   ├── WheelEvent.js
+│   │   │   │   │   │   │   ├── WheelEventInit.js
+│   │   │   │   │   │   │   ├── XMLDocument.js
+│   │   │   │   │   │   │   ├── XMLHttpRequest.js
+│   │   │   │   │   │   │   ├── XMLHttpRequestEventTarget.js
+│   │   │   │   │   │   │   ├── XMLHttpRequestResponseType.js
+│   │   │   │   │   │   │   ├── XMLHttpRequestUpload.js
+│   │   │   │   │   │   │   └── XMLSerializer.js
+│   │   │   │   │   │   ├── geometry
+│   │   │   │   │   │   │   ├── DOMRect-impl.js
+│   │   │   │   │   │   │   └── DOMRectReadOnly-impl.js
+│   │   │   │   │   │   ├── helpers
+│   │   │   │   │   │   │   ├── svg
+│   │   │   │   │   │   │   │   ├── basic-types.js
+│   │   │   │   │   │   │   │   └── render.js
+│   │   │   │   │   │   │   ├── agent-factory.js
+│   │   │   │   │   │   │   ├── binary-data.js
+│   │   │   │   │   │   │   ├── colors.js
+│   │   │   │   │   │   │   ├── create-element.js
+│   │   │   │   │   │   │   ├── create-event-accessor.js
+│   │   │   │   │   │   │   ├── custom-elements.js
+│   │   │   │   │   │   │   ├── dates-and-times.js
+│   │   │   │   │   │   │   ├── details.js
+│   │   │   │   │   │   │   ├── document-base-url.js
+│   │   │   │   │   │   │   ├── events.js
+│   │   │   │   │   │   │   ├── focusing.js
+│   │   │   │   │   │   │   ├── form-controls.js
+│   │   │   │   │   │   │   ├── html-constructor.js
+│   │   │   │   │   │   │   ├── http-request.js
+│   │   │   │   │   │   │   ├── internal-constants.js
+│   │   │   │   │   │   │   ├── iterable-weak-set.js
+│   │   │   │   │   │   │   ├── json.js
+│   │   │   │   │   │   │   ├── mutation-observers.js
+│   │   │   │   │   │   │   ├── namespaces.js
+│   │   │   │   │   │   │   ├── node.js
+│   │   │   │   │   │   │   ├── number-and-date-inputs.js
+│   │   │   │   │   │   │   ├── ordered-set.js
+│   │   │   │   │   │   │   ├── page-transition-event.js
+│   │   │   │   │   │   │   ├── runtime-script-errors.js
+│   │   │   │   │   │   │   ├── selectors.js
+│   │   │   │   │   │   │   ├── shadow-dom.js
+│   │   │   │   │   │   │   ├── strings.js
+│   │   │   │   │   │   │   ├── style-rules.js
+│   │   │   │   │   │   │   ├── stylesheets.js
+│   │   │   │   │   │   │   ├── text.js
+│   │   │   │   │   │   │   ├── traversal.js
+│   │   │   │   │   │   │   └── validate-names.js
+│   │   │   │   │   │   ├── hr-time
+│   │   │   │   │   │   │   └── Performance-impl.js
+│   │   │   │   │   │   ├── mutation-observer
+│   │   │   │   │   │   │   ├── MutationObserver-impl.js
+│   │   │   │   │   │   │   └── MutationRecord-impl.js
+│   │   │   │   │   │   ├── navigator
+│   │   │   │   │   │   │   ├── MimeType-impl.js
+│   │   │   │   │   │   │   ├── MimeTypeArray-impl.js
+│   │   │   │   │   │   │   ├── Navigator-impl.js
+│   │   │   │   │   │   │   ├── NavigatorConcurrentHardware-impl.js
+│   │   │   │   │   │   │   ├── NavigatorCookies-impl.js
+│   │   │   │   │   │   │   ├── NavigatorID-impl.js
+│   │   │   │   │   │   │   ├── NavigatorLanguage-impl.js
+│   │   │   │   │   │   │   ├── NavigatorOnLine-impl.js
+│   │   │   │   │   │   │   ├── NavigatorPlugins-impl.js
+│   │   │   │   │   │   │   ├── Plugin-impl.js
+│   │   │   │   │   │   │   └── PluginArray-impl.js
+│   │   │   │   │   │   ├── nodes
+│   │   │   │   │   │   │   ├── CDATASection-impl.js
+│   │   │   │   │   │   │   ├── CharacterData-impl.js
+│   │   │   │   │   │   │   ├── ChildNode-impl.js
+│   │   │   │   │   │   │   ├── Comment-impl.js
+│   │   │   │   │   │   │   ├── Document-impl.js
+│   │   │   │   │   │   │   ├── DocumentFragment-impl.js
+│   │   │   │   │   │   │   ├── DocumentOrShadowRoot-impl.js
+│   │   │   │   │   │   │   ├── DocumentType-impl.js
+│   │   │   │   │   │   │   ├── DOMImplementation-impl.js
+│   │   │   │   │   │   │   ├── DOMStringMap-impl.js
+│   │   │   │   │   │   │   ├── DOMTokenList-impl.js
+│   │   │   │   │   │   │   ├── Element-impl.js
+│   │   │   │   │   │   │   ├── ElementContentEditable-impl.js
+│   │   │   │   │   │   │   ├── ElementCSSInlineStyle-impl.js
+│   │   │   │   │   │   │   ├── GlobalEventHandlers-impl.js
+│   │   │   │   │   │   │   ├── HTMLAnchorElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLAreaElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLAudioElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLBaseElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLBodyElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLBRElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLButtonElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLCanvasElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLCollection-impl.js
+│   │   │   │   │   │   │   ├── HTMLDataElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLDataListElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLDetailsElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLDialogElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLDirectoryElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLDivElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLDListElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLEmbedElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLFieldSetElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLFontElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLFormControlsCollection-impl.js
+│   │   │   │   │   │   │   ├── HTMLFormElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLFrameElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLFrameSetElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLHeadElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLHeadingElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLHRElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLHtmlElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLHyperlinkElementUtils-impl.js
+│   │   │   │   │   │   │   ├── HTMLIFrameElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLImageElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLInputElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLLabelElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLLegendElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLLIElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLLinkElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLMapElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLMarqueeElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLMediaElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLMenuElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLMetaElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLMeterElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLModElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLObjectElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLOListElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLOptGroupElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLOptionElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLOptionsCollection-impl.js
+│   │   │   │   │   │   │   ├── HTMLOrSVGElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLOutputElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLParagraphElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLParamElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLPictureElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLPreElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLProgressElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLQuoteElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLScriptElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLSelectElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLSlotElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLSourceElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLSpanElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLStyleElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLTableCaptionElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLTableCellElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLTableColElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLTableElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLTableRowElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLTableSectionElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLTemplateElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLTextAreaElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLTimeElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLTitleElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLTrackElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLUListElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLUnknownElement-impl.js
+│   │   │   │   │   │   │   ├── HTMLVideoElement-impl.js
+│   │   │   │   │   │   │   ├── LinkStyle-impl.js
+│   │   │   │   │   │   │   ├── Node-impl.js
+│   │   │   │   │   │   │   ├── NodeList-impl.js
+│   │   │   │   │   │   │   ├── NonDocumentTypeChildNode-impl.js
+│   │   │   │   │   │   │   ├── NonElementParentNode-impl.js
+│   │   │   │   │   │   │   ├── ParentNode-impl.js
+│   │   │   │   │   │   │   ├── ProcessingInstruction-impl.js
+│   │   │   │   │   │   │   ├── RadioNodeList-impl.js
+│   │   │   │   │   │   │   ├── ShadowRoot-impl.js
+│   │   │   │   │   │   │   ├── Slotable-impl.js
+│   │   │   │   │   │   │   ├── SVGElement-impl.js
+│   │   │   │   │   │   │   ├── SVGGraphicsElement-impl.js
+│   │   │   │   │   │   │   ├── SVGSVGElement-impl.js
+│   │   │   │   │   │   │   ├── SVGTests-impl.js
+│   │   │   │   │   │   │   ├── SVGTitleElement-impl.js
+│   │   │   │   │   │   │   ├── Text-impl.js
+│   │   │   │   │   │   │   ├── WindowEventHandlers-impl.js
+│   │   │   │   │   │   │   └── XMLDocument-impl.js
+│   │   │   │   │   │   ├── range
+│   │   │   │   │   │   │   ├── AbstractRange-impl.js
+│   │   │   │   │   │   │   ├── boundary-point.js
+│   │   │   │   │   │   │   ├── Range-impl.js
+│   │   │   │   │   │   │   └── StaticRange-impl.js
+│   │   │   │   │   │   ├── selection
+│   │   │   │   │   │   │   └── Selection-impl.js
+│   │   │   │   │   │   ├── svg
+│   │   │   │   │   │   │   ├── SVGAnimatedString-impl.js
+│   │   │   │   │   │   │   ├── SVGListBase.js
+│   │   │   │   │   │   │   ├── SVGNumber-impl.js
+│   │   │   │   │   │   │   └── SVGStringList-impl.js
+│   │   │   │   │   │   ├── traversal
+│   │   │   │   │   │   │   ├── helpers.js
+│   │   │   │   │   │   │   ├── NodeIterator-impl.js
+│   │   │   │   │   │   │   └── TreeWalker-impl.js
+│   │   │   │   │   │   ├── webidl
+│   │   │   │   │   │   │   └── DOMException-impl.js
+│   │   │   │   │   │   ├── websockets
+│   │   │   │   │   │   │   └── WebSocket-impl.js
+│   │   │   │   │   │   ├── webstorage
+│   │   │   │   │   │   │   └── Storage-impl.js
+│   │   │   │   │   │   ├── window
+│   │   │   │   │   │   │   ├── BarProp-impl.js
+│   │   │   │   │   │   │   ├── External-impl.js
+│   │   │   │   │   │   │   ├── History-impl.js
+│   │   │   │   │   │   │   ├── Location-impl.js
+│   │   │   │   │   │   │   ├── navigation.js
+│   │   │   │   │   │   │   ├── Screen-impl.js
+│   │   │   │   │   │   │   └── SessionHistory.js
+│   │   │   │   │   │   ├── xhr
+│   │   │   │   │   │   │   ├── FormData-impl.js
+│   │   │   │   │   │   │   ├── xhr-sync-worker.js
+│   │   │   │   │   │   │   ├── xhr-utils.js
+│   │   │   │   │   │   │   ├── XMLHttpRequest-impl.js
+│   │   │   │   │   │   │   ├── XMLHttpRequestEventTarget-impl.js
+│   │   │   │   │   │   │   └── XMLHttpRequestUpload-impl.js
+│   │   │   │   │   │   ├── attributes.js
+│   │   │   │   │   │   ├── documents.js
+│   │   │   │   │   │   ├── interfaces.js
+│   │   │   │   │   │   ├── named-properties-window.js
+│   │   │   │   │   │   ├── node-document-position.js
+│   │   │   │   │   │   ├── node-type.js
+│   │   │   │   │   │   └── node.js
+│   │   │   │   │   ├── named-properties-tracker.js
+│   │   │   │   │   ├── utils.js
+│   │   │   │   │   └── virtual-console.js
+│   │   │   │   └── api.js
+│   │   │   ├── node_modules
+│   │   │   │   ├── .bin
+│   │   │   │   │   ├── tldts
+│   │   │   │   │   ├── tldts.cmd
+│   │   │   │   │   └── tldts.ps1
+│   │   │   │   ├── tldts
+│   │   │   │   │   ├── bin
+│   │   │   │   │   │   └── cli.js
+│   │   │   │   │   ├── src
+│   │   │   │   │   │   ├── data
+│   │   │   │   │   │   │   └── trie.ts
+│   │   │   │   │   │   └── suffix-trie.ts
+│   │   │   │   │   ├── index.ts
+│   │   │   │   │   ├── LICENSE
+│   │   │   │   │   ├── package.json
+│   │   │   │   │   └── README.md
+│   │   │   │   ├── tldts-core
+│   │   │   │   │   ├── src
+│   │   │   │   │   │   ├── lookup
+│   │   │   │   │   │   │   ├── fast-path.ts
+│   │   │   │   │   │   │   └── interface.ts
+│   │   │   │   │   │   ├── domain-without-suffix.ts
+│   │   │   │   │   │   ├── domain.ts
+│   │   │   │   │   │   ├── extract-hostname.ts
+│   │   │   │   │   │   ├── factory.ts
+│   │   │   │   │   │   ├── is-ip.ts
+│   │   │   │   │   │   ├── is-valid.ts
+│   │   │   │   │   │   ├── options.ts
+│   │   │   │   │   │   └── subdomain.ts
+│   │   │   │   │   ├── index.ts
+│   │   │   │   │   ├── LICENSE
+│   │   │   │   │   ├── package.json
+│   │   │   │   │   └── README.md
+│   │   │   │   └── tough-cookie
+│   │   │   │       ├── LICENSE
+│   │   │   │       ├── package.json
+│   │   │   │       └── README.md
+│   │   │   ├── LICENSE.txt
 │   │   │   ├── package.json
 │   │   │   └── README.md
 │   │   ├── jsesc
@@ -15018,6 +16321,107 @@ scopus_search_code/
 │   │   │   ├── LICENSE
 │   │   │   ├── package.json
 │   │   │   └── README.md
+│   │   ├── lz-string
+│   │   │   ├── bin
+│   │   │   │   └── bin.js
+│   │   │   ├── libs
+│   │   │   │   ├── base64-string.js
+│   │   │   │   ├── lz-string.js
+│   │   │   │   └── lz-string.min.js
+│   │   │   ├── reference
+│   │   │   │   └── lz-string-1.0.2.js
+│   │   │   ├── tests
+│   │   │   │   ├── lib
+│   │   │   │   │   └── jasmine-1.3.1
+│   │   │   │   │       ├── jasmine-html.js
+│   │   │   │   │       ├── jasmine.css
+│   │   │   │   │       ├── jasmine.js
+│   │   │   │   │       └── MIT.LICENSE
+│   │   │   │   ├── lz-string-spec.js
+│   │   │   │   └── SpecRunner.html
+│   │   │   ├── typings
+│   │   │   │   └── lz-string.d.ts
+│   │   │   ├── bower.json
+│   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── magic-string
+│   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── magicast
+│   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── make-dir
+│   │   │   ├── node_modules
+│   │   │   │   ├── .bin
+│   │   │   │   │   ├── semver
+│   │   │   │   │   ├── semver.cmd
+│   │   │   │   │   └── semver.ps1
+│   │   │   │   └── semver
+│   │   │   │       ├── bin
+│   │   │   │       │   └── semver.js
+│   │   │   │       ├── classes
+│   │   │   │       │   ├── comparator.js
+│   │   │   │       │   ├── index.js
+│   │   │   │       │   ├── range.js
+│   │   │   │       │   └── semver.js
+│   │   │   │       ├── functions
+│   │   │   │       │   ├── clean.js
+│   │   │   │       │   ├── cmp.js
+│   │   │   │       │   ├── coerce.js
+│   │   │   │       │   ├── compare-build.js
+│   │   │   │       │   ├── compare-loose.js
+│   │   │   │       │   ├── compare.js
+│   │   │   │       │   ├── diff.js
+│   │   │   │       │   ├── eq.js
+│   │   │   │       │   ├── gt.js
+│   │   │   │       │   ├── gte.js
+│   │   │   │       │   ├── inc.js
+│   │   │   │       │   ├── lt.js
+│   │   │   │       │   ├── lte.js
+│   │   │   │       │   ├── major.js
+│   │   │   │       │   ├── minor.js
+│   │   │   │       │   ├── neq.js
+│   │   │   │       │   ├── parse.js
+│   │   │   │       │   ├── patch.js
+│   │   │   │       │   ├── prerelease.js
+│   │   │   │       │   ├── rcompare.js
+│   │   │   │       │   ├── rsort.js
+│   │   │   │       │   ├── satisfies.js
+│   │   │   │       │   ├── sort.js
+│   │   │   │       │   └── valid.js
+│   │   │   │       ├── internal
+│   │   │   │       │   ├── constants.js
+│   │   │   │       │   ├── debug.js
+│   │   │   │       │   ├── identifiers.js
+│   │   │   │       │   ├── lrucache.js
+│   │   │   │       │   ├── parse-options.js
+│   │   │   │       │   └── re.js
+│   │   │   │       ├── ranges
+│   │   │   │       │   ├── gtr.js
+│   │   │   │       │   ├── intersects.js
+│   │   │   │       │   ├── ltr.js
+│   │   │   │       │   ├── max-satisfying.js
+│   │   │   │       │   ├── min-satisfying.js
+│   │   │   │       │   ├── min-version.js
+│   │   │   │       │   ├── outside.js
+│   │   │   │       │   ├── simplify.js
+│   │   │   │       │   ├── subset.js
+│   │   │   │       │   ├── to-comparators.js
+│   │   │   │       │   └── valid.js
+│   │   │   │       ├── index.js
+│   │   │   │       ├── LICENSE
+│   │   │   │       ├── package.json
+│   │   │   │       ├── preload.js
+│   │   │   │       ├── range.bnf
+│   │   │   │       └── README.md
+│   │   │   ├── index.d.ts
+│   │   │   ├── index.js
+│   │   │   ├── license
+│   │   │   ├── package.json
+│   │   │   └── readme.md
 │   │   ├── math-intrinsics
 │   │   │   ├── .github
 │   │   │   │   └── FUNDING.yml
@@ -15108,6 +16512,11 @@ scopus_search_code/
 │   │   │   └── readme.md
 │   │   ├── mimic-function
 │   │   │   ├── index.d.ts
+│   │   │   ├── index.js
+│   │   │   ├── license
+│   │   │   ├── package.json
+│   │   │   └── readme.md
+│   │   ├── min-indent
 │   │   │   ├── index.js
 │   │   │   ├── license
 │   │   │   ├── package.json
@@ -16016,6 +17425,15 @@ scopus_search_code/
 │   │   │   ├── license
 │   │   │   ├── package.json
 │   │   │   └── readme.md
+│   │   ├── nwsapi
+│   │   │   ├── src
+│   │   │   │   ├── modules
+│   │   │   │   │   ├── nwsapi-jquery.js
+│   │   │   │   │   └── nwsapi-traversal.js
+│   │   │   │   └── nwsapi.js
+│   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   └── README.md
 │   │   ├── object-assign
 │   │   │   ├── index.js
 │   │   │   ├── license
@@ -16068,6 +17486,10 @@ scopus_search_code/
 │   │   ├── object-treeify
 │   │   │   ├── lib
 │   │   │   │   └── index.js
+│   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── obug
 │   │   │   ├── LICENSE
 │   │   │   ├── package.json
 │   │   │   └── README.md
@@ -16127,6 +17549,10 @@ scopus_search_code/
 │   │   │   ├── license
 │   │   │   ├── package.json
 │   │   │   └── readme.md
+│   │   ├── parse5
+│   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   └── README.md
 │   │   ├── parseurl
 │   │   │   ├── HISTORY.md
 │   │   │   ├── index.js
@@ -16173,6 +17599,11 @@ scopus_search_code/
 │   │   │   ├── LICENSE
 │   │   │   ├── package.json
 │   │   │   └── Readme.md
+│   │   ├── pathe
+│   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   ├── README.md
+│   │   │   └── utils.d.ts
 │   │   ├── picocolors
 │   │   │   ├── LICENSE
 │   │   │   ├── package.json
@@ -16331,6 +17762,35 @@ scopus_search_code/
 │   │   │   ├── license
 │   │   │   ├── package.json
 │   │   │   └── readme.md
+│   │   ├── pretty-format
+│   │   │   ├── node_modules
+│   │   │   │   ├── ansi-regex
+│   │   │   │   │   ├── index.d.ts
+│   │   │   │   │   ├── index.js
+│   │   │   │   │   ├── license
+│   │   │   │   │   ├── package.json
+│   │   │   │   │   └── readme.md
+│   │   │   │   ├── ansi-styles
+│   │   │   │   │   ├── index.d.ts
+│   │   │   │   │   ├── index.js
+│   │   │   │   │   ├── license
+│   │   │   │   │   ├── package.json
+│   │   │   │   │   └── readme.md
+│   │   │   │   └── react-is
+│   │   │   │       ├── cjs
+│   │   │   │       │   ├── react-is.development.js
+│   │   │   │       │   └── react-is.production.min.js
+│   │   │   │       ├── umd
+│   │   │   │       │   ├── react-is.development.js
+│   │   │   │       │   └── react-is.production.min.js
+│   │   │   │       ├── build-info.json
+│   │   │   │       ├── index.js
+│   │   │   │       ├── LICENSE
+│   │   │   │       ├── package.json
+│   │   │   │       └── README.md
+│   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   └── README.md
 │   │   ├── pretty-ms
 │   │   │   ├── index.d.ts
 │   │   │   ├── index.js
@@ -16423,6 +17883,12 @@ scopus_search_code/
 │   │   │   ├── index.js
 │   │   │   ├── LICENSE
 │   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── punycode
+│   │   │   ├── LICENSE-MIT.txt
+│   │   │   ├── package.json
+│   │   │   ├── punycode.es6.js
+│   │   │   ├── punycode.js
 │   │   │   └── README.md
 │   │   ├── qs
 │   │   │   ├── .github
@@ -17981,6 +19447,12 @@ scopus_search_code/
 │   │   │   ├── LICENSE
 │   │   │   ├── package.json
 │   │   │   └── README.md
+│   │   ├── redent
+│   │   │   ├── index.d.ts
+│   │   │   ├── index.js
+│   │   │   ├── license
+│   │   │   ├── package.json
+│   │   │   └── readme.md
 │   │   ├── require-directory
 │   │   │   ├── .jshintrc
 │   │   │   ├── .npmignore
@@ -18210,6 +19682,36 @@ scopus_search_code/
 │   │   │   ├── LICENSE
 │   │   │   ├── package.json
 │   │   │   └── README.md
+│   │   ├── rrweb-cssom
+│   │   │   ├── lib
+│   │   │   │   ├── clone.js
+│   │   │   │   ├── CSSConditionRule.js
+│   │   │   │   ├── CSSContainerRule.js
+│   │   │   │   ├── CSSDocumentRule.js
+│   │   │   │   ├── CSSFontFaceRule.js
+│   │   │   │   ├── CSSGroupingRule.js
+│   │   │   │   ├── CSSHostRule.js
+│   │   │   │   ├── CSSImportRule.js
+│   │   │   │   ├── CSSKeyframeRule.js
+│   │   │   │   ├── CSSKeyframesRule.js
+│   │   │   │   ├── CSSMediaRule.js
+│   │   │   │   ├── CSSOM.js
+│   │   │   │   ├── CSSRule.js
+│   │   │   │   ├── CSSStartingStyleRule.js
+│   │   │   │   ├── CSSStyleDeclaration.js
+│   │   │   │   ├── CSSStyleRule.js
+│   │   │   │   ├── CSSStyleSheet.js
+│   │   │   │   ├── CSSSupportsRule.js
+│   │   │   │   ├── CSSValue.js
+│   │   │   │   ├── CSSValueExpression.js
+│   │   │   │   ├── index.js
+│   │   │   │   ├── MatcherList.js
+│   │   │   │   ├── MediaList.js
+│   │   │   │   ├── parse.js
+│   │   │   │   └── StyleSheet.js
+│   │   │   ├── LICENSE.txt
+│   │   │   ├── package.json
+│   │   │   └── README.mdown
 │   │   ├── run-applescript
 │   │   │   ├── index.d.ts
 │   │   │   ├── index.js
@@ -18229,6 +19731,12 @@ scopus_search_code/
 │   │   │   ├── Readme.md
 │   │   │   ├── safer.js
 │   │   │   └── tests.js
+│   │   ├── saxes
+│   │   │   ├── package.json
+│   │   │   ├── README.md
+│   │   │   ├── saxes.d.ts
+│   │   │   ├── saxes.js
+│   │   │   └── saxes.js.map
 │   │   ├── scheduler
 │   │   │   ├── cjs
 │   │   │   │   ├── scheduler-unstable_mock.development.js
@@ -18420,6 +19928,13 @@ scopus_search_code/
 │   │   │   ├── package.json
 │   │   │   ├── README.md
 │   │   │   └── tsconfig.json
+│   │   ├── siginfo
+│   │   │   ├── .travis.yml
+│   │   │   ├── index.js
+│   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   ├── README.md
+│   │   │   └── test.js
 │   │   ├── signal-exit
 │   │   │   ├── LICENSE.txt
 │   │   │   ├── package.json
@@ -18473,11 +19988,23 @@ scopus_search_code/
 │   │   │   ├── README.md
 │   │   │   ├── source-map.d.ts
 │   │   │   └── source-map.js
+│   │   ├── stackback
+│   │   │   ├── .npmignore
+│   │   │   ├── .travis.yml
+│   │   │   ├── formatstack.js
+│   │   │   ├── index.js
+│   │   │   ├── package.json
+│   │   │   ├── README.md
+│   │   │   └── test.js
 │   │   ├── statuses
 │   │   │   ├── codes.json
 │   │   │   ├── HISTORY.md
 │   │   │   ├── index.js
 │   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── std-env
+│   │   │   ├── LICENCE
 │   │   │   ├── package.json
 │   │   │   └── README.md
 │   │   ├── stdin-discarder
@@ -18523,6 +20050,12 @@ scopus_search_code/
 │   │   │   ├── license
 │   │   │   ├── package.json
 │   │   │   └── readme.md
+│   │   ├── strip-indent
+│   │   │   ├── index.d.ts
+│   │   │   ├── index.js
+│   │   │   ├── license
+│   │   │   ├── package.json
+│   │   │   └── readme.md
 │   │   ├── sucrase
 │   │   │   ├── bin
 │   │   │   │   ├── sucrase
@@ -18540,6 +20073,12 @@ scopus_search_code/
 │   │   │   ├── LICENSE
 │   │   │   ├── package.json
 │   │   │   └── README.md
+│   │   ├── supports-color
+│   │   │   ├── browser.js
+│   │   │   ├── index.js
+│   │   │   ├── license
+│   │   │   ├── package.json
+│   │   │   └── readme.md
 │   │   ├── supports-preserve-symlinks-flag
 │   │   │   ├── .github
 │   │   │   │   └── FUNDING.yml
@@ -18550,6 +20089,15 @@ scopus_search_code/
 │   │   │   ├── browser.js
 │   │   │   ├── CHANGELOG.md
 │   │   │   ├── index.js
+│   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── symbol-tree
+│   │   │   ├── lib
+│   │   │   │   ├── SymbolTree.js
+│   │   │   │   ├── SymbolTreeNode.js
+│   │   │   │   ├── TreeIterator.js
+│   │   │   │   └── TreePosition.js
 │   │   │   ├── LICENSE
 │   │   │   ├── package.json
 │   │   │   └── README.md
@@ -18885,6 +20433,14 @@ scopus_search_code/
 │   │   │   ├── LICENSE
 │   │   │   ├── package.json
 │   │   │   └── README.md
+│   │   ├── tinybench
+│   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── tinyexec
+│   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   └── README.md
 │   │   ├── tinyglobby
 │   │   │   ├── node_modules
 │   │   │   │   ├── fdir
@@ -18904,6 +20460,10 @@ scopus_search_code/
 │   │   │   │       ├── posix.js
 │   │   │   │       └── README.md
 │   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── tinyrainbow
+│   │   │   ├── LICENCE
 │   │   │   ├── package.json
 │   │   │   └── README.md
 │   │   ├── tldts
@@ -18947,6 +20507,15 @@ scopus_search_code/
 │   │   │   └── README.md
 │   │   ├── tough-cookie
 │   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── tr46
+│   │   │   ├── lib
+│   │   │   │   ├── mappingTable.json
+│   │   │   │   ├── regexes.js
+│   │   │   │   └── statusMapping.js
+│   │   │   ├── index.js
+│   │   │   ├── LICENSE.md
 │   │   │   ├── package.json
 │   │   │   └── README.md
 │   │   ├── ts-interface-checker
@@ -19946,6 +21515,54 @@ scopus_search_code/
 │   │   │   ├── LICENSE.md
 │   │   │   ├── package.json
 │   │   │   └── README.md
+│   │   ├── vitest
+│   │   │   ├── browser
+│   │   │   │   ├── context.d.ts
+│   │   │   │   └── context.js
+│   │   │   ├── node_modules
+│   │   │   │   └── picomatch
+│   │   │   │       ├── lib
+│   │   │   │       │   ├── constants.js
+│   │   │   │       │   ├── parse.js
+│   │   │   │       │   ├── picomatch.js
+│   │   │   │       │   ├── scan.js
+│   │   │   │       │   └── utils.js
+│   │   │   │       ├── index.js
+│   │   │   │       ├── LICENSE
+│   │   │   │       ├── package.json
+│   │   │   │       ├── posix.js
+│   │   │   │       └── README.md
+│   │   │   ├── config.d.ts
+│   │   │   ├── coverage.d.ts
+│   │   │   ├── environments.d.ts
+│   │   │   ├── globals.d.ts
+│   │   │   ├── import-meta.d.ts
+│   │   │   ├── importMeta.d.ts
+│   │   │   ├── index.cjs
+│   │   │   ├── index.d.cts
+│   │   │   ├── jsdom.d.ts
+│   │   │   ├── LICENSE.md
+│   │   │   ├── mocker.d.ts
+│   │   │   ├── node.d.ts
+│   │   │   ├── optional-runtime-types.d.ts
+│   │   │   ├── optional-types.d.ts
+│   │   │   ├── package.json
+│   │   │   ├── README.md
+│   │   │   ├── reporters.d.ts
+│   │   │   ├── runners.d.ts
+│   │   │   ├── snapshot.d.ts
+│   │   │   ├── suite.d.ts
+│   │   │   ├── suppress-warnings.cjs
+│   │   │   ├── vitest.mjs
+│   │   │   └── worker.d.ts
+│   │   ├── w3c-xmlserializer
+│   │   │   ├── lib
+│   │   │   │   ├── attributes.js
+│   │   │   │   ├── constants.js
+│   │   │   │   └── serialize.js
+│   │   │   ├── LICENSE.md
+│   │   │   ├── package.json
+│   │   │   └── README.md
 │   │   ├── web-streams-polyfill
 │   │   │   ├── es2018
 │   │   │   │   └── package.json
@@ -19960,11 +21577,97 @@ scopus_search_code/
 │   │   │   ├── LICENSE
 │   │   │   ├── package.json
 │   │   │   └── README.md
+│   │   ├── webidl-conversions
+│   │   │   ├── lib
+│   │   │   │   └── index.js
+│   │   │   ├── LICENSE.md
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── whatwg-encoding
+│   │   │   ├── lib
+│   │   │   │   ├── labels-to-names.json
+│   │   │   │   ├── supported-names.json
+│   │   │   │   └── whatwg-encoding.js
+│   │   │   ├── node_modules
+│   │   │   │   └── iconv-lite
+│   │   │   │       ├── .github
+│   │   │   │       │   └── dependabot.yml
+│   │   │   │       ├── encodings
+│   │   │   │       │   ├── tables
+│   │   │   │       │   │   ├── big5-added.json
+│   │   │   │       │   │   ├── cp936.json
+│   │   │   │       │   │   ├── cp949.json
+│   │   │   │       │   │   ├── cp950.json
+│   │   │   │       │   │   ├── eucjp.json
+│   │   │   │       │   │   ├── gb18030-ranges.json
+│   │   │   │       │   │   ├── gbk-added.json
+│   │   │   │       │   │   └── shiftjis.json
+│   │   │   │       │   ├── dbcs-codec.js
+│   │   │   │       │   ├── dbcs-data.js
+│   │   │   │       │   ├── index.js
+│   │   │   │       │   ├── internal.js
+│   │   │   │       │   ├── sbcs-codec.js
+│   │   │   │       │   ├── sbcs-data-generated.js
+│   │   │   │       │   ├── sbcs-data.js
+│   │   │   │       │   ├── utf16.js
+│   │   │   │       │   ├── utf32.js
+│   │   │   │       │   └── utf7.js
+│   │   │   │       ├── lib
+│   │   │   │       │   ├── bom-handling.js
+│   │   │   │       │   ├── index.d.ts
+│   │   │   │       │   ├── index.js
+│   │   │   │       │   └── streams.js
+│   │   │   │       ├── Changelog.md
+│   │   │   │       ├── LICENSE
+│   │   │   │       ├── package.json
+│   │   │   │       └── README.md
+│   │   │   ├── LICENSE.txt
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── whatwg-mimetype
+│   │   │   ├── lib
+│   │   │   │   ├── mime-type-parameters.js
+│   │   │   │   ├── mime-type.js
+│   │   │   │   ├── parser.js
+│   │   │   │   ├── serializer.js
+│   │   │   │   └── utils.js
+│   │   │   ├── LICENSE.txt
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── whatwg-url
+│   │   │   ├── lib
+│   │   │   │   ├── encoding.js
+│   │   │   │   ├── Function.js
+│   │   │   │   ├── infra.js
+│   │   │   │   ├── percent-encoding.js
+│   │   │   │   ├── URL-impl.js
+│   │   │   │   ├── url-state-machine.js
+│   │   │   │   ├── URL.js
+│   │   │   │   ├── urlencoded.js
+│   │   │   │   ├── URLSearchParams-impl.js
+│   │   │   │   ├── URLSearchParams.js
+│   │   │   │   ├── utils.js
+│   │   │   │   └── VoidFunction.js
+│   │   │   ├── index.js
+│   │   │   ├── LICENSE.txt
+│   │   │   ├── package.json
+│   │   │   ├── README.md
+│   │   │   └── webidl2js-wrapper.js
 │   │   ├── which
 │   │   │   ├── bin
 │   │   │   │   └── which.js
 │   │   │   ├── lib
 │   │   │   │   └── index.js
+│   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── why-is-node-running
+│   │   │   ├── .github
+│   │   │   │   └── FUNDING.yml
+│   │   │   ├── cli.js
+│   │   │   ├── example.js
+│   │   │   ├── include.js
+│   │   │   ├── index.js
 │   │   │   ├── LICENSE
 │   │   │   ├── package.json
 │   │   │   └── README.md
@@ -20007,6 +21710,27 @@ scopus_search_code/
 │   │   │   ├── package.json
 │   │   │   ├── README.md
 │   │   │   └── wrappy.js
+│   │   ├── ws
+│   │   │   ├── lib
+│   │   │   │   ├── buffer-util.js
+│   │   │   │   ├── constants.js
+│   │   │   │   ├── event-target.js
+│   │   │   │   ├── extension.js
+│   │   │   │   ├── limiter.js
+│   │   │   │   ├── permessage-deflate.js
+│   │   │   │   ├── receiver.js
+│   │   │   │   ├── sender.js
+│   │   │   │   ├── stream.js
+│   │   │   │   ├── subprotocol.js
+│   │   │   │   ├── validation.js
+│   │   │   │   ├── websocket-server.js
+│   │   │   │   └── websocket.js
+│   │   │   ├── browser.js
+│   │   │   ├── index.js
+│   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   ├── README.md
+│   │   │   └── wrapper.mjs
 │   │   ├── wsl-utils
 │   │   │   ├── index.d.ts
 │   │   │   ├── index.js
@@ -20014,6 +21738,36 @@ scopus_search_code/
 │   │   │   ├── package.json
 │   │   │   ├── readme.md
 │   │   │   └── utilities.js
+│   │   ├── xml-name-validator
+│   │   │   ├── lib
+│   │   │   │   └── xml-name-validator.js
+│   │   │   ├── LICENSE.txt
+│   │   │   ├── package.json
+│   │   │   └── README.md
+│   │   ├── xmlchars
+│   │   │   ├── xml
+│   │   │   │   ├── 1.0
+│   │   │   │   │   ├── ed4.d.ts
+│   │   │   │   │   ├── ed4.js
+│   │   │   │   │   ├── ed4.js.map
+│   │   │   │   │   ├── ed5.d.ts
+│   │   │   │   │   ├── ed5.js
+│   │   │   │   │   └── ed5.js.map
+│   │   │   │   └── 1.1
+│   │   │   │       ├── ed2.d.ts
+│   │   │   │       ├── ed2.js
+│   │   │   │       └── ed2.js.map
+│   │   │   ├── xmlns
+│   │   │   │   └── 1.0
+│   │   │   │       ├── ed3.d.ts
+│   │   │   │       ├── ed3.js
+│   │   │   │       └── ed3.js.map
+│   │   │   ├── LICENSE
+│   │   │   ├── package.json
+│   │   │   ├── README.md
+│   │   │   ├── xmlchars.d.ts
+│   │   │   ├── xmlchars.js
+│   │   │   └── xmlchars.js.map
 │   │   ├── y18n
 │   │   │   ├── CHANGELOG.md
 │   │   │   ├── index.mjs
@@ -20828,7 +22582,13 @@ scopus_search_code/
 │   │   │   ├── articles
 │   │   │   │   ├── ArticleCard.tsx
 │   │   │   │   ├── ArticleFilters.tsx
+│   │   │   │   ├── ArticleList.test.tsx
 │   │   │   │   ├── ArticleList.tsx
+│   │   │   │   ├── pagination.integration.test.tsx
+│   │   │   │   ├── PaginationBar.test.tsx
+│   │   │   │   ├── PaginationBar.tsx
+│   │   │   │   ├── ScopusPaginationBar.test.tsx
+│   │   │   │   ├── ScopusPaginationBar.tsx
 │   │   │   │   └── ScopusQuotaBadge.tsx
 │   │   │   ├── charts
 │   │   │   │   ├── chartColors.ts
@@ -20870,6 +22630,7 @@ scopus_search_code/
 │   │   ├── constants
 │   │   │   └── chartColors.ts
 │   │   ├── hooks
+│   │   │   ├── usePagination.test.ts
 │   │   │   └── usePagination.ts
 │   │   ├── lib
 │   │   │   └── utils.ts
@@ -20877,15 +22638,19 @@ scopus_search_code/
 │   │   │   ├── ArticlePage.tsx
 │   │   │   ├── AuthPage.tsx
 │   │   │   ├── ExplorePage.tsx
+│   │   │   ├── HomePage.test.tsx
 │   │   │   ├── HomePage.tsx
 │   │   │   ├── OAuthCallback.tsx
 │   │   │   └── ProfilePage.tsx
 │   │   ├── stores
+│   │   │   ├── articleStore.test.ts
 │   │   │   ├── articleStore.ts
 │   │   │   ├── authStore.ts
 │   │   │   ├── historyStore.ts
 │   │   │   ├── quotaStore.ts
 │   │   │   └── statsStore.ts
+│   │   ├── test
+│   │   │   └── setup.ts
 │   │   ├── types
 │   │   │   └── api.ts
 │   │   ├── App.tsx
@@ -20918,6 +22683,7 @@ scopus_search_code/
 │   │   └── test_users_api.py
 │   ├── unit
 │   │   ├── test_article_service.py
+│   │   ├── test_catalog_service.py
 │   │   ├── test_scopus_client.py
 │   │   ├── test_search_history_repository.py
 │   │   ├── test_search_service.py
