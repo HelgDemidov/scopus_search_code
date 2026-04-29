@@ -4,6 +4,8 @@
 // getSearchStats  — GET /articles/search/stats  (приватный, агрегаты по поисковому запросу)
 // findArticles    — GET /articles/find          (приватный, live-поиск в Scopus)
 // getArticleById  — GET /articles/:id           (публичный, одна статья по id)
+// getSearchHistory — GET /articles/history      (приватный, история поисков пользователя)
+// getScopusQuota  — GET /articles/find/quota    (приватный, состояние квоты)
 
 import { apiClient } from './client';
 import type {
@@ -12,6 +14,7 @@ import type {
   SearchStatsResponse,
   ScopusQuota,
   SearchHistoryItem,
+  SearchHistoryResponse,
   QuotaResponse,
 } from '../types/api';
 
@@ -112,19 +115,14 @@ export async function findArticles(
 
 // ---------------------------------------------------------------------------
 // GET /articles/history — история поисков текущего пользователя
-// Бэкенд может возвращать bare-array или { items, total } — обрабатываем оба
+//
+// Бэкенд всегда возвращает SearchHistoryResponse { items, total };
+// bare-array никогда не возвращается (verified: SearchHistoryResponse Pydantic schema).
 // ---------------------------------------------------------------------------
 
 export async function getSearchHistory(): Promise<SearchHistoryItem[]> {
-  const response = await apiClient.get<
-    SearchHistoryItem[] | { items: SearchHistoryItem[]; total: number }
-  >('/articles/history');
-  const data = response.data;
-  if (Array.isArray(data)) return data;
-  if (data && Array.isArray((data as { items?: SearchHistoryItem[] }).items)) {
-    return (data as { items: SearchHistoryItem[] }).items;
-  }
-  return [];
+  const response = await apiClient.get<SearchHistoryResponse>('/articles/history');
+  return response.data.items;
 }
 
 // ---------------------------------------------------------------------------
