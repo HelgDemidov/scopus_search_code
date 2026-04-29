@@ -31,6 +31,9 @@ export interface GetArticlesParams {
   // search — ILIKE-поиск по title и author (пользовательский запрос, коммит 2);
   // keyword и search независимы на уровне API; стор обеспечивает взаимоисключение
   search?: string;
+  // signal — AbortSignal для отмены запроса (axios >= 0.22 + fetch API);
+  // вызывающие стороны без signal не замечают изменений
+  signal?: AbortSignal;
 }
 
 // ---------------------------------------------------------------------------
@@ -40,7 +43,7 @@ export interface GetArticlesParams {
 export async function getArticles(
   params: GetArticlesParams = {},
 ): Promise<PaginatedArticleResponse> {
-  const { page = 1, size = 10, keyword, search } = params;
+  const { page = 1, size = 10, keyword, search, signal } = params;
 
   const queryParams: Record<string, string | number> = { page, size };
   if (keyword) queryParams.keyword = keyword;
@@ -48,6 +51,7 @@ export async function getArticles(
 
   const response = await apiClient.get<PaginatedArticleResponse>('/articles/', {
     params: queryParams,
+    signal,
   });
   return response.data;
 }
