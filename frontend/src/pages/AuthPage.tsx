@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import type { Location } from 'react-router-dom';
 import { useForm, type UseFormRegisterReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -38,7 +39,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
 type RegisterFormData = z.infer<typeof registerSchema>;
 
 // Sign-in form
-function SignInForm() {
+function SignInForm({ redirectTo }: { redirectTo: string }) {
   const navigate = useNavigate();
   const { setToken, fetchUser } = useAuthStore();
   const [serverError, setServerError] = useState<string | null>(null);
@@ -55,7 +56,9 @@ function SignInForm() {
       const { access_token } = await login({ email: data.email, password: data.password });
       setToken(access_token);
       await fetchUser();
-      navigate('/');
+      // Возвращаем на защищённую страницу, с которой был принудительный logout,
+      // или на главную, если пользователь пришёл напрямую
+      navigate(redirectTo, { replace: true });
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       setServerError(
@@ -106,7 +109,7 @@ function SignInForm() {
 }
 
 // Registration form
-function CreateAccountForm() {
+function CreateAccountForm({ redirectTo }: { redirectTo: string }) {
   const navigate = useNavigate();
   const { setToken, fetchUser } = useAuthStore();
   const [serverError, setServerError] = useState<string | null>(null);
@@ -132,7 +135,9 @@ function CreateAccountForm() {
       const { access_token } = await login({ email: data.email, password: data.password });
       setToken(access_token);
       await fetchUser();
-      navigate('/');
+      // Возвращаем на защищённую страницу, с которой был принудительный logout,
+      // или на главную, если пользователь пришёл напрямую
+      navigate(redirectTo, { replace: true });
     } catch (err: unknown) {
       const axiosErr = err as { response?: { status?: number; data?: unknown } };
       const status = axiosErr?.response?.status;
@@ -254,7 +259,13 @@ function PasswordInput({
 
 export default function AuthPage() {
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const oauthError = searchParams.get('error') === 'oauth_failed';
+
+  // Читаем from один раз на уровне AuthPage и пробрасываем в оба сабкомпонента.
+  // from устанавливается PrivateRoute при принудительном logout — позволяет
+  // вернуть пользователя на страницу, с которой его выбросило.
+  const from = (location.state as { from?: Location })?.from?.pathname ?? '/';
 
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4 py-12">
@@ -304,10 +315,10 @@ export default function AuthPage() {
             <TabsTrigger value="register" className="flex-1">Register</TabsTrigger>
           </TabsList>
           <TabsContent value="signin">
-            <SignInForm />
+            <SignInForm redirectTo={from} />
           </TabsContent>
           <TabsContent value="register">
-            <CreateAccountForm />
+            <CreateAccountForm redirectTo={from} />
           </TabsContent>
         </Tabs>
       </div>

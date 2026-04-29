@@ -10,6 +10,7 @@ import { ScopusQuotaBadge } from '../components/articles/ScopusQuotaBadge';
 import { ScopusPaginationBar } from '../components/articles/ScopusPaginationBar';
 import { SearchResultsDashboard } from '../components/search/SearchResultsDashboard';
 import { Skeleton } from '../components/ui/skeleton';
+import { ErrorBoundary } from '../components/ui/ErrorBoundary';
 import type { PageSize } from '../components/articles/PaginationBar';
 import type { LiveSize } from '../components/articles/ScopusPaginationBar';
 import type { ArticleResponse, SearchStatsResponse } from '../types/api';
@@ -197,20 +198,22 @@ export default function HomePage() {
           <AnonHero onSearch={handleSearch} />
           {hasSearched && (
             <div className="mx-auto w-full max-w-screen-lg px-4 pb-12">
-              {/* Anonymous mode: full pagination wire-up via ArticleList/PaginationBar */}
-              <ArticleList
-                articles={sortedCatalogArticles}
-                isLoading={isLoading}
-                sortBy={sortBy}
-                onSortChange={setSortBy}
-                page={page}
-                size={size}
-                total={total}
-                appendMode={appendMode}
-                onPageChange={handlePageChange}
-                onSizeChange={handleSizeChange}
-                onToggleMode={handleToggleMode}
-              />
+              {/* Anonymous mode: ArticleList изолирован в ErrorBoundary */}
+              <ErrorBoundary>
+                <ArticleList
+                  articles={sortedCatalogArticles}
+                  isLoading={isLoading}
+                  sortBy={sortBy}
+                  onSortChange={setSortBy}
+                  page={page}
+                  size={size}
+                  total={total}
+                  appendMode={appendMode}
+                  onPageChange={handlePageChange}
+                  onSizeChange={handleSizeChange}
+                  onToggleMode={handleToggleMode}
+                />
+              </ErrorBoundary>
             </div>
           )}
         </div>
@@ -260,21 +263,23 @@ export default function HomePage() {
           {searchMode === 'scopus' ? (
             <div className="flex gap-6 items-start">
               <div className="flex-1 min-w-0 flex flex-col gap-4">
-                {/* Scopus mode: ArticleList renders the visible slice.
-                    Pagination is controlled by ScopusPaginationBar, not ArticleList/PaginationBar */}
-                <ArticleList
-                  articles={visibleLiveResults}
-                  isLoading={isLiveSearching}
-                  sortBy={sortBy}
-                  onSortChange={setSortBy}
-                  page={1}
-                  size={25}
-                  total={visibleLiveResults.length}
-                  appendMode={false}
-                  onPageChange={() => {}}
-                  onSizeChange={() => {}}
-                  onToggleMode={() => {}}
-                />
+                {/* Scopus mode: ArticleList изолирован в ErrorBoundary;
+                    ScopusPaginationBar вне boundary — pagination всегда видима */}
+                <ErrorBoundary>
+                  <ArticleList
+                    articles={visibleLiveResults}
+                    isLoading={isLiveSearching}
+                    sortBy={sortBy}
+                    onSortChange={setSortBy}
+                    page={1}
+                    size={25}
+                    total={visibleLiveResults.length}
+                    appendMode={false}
+                    onPageChange={() => {}}
+                    onSizeChange={() => {}}
+                    onToggleMode={() => {}}
+                  />
+                </ErrorBoundary>
 
                 {/* ScopusPaginationBar: total = entire sortedLiveArticles, not just the slice */}
                 <ScopusPaginationBar
@@ -288,21 +293,22 @@ export default function HomePage() {
             </div>
           ) : (
             <div className="flex-1 min-w-0">
-              {/* Catalog mode: same ArticleList/PaginationBar and handlers as anonymous.
-                  articles and total come from the store (server pagination GET /articles/) */}
-              <ArticleList
-                articles={sortedCatalogArticles}
-                isLoading={isLoading}
-                sortBy={sortBy}
-                onSortChange={setSortBy}
-                page={page}
-                size={size}
-                total={total}
-                appendMode={appendMode}
-                onPageChange={handlePageChange}
-                onSizeChange={handleSizeChange}
-                onToggleMode={handleToggleMode}
-              />
+              {/* Catalog mode: ArticleList изолирован в ErrorBoundary */}
+              <ErrorBoundary>
+                <ArticleList
+                  articles={sortedCatalogArticles}
+                  isLoading={isLoading}
+                  sortBy={sortBy}
+                  onSortChange={setSortBy}
+                  page={page}
+                  size={size}
+                  total={total}
+                  appendMode={appendMode}
+                  onPageChange={handlePageChange}
+                  onSizeChange={handleSizeChange}
+                  onToggleMode={handleToggleMode}
+                />
+              </ErrorBoundary>
             </div>
           )}
 

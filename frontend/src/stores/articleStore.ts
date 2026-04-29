@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { create } from 'zustand';
 import { getArticles, findArticles } from '../api/articles';
 import type { PageSize } from '../components/articles/PaginationBar';
@@ -135,7 +136,15 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
         isLoading: false,
       });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to load articles';
+      // ERR_CANCELED — AbortSignal cancellation: silent drop, не обновляем error
+      if (axios.isAxiosError(err) && err.code === 'ERR_CANCELED') {
+        set({ isLoading: false });
+        return;
+      }
+      // AxiosError: предпочитаем FastAPI HTTPException.detail, fallback — message
+      const message = axios.isAxiosError(err)
+        ? (err.response?.data?.detail ?? err.message)
+        : err instanceof Error ? err.message : 'Failed to load articles';
       set({ error: message, isLoading: false });
     }
   },
@@ -198,13 +207,12 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
       }
     } catch (err: unknown) {
       let message: string;
-      if (
-        err &&
-        typeof err === 'object' &&
-        'response' in err &&
-        (err as { response?: { status?: number } }).response?.status === 429
-      ) {
+      // 429 — квота Scopus исчерпана: специальный sentinel для UI
+      if (axios.isAxiosError(err) && err.response?.status === 429) {
         message = 'QUOTA_EXCEEDED';
+      } else if (axios.isAxiosError(err)) {
+        // Остальные HTTP-ошибки: предпочитаем FastAPI detail, fallback — message
+        message = err.response?.data?.detail ?? err.message;
       } else {
         message = err instanceof Error ? err.message : 'Live search failed';
       }

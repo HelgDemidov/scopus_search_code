@@ -1,12 +1,14 @@
 name: Frontend tests
 
-# Запускается при каждом push в ветки anonymous-pagination, authorized-pagination, english-version и main
+# Запускается при каждом push в ветки anonymous-pagination, authorized-pagination,
+# english-version, fixing-vulnerabilities и main
 on:
   push:
     branches:
       - anonymous-pagination
       - authorized-pagination
       - english-version
+      - fixing-vulnerabilities
       - main
     # Запускаем только когда меняется frontend или сам воркфлоу
     paths:
@@ -51,11 +53,13 @@ jobs:
         run: npx tsc --noEmit
 
   # ---------------------------------------------------------------------------
-  # Job 1: 82 unit-теста
-  # Запускает все *.test.{ts,tsx} кроме интеграционного файла
+  # Job 1: unit-тесты
+  # Запускает все *.test.{ts,tsx} кроме интеграционных файлов
+  # Глобы src/**/*.test.ts и src/**/*.test.tsx НЕ в кавычках — bash раскрывает
+  # их в реальные пути до передачи в vitest (аналогично ветке main)
   # ---------------------------------------------------------------------------
   unit:
-    name: Unit tests (82)
+    name: Unit tests
     runs-on: ubuntu-latest
 
     defaults:
@@ -76,8 +80,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Исключаем интеграционный файл через glob-паттерн:
-      # vitest принимает positional-аргументы как include-паттерны
+      # --exclude в кавычках: передаётся как флаг vitest, он сам обрабатывает паттерн
+      # Позиционные аргументы без кавычек: bash раскрывает глобы в список файлов
       - name: Run unit tests
         run: |
           npx vitest run \
@@ -87,11 +91,13 @@ jobs:
             src/**/*.test.tsx
 
   # ---------------------------------------------------------------------------
-  # Job 2: 8 интеграционных тестов
-  # Запускает строго один файл pagination.integration.test.tsx
+  # Job 2: интеграционные тесты
+  # Явные пути к файлам вместо glob — надёжнее glob-матчинга в vitest v4.1.5
+  #   - src/components/articles/pagination.integration.test.tsx (пагинация)
+  #   - src/App.integration.test.tsx (auth event bus)
   # ---------------------------------------------------------------------------
   integration:
-    name: Integration tests — pagination (8)
+    name: Integration tests
     runs-on: ubuntu-latest
 
     defaults:
@@ -112,25 +118,27 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Запускаем только интеграционный файл с покрытием для целевых модулей
+      # Явные пути — bash не раскрывает, vitest получает конкретные файлы
       - name: Run integration tests
         run: |
           npx vitest run \
             --reporter=verbose \
-            src/components/articles/pagination.integration.test.tsx
+            src/components/articles/pagination.integration.test.tsx \
+            src/App.integration.test.tsx
 
       # Покрытие — отдельный шаг, чтобы не прерывать run при threshold-failures
       - name: Collect coverage for pagination modules
         run: |
           npx vitest run \
             --coverage \
-            src/components/articles/pagination.integration.test.tsx
+            src/components/articles/pagination.integration.test.tsx \
+            src/App.integration.test.tsx
 
       # Публикуем coverage summary в GitHub Actions Job Summary
       - name: Post coverage summary
         if: always()
         run: |
-          echo '## Coverage — pagination modules' >> $GITHUB_STEP_SUMMARY
+          echo '## Coverage — integration modules' >> $GITHUB_STEP_SUMMARY
           cat coverage/coverage-summary.json \
             | npx --yes json -e '
               const r = this.total;

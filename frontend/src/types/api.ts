@@ -130,6 +130,13 @@ export interface SearchHistoryItem {
   results_available: boolean;      // вычисляется бэкендом как result_count > 0
 }
 
+// Ответ GET /articles/history — зеркало SearchHistoryResponse (Pydantic)
+// Бэкенд всегда возвращает эту форму; bare-array никогда не возвращается
+export interface SearchHistoryResponse {
+  items: SearchHistoryItem[];
+  total: number;
+}
+
 export interface QuotaResponse {
   limit: number;
   used: number;

@@ -5,7 +5,8 @@ import { useAuthStore } from '../stores/authStore';
 /**
  * Google OAuth redirect handler — Variant A (§4.3).
  * The backend returns a RedirectResponse to /auth/callback?token=<jwt>.
- * This component reads the token param, stores it, and redirects to the home page.
+ * This component reads the token param, stores it in-memory (AT) and
+ * in localStorage (for cold-start hydration), then redirects to the home page.
  */
 export default function OAuthCallback() {
   const navigate = useNavigate();
@@ -16,7 +17,7 @@ export default function OAuthCallback() {
     const token = params.get('token');
 
     if (token) {
-      // Store the token in localStorage and the store, then load the user profile
+      // Сохраняем AT через setToken, затем загружаем профиль пользователя
       setToken(token);
       fetchUser().then(() => navigate('/'));
     } else {
