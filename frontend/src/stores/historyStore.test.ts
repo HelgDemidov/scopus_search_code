@@ -41,14 +41,15 @@ beforeEach(() => {
 // Вспомогательные данные
 // ---------------------------------------------------------------------------
 
-// Фабрика минимального SearchHistoryItem
+// Фабрика минимального SearchHistoryItem — все обязательные поля из api.ts
 function makeHistoryItem(id: number): SearchHistoryItem {
   return {
     id,
     query: `query_${id}`,
     filters: {},
     created_at: '2024-01-01T00:00:00Z',
-    results: [],
+    result_count: 0,
+    results_available: false,
   };
 }
 
@@ -122,16 +123,17 @@ describe('fetchHistory', () => {
 
 describe('setHistoryFilters', () => {
   it('мержит частичное обновление, не затирает незатронутые поля', () => {
+    // ArticleClientFilters использует camelCase — yearFrom, yearTo (не snake_case)
     useHistoryStore.setState({
-      historyFilters: { year_from: 2020 },
+      historyFilters: { yearFrom: 2020 },
     });
 
     act(() => {
-      useHistoryStore.getState().setHistoryFilters({ year_to: 2024 });
+      useHistoryStore.getState().setHistoryFilters({ yearTo: 2024 });
     });
 
     const { historyFilters } = useHistoryStore.getState();
-    expect(historyFilters.year_from).toBe(2020);
-    expect(historyFilters.year_to).toBe(2024);
+    expect(historyFilters.yearFrom).toBe(2020);
+    expect(historyFilters.yearTo).toBe(2024);
   });
 });
