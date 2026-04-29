@@ -94,38 +94,34 @@ export default function App() {
   const fetchStats = useStatsStore((state) => state.fetchStats);
 
   useEffect(() => {
-    // Однократная очистка legacy-записи 'access_token' из localStorage.
-    // После Commit 3 AT хранится только в памяти; у существующих пользователей
-    // после деплоя могла остаться старая запись — удаляем её при первом запуске.
-    localStorage.removeItem('access_token');
+    // Фаст-путь: синхронная гидрация из localStorage.
+    // Позволяет Header немедленно отобразить имя пользователя при перезагрузке.
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      setToken(token);
+      fetchUser();
+    }
 
     // Silent refresh при старте — единственный авторитетный способ проверить
     // валидность сессии: RT cookie отправляется браузером автоматически.
-    // Успех: получаем свежий AT → setToken обновляет стор в памяти.
-    // Провал: RT истёк/отозван → стор остаётся isAuthenticated: false;
-    //   setHydrating(false) позволит PrivateRoute принять решение о редиректе.
-    // Динамический импорт разрывает циклическую зависимость:
+    // Динамический импорт разрывает циклическую зависимость
     //   App.tsx → api/auth → client.ts → authStore → App.tsx
     import('./api/auth').then(({ refreshAccessToken }) =>
       refreshAccessToken()
         .then((newToken) => {
-          // Успешный refresh — обновляем AT в памяти и загружаем профиль
           setToken(newToken);
           fetchUser();
         })
         .catch(() => {
-          // RT отсутствует или истёк — стор уже isAuthenticated: false,
-          // ничего дополнительно делать не нужно
+          // RT отсутствует или истёк — очищаем устаревший AT из localStorage
+          localStorage.removeItem('access_token');
         })
         .finally(() => {
-          // Гидрация завершена в любом случае — PrivateRoute может принимать решения
           setHydrating(false);
         }),
     );
 
-    // Слушаем успешный silent refresh из response interceptor.
-    // Вызываем setToken + fetchUser: без этого authStore.user остаётся null
-    // и ProfilePage бесконечно показывает skeleton после истечения AT mid-session.
+    // Слушаем событие от interceptor — обновляем AT в сторе без прямой зависимости
     const handleTokenRefresh = (e: Event) => {
       const newToken = (e as CustomEvent<string>).detail;
       if (newToken) {
@@ -135,7 +131,7 @@ export default function App() {
     };
     window.addEventListener('auth:token-refreshed', handleTokenRefresh);
 
-    // Слушаем принудительный logout от response interceptor (RT истёк mid-session).
+    // Слушаем принудительный logout от interceptor (RT истёк mid-session).
     // logout() очищает стор → isAuthenticated: false → PrivateRoute редиректит на /auth
     // через React Router без hard reload страницы.
     const handleLogoutRequired = () => { logout(); };

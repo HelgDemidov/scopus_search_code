@@ -3,18 +3,12 @@
 // Все API-модули импортируют apiClient из этого файла —
 // не создают собственные экземпляры axios.
 //
-// Request interceptor: добавляет Authorization: Bearer <token> к каждому запросу.
-// Токен читается из authStore в памяти (не из localStorage — Commit 3).
-// Ленивый геттер через уже загруженный ES-модуль разрывает circular dependency:
-//   client.ts → authStore → api/users → client.ts
-// К моменту первого HTTP-запроса весь ES-граф уже инициализирован Vite,
-// поэтому require()-style доступ к модулю безопасен.
+// Request interceptor: добавляет Authorization: Bearer <token> к каждому запросу,
+// если токен присутствует в localStorage.
 //
 // Response interceptor: при получении 401 Unauthorized
 // пытается тихо обновить AT через RT cookie (silent refresh).
-// Если RT тоже истёк — диспатчит CustomEvent('auth:logout-required');
-// App.tsx слушает событие и вызывает logout() на сторе.
-// PrivateRoute реагирует на isAuthenticated: false и редиректит на /auth.
+// Если RT тоже истёк — выполняет logout через CustomEvent — App.tsx вызывает store.logout().
 // Параллельные 401 ждут один Promise-синглтон — race condition исключён.
 
 import axios from 'axios';
@@ -33,25 +27,11 @@ export const apiClient = axios.create({
 });
 
 // ---------------------------------------------------------------------------
-// Ленивый геттер токена — разрывает circular dependency без dynamic import()
-// ---------------------------------------------------------------------------
-
-// Функция вызывается только внутри interceptor-колбэка, то есть не раньше
-// первого HTTP-запроса. К этому моменту Vite уже полностью разрешил
-// ES-граф и authStore-модуль инициализирован. Прямой статический импорт
-// authStore здесь вызвал бы circular dependency на этапе парсинга модулей.
-function getAuthToken(): string | null {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { useAuthStore } = require('./stores/authStore') as typeof import('./stores/authStore');
-  return useAuthStore.getState().token;
-}
-
-// ---------------------------------------------------------------------------
-// Request interceptor — добавляем Bearer-токен из стора (in-memory)
+// Request interceptor — добавляем Bearer-токен
 // ---------------------------------------------------------------------------
 
 apiClient.interceptors.request.use((config) => {
-  const token = getAuthToken();
+  const token = localStorage.getItem('access_token');
   if (token) {
     config.headers['Authorization'] = `Bearer ${token}`;
   }
@@ -94,22 +74,24 @@ apiClient.interceptors.response.use(
           return refreshAccessToken();
         })()
           .then((newToken) => {
-            // AT хранится только в памяти — localStorage не пишем.
-            // Уведомляем App.tsx через CustomEvent: он вызовет setToken + fetchUser
+            // Сохраняем новый AT в localStorage
+            localStorage.setItem('access_token', newToken);
+            // Уведомляем authStore через CustomEvent — избегаем прямого импорта стора
             window.dispatchEvent(
               new CustomEvent('auth:token-refreshed', { detail: newToken })
             );
             return newToken;
           })
           .catch((err) => {
-            // RT истёк или отозван — уведомляем App.tsx для чистого logout.
-            // Не делаем window.location.href здесь: PrivateRoute отреагирует
-            // на isAuthenticated: false и выполнит навигацию через React Router.
+            // RT истёк или отозван — диспатчим событие для чистого logout.
+            // App.tsx слушает событие и вызывает store.logout() —
+            // это позволяет PrivateRoute редиректить через React Router
+            // без hard reload страницы.
             window.dispatchEvent(new CustomEvent('auth:logout-required'));
             return Promise.reject(err);
           })
           .finally(() => {
-            // Сбрасываем синглтон после завершения — следующий цикл refresh стартует чисто
+            // Сбрасываем синглтон после завершения — следуьщий цикл refresh стартует чисто
             refreshingPromise = null;
           });
       }
