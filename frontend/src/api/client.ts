@@ -8,7 +8,9 @@
 //
 // Response interceptor: при получении 401 Unauthorized
 // пытается тихо обновить AT через RT cookie (silent refresh).
-// Если RT тоже истёк — выполняет logout через CustomEvent — App.tsx вызывает store.logout().
+// Если RT тоже истёк — диспатчит CustomEvent('auth:logout-required');
+// App.tsx слушает событие и вызывает store.logout() —
+// PrivateRoute редиректит на /auth через React Router без hard reload.
 // Параллельные 401 ждут один Promise-синглтон — race condition исключён.
 
 import axios from 'axios';
@@ -27,7 +29,7 @@ export const apiClient = axios.create({
 });
 
 // ---------------------------------------------------------------------------
-// Request interceptor — добавляем Bearer-токен
+// Request interceptor — добавляем Bearer-токен из localStorage
 // ---------------------------------------------------------------------------
 
 apiClient.interceptors.request.use((config) => {
@@ -63,10 +65,9 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
 
       if (!refreshingPromise) {
-        // IIFE позволяет использовать await для динамического импорта,
-        // при этом присваивание refreshingPromise происходит синхронно —
-        // до любого await. Все параллельные interceptor'ы увидят непустой
-        // синглтон и не запустят второй POST /auth/refresh.
+        // IIFE позволяет использовать await для динамического импорта;
+        // присваивание refreshingPromise синхронно — все параллельные
+        // interceptor'ы видят непустой синглтон и не запускают второй POST /auth/refresh
         refreshingPromise = (async () => {
           // Динамический импорт разрывает циклическую зависимость
           // client.ts → auth.ts → client.ts
@@ -83,15 +84,15 @@ apiClient.interceptors.response.use(
             return newToken;
           })
           .catch((err) => {
-            // RT истёк или отозван — диспатчим событие для чистого logout.
-            // App.tsx слушает событие и вызывает store.logout() —
-            // это позволяет PrivateRoute редиректить через React Router
-            // без hard reload страницы.
+            // RT истёк или отозван mid-session — диспатчим событие logout.
+            // App.tsx вызывает logout(), который чистит стор и localStorage.
+            // PrivateRoute реагирует на isAuthenticated: false через React Router —
+            // никакого hard reload, никакого window.location.href
             window.dispatchEvent(new CustomEvent('auth:logout-required'));
             return Promise.reject(err);
           })
           .finally(() => {
-            // Сбрасываем синглтон после завершения — следуьщий цикл refresh стартует чисто
+            // Сбрасываем синглтон после завершения — следующий цикл refresh стартует чисто
             refreshingPromise = null;
           });
       }

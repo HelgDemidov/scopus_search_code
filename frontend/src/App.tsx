@@ -121,7 +121,9 @@ export default function App() {
         }),
     );
 
-    // Слушаем событие от interceptor — обновляем AT в сторе без прямой зависимости
+    // Слушаем успешный silent refresh от response interceptor.
+    // Вызываем setToken + fetchUser: без этого authStore.user остаётся null
+    // и ProfilePage бесконечно показывает skeleton после истечения AT mid-session
     const handleTokenRefresh = (e: Event) => {
       const newToken = (e as CustomEvent<string>).detail;
       if (newToken) {
@@ -131,9 +133,9 @@ export default function App() {
     };
     window.addEventListener('auth:token-refreshed', handleTokenRefresh);
 
-    // Слушаем принудительный logout от interceptor (RT истёк mid-session).
-    // logout() очищает стор → isAuthenticated: false → PrivateRoute редиректит на /auth
-    // через React Router без hard reload страницы.
+    // Слушаем принудительный logout от response interceptor (RT истёк mid-session).
+    // logout() очищает стор + localStorage → isAuthenticated: false →
+    // PrivateRoute редиректит на /auth через React Router без hard reload
     const handleLogoutRequired = () => { logout(); };
     window.addEventListener('auth:logout-required', handleLogoutRequired);
 
