@@ -55,7 +55,8 @@ jobs:
   # ---------------------------------------------------------------------------
   # Job 1: unit-тесты
   # Запускает все *.test.{ts,tsx} кроме интеграционных файлов
-  # Глобы в одиночных кавычках — vitest делает матчинг самостоятельно
+  # Глобы src/**/*.test.ts и src/**/*.test.tsx НЕ в кавычках — bash раскрывает
+  # их в реальные пути до передачи в vitest (аналогично ветке main)
   # ---------------------------------------------------------------------------
   unit:
     name: Unit tests
@@ -79,20 +80,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Глобы в кавычках — bash не раскрывает **, vitest делает glob-матчинг самостоятельно
+      # --exclude в кавычках: передаётся как флаг vitest, он сам обрабатывает паттерн
+      # Позиционные аргументы без кавычек: bash раскрывает глобы в список файлов
       - name: Run unit tests
         run: |
           npx vitest run \
             --reporter=verbose \
             --exclude 'src/**/*.integration.test.*' \
-            'src/**/*.test.ts' \
-            'src/**/*.test.tsx'
+            src/**/*.test.ts \
+            src/**/*.test.tsx
 
   # ---------------------------------------------------------------------------
   # Job 2: интеграционные тесты
-  # Glob-паттерн в кавычках покрывает все *.integration.test.* файлы:
-  #   - pagination.integration.test.tsx
-  #   - auth.integration.test.ts (event bus, коммит afb7ba3)
+  # Явные пути к файлам вместо glob — надёжнее glob-матчинга в vitest v4.1.5
+  #   - src/components/articles/pagination.integration.test.tsx (пагинация)
+  #   - src/App.integration.test.tsx (auth event bus)
   # ---------------------------------------------------------------------------
   integration:
     name: Integration tests
@@ -116,19 +118,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Глоб в кавычках — bash не раскрывает **, vitest находит файлы самостоятельно
+      # Явные пути — bash не раскрывает, vitest получает конкретные файлы
       - name: Run integration tests
         run: |
           npx vitest run \
             --reporter=verbose \
-            'src/**/*.integration.test.*'
+            src/components/articles/pagination.integration.test.tsx \
+            src/App.integration.test.tsx
 
       # Покрытие — отдельный шаг, чтобы не прерывать run при threshold-failures
       - name: Collect coverage for pagination modules
         run: |
           npx vitest run \
             --coverage \
-            'src/**/*.integration.test.*'
+            src/components/articles/pagination.integration.test.tsx \
+            src/App.integration.test.tsx
 
       # Публикуем coverage summary в GitHub Actions Job Summary
       - name: Post coverage summary
