@@ -44,14 +44,14 @@ describe('ScopusPaginationBar — страничная навигация (liveS
   it('Prev disabled на первой странице', () => {
     render(<ScopusPaginationBar {...defaults} livePage={1} />);
     expect(
-      screen.getByRole('button', { name: /предыдущая страница/i }),
+      screen.getByRole('button', { name: /previous page/i }),
     ).toBeDisabled();
   });
 
   it('Next disabled на последней странице (total=15, livePage=2)', () => {
     render(<ScopusPaginationBar {...defaults} livePage={2} total={15} />);
     expect(
-      screen.getByRole('button', { name: /следующая страница/i }),
+      screen.getByRole('button', { name: /next page/i }),
     ).toBeDisabled();
   });
 
@@ -61,7 +61,7 @@ describe('ScopusPaginationBar — страничная навигация (liveS
       <ScopusPaginationBar {...defaults} livePage={2} onPageChange={onPageChange} />,
     );
     await userEvent.click(
-      screen.getByRole('button', { name: /предыдущая страница/i }),
+      screen.getByRole('button', { name: /previous page/i }),
     );
     expect(onPageChange).toHaveBeenCalledWith(1);
   });
@@ -72,7 +72,7 @@ describe('ScopusPaginationBar — страничная навигация (liveS
       <ScopusPaginationBar {...defaults} livePage={1} onPageChange={onPageChange} />,
     );
     await userEvent.click(
-      screen.getByRole('button', { name: /следующая страница/i }),
+      screen.getByRole('button', { name: /next page/i }),
     );
     expect(onPageChange).toHaveBeenCalledWith(2);
   });
@@ -83,16 +83,16 @@ describe('ScopusPaginationBar — страничная навигация (liveS
   // livePage=0 невозможен в нормальном флоу (handleSearch сбрасывает в 1
   // до ре-рендера), но контракт должен быть явно задокументирован тестом —
   // защита от будущих рефакторингов (URL-параметры, SSR-гидратация и т.д.)
-  it('при livePage=0 safePage=1: Prev disabled, строка «1–10 из 25»', () => {
+  it('при livePage=0 safePage=1: Prev disabled, строка «Showing 1–10 of 25»', () => {
     render(
       <ScopusPaginationBar {...defaults} livePage={0} total={25} />,
     );
     // safePage = Math.max(1, 0) = 1 → Prev недоступен
     expect(
-      screen.getByRole('button', { name: /предыдущая страница/i }),
+      screen.getByRole('button', { name: /previous page/i }),
     ).toBeDisabled();
     // from=(1-1)*10+1=1, to=min(1*10,25)=10
-    expect(screen.getByText(/1–10 из 25/)).toBeInTheDocument();
+    expect(screen.getByText(/Showing 1–10 of 25/)).toBeInTheDocument();
   });
 
   // Граничный максимум Scopus API: 25 записей → ceil(25/10) = 3 страницы
@@ -122,18 +122,19 @@ describe('ScopusPaginationBar — страничная навигация (liveS
 });
 
 // ---------------------------------------------------------------------------
-// Блок 3: тоггл «По 10 / Все»
+// Блок 3: тоггл «10 per page / All»
 // ---------------------------------------------------------------------------
 
 describe('ScopusPaginationBar — тоггл режима', () => {
-  it('клик «Все» вызывает onSizeChange("all")', async () => {
+  it('клик «All» вызывает onSizeChange("all")', async () => {
     const onSizeChange = vi.fn();
     render(<ScopusPaginationBar {...defaults} onSizeChange={onSizeChange} />);
-    await userEvent.click(screen.getByRole('button', { name: /все/i }));
+    // Кнопка рендерится как «All (15)» — матч по началу строки
+    await userEvent.click(screen.getByRole('button', { name: /^All/i }));
     expect(onSizeChange).toHaveBeenCalledWith('all');
   });
 
-  it('клик «По 10» вызывает onSizeChange(10)', async () => {
+  it('клик «10 per page» вызывает onSizeChange(10)', async () => {
     const onSizeChange = vi.fn();
     render(
       <ScopusPaginationBar
@@ -142,7 +143,7 @@ describe('ScopusPaginationBar — тоггл режима', () => {
         onSizeChange={onSizeChange}
       />,
     );
-    await userEvent.click(screen.getByRole('button', { name: /по 10/i }));
+    await userEvent.click(screen.getByRole('button', { name: /10 per page/i }));
     expect(onSizeChange).toHaveBeenCalledWith(10);
   });
 
@@ -150,7 +151,7 @@ describe('ScopusPaginationBar — тоггл режима', () => {
     render(<ScopusPaginationBar {...defaults} liveSize="all" />);
     // Группа кнопок страниц отсутствует
     expect(
-      screen.queryByRole('group', { name: /страницы/i }),
+      screen.queryByRole('group', { name: /^Pages$/i }),
     ).toBeNull();
   });
 });
@@ -160,18 +161,18 @@ describe('ScopusPaginationBar — тоггл режима', () => {
 // ---------------------------------------------------------------------------
 
 describe('ScopusPaginationBar — строка состояния', () => {
-  it('liveSize=10, livePage=1, total=15 → «Показано 1–10 из 15»', () => {
+  it('liveSize=10, livePage=1, total=15 → «Showing 1–10 of 15»', () => {
     render(
       <ScopusPaginationBar {...defaults} livePage={1} liveSize={10} total={15} />,
     );
-    expect(screen.getByText(/1–10 из 15/)).toBeInTheDocument();
+    expect(screen.getByText(/Showing 1–10 of 15/)).toBeInTheDocument();
   });
 
-  it('liveSize="all", total=15 → «Показано 1–15 из 15»', () => {
+  it('liveSize="all", total=15 → «Showing 1–15 of 15»', () => {
     render(
       <ScopusPaginationBar {...defaults} liveSize="all" total={15} />,
     );
-    expect(screen.getByText(/1–15 из 15/)).toBeInTheDocument();
+    expect(screen.getByText(/Showing 1–15 of 15/)).toBeInTheDocument();
   });
 });
 
@@ -187,10 +188,10 @@ describe('ScopusPaginationBar — accessibility', () => {
     ).toHaveTextContent('1');
   });
 
-  it('<nav> имеет aria-label="Навигация по результатам Scopus"', () => {
+  it('<nav> имеет aria-label="Scopus results navigation"', () => {
     render(<ScopusPaginationBar {...defaults} />);
     expect(
-      screen.getByRole('navigation', { name: /навигация по результатам scopus/i }),
+      screen.getByRole('navigation', { name: /scopus results navigation/i }),
     ).toBeInTheDocument();
   });
 });

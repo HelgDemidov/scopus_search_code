@@ -9,7 +9,7 @@ interface TopKeywordsChartProps {
 }
 
 export function TopKeywordsChart({ data, isLoading }: TopKeywordsChartProps) {
-  // Выбираем top-15 ключевых слов по частоте встречаемости
+  // Top-15 keywords by occurrence frequency
   const top15 = [...data]
     .sort((a, b) => b.count - a.count)
     .slice(0, 15);
@@ -23,7 +23,7 @@ export function TopKeywordsChart({ data, isLoading }: TopKeywordsChartProps) {
       {isLoading ? (
         <Skeleton className="h-48 w-full rounded-lg" />
       ) : top15.length === 0 ? (
-        // Empty state: ключевые слова часто не возвращаются анонимными запросами
+        // Empty state: keywords are often absent from anonymous Scopus requests
         <div className="flex h-48 items-center justify-center">
           <p className="text-xs text-slate-400 dark:text-slate-500">No keyword data available</p>
         </div>

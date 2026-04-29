@@ -123,7 +123,7 @@ describe('HomePage — anon hero', () => {
 
   it('до поиска: AnonHero виден, ArticleList не рендерится', () => {
     render(<HomePage />);
-    expect(screen.getByText(/Поиск публикаций Scopus/i)).toBeInTheDocument();
+    expect(screen.getByText(/Search Scopus Publications/i)).toBeInTheDocument();
     expect(screen.queryByTestId('article-list')).toBeNull();
   });
 
@@ -322,19 +322,19 @@ describe('HomePage — auth mode (searchMode toggle)', () => {
   it('обе кнопки переключателя рендерятся: Scopus active, Catalog inactive', () => {
     authIsAuthenticated = true;
     render(<HomePage />);
-    const scopusBtn = screen.getByRole('button', { name: /Поиск по базе Scopus/i });
-    const catalogBtn = screen.getByRole('button', { name: /Поиск по коллекции/i });
+    const scopusBtn = screen.getByRole('button', { name: /Search Scopus Database/i });
+    const catalogBtn = screen.getByRole('button', { name: /Search AI.*Collection/i });
     // Дефолт — Scopus активен
     expect(scopusBtn).toHaveAttribute('aria-pressed', 'true');
     expect(catalogBtn).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('клик на «Поиск по коллекции» меняет aria-pressed', async () => {
+  it('клик на "Search AI & Neural Network Technologies Collection" меняет aria-pressed', async () => {
     authIsAuthenticated = true;
     render(<HomePage />);
-    await userEvent.click(screen.getByRole('button', { name: /Поиск по коллекции/i }));
-    expect(screen.getByRole('button', { name: /Поиск по коллекции/i })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: /Поиск по базе Scopus/i })).toHaveAttribute('aria-pressed', 'false');
+    await userEvent.click(screen.getByRole('button', { name: /Search AI.*Collection/i }));
+    expect(screen.getByRole('button', { name: /Search AI.*Collection/i })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /Search Scopus Database/i })).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('в catalog-режиме handleSearch вызывает setFilters+fetchArticles, не searchScopusLive', async () => {
@@ -346,7 +346,7 @@ describe('HomePage — auth mode (searchMode toggle)', () => {
     render(<HomePage />);
 
     // Переключаемся в catalog
-    await userEvent.click(screen.getByRole('button', { name: /Поиск по коллекции/i }));
+    await userEvent.click(screen.getByRole('button', { name: /Search AI.*Collection/i }));
     // Запускаем поиск
     await act(async () => {
       await userEvent.click(screen.getByTestId('search-bar'));
@@ -367,7 +367,7 @@ describe('HomePage — auth mode (searchMode toggle)', () => {
     });
     render(<HomePage />);
 
-    await userEvent.click(screen.getByRole('button', { name: /Поиск по коллекции/i }));
+    await userEvent.click(screen.getByRole('button', { name: /Search AI.*Collection/i }));
 
     expect(capturedArticleListProps.page).toBe(2);
     expect(capturedArticleListProps.size).toBe(25);
@@ -377,7 +377,7 @@ describe('HomePage — auth mode (searchMode toggle)', () => {
   it('в catalog-режиме ScopusPaginationBar не рендерится', async () => {
     authIsAuthenticated = true;
     render(<HomePage />);
-    await userEvent.click(screen.getByRole('button', { name: /Поиск по коллекции/i }));
+    await userEvent.click(screen.getByRole('button', { name: /Search AI.*Collection/i }));
     expect(screen.queryByTestId('scopus-pagination-bar')).toBeNull();
   });
 });

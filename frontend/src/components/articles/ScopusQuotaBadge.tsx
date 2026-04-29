@@ -1,16 +1,16 @@
 import { useArticleStore } from '../../stores/articleStore';
 
 /**
- * Показывает остаток квоты Scopus API из заголовков последнего /articles/find.
- * Скрыт до первого live-запроса (scopusQuota === null).
+ * Displays the remaining Scopus API quota from the headers of the last /articles/find request.
+ * Hidden until the first live request (scopusQuota === null).
  */
 export function ScopusQuotaBadge() {
   const scopusQuota = useArticleStore((s) => s.scopusQuota);
 
-  // Скрыть до первого live-запроса по §4.1
+  // Hide until the first live request per §4.1
   if (!scopusQuota) return null;
 
-  // Определяем цвет по заполненности: красный < 10%, желтый < 25%, иначе зеленый
+  // Color by fill ratio: red < 10%, yellow < 25%, otherwise green
   const ratio = scopusQuota.remaining / scopusQuota.limit;
   const colorClass =
     ratio < 0.1
@@ -22,14 +22,14 @@ export function ScopusQuotaBadge() {
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${colorClass}`}
-      title={`Квота Scopus API: ${scopusQuota.remaining.toLocaleString()} из ${scopusQuota.limit.toLocaleString()}`}
+      title={`Scopus API quota: ${scopusQuota.remaining.toLocaleString('en-US')} of ${scopusQuota.limit.toLocaleString('en-US')}`}
     >
-      {/* Индикатор */}
+      {/* Pulse indicator */}
       <span className="relative flex h-1.5 w-1.5">
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-40" />
         <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-current" />
       </span>
-      Квота Scopus: {scopusQuota.remaining.toLocaleString()} / {scopusQuota.limit.toLocaleString()}
+      Scopus quota: {scopusQuota.remaining.toLocaleString('en-US')} / {scopusQuota.limit.toLocaleString('en-US')}
     </span>
   );
 }

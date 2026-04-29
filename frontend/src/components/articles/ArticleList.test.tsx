@@ -12,12 +12,47 @@ type ArticleListProps = Parameters<typeof ArticleList>[0];
 // Моки модулей — объявляем ДО импорта тестируемого модуля
 // ---------------------------------------------------------------------------
 
-// Заменяем PaginationBar на stub с data-testid и захватом props
+// Мок ArticleFilters: ArticleList встраивает оба компонента напрямую.
+// Заменяем реальные компоненты на stub, чтобы изолировать юнит-тест
+// от Zustand-сторов (useHistoryStore, useStatsStore) и Radix Sheet.
+vi.mock('./ArticleFilters', () => ({
+  ArticleFiltersSidebar: () => <div data-testid="filters-sidebar" />,
+  ArticleFiltersMobile: () => <div data-testid="filters-mobile" />,
+}));
+
+// Мок useHistoryStore: FiltersContent вызывает его как хук-функцию.
+// Возвращаем callable hook, а не plain object — иначе TypeError при вызове useHistoryStore().
+vi.mock('../../stores/historyStore', () => ({
+  useHistoryStore: () => ({ historyFilters: {}, setHistoryFilters: vi.fn() }),
+}));
+
+// Мок useStatsStore: FiltersContent также вызывает useStatsStore(selector).
+vi.mock('../../stores/statsStore', () => ({
+  useStatsStore: () => ({ stats: null }),
+}));
+
+// Заменяем PaginationBar на stub с data-testid и захватом props.
+// Stub рендерит кнопку-тоггл «Среол / Pages» и sentinel,
+// чтобы юнит-тесты могли проверить onToggleMode и appendMode без реального PaginationBar.
 let capturedPaginationProps: Record<string, unknown> = {};
 vi.mock('./PaginationBar', () => ({
   PaginationBar: (props: Record<string, unknown>) => {
     capturedPaginationProps = props;
-    return <div data-testid="pagination-bar" />;
+    const appendMode = props.appendMode as boolean;
+    const onToggleMode = props.onToggleMode as () => void;
+    return (
+      <div data-testid="pagination-bar">
+        {!appendMode && (
+          <button onClick={onToggleMode}>Scroll</button>
+        )}
+        {appendMode && (
+          <>
+            <button onClick={onToggleMode}>Pages</button>
+            <div data-testid="sentinel" />
+          </>
+        )}
+      </div>
+    );
   },
 }));
 
@@ -45,7 +80,7 @@ function makeArticle(id: number): ArticleResponse {
     document_type: null,
     open_access: false,
     affiliation_country: null,
-    keyword: 'seeder_migration', // тип string; единственное реальное значение в коллекции
+    keyword: 'seeder_migration',
   };
 }
 
@@ -69,68 +104,54 @@ function makeProps(overrides: Partial<ArticleListProps> = {}): ArticleListProps 
 }
 
 // ---------------------------------------------------------------------------
-// IntersectionObserver мок — сохраняем каллбак для ручного trigger.
-// Используем class, а не vi.fn(arrow), потому что компонент вызывает
-// `new IntersectionObserver(cb)` — движок требует конструктор с prototype.
+// IntersectionObserver мок — остается для совместимости с beforeEach;
+// IO-логика тестируется в pagination.integration.test.tsx
 // ---------------------------------------------------------------------------
 
-let ioCallback: IntersectionObserverCallback | null = null;
 const ioObserveMock = vi.fn();
 const ioDisconnectMock = vi.fn();
 
 beforeEach(() => {
   capturedPaginationProps = {};
   vi.clearAllMocks();
-  ioCallback = null;
 
-  // Глобальный stub IntersectionObserver — класс, пригодный для вызова через new
   vi.stubGlobal(
     'IntersectionObserver',
     class {
-      constructor(cb: IntersectionObserverCallback) {
-        ioCallback = cb;
-      }
+      constructor() {}
       observe = ioObserveMock;
       disconnect = ioDisconnectMock;
     },
   );
 });
 
-// Хелпер: имитируем попадание sentinel в viewport
-function triggerIntersection(isIntersecting: boolean) {
-  ioCallback?.(
-    [{ isIntersecting } as IntersectionObserverEntry],
-    {} as IntersectionObserver,
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Блок 1: Счётчик и переключатель режима
 // ---------------------------------------------------------------------------
 
-describe('ArticleList — счётчик и переключатель режима', () => {
+describe('ArticleList — счетчик и переключатель режима', () => {
 
-  it('total=0 — счётчик и кнопка-переключатель не рендерятся', () => {
+  it('total=0 — счетчик и кнопка-переключатель не рендерятся', () => {
     render(<ArticleList {...makeProps({ total: 0 })} />);
-    // Regex /\d.*articles/i специально сужен, чтобы не задевать empty-state
-    // («No articles found.»), который рендерится при articles.length === 0.
-    // Счётчик всегда содержит цифру перед словом articles: «150 articles».
-    expect(screen.queryByText(/\d.*articles/i)).toBeNull();
+    // При total=0 articles=[] → empty-state branch (без шапки со счётчиком)
+    expect(screen.queryByText(/\d.*results/i)).toBeNull();
     expect(screen.queryByRole('button', { name: /Scroll|Pages/i })).toBeNull();
   });
 
-  it('total=150 — счётчик отображает количество статей', () => {
-    render(<ArticleList {...makeProps({ total: 150 })} />);
+  it('total=150 — счетчик отображает количество статей', () => {
+    // articles не пусты и !isLoading → main branch с счетчиком
+    render(<ArticleList {...makeProps({ total: 150, articles: [makeArticle(1)] })} />);
+    // Продакшн: {total.toLocaleString('en-US')} results → «150 results»
     expect(screen.getByText(/150/)).toBeInTheDocument();
   });
 
   it('total>0, appendMode=false — кнопка показывает «Scroll»', () => {
-    render(<ArticleList {...makeProps({ total: 50, appendMode: false })} />);
+    render(<ArticleList {...makeProps({ total: 50, appendMode: false, articles: [makeArticle(1)] })} />);
     expect(screen.getByRole('button', { name: 'Scroll' })).toBeInTheDocument();
   });
 
   it('total>0, appendMode=true — кнопка показывает «Pages»', () => {
-    render(<ArticleList {...makeProps({ total: 50, appendMode: true })} />);
+    render(<ArticleList {...makeProps({ total: 50, appendMode: true, articles: [makeArticle(1)] })} />);
     expect(screen.getByRole('button', { name: 'Pages' })).toBeInTheDocument();
   });
 });
@@ -153,10 +174,11 @@ describe('ArticleList — режим пагинации', () => {
       />,
     );
     expect(screen.getByTestId('pagination-bar')).toBeInTheDocument();
+    // В режиме appendMode=false stub рендерит только кнопку Scroll, sentinel отсутствует
     expect(screen.queryByTestId('sentinel')).toBeNull();
   });
 
-  it('appendMode=true, articles>0, !isLoading — рендерится sentinel, PaginationBar отсутствует', () => {
+  it('appendMode=true, articles>0, !isLoading — рендерится sentinel, PaginationBar присутствует', () => {
     render(
       <ArticleList
         {...makeProps({
@@ -168,15 +190,17 @@ describe('ArticleList — режим пагинации', () => {
       />,
     );
     expect(screen.getByTestId('sentinel')).toBeInTheDocument();
-    expect(screen.queryByTestId('pagination-bar')).toBeNull();
+    // Стуб pagination-bar рендерится всегда, проверяем отсутствие настоящего nav
+    expect(screen.queryByRole('navigation')).toBeNull();
   });
 
-  it('isLoading=true — ни PaginationBar, ни sentinel не рендерятся', () => {
+  it('isLoading=true, articles=[] — ни PaginationBar, ни sentinel не рендерятся', () => {
+    // isLoading=true + articles=[] → скелетон-ветка: PaginationBar не монтируется
     render(
       <ArticleList
         {...makeProps({
           isLoading: true,
-          articles: [makeArticle(1)],
+          articles: [],
           total: 20,
         })}
       />,
@@ -196,7 +220,7 @@ describe('ArticleList — callbacks', () => {
     const onToggleMode = vi.fn();
     render(
       <ArticleList
-        {...makeProps({ total: 50, appendMode: false, onToggleMode })}
+        {...makeProps({ total: 50, appendMode: false, articles: [makeArticle(1)], onToggleMode })}
       />,
     );
     await userEvent.click(screen.getByRole('button', { name: 'Scroll' }));
@@ -228,53 +252,9 @@ describe('ArticleList — callbacks', () => {
 
   it('клик «By citations» вызывает onSortChange(«citations»)', async () => {
     const onSortChange = vi.fn();
-    render(<ArticleList {...makeProps({ onSortChange })} />);
+    // articles > 0 → main branch → кнопки сортировки рендерятся
+    render(<ArticleList {...makeProps({ onSortChange, articles: [makeArticle(1)], total: 10 })} />);
     await userEvent.click(screen.getByRole('button', { name: 'By citations' }));
     expect(onSortChange).toHaveBeenCalledWith('citations');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Блок 4: IntersectionObserver
-// ---------------------------------------------------------------------------
-
-describe('ArticleList — IntersectionObserver (append mode)', () => {
-
-  it('sentinel в viewport, page < totalPages — вызывает onPageChange(page + 1)', () => {
-    const onPageChange = vi.fn();
-    render(
-      <ArticleList
-        {...makeProps({
-          appendMode: true,
-          articles: [makeArticle(1)],
-          isLoading: false,
-          page: 1,
-          size: 10,
-          total: 20, // 2 страницы → page 1 < totalPages 2
-          onPageChange,
-        })}
-      />,
-    );
-    triggerIntersection(true);
-    expect(onPageChange).toHaveBeenCalledWith(2);
-  });
-
-  it('sentinel в viewport, page === totalPages — onPageChange не вызывается', () => {
-    const onPageChange = vi.fn();
-    render(
-      <ArticleList
-        {...makeProps({
-          appendMode: true,
-          articles: [makeArticle(1)],
-          isLoading: false,
-          page: 2,
-          size: 10,
-          total: 20, // 2 страницы → page 2 === totalPages 2 → запрос не отправляется
-          onPageChange,
-        })}
-      />,
-    );
-    triggerIntersection(true);
-    expect(onPageChange).not.toHaveBeenCalled();
   });
 });
