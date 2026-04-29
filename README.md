@@ -1,351 +1,250 @@
 # Scopus Search API
 
-[![Python Tests](https://github.com/HelgDemidov/scopus_search_code/actions/workflows/tests.yml/badge.svg)](https://github.com/HelgDemidov/scopus_search_code/actions/workflows/tests.yml)
+[![Backend Tests](https://github.com/HelgDemidov/scopus_search_code/actions/workflows/tests.yml/badge.svg)](https://github.com/HelgDemidov/scopus_search_code/actions/workflows/tests.yml)
+[![Frontend Tests](https://github.com/HelgDemidov/scopus_search_code/actions/workflows/frontend-tests.yml/badge.svg)](https://github.com/HelgDemidov/scopus_search_code/actions/workflows/frontend-tests.yml)
 
 Russian version: [README.ru.md](README.ru.md)
 
-Scopus Search API is a learning fullstack project for searching, saving, filtering, and visualizing academic publications from the Scopus database. The repository includes a FastAPI backend and a React/Vite frontend with a public article feed, a private user profile, an analytics Explore section, and live search via the Scopus API.
-
-The project is built around two scenarios: **accumulating a local database of publications** and **live search for new articles through Scopus**. The backend handles authentication, data access, aggregation, and Scopus integration; the frontend provides a user interface with search, charts, and protected user sections.
+**Scopus Search API** is a production fullstack service for searching, accumulating, and visualizing academic publications. It is built around integration with the global [Elsevier Scopus](https://www.scopus.com/) database. The service operates in two modes: **public search** over the thematic collection "AI & Neural Network Technologies" (no registration required) and **live search** across the full Scopus database (requires authentication).
 
 ---
 
-## What Is Implemented
+## Features
 
-### Backend
-
-- FastAPI application with `users`, `auth`, `articles`, and `health` routers
-- JWT authentication: access token (Bearer) + refresh token in an `httpOnly` cookie, token rotation
-- Registration, login, Google OAuth, user profile, password reset request
-- Public paginated retrieval of stored articles from PostgreSQL with ILIKE search
-- Public aggregated statistics over the accumulated article database
-- Private live search via Scopus API: `GET /articles/find` (authenticated users only)
-- Weekly per-user live search limit (200 requests); HTTP 429 when exceeded
-- `search_history` table: user search history with filters, timestamp, and result count
-- Private search history and quota endpoints: `GET /articles/history`, `GET /articles/find/quota`
-- Async stack: SQLAlchemy 2.0 + asyncpg + Alembic; repository pattern and DI
-
-### Frontend
-
-- React + TypeScript + Vite SPA; all UI text in Russian
-- Routes: `/`, `/explore`, `/profile`, `/auth`, `/article/:id`
-- **Home page:** behaviour depends on authentication status:
-  - anonymous user — search over the local thematic collection "Artificial Intelligence and Neural Network Technologies"
-  - authenticated user — live search via Scopus API (up to 25 articles per request)
-  - no filter sidebar on the home page
-- **Explore (`/explore`):** analytics in two modes — over the accumulated collection and over the user's personal searches; mode is switched by buttons and persisted in the `?mode=` URL parameter
-- **Profile (`/profile`):** search history with date, query, result count, and filter badges; client-side filtering by year, document type, Open Access, and country; weekly Scopus quota counter
-- **Auth page (`/auth`):** login, registration, Google OAuth
-- **Article page (`/article/:id`):** full publication detail card
-- Zustand stores: `authStore`, `articleStore`, `statsStore`, `historyStore`, `quotaStore`
-- Axios client with automatic access token refresh
-
-### Infrastructure
-
-- PostgreSQL 16 (Supabase)
-- Railway for application deployment
-- GitHub Actions: two CI jobs — `test` (SQLite) and `test-pg` (PostgreSQL 16 in a service container)
-- Docker / Docker Compose for local development
+| Mode | Functionality |
+|---|---|
+| **Without authentication** | Search and browse articles from the thematic collection (~39,500 publications); article detail cards; collection analytics |
+| **With authentication** | Live search in Scopus (up to 25 articles per request); search history with filtering; weekly quota counter; personal search analytics |
 
 ---
 
-## Technology Stack
+## Infrastructure and Stack
 
-### Backend
+```
+GitHub ──► Vercel (Frontend SPA)
+               │
+               ▼ REST API (HTTPS)
+          Railway (Backend FastAPI)
+               │
+               ▼ asyncpg / SQLAlchemy
+          Supabase (PostgreSQL 17)
 
-- Python 3.12+, FastAPI, SQLAlchemy 2.0 (async), Alembic, PostgreSQL 16 / Supabase
-- asyncpg, Pydantic v2, PyJWT, pwdlib / bcrypt / argon2, httpx
-
-### Frontend
-
-- React 19, TypeScript, Vite, React Router, Zustand, Axios
-- Recharts, shadcn/ui, Tailwind CSS, Zod, React Hook Form
-
-### DevOps and Infrastructure
-
-- Docker, Docker Compose, Railway, GitHub Actions
-- OpenRouter API (seeder search phrase generation)
-
----
-
-## Project Architecture
-
-The backend is structured as a multi-layer application with a clear separation of responsibilities.
-
-### Backend Application Layers
-
-1. **Routers** — accept HTTP requests, validate input, call services.
-2. **Services** — business logic of user scenarios.
-3. **Infrastructure / Repositories** — encapsulate access to PostgreSQL and external services.
-4. **Models** — ORM models of database tables.
-5. **Schemas** — Pydantic schemas for requests and responses.
-6. **Core** — security, DI, refresh-token utilities, configuration.
-
-### Repository Structure
-
-```text
-scopus_search_code/
-├── app/                              # Backend application
-│   ├── core/                         # Security, DI, refresh-token utilities
-│   ├── infrastructure/               # PostgreSQL repositories and Scopus client
-│   ├── interfaces/                   # Abstractions for repositories and external clients
-│   ├── models/                       # ORM models: article, user, refresh_token,
-│   │                                 #   seeder_keyword, search_history, base
-│   ├── routers/                      # HTTP endpoints: users, auth, articles, health
-│   ├── schemas/                      # Pydantic schemas: article, user, search_history
-│   └── services/                     # Business logic: article, search, search_history, user
-├── alembic/                          # Alembic migrations (PostgreSQL / Supabase)
-│   └── versions/                     # Revision files (0001–0005 + additional)
-├── db_seeder/                        # Automated database seeder
-│   └── seeder__scripts/
-│       ├── seed_db.py                # Orchestrator: login, Scopus requests, article storage
-│       └── keyword_generator.py     # LLM-based search phrase generator (OpenRouter)
-├── docs/                             # Docs: frontend tech spec, masks, project trees
-├── frontend/                         # React + TypeScript + Vite SPA client
-│   └── src/
-│       ├── api/                      # Axios client and API call functions
-│       ├── components/               # UI components (articles, charts, layout, profile, search, ui)
-│       ├── hooks/                    # Custom React hooks
-│       ├── pages/                    # Pages: Home, Explore, Profile, Auth, Article
-│       ├── stores/                   # Zustand stores: auth, articles, stats, history, quota
-│       └── types/                    # TypeScript types and API interfaces
-├── tests/
-│   ├── integration/                  # Integration tests (HTTP + DB + external clients)
-│   └── unit/                         # Unit tests (isolated business logic)
-├── .github/workflows/                # GitHub Actions: tests (SQLite + PG), seeder
-├── docker-compose.yml
-├── Dockerfile
-├── requirements.txt
-├── pyproject.toml                    # ruff, mypy, import-linter
-├── pytest.ini
-├── README.md
-└── README.ru.md
+GitHub Actions ──► db_seeder (daily cron)
+                       │
+                       ▼ POST /seeder/seed
+                  Railway (Backend)
 ```
 
-> The backend lives in `app/`, the frontend in `frontend/`.
-
----
-
-## Database and Models
-
-Active ORM models and their corresponding PostgreSQL tables:
-
-| Model | Table | Purpose |
+| Layer | Technology | Hosting |
 |---|---|---|
-| `User` | `users` | Service users |
-| `Article` | `articles` | Stored publications |
-| `RefreshToken` | `refresh_tokens` | Authentication refresh tokens |
-| `SeederKeyword` | `seeder_keywords` | Seeder search phrase history |
-| `SearchHistory` | `search_history` | User live-search history |
-
-<details>
-<summary>Details on the <code>search_history</code> table</summary>
-
-Columns: `id`, `user_id` (FK → `users.id` ON DELETE CASCADE), `query`, `created_at`, `result_count`, `filters` (JSONB, `default '{}'`).
-
-Composite index: `(user_id, created_at DESC)` — created by migration `0005_add_search_history.py`.
-
-A record is inserted only on a successful Scopus API response, within the same transaction as article storage. If Scopus returns an error, the record is not created (transaction rollback).
-
-</details>
+| **Frontend** | React 19, TypeScript, Vite, Zustand, Axios, Recharts, shadcn/ui, Tailwind CSS | Vercel |
+| **Backend** | Python 3.12, FastAPI, SQLAlchemy 2.0 async, Alembic, Pydantic v2, httpx, Authlib | Railway |
+| **Database** | PostgreSQL 17 (Supabase), Session Pooler | Supabase (eu-west-1) |
+| **CI/CD** | GitHub Actions (backend pytest + frontend Vitest) | GitHub |
+| **Seeder** | Python + httpx + asyncpg + OpenRouter LLM | GitHub Actions (cron) |
 
 ---
 
-## Backend Endpoints
+## Architecture
 
-### Users
+### Backend
 
-- `POST /users/register` — register a new user
-- `POST /users/login` — log in, return access token and set refresh token cookie
-- `GET /users/me` — retrieve the current user
-- `POST /users/password-reset-request` — request a password reset
+Multi-layer Clean Architecture with a clear separation of responsibilities:
 
-### Auth
+```
+app/
+├── routers/          # HTTP endpoints: articles, auth, users, health, seeder
+├── services/         # Business logic: SearchService, CatalogService,
+│                     #   SearchHistoryService, UserService
+├── infrastructure/   # PostgreSQL repositories + ScopusHTTPClient
+├── interfaces/       # ABC interfaces for repositories and clients
+├── models/           # SQLAlchemy ORM models (5 tables)
+├── schemas/          # Pydantic v2 request/response schemas
+├── core/             # DI, JWT, refresh-token utilities, dependencies
+├── config.py         # Pydantic Settings — single source of configuration
+└── main.py           # FastAPI app: middleware, routers, lifespan
+```
 
-- `GET /auth/google/login` — initiate the Google OAuth flow
-- `GET /auth/google/callback` — callback after Google authorization
-- `POST /auth/refresh` — refresh the access token using the refresh token cookie
-- `POST /auth/logout` — revoke the refresh token and clear the cookie
+### Frontend
 
-### Articles
+React SPA with routing via React Router and global state via Zustand:
 
-- `GET /articles/` — public paginated article list; supports `keyword` (seeder field filter) and `search` (ILIKE over title / author)
-- `GET /articles/stats` — aggregated statistics over the accumulated database (public)
-- `GET /articles/search/stats` — statistics for a specific search query (private)
-- `GET /articles/find` — live search in Scopus API, up to 25 results; saves articles and a `search_history` record; enforces the weekly quota (private)
-- `GET /articles/history` — current user's search history, up to 100 records (private)
-- `GET /articles/find/quota` — weekly quota usage: `limit`, `used`, `remaining`, `reset_at` (private)
-- `GET /articles/{article_id}` — retrieve one article by id (public)
-
-### Health
-
-- `GET /health` — health check
-
-<details>
-<summary>Quota and concurrent access details</summary>
-
-The weekly limit is 200 live searches per user. When exceeded, the endpoint returns HTTP 429 without calling Scopus and without inserting a history record.
-
-To prevent race conditions on concurrent requests from the same user, `pg_advisory_xact_lock(user_id)` is called before the quota check. The lock is acquired and released within the same transaction, ensuring the 201st request receives a 429 even under parallel access.
-
-</details>
+```
+frontend/src/
+├── api/              # Axios client (client.ts) + articles, auth, stats, users modules
+├── stores/           # articleStore, authStore, historyStore, quotaStore, statsStore
+├── pages/            # HomePage, ExplorePage, ProfilePage, AuthPage,
+│                     #   ArticlePage, OAuthCallback
+├── components/       # articles/, charts/, layout/, profile/, search/, ui/
+├── hooks/            # usePagination and other custom hooks
+└── types/            # TypeScript types and API interfaces
+```
 
 ---
 
-## Frontend: Key Scenarios
+## API Endpoints
 
-### Home Page `/`
+### Public
 
-Behaviour depends on authentication status. There is no filter sidebar on the home page.
-
-**Anonymous user** sees a banner:
-> "Search without authentication is performed over the thematic collection 'Artificial Intelligence and Neural Network Technologies'. To search the global Scopus database, please log in."
-
-Search is performed via `GET /articles/` against the local database.
-
-**Authenticated user** sees a banner:
-> "Live Scopus search results are limited to 25 articles per request."
-
-Search is performed via `GET /articles/find` (Scopus API, live results). When the quota is exhausted (HTTP 429 from the backend), a toast notification is shown: "Weekly search limit reached".
-
-### Explore `/explore`
-
-The section operates in two modes, toggled by buttons; the mode is persisted in the `?mode=` URL parameter.
-
-| Mode | Data | Access |
+| Method | Path | Description |
 |---|---|---|
-| By collection (default) | `GET /articles/stats` — aggregates over the accumulated database | everyone |
-| By my searches | client-side aggregation of `historyStore` over user history | authenticated only |
+| `GET` | `/articles/` | Paginated list from the thematic collection (`page`, `size`, `keyword`, `search`) |
+| `GET` | `/articles/stats` | Aggregated collection statistics (by year, journal, country, type) |
+| `GET` | `/articles/{id}` | Article detail card |
+| `GET` | `/health` | Health check |
 
-KPIs in "By my searches" mode: number of queries, total articles found, number of countries and document types. The mode switcher is only visible to authenticated users; anonymous users always see the "By collection" mode.
+### Authentication
 
-### Profile `/profile`
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/users/register` | Register by email/password |
+| `POST` | `/users/login` | Log in; returns AT, sets RT cookie |
+| `GET` | `/users/me` | Current user profile |
+| `GET` | `/auth/google/login` | Initiate Google OAuth flow |
+| `GET` | `/auth/google/callback` | OAuth callback; redirects to frontend with token |
+| `POST` | `/auth/refresh` | Exchange RT cookie for new AT + RT rotation |
+| `POST` | `/auth/logout` | Revoke RT, clear cookie |
 
-On mount, the page loads search history (`GET /articles/history`) and quota (`GET /articles/find/quota`).
+### Private (require JWT)
 
-**`LiveSearchQuotaCounter`** — displays `limit`, `used`, `remaining`, and the `reset_at` date as four cells.
-
-**`SearchHistoryList`** — list of records with query, date, result count, and filter badges. Supports client-side filtering by year, document type, Open Access, and affiliation country. The "Go to analytics by my searches" link leads to `/explore?mode=personal`.
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/articles/find` | Live search in Scopus (up to 25 articles); checks quota; saves articles and history |
+| `GET` | `/articles/find/quota` | Weekly quota status: `limit`, `used`, `remaining`, `reset_at` |
+| `GET` | `/articles/history` | User search history (up to 100 records) |
+| `GET` | `/articles/search/stats` | Aggregates over personal search articles |
 
 <details>
-<summary>Client-side filter architecture (historyStore / articleStore)</summary>
+<summary>Quota and concurrent access</summary>
 
-Server-side filters (`keyword`, `search`) are stored in `articleStore`. Client-side filters (`yearFrom`, `yearTo`, `docTypes`, `openAccessOnly`, `countries`) are stored in `historyStore` as `HistoryFilters`. `articleStore.fetchArticles()` applies client-side filters to the loaded page via `applyClientFilters()`, reading them from `historyStore.getState()`.
+The limit is **200 live searches / 7 days** (sliding window) per user. When exceeded — HTTP 429, Scopus is not called, no history record is created.
 
-After a successful live search, `articleStore.searchScopusLive()` updates `quotaStore` via `fetchQuota()` (fire-and-forget, does not block search completion).
+To prevent race conditions on concurrent requests from the same user, `pg_advisory_xact_lock(user_id)` is acquired before the quota check and released with the transaction. This guarantees correct handling even under simultaneous requests.
+
+Scopus rate limit headers (`X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`) are proxied in the response to the frontend.
 
 </details>
+
+---
+
+## Database
+
+Current migration version: `0007_drop_article_legacy_columns`.
+
+| Table | Purpose | Records (prod) |
+|---|---|---|
+| `articles` | Normalized Scopus publication registry | ~39,800 |
+| `catalog_articles` | Thematic collection membership (seeder keyword) | ~39,500 |
+| `search_history` | User live-search history (JSONB `filters`) | ~14 |
+| `search_result_articles` | Junction table: search → articles with `rank` | ~350 |
+| `seeder_keywords` | Used seeder phrases with clusters and timestamps | ~4,750 |
+| `users` | Service users | ~9 |
+| `refresh_tokens` | Active refresh tokens with rotation support | ~133 |
 
 ---
 
 ## Authentication and Security
 
-- **Access token** — short-lived Bearer JWT.
-- **Refresh token** — stored in an `httpOnly` cookie, rotation is supported.
-- Private endpoints (`/articles/find`, `/articles/history`, `/articles/find/quota`, `/articles/search/stats`) are protected by the `get_current_user` dependency.
+- **Access Token** — Bearer JWT, lives 30 minutes, stored in `localStorage`.
+- **Refresh Token** — stored in an `httpOnly; Secure; SameSite=None` cookie (30 days); rotation is supported on every `/auth/refresh` call. Revocation via `/auth/logout`.
+- **Silent refresh** — Axios interceptor on the frontend catches 401, calls `POST /auth/refresh` exactly once (Promise singleton prevents race condition), then retries the original request.
+- **Google OAuth** — Authlib + Starlette SessionMiddleware; state stored in a signed cookie — CSRF protection.
+- **CSRF guard** on `/auth/refresh` — `X-Requested-With: XMLHttpRequest` header is required.
+- **CORS** — strict list of origins from `ALLOWED_ORIGINS`; wildcard `*` with `credentials: true` is not used.
+- **Seeder** — authenticated via static `X-Seeder-Secret` header (not a user JWT).
+- Sensitive fields (`input`) are stripped from Pydantic 422 responses via a custom exception handler.
 
 ---
 
 ## Automated Seeder
 
-The seeder regularly populates the local article database via GitHub Actions, operating under a dedicated service user account.
+A daily GitHub Actions workflow populates the thematic collection without consuming user quota.
 
-**How it works:**
-1. Log in to the application, obtain a JWT.
-2. Read already-used phrases from `seeder_keywords`.
-3. Generate new search phrases via the OpenRouter API (LLM).
-4. Sequentially send requests to `GET /articles/find`.
-5. Save articles and record used phrases in `seeder_keywords`.
+**Algorithm:**
+1. Determine the thematic cluster for the day (rotating schedule).
+2. Read already-used phrases for the active cluster from `seeder_keywords`.
+3. Generate up to 120 new unique search phrases via OpenRouter API (LLM).
+4. Call `POST /seeder/seed` on the Railway backend for each phrase.
+5. The backend queries Scopus, atomically saves articles to `articles` + `catalog_articles`, returns `rate_remaining`.
+6. The seeder records the result in `seeder_keywords` and stops when `rate_remaining < 500`.
 
-This allows the project to accumulate a publication database automatically without consuming the per-user weekly quota.
+<details>
+<summary>Seeder configuration</summary>
 
----
+Environment variables read by the seeder: `DATABASE_URL`, `SEEDER_SECRET`, `OPENROUTER_API_KEY`, `SEEDER_BASE_URL`.
 
-## Cloud Database (Supabase)
+Parameters in `seed_db.py`: `ARTICLES_PER_QUERY = 25`, `DELAY_BETWEEN_REQUESTS = 2.0` sec, `KEYWORDS_TO_USE = 120`, `RATE_LIMIT_STOP_THRESHOLD = 500`.
 
-The project connects to PostgreSQL via the `DATABASE_URL` environment variable. Two connection modes are used:
+Supabase connection via `asyncpg` with `statement_cache_size=0` (required for PgBouncer transaction mode).
 
-- **Session Pooler** — for the FastAPI application (SQLAlchemy + asyncpg).
-- **Transaction Pooler** — for the seeder (short-lived connections).
-
-Tests do not use Supabase: unit tests run on SQLite in-memory; integration PostgreSQL tests (marked `@pytest.mark.requires_pg`) run against a PostgreSQL 16 service container in GitHub Actions.
+</details>
 
 ---
 
 ## Testing
 
-The project is covered by unit and integration tests using `pytest` + `pytest-asyncio`.
+**Backend:** `pytest` + `pytest-asyncio`; all tests green.
+
+| File | Type | Coverage |
+|---|---|---|
+| `test_find_articles.py` | Integration (SQLite) | `/articles/find`, quota, history |
+| `test_find_articles_postgres.py` | Integration (PG) | `pg_advisory_xact_lock`, parallel requests |
+| `test_search_history_api.py` | Integration | History, filters, aggregates |
+| `test_article_by_id.py` | Integration | Detail card, public access |
+| `test_article_by_id_e2e.py` | E2E (Staging) | Real backend + Supabase staging |
+| `test_rt_e2e.py` / `test_rt_edge_cases.py` | E2E / Integration | RT rotation, logout, edge cases |
+| `test_articles_api.py` / `test_articles_headers.py` | Integration | Pagination, Rate Limit headers |
+| `test_users_api.py` | Integration | Registration, login, profile |
+
+**Frontend:** Vitest; **92/92 tests** green (unit + integration).
 
 <details>
-<summary>What is tested</summary>
-
-- Service logic: users, search, search history (`SearchHistoryService`).
-- Routes `/users` and `/articles` (including `find`, `history`, `find/quota`).
-- Repository: `FakeSearchHistoryRepository` (9 unit tests), `PostgresSearchHistoryRepository` (9 integration tests, `requires_pg`).
-- Concurrent access and `pg_advisory_xact_lock` (3 PG tests: "exactly one slot", lock isolation across different users).
-- Authentication scenarios; operation without connecting to the real Supabase database.
-
-</details>
-
-### Running the Tests
+<summary>Running the tests</summary>
 
 ```bash
-# SQLite tests only (no PostgreSQL required)
+# Backend — SQLite only (no PostgreSQL required)
 pytest tests -vv -m "not requires_pg"
 
-# All tests (PostgreSQL required)
+# Backend — all tests (PostgreSQL required)
 pytest tests -vv
+
+# Frontend
+cd frontend
+npm run test
 ```
 
----
-
-## Environment Configuration
-
-Create a `.env` file based on `.env.example`:
-
-```env
-SCOPUS_API_KEY=YOUR_SCOPUS_API_KEY
-DATABASE_URL=postgresql+asyncpg://user:password@your-instance.example.com:5432/postgres
-SECRET_KEY=YOUR_SECRET_KEY
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-
-GOOGLE_CLIENT_ID=YOUR_GOOGLE_CLIENT_ID
-GOOGLE_CLIENT_SECRET=YOUR_GOOGLE_CLIENT_SECRET
-GOOGLE_REDIRECT_URI=https://your-instance.example.com/auth/google/callback
-FRONTEND_URL=http://localhost:5173
-
-# Seeder only
-SEEDER_EMAIL=user@example.com
-SEEDER_PASSWORD=YOUR_SEEDER_PASSWORD
-OPENROUTER_API_KEY=YOUR_OPENROUTER_API_KEY
-```
-
-> Before publishing, scan the README and `.env.example` for real domains, email addresses, tokens, and any secret-like strings — replace all such values with neutral placeholders.
+</details>
 
 ---
 
 ## Local Launch
 
-### Backend via Docker Compose
+<details>
+<summary>Backend via Docker Compose</summary>
 
 ```bash
 docker compose up --build
 ```
 
-API: `http://localhost:8000` · Swagger UI: `http://localhost:8000/docs`
+API: `http://localhost:8000` · Swagger: `http://localhost:8000/docs`
 
-### Backend without Docker
+</details>
+
+<details>
+<summary>Backend without Docker</summary>
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-# configure .env
+# Configure .env based on .env.example
 alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-### Frontend
+</details>
+
+<details>
+<summary>Frontend</summary>
 
 ```bash
 cd frontend
@@ -354,23 +253,32 @@ npm run dev
 # http://localhost:5173
 ```
 
----
+Frontend environment variables go in `frontend/.env.local`:
+```
+VITE_API_BASE_URL=http://localhost:8000
+```
 
-## Requirements Compliance
+</details>
 
 <details>
-<summary>Original requirements and their status</summary>
+<summary>Environment variables (.env.example)</summary>
 
-The original requirements called for: user registration and authentication, retrieving the current user, Scopus API integration, storing publications in PostgreSQL, a public paginated article list, Swagger documentation, Docker Compose setup, and a README. All completed.
+| Variable | Description |
+|---|---|
+| `SCOPUS_API_KEY` | Elsevier API key (dev.elsevier.com) |
+| `DATABASE_URL` | Supabase Session Pooler connection string (asyncpg) |
+| `SECRET_KEY` | JWT signing secret |
+| `ALGORITHM` | JWT algorithm (HS256) |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Access token TTL (30) |
+| `SESSION_SECRET_KEY` | Starlette SessionMiddleware secret (OAuth state) |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+| `OAUTH_REDIRECT_URI` | Callback URI for Google OAuth |
+| `FRONTEND_URL` | Frontend URL (CORS + OAuth redirect) |
+| `ALLOWED_ORIGINS` | Comma-separated list of allowed CORS origins |
+| `SEEDER_SECRET` | Static secret for `X-Seeder-Secret` header |
+| `OPENROUTER_API_KEY` | OpenRouter API key (seeder phrase generation) |
 
-**Implemented beyond the original requirements:**
-- React/Vite frontend with a full UI in Russian
-- Private live Scopus search with a weekly limit and search history
-- Explore section with analytics charts (two modes: collection / personal searches)
-- User profile: search history, filtering, quota counter
-- Refresh token flow via `httpOnly` cookie, token rotation
-- Google OAuth
-- Automated article database seeder via GitHub Actions
-- CI with two test environments: SQLite and PostgreSQL 16
+> **Before publishing:** scan the README and `.env.example` for real domains, email addresses, tokens, and any secret-like strings — replace all such values with neutral placeholders.
 
 </details>
