@@ -11,6 +11,7 @@ import {
 } from '../stores/historyStore';
 import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
+import { ErrorBoundary } from '../components/ui/ErrorBoundary';
 
 // Charts are lazy-loaded: Tremor/Recharts do not land in the main ExplorePage chunk
 const DocumentTypesChart = lazy(() =>
@@ -32,6 +33,24 @@ function ChartsSkeleton() {
       {Array.from({ length: 4 }).map((_, i) => (
         <Skeleton key={i} className="h-64 w-full rounded-xl" />
       ))}
+    </div>
+  );
+}
+
+// Специализированный fallback для чартов: перезагрузка страницы,
+// а не setState-сброс — lazy-chunk может быть закеширован в сломанном состоянии
+function ChartErrorFallback() {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-8 text-center">
+      <p className="text-sm text-slate-500 dark:text-slate-400">
+        Charts failed to load.
+      </p>
+      <button
+        onClick={() => window.location.reload()}
+        className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+      >
+        Reload page
+      </button>
     </div>
   );
 }
@@ -177,28 +196,30 @@ export default function ExplorePage() {
         )}
       </div>
 
-      {/* Charts */}
-      {showCollectionLoading || showPersonalLoading ? (
-        <ChartsSkeleton />
-      ) : mode === 'personal' && personalData ? (
-        <Suspense fallback={<ChartsSkeleton />}>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <PublicationsByYearChart data={personalData.by_year} isLoading={false} />
-            <DocumentTypesChart data={personalData.by_doc_type} isLoading={false} />
-            <TopCountriesChart data={personalData.by_country} isLoading={false} />
-            <TopJournalsChart data={personalData.by_journal} isLoading={false} />
-          </div>
-        </Suspense>
-      ) : mode === 'collection' && stats ? (
-        <Suspense fallback={<ChartsSkeleton />}>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <PublicationsByYearChart data={stats.by_year} isLoading={false} />
-            <DocumentTypesChart data={stats.by_doc_type} isLoading={false} />
-            <TopCountriesChart data={stats.by_country} isLoading={false} />
-            <TopJournalsChart data={stats.by_journal} isLoading={false} />
-          </div>
-        </Suspense>
-      ) : null}
+      {/* Charts — изолированы в ErrorBoundary: падение чарта не роняет всю страницу */}
+      <ErrorBoundary fallback={<ChartErrorFallback />}>
+        {showCollectionLoading || showPersonalLoading ? (
+          <ChartsSkeleton />
+        ) : mode === 'personal' && personalData ? (
+          <Suspense fallback={<ChartsSkeleton />}>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <PublicationsByYearChart data={personalData.by_year} isLoading={false} />
+              <DocumentTypesChart data={personalData.by_doc_type} isLoading={false} />
+              <TopCountriesChart data={personalData.by_country} isLoading={false} />
+              <TopJournalsChart data={personalData.by_journal} isLoading={false} />
+            </div>
+          </Suspense>
+        ) : mode === 'collection' && stats ? (
+          <Suspense fallback={<ChartsSkeleton />}>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <PublicationsByYearChart data={stats.by_year} isLoading={false} />
+              <DocumentTypesChart data={stats.by_doc_type} isLoading={false} />
+              <TopCountriesChart data={stats.by_country} isLoading={false} />
+              <TopJournalsChart data={stats.by_journal} isLoading={false} />
+            </div>
+          </Suspense>
+        ) : null}
+      </ErrorBoundary>
 
       {/* CTA banner for anonymous users */}
       {!isAuthenticated && (
