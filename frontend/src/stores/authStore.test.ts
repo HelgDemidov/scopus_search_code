@@ -6,7 +6,9 @@ import { act } from 'react';
 // ---------------------------------------------------------------------------
 
 // Мок серверного logout — разрывает циклическую зависимость store ← api/auth ← client ← store
-const mockServerLogout = vi.fn().mockResolvedValue(undefined);
+// vi.hoisted гарантирует, что mockServerLogout инициализирован до того,
+// как Vitest поднимает vi.mock в начало файла (обход TDZ)
+const mockServerLogout = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 vi.mock('../api/auth', () => ({
   serverLogout: mockServerLogout,
   login: vi.fn(),
