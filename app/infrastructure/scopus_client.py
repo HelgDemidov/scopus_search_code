@@ -1,3 +1,4 @@
+import logging
 from datetime import date
 from typing import List, Optional
 
@@ -6,6 +7,8 @@ import httpx
 from app.config import settings
 from app.models.article import Article
 from app.interfaces.search_client import ISearchClient
+
+logger = logging.getLogger(__name__)
 
 # Базовый URL Scopus Search API
 SCOPUS_BASE_URL = "https://api.elsevier.com/content/search/scopus"
@@ -29,16 +32,33 @@ SCOPUS_FIELDS = (
     "citedby-count,subtypeDescription,openaccess,affiliation"
 )
 
+# Маппинг: human-readable метка из UI → код типа документа в CQL Scopus
+# Источник: https://dev.elsevier.com/tips/ScopusSearchTips.htm (DOCTYPE)
+_DOC_TYPE_MAP: dict[str, str] = {
+    "Article": "ar",
+    "Review": "re",
+    "Conference Paper": "cp",
+    "Book": "bk",
+    "Book Chapter": "ch",
+    "Letter": "le",
+    "Editorial": "ed",
+    "Note": "no",
+    "Short Survey": "sh",
+}
+
 
 class ScopusHTTPClient(ISearchClient):
     # Принимаем готовый httpx.AsyncClient снаружи (Dependency Injection).
     # Клиент создается один раз внутри get_scopus_client и живет один запрос.
     # _last_rate_* — backing fields для @property, реализующих контракт ISearchClient.
+    # _last_cql_query — последний сформированный CQL-запрос; используется
+    #   SearchService для сохранения в search_history.filters.
     def __init__(self, http_client: httpx.AsyncClient):
         self._client = http_client
         self._last_rate_limit: Optional[str] = None
         self._last_rate_remaining: Optional[str] = None
         self._last_rate_reset: Optional[str] = None
+        self._last_cql_query: Optional[str] = None
 
     @property
     def last_rate_limit(self) -> Optional[str]:
@@ -52,11 +72,83 @@ class ScopusHTTPClient(ISearchClient):
     def last_rate_reset(self) -> Optional[str]:
         return self._last_rate_reset
 
-    async def search(self, keyword: str, count: int = 25) -> List[Article]:
+    @property
+    def last_cql_query(self) -> Optional[str]:
+        # Возвращает CQL-строку последнего вызова search().
+        # None, если search() ещё не вызывался на этом экземпляре.
+        return self._last_cql_query
+
+    def _build_query(self, keyword: str, filters: dict | None) -> str:
+        """Строит CQL-запрос Scopus из ключевого слова и опциональных фильтров.
+
+        Правила построения (ТЗ §3.1 Слой 2):
+          - Базовый предикат: TITLE-ABS-KEY("{keyword}")
+          - year_from  → AND PUBYEAR > {year_from - 1}
+          - year_to    → AND PUBYEAR < {year_to + 1}
+          - doc_types  → AND DOCTYPE(ar,re,...) через _DOC_TYPE_MAP
+          - open_access → AND OA(1)
+          - country    → AND AFFILCOUNTRY("United States",Russia,...)
+        Многословные страны оборачиваются в кавычки; однословные — без.
+        Неизвестные doc_type-значения передаются as-is в lowercase + WARNING.
+        """
+        # Ключевое слово всегда оборачиваем в кавычки для точного CQL-матча
+        parts: list[str] = [f'TITLE-ABS-KEY("{keyword}")']
+
+        if not filters:
+            return parts[0]
+
+        # Диапазон годов публикации
+        if (year_from := filters.get("year_from")) is not None:
+            parts.append(f"PUBYEAR > {int(year_from) - 1}")
+        if (year_to := filters.get("year_to")) is not None:
+            parts.append(f"PUBYEAR < {int(year_to) + 1}")
+
+        # Типы документов: маппинг через _DOC_TYPE_MAP; неизвестные — as-is lowercase
+        if doc_types := filters.get("doc_types"):
+            codes: list[str] = []
+            for dt in doc_types:
+                if not dt:
+                    continue
+                code = _DOC_TYPE_MAP.get(dt)
+                if code is None:
+                    logger.warning(
+                        "Unknown doc_type value '%s'; passing as-is to Scopus CQL", dt
+                    )
+                    code = dt.lower()
+                codes.append(code)
+            if codes:
+                parts.append(f"DOCTYPE({','.join(codes)})")
+
+        # Open Access
+        if filters.get("open_access"):
+            parts.append("OA(1)")
+
+        # Страны аффиляции: многословные — в кавычках, однословные — без
+        if countries := filters.get("country"):
+            formatted: list[str] = []
+            for c in countries:
+                if not c:
+                    continue
+                formatted.append(f'"{c}"' if " " in c else c)
+            if formatted:
+                parts.append(f"AFFILCOUNTRY({','.join(formatted)})")
+
+        return " AND ".join(parts)
+
+    async def search(
+        self,
+        keyword: str,
+        count: int = 25,
+        filters: dict | None = None,
+    ) -> List[Article]:
         page_size = min(count, 25)
 
+        # Строим CQL-запрос с фильтрами и сохраняем для SearchService
+        cql_query = self._build_query(keyword, filters)
+        self._last_cql_query = cql_query
+
         params = {
-            "query": f"TITLE-ABS-KEY({keyword})",
+            "query": cql_query,
             "count": page_size,
             "field": SCOPUS_FIELDS,
             "apiKey": settings.SCOPUS_API_KEY,
