@@ -1,0 +1,20 @@
+name: Keep Alive – Ping /health/db
+
+on:
+  schedule:
+    - cron: '*/14 * * * *'  # every 14 minutes to prevent Railway sleep (~15 min timeout)
+  workflow_dispatch:          # manual trigger available in GitHub Actions UI
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /health/db (GET – wakes DB connection)
+        run: |
+          curl -f -X GET https://scopus-search-code.up.railway.app/health/db
+          echo "DB health status: $?"
+
+      - name: Ping /health (GET – smoke check, no DB)
+        run: |
+          curl -f -X GET https://scopus-search-code.up.railway.app/health
+          echo "App health status: $?"
