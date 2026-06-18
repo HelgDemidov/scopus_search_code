@@ -25,7 +25,7 @@ function PageFallback() {
   );
 }
 
-// Обёртка для ленивой загрузки страниц — code splitting через React.lazy + Suspense
+// Обертка для ленивой загрузки страниц — code splitting через React.lazy + Suspense
 function lazyPage(factory: () => Promise<{ default: React.ComponentType }>) {
   const Component = lazy(factory);
   return (
@@ -75,7 +75,7 @@ const router = createBrowserRouter([
       // Страница статьи — публичная, доступна без авторизации
       { path: 'article/:id',   element: ArticlePage },
       {
-        // Защищённые маршруты через PrivateRoute
+        // Защищенные маршруты через PrivateRoute
         element: <PrivateRoute />,
         children: [
           { path: 'profile', element: ProfilePage },
@@ -113,7 +113,7 @@ export default function App() {
           fetchUser();
         })
         .catch(() => {
-          // RT отсутствует или истёк — очищаем устаревший AT из localStorage
+          // RT отсутствует или истек — очищаем устаревший AT из localStorage
           localStorage.removeItem('access_token');
         })
         .finally(() => {
@@ -122,18 +122,24 @@ export default function App() {
     );
 
     // Слушаем успешный silent refresh от response interceptor.
-    // Вызываем setToken + fetchUser: без этого authStore.user остаётся null
-    // и ProfilePage бесконечно показывает skeleton после истечения AT mid-session
+    // fetchUser вызывается только если user === null — предотвращает гонку
+    // состояний при RT-ротации mid-session: без этого guard'а повторный
+    // GET /users/me запускал второй POST /auth/refresh через interceptor,
+    // что роняло страницы /profile и /explore.
     const handleTokenRefresh = (e: Event) => {
       const newToken = (e as CustomEvent<string>).detail;
       if (newToken) {
         setToken(newToken);
-        fetchUser();
+        // Загружаем user только если он ещё не был загружен —
+        // в нормальном mid-session сценарии user уже присутствует в сторе
+        if (!useAuthStore.getState().user) {
+          fetchUser();
+        }
       }
     };
     window.addEventListener('auth:token-refreshed', handleTokenRefresh);
 
-    // Слушаем принудительный logout от response interceptor (RT истёк mid-session).
+    // Слушаем принудительный logout от response interceptor (RT истек mid-session).
     // logout() очищает стор + localStorage → isAuthenticated: false →
     // PrivateRoute редиректит на /auth через React Router без hard reload
     const handleLogoutRequired = () => { logout(); };

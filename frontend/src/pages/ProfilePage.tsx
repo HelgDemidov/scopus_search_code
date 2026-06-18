@@ -64,9 +64,13 @@ export default function ProfilePage() {
   }, [isAuthenticated, navigate]);
 
   useEffect(() => {
+    // Guard: не запускать приватные запросы до подтверждения аутентификации.
+    // PrivateRoute гарантирует isAuthenticated=true при монтировании,
+    // но явная проверка защищает от edge-case при быстрой смене состояния
+    if (!isAuthenticated) return;
     fetchQuota();
     fetchHistory();
-  }, [fetchQuota, fetchHistory]);
+  }, [isAuthenticated, fetchQuota, fetchHistory]);
 
   function handleSignOut() {
     logout();

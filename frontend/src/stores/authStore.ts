@@ -15,6 +15,9 @@ interface AuthStore {
   // Флаг гидрации: true пока приложение не завершило проверку сессии на старте.
   // PrivateRoute показывает spinner вместо редиректа, пока isHydrating === true
   isHydrating: boolean;
+  // Флаг защиты от параллельных вызовов GET /users/me —
+  // предотвращает дублирующий запрос при одновременном фаст-пути и silent refresh
+  isFetchingUser: boolean;
 
   // Экшены
   setToken: (token: string) => void;
@@ -28,13 +31,14 @@ interface AuthStore {
 // localStorage будет убран в Commit 3; пока сохраняем для совместимости.
 const _initialToken = localStorage.getItem('access_token');
 
-export const useAuthStore = create<AuthStore>((set) => ({
+export const useAuthStore = create<AuthStore>((set, get) => ({
   // Синхронная инициализация — токен извлекаем до первого рендера
   token: _initialToken,
   isAuthenticated: !!_initialToken,
   user: null,
   // Гидрация начинается при монтировании App; завершается в finally refreshAccessToken
   isHydrating: true,
+  isFetchingUser: false,
 
   // Сохраняем токен и в localStorage, и в стор одновременно.
   setToken: (token: string) => {
@@ -45,6 +49,11 @@ export const useAuthStore = create<AuthStore>((set) => ({
   // Запрашиваем профиль текущего пользователя через GET /users/me.
   // Вызывается после setToken (OAuth callback, login, hydration)
   fetchUser: async () => {
+    // Предотвращаем параллельные запросы GET /users/me:
+    // фаст-путь и silent refresh в App.tsx вызывают fetchUser почти одновременно —
+    // первый вызов устанавливает флаг, второй возвращается без запроса
+    if (get().isFetchingUser) return;
+    set({ isFetchingUser: true });
     try {
       const user: UserResponse = await getMe();
       set({
@@ -57,6 +66,9 @@ export const useAuthStore = create<AuthStore>((set) => ({
       });
     } catch {
       // 401 перехватит axios response interceptor → silent refresh или logout
+    } finally {
+      // Гарантированный сброс флага при любом исходе запроса
+      set({ isFetchingUser: false });
     }
   },
 
