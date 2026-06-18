@@ -62,8 +62,8 @@ export default function HomePage() {
     isLoading,
     isLiveSearching,
     error,
-    filters,
-    // Поля стора для анонимной / каталожной пагинации
+    // filters не деструктурируется: handleSearch использует только setFilters,
+    // прямое чтение filters в компоненте не требуется
     page,
     size,
     total,
