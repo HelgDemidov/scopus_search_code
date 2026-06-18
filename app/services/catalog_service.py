@@ -30,11 +30,21 @@ class CatalogService:
         size: int,
         keyword: str | None = None,
         search: str | None = None,
+        year_from: int | None = None,
+        year_to: int | None = None,
+        doc_types: list[str] | None = None,
+        open_access: bool | None = None,
+        countries: list[str] | None = None,
     ) -> PaginatedArticleResponse:
         """Пагинированный список статей каталога с опциональными фильтрами.
 
-        keyword: точное совпадение по ключевому слову сидера.
-        search:  ILIKE-поиск по title/author.
+        keyword:     точное совпадение по ключевому слову сидера.
+        search:      ILIKE-поиск по title/author.
+        year_from:   год публикации >= year_from.
+        year_to:     год публикации <= year_to.
+        doc_types:   фильтр по типам документов (список).
+        open_access: True — только OA; False — только не-OA; None — все.
+        countries:   фильтр по странам аффилиации (список).
         """
         # Защита от некорректных значений пагинации
         if page < 1:
@@ -45,11 +55,27 @@ class CatalogService:
         limit = size
         offset = (page - 1) * size
 
-        # Два параллельных запроса: данные + COUNT (одинаковые WHERE-условия)
+        # Два запроса с идентичными фильтрами: данные + COUNT для пагинации
         db_articles = await self.catalog_repo.get_all(
-            limit=limit, offset=offset, keyword=keyword, search=search
+            limit=limit,
+            offset=offset,
+            keyword=keyword,
+            search=search,
+            year_from=year_from,
+            year_to=year_to,
+            doc_types=doc_types,
+            open_access=open_access,
+            countries=countries,
         )
-        total = await self.catalog_repo.get_total_count(keyword=keyword, search=search)
+        total = await self.catalog_repo.get_total_count(
+            keyword=keyword,
+            search=search,
+            year_from=year_from,
+            year_to=year_to,
+            doc_types=doc_types,
+            open_access=open_access,
+            countries=countries,
+        )
 
         # ORM-объекты → Pydantic-схемы
         article_responses = [

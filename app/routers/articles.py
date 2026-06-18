@@ -86,10 +86,38 @@ async def get_articles(
         None, min_length=2,
         description="Fulltext-поиск по названию и первому автору (ILIKE, без учета регистра)",
     ),
+    year_from: int | None = Query(
+        None, ge=1900, le=2100,
+        description="Фильтр: год публикации от (включительно)",
+    ),
+    year_to: int | None = Query(
+        None, ge=1900, le=2100,
+        description="Фильтр: год публикации до (включительно)",
+    ),
+    doc_types: list[str] | None = Query(
+        None,
+        description="Фильтр: типы документов (можно несколько: ?doc_types=Article&doc_types=Review)",
+    ),
+    open_access: bool | None = Query(
+        None,
+        description="Фильтр: True — только open-access; False — только закрытые; без параметра — все",
+    ),
+    countries: list[str] | None = Query(
+        None,
+        description="Фильтр: страны аффилиации (можно несколько: ?countries=Germany&countries=France)",
+    ),
     service: CatalogService = Depends(get_catalog_service),
 ) -> PaginatedArticleResponse:
     return await service.get_catalog_paginated(
-        page=page, size=size, keyword=keyword, search=search
+        page=page,
+        size=size,
+        keyword=keyword,
+        search=search,
+        year_from=year_from,
+        year_to=year_to,
+        doc_types=doc_types,
+        open_access=open_access,
+        countries=countries,
     )
 
 
@@ -140,20 +168,18 @@ async def find_articles(
     session: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ) -> Any:
-    # Собираем payload фильтров только из непустых значений.
-    # Ключи словаря должны точно совпадать с именами, которые читает _build_query()
-    # в ScopusHTTPClient: document_types (list), countries (list), open_access (bool).
+    # Собираем payload фильтров только из непустых значений
     filters_payload: dict = {}
     if year_from is not None:
         filters_payload["year_from"] = year_from
     if year_to is not None:
         filters_payload["year_to"] = year_to
     if doc_types is not None:
-        filters_payload["document_types"] = doc_types  # Ключ совпадает с DOCTYPE_MAP в scopus_client
-    if open_access is True:
-        filters_payload["open_access"] = True  # False не пишем: OA(0) Scopus не поддерживает
+        filters_payload["doc_types"] = doc_types
+    if open_access is not None:
+        filters_payload["open_access"] = open_access
     if country is not None:
-        filters_payload["countries"] = country  # Ключ совпадает с ожидаемым в _build_query()
+        filters_payload["country"] = country
 
     # Advisory-lock на уровне транзакции сериализует параллельные проверки квоты
     # одного пользователя. SQLite такую функцию не поддерживает — ограничиваем PG.

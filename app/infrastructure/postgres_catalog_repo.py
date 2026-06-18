@@ -1,7 +1,7 @@
 from typing import List
 
 import sqlalchemy as sa
-from sqlalchemy import func, select
+from sqlalchemy import extract, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,27 +16,25 @@ class PostgresCatalogRepository(ICatalogRepository):
         self.session = session
 
     # ------------------------------------------------------------------ #
-    #  get_all                                                             #
+    #  _apply_filters — приватный хелпер                                  #
     # ------------------------------------------------------------------ #
 
-    async def get_all(
+    def _apply_filters(
         self,
-        limit: int,
-        offset: int,
-        keyword: str | None = None,
-        search: str | None = None,
-    ) -> List[Article]:
-        """Статьи каталога с пагинацией и опциональными фильтрами.
+        stmt: sa.Select,
+        keyword: str | None,
+        search: str | None,
+        year_from: int | None,
+        year_to: int | None,
+        doc_types: list[str] | None,
+        open_access: bool | None,
+        countries: list[str] | None,
+    ) -> sa.Select:
+        """Применяет все активные фильтры к переданному SELECT-стейтменту.
 
-        keyword: точное совпадение catalog_articles.keyword (ключевое слово сидера).
-        search:  ILIKE-поиск по title и author через escape_ilike().
+        Используется в get_all() и get_total_count() — единственный источник WHERE-логики.
+        Не добавляет ORDER BY, LIMIT, OFFSET — ответственность вызывающего кода.
         """
-        # Базовый запрос: JOIN catalog_articles → articles через article_id
-        stmt = (
-            select(Article)
-            .join(CatalogArticle, CatalogArticle.article_id == Article.id)
-        )
-
         # Фильтр по ключевому слову сидера (точное совпадение)
         if keyword is not None:
             stmt = stmt.where(CatalogArticle.keyword == keyword)
@@ -50,6 +48,68 @@ class PostgresCatalogRepository(ICatalogRepository):
                     Article.author.ilike(pattern),
                 )
             )
+
+        # Фильтр по нижней границе года публикации
+        if year_from is not None:
+            stmt = stmt.where(extract("year", Article.publication_date) >= year_from)
+
+        # Фильтр по верхней границе года публикации
+        if year_to is not None:
+            stmt = stmt.where(extract("year", Article.publication_date) <= year_to)
+
+        # Фильтр по типам документов — case-insensitive IN-список
+        if doc_types:
+            stmt = stmt.where(
+                func.lower(Article.document_type).in_(
+                    [dt.lower() for dt in doc_types]
+                )
+            )
+
+        # Фильтр по open access (True / False / None — все)
+        if open_access is not None:
+            stmt = stmt.where(Article.open_access.is_(open_access))
+
+        # Фильтр по странам аффилиации — case-insensitive IN-список
+        if countries:
+            stmt = stmt.where(
+                func.lower(Article.affiliation_country).in_(
+                    [c.lower() for c in countries]
+                )
+            )
+
+        return stmt
+
+    # ------------------------------------------------------------------ #
+    #  get_all                                                             #
+    # ------------------------------------------------------------------ #
+
+    async def get_all(
+        self,
+        limit: int,
+        offset: int,
+        keyword: str | None = None,
+        search: str | None = None,
+        year_from: int | None = None,
+        year_to: int | None = None,
+        doc_types: list[str] | None = None,
+        open_access: bool | None = None,
+        countries: list[str] | None = None,
+    ) -> List[Article]:
+        """Статьи каталога с пагинацией и опциональными фильтрами.
+
+        keyword: точное совпадение catalog_articles.keyword (ключевое слово сидера).
+        search:  ILIKE-поиск по title и author через escape_ilike().
+        """
+        # Базовый запрос: JOIN catalog_articles → articles через article_id
+        stmt = (
+            select(Article)
+            .join(CatalogArticle, CatalogArticle.article_id == Article.id)
+        )
+
+        # Все WHERE-клаузы через единый хелпер
+        stmt = self._apply_filters(
+            stmt, keyword, search, year_from, year_to, doc_types, open_access, countries
+        )
 
         # Сортировка по дате публикации: свежие статьи первыми
         stmt = stmt.order_by(Article.publication_date.desc()).limit(limit).offset(offset)
@@ -65,6 +125,11 @@ class PostgresCatalogRepository(ICatalogRepository):
         self,
         keyword: str | None = None,
         search: str | None = None,
+        year_from: int | None = None,
+        year_to: int | None = None,
+        doc_types: list[str] | None = None,
+        open_access: bool | None = None,
+        countries: list[str] | None = None,
     ) -> int:
         """COUNT с теми же фильтрами что get_all — для корректной пагинации."""
         # Субзапрос для COUNT: те же JOIN + WHERE, без ORDER BY / LIMIT
@@ -74,17 +139,10 @@ class PostgresCatalogRepository(ICatalogRepository):
             .join(CatalogArticle, CatalogArticle.article_id == Article.id)
         )
 
-        if keyword is not None:
-            stmt = stmt.where(CatalogArticle.keyword == keyword)
-
-        if search is not None:
-            pattern = f"%{escape_ilike(search)}%"
-            stmt = stmt.where(
-                sa.or_(
-                    Article.title.ilike(pattern),
-                    Article.author.ilike(pattern),
-                )
-            )
+        # Те же WHERE-клаузы через тот же хелпер — гарантия консистентности с get_all
+        stmt = self._apply_filters(
+            stmt, keyword, search, year_from, year_to, doc_types, open_access, countries
+        )
 
         result = await self.session.execute(stmt)
         return result.scalar_one()
