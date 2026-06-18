@@ -140,18 +140,20 @@ async def find_articles(
     session: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ) -> Any:
-    # Собираем payload фильтров только из непустых значений
+    # Собираем payload фильтров только из непустых значений.
+    # Ключи словаря должны точно совпадать с именами, которые читает _build_query()
+    # в ScopusHTTPClient: document_types (list), countries (list), open_access (bool).
     filters_payload: dict = {}
     if year_from is not None:
         filters_payload["year_from"] = year_from
     if year_to is not None:
         filters_payload["year_to"] = year_to
     if doc_types is not None:
-        filters_payload["doc_types"] = doc_types
-    if open_access is not None:
-        filters_payload["open_access"] = open_access
+        filters_payload["document_types"] = doc_types  # Ключ совпадает с DOCTYPE_MAP в scopus_client
+    if open_access is True:
+        filters_payload["open_access"] = True  # False не пишем: OA(0) Scopus не поддерживает
     if country is not None:
-        filters_payload["country"] = country
+        filters_payload["countries"] = country  # Ключ совпадает с ожидаемым в _build_query()
 
     # Advisory-lock на уровне транзакции сериализует параллельные проверки квоты
     # одного пользователя. SQLite такую функцию не поддерживает — ограничиваем PG.

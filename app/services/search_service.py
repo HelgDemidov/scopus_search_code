@@ -50,8 +50,12 @@ class SearchService:
 
         Если любой шаг бросает исключение — транзакция откатывается целиком.
         """
-        # Шаг 1: идем в Scopus, получаем статьи без id
-        articles = await self.search_client.search(keyword=keyword, count=count)
+        # Шаг 1: идем в Scopus с ключевым словом и фильтрами, получаем статьи без id
+        articles = await self.search_client.search(
+            keyword=keyword,
+            count=count,
+            filters=filters,  # Пробрасываем фильтры в CQL-запрос Scopus
+        )
 
         if not articles:
             return []
