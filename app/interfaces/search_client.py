@@ -24,7 +24,14 @@ class ISearchClient(ABC):
     def last_rate_reset(self) -> str | None: ...
 
     @abstractmethod
-    async def search(self, keyword: str, count: int = 25) -> List[Article]:
+    async def search(
+        self,
+        keyword: str,
+        count: int = 25,
+        filters: dict | None = None,  # Параметры серверной фильтрации от клиента
+    ) -> List[Article]:
         # Выполняет поиск по ключевому слову и возвращает список ORM-объектов Article.
-        # count — макс. кол-во результатов (по бесплатному лимиту Scopus API Key — 25)
+        # count — макс. кол-во результатов (по бесплатному лимиту Scopus API Key — 25).
+        # filters — опциональный словарь с ключами: year_from, year_to,
+        #           document_types (list[str]), open_access (bool), countries (list[str])
         pass
