@@ -47,6 +47,7 @@ interface ArticleStore {
 
 // Вспомогательная функция: применяет client-side фильтры к массиву статей
 // Принимает отдельный аргумент clientFilters (из historyStore) согласно §1.3
+// TODO(коммит 6): удалить после перевода фильтрации на серверную сторону
 function applyClientFilters(
   articles: ArticleResponse[],
   clientFilters: ArticleClientFilters,
@@ -190,7 +191,9 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
   searchScopusLive: async (keyword: string) => {
     set({ isLiveSearching: true, error: null });
     try {
-      const { articles, quota } = await findArticles(keyword, 25);
+      // Breaking change коммит 5: findArticles принимает объект параметров
+      // Фильтры из historyStore будут прокинуты в коммите 6
+      const { articles, quota } = await findArticles({ keyword, count: 25 });
       set({
         liveResults: articles,
         scopusQuota: quota,

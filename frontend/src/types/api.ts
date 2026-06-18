@@ -90,18 +90,30 @@ export interface TokenResponse {
 // ---------------------------------------------------------------------------
 // Фильтры статей (§4.1 ArticleFilters)
 //
-// ArticleFilters — только серверные параметры для GET /articles/:
-//   keyword — точный фильтр по полю articles.keyword (фраза сидера)
-//   search  — ILIKE-поиск по title и author (пользовательский запрос)
-//   keyword и search взаимоисключающие; стор не передаёт оба одновременно
+// ArticleFilters — серверные параметры для GET /articles/ и GET /articles/find;
+//   используют snake_case, т.к. уходят напрямую как query-параметры бэкенда:
+//   keyword    — точный фильтр по полю articles.keyword (фраза сидера)
+//   search     — ILIKE-поиск по title и author (пользовательский запрос)
+//   year_from  — нижняя граница года публикации (включительно)
+//   year_to    — верхняя граница года публикации (включительно)
+//   doc_types  — массив кодов типов документа (ar, re, cp ...)
+//   open_access — только open-access статьи; undefined = фильтр не применяется
+//   countries  — массив стран аффилиации
 //
-// ArticleClientFilters — client-side фильтры; применяются в браузере
-//   к загруженной странице; живут в historyStore.historyFilters
+// keyword и search взаимоисключающие; стор не передаёт оба одновременно
+//
+// ArticleClientFilters — client-side фильтры; используют camelCase;
+//   живут в historyStore.historyFilters; в коммите 6 маппятся в ArticleFilters
 // ---------------------------------------------------------------------------
 
 export interface ArticleFilters {
   keyword?: string;                // точный фильтр по полю keyword сидера
   search?: string;                 // пользовательский текстовый поиск по title/author
+  year_from?: number;              // нижняя граница года публикации
+  year_to?: number;                // верхняя граница года публикации
+  doc_types?: string[];            // массив кодов типов документа
+  open_access?: boolean;           // true = только OA; undefined = без фильтра
+  countries?: string[];            // массив стран аффилиации
 }
 
 export interface ArticleClientFilters {
