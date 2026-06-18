@@ -332,6 +332,7 @@ from app.models.article import Article
 from app.interfaces.search_client import ISearchClient
 SCOPUS_BASE_URL = 'https://api.elsevier.com/content/search/scopus'
 SCOPUS_FIELDS = 'dc:title,prism:publicationName,dc:creator,prism:coverDate,prism:doi,citedby-count,subtypeDescription,openaccess,affiliation'
+DOCTYPE_MAP: dict[str, str] = {'Article': 'ar', 'Review': 're', 'Conference Paper': 'cp', 'Book Chapter': 'ch', 'Editorial': 'ed', 'Letter': 'le', 'Note': 'no', 'Short Survey': 'sh'}
 
 class ScopusHTTPClient(ISearchClient):
 
@@ -350,7 +351,10 @@ class ScopusHTTPClient(ISearchClient):
     def last_rate_reset(self) -> Optional[str]:
         pass
 
-    async def search(self, keyword: str, count: int=25) -> List[Article]:
+    def _build_query(self, keyword: str, filters: dict | None) -> str:
+        pass
+
+    async def search(self, keyword: str, count: int=25, filters: dict | None=None) -> List[Article]:
         pass
 
 ============================================================
@@ -436,7 +440,7 @@ class ISearchClient(ABC):
         pass
 
     @abstractmethod
-    async def search(self, keyword: str, count: int=25) -> List[Article]:
+    async def search(self, keyword: str, count: int=25, filters: dict | None=None) -> List[Article]:
         pass
 
 ============================================================
