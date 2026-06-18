@@ -247,7 +247,10 @@ export default function HomePage() {
             <div className="flex gap-6 items-start">
               <div className="flex-1 min-w-0 flex flex-col gap-4">
                 {/* Режим Scopus: ArticleList изолирован в ErrorBoundary;
-                    ScopusPaginationBar вне boundary — пагинация всегда видима */}
+                    ScopusPaginationBar вне boundary — пагинация всегда видима.
+                    total передаётся как длина всего отсортированного массива,
+                    чтобы счётчик "X results" отражал полный размер выборки,
+                    а не только размер текущего среза visibleLiveResults */}
                 <ErrorBoundary>
                   <ArticleList
                     articles={visibleLiveResults}
@@ -256,7 +259,7 @@ export default function HomePage() {
                     onSortChange={setSortBy}
                     page={1}
                     size={25}
-                    total={visibleLiveResults.length}
+                    total={sortedLiveArticles.length}
                     appendMode={false}
                     onPageChange={() => {}}
                     onSizeChange={() => {}}
