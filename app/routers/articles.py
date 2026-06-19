@@ -167,14 +167,18 @@ async def find_articles(
     session: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ) -> Any:
-    # Собираем payload фильтров только из непустых значений
+    # Собираем payload фильтров только из непустых значений.
+    # Ключ «document_types» — единый канонический ключ по всему стеку:
+    # роутер → filters_payload → SearchService → build_query → CQL-строка Scopus.
     filters_payload: dict = {}
     if year_from is not None:
         filters_payload["year_from"] = year_from
     if year_to is not None:
         filters_payload["year_to"] = year_to
     if doc_types is not None:
-        filters_payload["doc_types"] = doc_types
+        # Query-параметр называется doc_types (короткий, удобный для HTTP),
+        # но внутри сервисного слоя — document_types (полный, читаемый ключ)
+        filters_payload["document_types"] = doc_types
     if open_access is not None:
         filters_payload["open_access"] = open_access
     if countries is not None:

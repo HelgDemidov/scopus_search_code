@@ -147,8 +147,8 @@ async def test_find_persists_filters(
             ("doc_types", "ar"),
             ("doc_types", "cp"),
             ("open_access", "true"),
-            ("countries", "USA"),   # исправлено: country → countries (мн. число)
-            ("countries", "DEU"),   # исправлено: country → countries (мн. число)
+            ("countries", "USA"),
+            ("countries", "DEU"),
         ],
     )
     assert resp.status_code == 200, resp.text
@@ -158,9 +158,10 @@ async def test_find_persists_filters(
     f = rows[0].filters
     assert f["year_from"] == 2020
     assert f["year_to"] == 2025
-    assert f["doc_types"] == ["ar", "cp"]
+    # Роутер маппит query-param doc_types → document_types в filters_payload
+    assert f["document_types"] == ["ar", "cp"]
     assert f["open_access"] is True
-    assert f["countries"] == ["USA", "DEU"]  # исправлено: f["country"] → f["countries"]
+    assert f["countries"] == ["USA", "DEU"]
 
 
 # ---------------------------------------------------------------------------
