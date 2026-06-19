@@ -1,4 +1,3 @@
-# app/routers/articles.py
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
@@ -54,7 +53,7 @@ def _get_search_result_repo(
     return PostgresSearchResultRepository(session)
 
 
-# Константа квоты — единственный источник правды, остальное живёт в SearchHistoryService
+# Константа квоты — единственный источник правды, остальное живет в SearchHistoryService
 _WINDOW_DAYS = 7
 
 
@@ -162,7 +161,7 @@ async def find_articles(
     year_to: int | None = Query(None, description="Фильтр: год публикации до"),
     doc_types: list[str] | None = Query(None, description="Фильтр: типы документов"),
     open_access: bool | None = Query(None, description="Фильтр: только open-access"),
-    country: list[str] | None = Query(None, description="Фильтр: страны"),
+    countries: list[str] | None = Query(None, description="Фильтр: страны"),
     service: SearchService = Depends(get_search_service),
     history_service: SearchHistoryService = Depends(get_search_history_service),
     session: AsyncSession = Depends(get_db_session),
@@ -178,8 +177,8 @@ async def find_articles(
         filters_payload["doc_types"] = doc_types
     if open_access is not None:
         filters_payload["open_access"] = open_access
-    if country is not None:
-        filters_payload["country"] = country
+    if countries is not None:
+        filters_payload["countries"] = countries
 
     # Advisory-lock на уровне транзакции сериализует параллельные проверки квоты
     # одного пользователя. SQLite такую функцию не поддерживает — ограничиваем PG.

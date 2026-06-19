@@ -2,7 +2,7 @@ import axios from 'axios';
 import { create } from 'zustand';
 import { getArticles, findArticles } from '../api/articles';
 import type { PageSize } from '../components/articles/PaginationBar';
-import type { ArticleResponse, ArticleFilters, ArticleClientFilters } from '../types/api';
+import type { ArticleResponse, ArticleFilters } from '../types/api';
 
 // Интерфейс стора статей — §4.1
 // fetchStats и stats здесь отсутствуют намеренно: они живут только в useStatsStore
@@ -45,45 +45,6 @@ interface ArticleStore {
   searchScopusLive: (keyword: string) => Promise<void>;
 }
 
-// Вспомогательная функция: применяет client-side фильтры к массиву статей
-// Принимает отдельный аргумент clientFilters (из historyStore) согласно §1.3
-// TODO(коммит 6): удалить после перевода фильтрации на серверную сторону
-function applyClientFilters(
-  articles: ArticleResponse[],
-  clientFilters: ArticleClientFilters,
-): ArticleResponse[] {
-  return articles.filter((a) => {
-    // Фильтр по году публикации
-    if (clientFilters.yearFrom || clientFilters.yearTo) {
-      const year = a.publication_date
-        ? parseInt(a.publication_date.slice(0, 4), 10)
-        : null;
-      if (year === null) return false;
-      if (clientFilters.yearFrom && year < clientFilters.yearFrom) return false;
-      if (clientFilters.yearTo && year > clientFilters.yearTo) return false;
-    }
-
-    // Фильтр по типу документа
-    if (clientFilters.docTypes && clientFilters.docTypes.length > 0) {
-      if (!a.document_type || !clientFilters.docTypes.includes(a.document_type)) {
-        return false;
-      }
-    }
-
-    // Фильтр Open Access
-    if (clientFilters.openAccessOnly && !a.open_access) return false;
-
-    // Фильтр по стране аффиляции
-    if (clientFilters.countries && clientFilters.countries.length > 0) {
-      if (!a.affiliation_country || !clientFilters.countries.includes(a.affiliation_country)) {
-        return false;
-      }
-    }
-
-    return true;
-  });
-}
-
 export const useArticleStore = create<ArticleStore>((set, get) => ({
   articles: [],
   total: 0,
@@ -102,6 +63,7 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
   // Загружаем страницу статей с учётом серверных фильтров:
   //   keyword (аргумент или filters.keyword) — точный фильтр по полю сидера
   //   filters.search — ILIKE-поиск по title/author (пользовательский запрос)
+  //   historyFilters — фильтры из панели фильтрации (год, тип, OA, страны)
   // keyword из аргумента имеет приоритет над filters.keyword: вызывающий код
   // передаёт его явно сразу после setFilters, не дожидаясь обновления стейта
   fetchArticles: async (keyword?: string) => {
@@ -110,24 +72,27 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
     const effectiveKeyword = keyword !== undefined ? keyword : filters.keyword;
     set({ isLoading: true, error: null });
     try {
+      // Читаем серверные фильтры из historyStore согласно §1.3
+      const { useHistoryStore } = await import('./historyStore');
+      const { historyFilters } = useHistoryStore.getState();
       const data = await getArticles({
         page,
         size,
-        keyword: effectiveKeyword,  // фильтр по полю keyword сидера
-        search: filters.search,     // ILIKE-поиск (undefined -> параметр не уходит)
+        keyword: effectiveKeyword,            // фильтр по полю keyword сидера
+        search: filters.search,               // ILIKE-поиск (undefined -> параметр не уходит)
+        year_from: historyFilters.yearFrom,
+        year_to: historyFilters.yearTo,
+        doc_types: historyFilters.docTypes,
+        open_access: historyFilters.openAccessOnly ?? undefined,
+        countries: historyFilters.countries,
       });
-      // Берём client-side фильтры из historyStore согласно §1.3
-      const { useHistoryStore } = await import('./historyStore');
-      const { historyFilters } = useHistoryStore.getState();
-      // Применяем client-side фильтры к загруженной странице
-      const filtered = applyClientFilters(data.articles, historyFilters);
       // Сортировка по цитированиям — client-side, в пределах текущей страницы
       const sorted =
         get().sortBy === 'citations'
-          ? [...filtered].sort(
+          ? [...data.articles].sort(
               (a, b) => (b.cited_by_count ?? 0) - (a.cited_by_count ?? 0),
             )
-          : filtered;
+          : data.articles;
       // Снепшот №2 — читаем appendMode и prev ПОСЛЕ await, чтобы не поймать
       // устаревший стейт из замыкания (пользователь мог сменить страницу)
       const { appendMode, articles: prev, page: currentPage } = get();
@@ -187,13 +152,22 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
   // сброс livePage в 1 — ответственность компонента (livePage живёт в useState)
   setLiveSize: (s: 10 | 'all') => set({ liveSize: s }),
 
-  // Live-поиск через Scopus API; сохраняем квоту из заголовков ответа
+  // Live-поиск через Scopus API; передаём historyFilters как серверные фильтры
   searchScopusLive: async (keyword: string) => {
     set({ isLiveSearching: true, error: null });
     try {
-      // Breaking change коммит 5: findArticles принимает объект параметров
-      // Фильтры из historyStore будут прокинуты в коммите 6
-      const { articles, quota } = await findArticles({ keyword, count: 25 });
+      // Читаем серверные фильтры из historyStore согласно §1.3
+      const { useHistoryStore } = await import('./historyStore');
+      const { historyFilters } = useHistoryStore.getState();
+      const { articles, quota } = await findArticles({
+        keyword,
+        count: 25,
+        year_from: historyFilters.yearFrom,
+        year_to: historyFilters.yearTo,
+        doc_types: historyFilters.docTypes,
+        open_access: historyFilters.openAccessOnly ?? undefined,
+        countries: historyFilters.countries,
+      });
       set({
         liveResults: articles,
         scopusQuota: quota,
