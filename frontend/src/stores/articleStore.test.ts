@@ -73,12 +73,12 @@ function makeArticle(id: number): ArticleResponse {
 }
 
 // Фабрика ответа getArticles.
-// PaginatedArticleResponse = { articles, total } — без page и size (TS2353 при наличии)
+// PaginatedArticleResponse = { items, total } — ключ articles переименован в items
 function makePaginatedResponse(
-  articles: ArticleResponse[],
-  total = articles.length,
+  items: ArticleResponse[],
+  total = items.length,
 ): PaginatedArticleResponse {
-  return { articles, total };
+  return { items, total };
 }
 
 // Типизированный мок getArticles

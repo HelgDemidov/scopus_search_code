@@ -138,7 +138,8 @@ beforeEach(() => {
     },
   );
 
-  vi.mocked(getArticles).mockResolvedValue({ articles: [], total: 0 });
+  // Дефолтный мок: пустой ответ — items (не articles) согласно актуальному контракту
+  vi.mocked(getArticles).mockResolvedValue({ items: [], total: 0 });
 });
 
 // Подавляем TS6133 (noUnusedLocals) для stub-переменных IntersectionObserver:
@@ -188,7 +189,7 @@ describe('Integration — numbered pagination', () => {
   it('2. Клик на стр. 2 → getArticles вызван с { page: 2, size: 10 }', async () => {
     // Мок нужен для клик-хендлера onPageChange → fetchArticles()
     vi.mocked(getArticles).mockResolvedValue({
-      articles: makePage(10),
+      items: makePage(10),
       total: 35,
     } satisfies PaginatedArticleResponse);
 
@@ -213,7 +214,7 @@ describe('Integration — numbered pagination', () => {
   it('3. Выбор «25 / page» → getArticles вызван с { page: 1, size: 25 }', async () => {
     // Мок нужен для клик-хендлера onSizeChange → fetchArticles()
     vi.mocked(getArticles).mockResolvedValue({
-      articles: makePage(10),
+      items: makePage(10),
       total: 35,
     } satisfies PaginatedArticleResponse);
 
@@ -285,7 +286,8 @@ describe('Integration — infinite scroll / append mode', () => {
       size: 10,
     });
 
-    vi.mocked(getArticles).mockResolvedValue({ articles: page2, total: 20 });
+    // items — актуальный ключ PaginatedArticleResponse
+    vi.mocked(getArticles).mockResolvedValue({ items: page2, total: 20 });
 
     await act(async () => {
       await useArticleStore.getState().fetchArticles();
