@@ -24,7 +24,8 @@ from app.models.search_history import SearchHistory
 
 @pytest.fixture
 def _mock_scopus(monkeypatch):
-    async def mock_search(self, keyword: str, count: int = 25):
+    # filters добавлен согласно обновлённой сигнатуре ISearchClient.search()
+    async def mock_search(self, keyword: str, count: int = 25, filters: dict | None = None):
         return [
             Article(
                 title="P1",

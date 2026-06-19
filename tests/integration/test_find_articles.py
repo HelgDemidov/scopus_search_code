@@ -23,7 +23,8 @@ from app.models.search_history import SearchHistory
 
 @pytest.fixture
 def mock_scopus_two_articles(monkeypatch):
-    async def mock_search(self, keyword: str, count: int = 25):
+    # filters добавлен согласно обновлённой сигнатуре ISearchClient.search()
+    async def mock_search(self, keyword: str, count: int = 25, filters: dict | None = None):
         return [
             Article(
                 title="Paper 1",
@@ -107,7 +108,8 @@ async def test_find_returns_429_when_quota_exhausted(
     # Спай: search не должен быть вызван
     calls = {"n": 0}
 
-    async def spy_search(self, keyword: str, count: int = 25):
+    # filters добавлен согласно обновлённой сигнатуре ISearchClient.search()
+    async def spy_search(self, keyword: str, count: int = 25, filters: dict | None = None):
         calls["n"] += 1
         return []
 
@@ -189,7 +191,8 @@ async def test_find_scopus_error_writes_no_history(
     db_session: AsyncSession,
     monkeypatch,
 ):
-    async def raising_search(self, keyword: str, count: int = 25):
+    # filters добавлен согласно обновлённой сигнатуре ISearchClient.search()
+    async def raising_search(self, keyword: str, count: int = 25, filters: dict | None = None):
         raise RuntimeError("scopus down")
 
     monkeypatch.setattr(
