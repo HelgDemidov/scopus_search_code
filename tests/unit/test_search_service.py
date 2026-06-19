@@ -48,7 +48,7 @@ class FakeSearchClient(ISearchClient):
         # поэтому заглушка обязана существовать во всех реализациях ISearchClient
         return f"TITLE-ABS-KEY({keyword})"
 
-    # filters добавлен в соответствии с обновлённым интерфейсом ISearchClient
+    # filters добавлен в соответствии с обновленным интерфейсом ISearchClient
     async def search(
         self,
         keyword: str,
@@ -94,21 +94,24 @@ class FakeSearchHistoryRepository(ISearchHistoryRepository):
         query: str,
         result_count: int,
         filters: dict | None = None,
-        scopus_query: str | None = None,  # добавлен параметр из ISearchHistoryRepository
+        scopus_query: str | None = None,
     ) -> SearchHistory:
+        # append выполняется ДО вычисления id — первый вызов даёт id=1,
+        # что соответствует поведению реальной БД с autoincrement
         self.insert_calls.append({
             "user_id": user_id,
             "query": query,
             "result_count": result_count,
             "filters": filters,
-            "scopus_query": scopus_query,  # сохраняем для проверки в тестах
+            "scopus_query": scopus_query,
         })
         return SearchHistory(
-            id=len(self.insert_calls),
+            id=len(self.insert_calls),  # id вычисляется после append: 1, 2, 3...
             user_id=user_id,
             query=query,
             result_count=result_count,
             filters=filters or {},
+            scopus_query=scopus_query,  # передаем в ORM-объект для полноты
             created_at=datetime.datetime.now(tz=datetime.timezone.utc),
         )
 
@@ -283,7 +286,7 @@ async def test_find_and_save_filters_passed_to_search_client():
     }
     svc, sc, *_ = _mk_service(articles=[_mk_article()])
     await svc.find_and_save("AI", user_id=1, filters=filters)
-    # Фильтр дошёл до клиента без изменений
+    # Фильтр дошел до клиента без изменений
     assert sc.last_filters == filters
 
 
