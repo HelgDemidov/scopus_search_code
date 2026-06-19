@@ -24,6 +24,15 @@ class ISearchClient(ABC):
     def last_rate_reset(self) -> str | None: ...
 
     @abstractmethod
+    def build_query(self, keyword: str, filters: dict | None = None) -> str:
+        # Строит итоговую строку CQL-запроса из ключевого слова и фильтров.
+        # Выделен в контракт, чтобы SearchService мог получить финальный
+        # запрос без зависимости от приватной детали конкретной реализации.
+        # Любая альтернативная реализация (PubMed, Semantic Scholar) обязана
+        # предоставить свою версию построителя запроса
+        pass
+
+    @abstractmethod
     async def search(
         self,
         keyword: str,
