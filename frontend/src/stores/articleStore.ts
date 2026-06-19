@@ -60,12 +60,12 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
   isLiveSearching: false,
   error: null,
 
-  // Загружаем страницу статей с учётом серверных фильтров:
+  // Загружаем страницу статей с учетом серверных фильтров:
   //   keyword (аргумент или filters.keyword) — точный фильтр по полю сидера
   //   filters.search — ILIKE-поиск по title/author (пользовательский запрос)
   //   historyFilters — фильтры из панели фильтрации (год, тип, OA, страны)
   // keyword из аргумента имеет приоритет над filters.keyword: вызывающий код
-  // передаёт его явно сразу после setFilters, не дожидаясь обновления стейта
+  // передает его явно сразу после setFilters, не дожидаясь обновления стейта
   fetchArticles: async (keyword?: string) => {
     // Снепшот №1 — параметры запроса (до await, пока page/size/filters актуальны)
     const { page, size, filters } = get();
@@ -87,12 +87,13 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
         countries: historyFilters.countries,
       });
       // Сортировка по цитированиям — client-side, в пределах текущей страницы
+      // data.items — актуальный ключ PaginatedArticleResponse (переименовано из articles)
       const sorted =
         get().sortBy === 'citations'
-          ? [...data.articles].sort(
+          ? [...data.items].sort(
               (a, b) => (b.cited_by_count ?? 0) - (a.cited_by_count ?? 0),
             )
-          : data.articles;
+          : data.items;
       // Снепшот №2 — читаем appendMode и prev ПОСЛЕ await, чтобы не поймать
       // устаревший стейт из замыкания (пользователь мог сменить страницу)
       const { appendMode, articles: prev, page: currentPage } = get();
@@ -149,10 +150,10 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
   },
 
   // Переключает режим отображения live-результатов;
-  // сброс livePage в 1 — ответственность компонента (livePage живёт в useState)
+  // сброс livePage в 1 — ответственность компонента (livePage живет в useState)
   setLiveSize: (s: 10 | 'all') => set({ liveSize: s }),
 
-  // Live-поиск через Scopus API; передаём historyFilters как серверные фильтры
+  // Live-поиск через Scopus API; передаем historyFilters как серверные фильтры
   searchScopusLive: async (keyword: string) => {
     set({ isLiveSearching: true, error: null });
     try {
