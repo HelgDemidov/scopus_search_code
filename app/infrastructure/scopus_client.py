@@ -66,7 +66,7 @@ class ScopusHTTPClient(ISearchClient):
     def last_rate_reset(self) -> Optional[str]:
         return self._last_rate_reset
 
-    def _build_query(self, keyword: str, filters: dict | None) -> str:
+    def build_query(self, keyword: str, filters: dict | None = None) -> str:
         # Собирает CQL-строку для Scopus Search API из ключевого слова и фильтров.
         # Базовая часть — поиск по заголовку, аннотации и ключевым словам.
         # Все дополнительные клаузы добавляются через AND.
@@ -117,7 +117,7 @@ class ScopusHTTPClient(ISearchClient):
         page_size = min(count, 25)
 
         params = {
-            "query": self._build_query(keyword, filters),  # Используем построитель запроса
+            "query": self.build_query(keyword, filters),  # Используем публичный метод по контракту
             "count": page_size,
             "field": SCOPUS_FIELDS,
             "apiKey": settings.SCOPUS_API_KEY,
