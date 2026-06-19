@@ -255,7 +255,7 @@ class TestArticleByIdEndpoint:
         assert data["detail"] == "Article not found"
 
     @pytest.mark.asyncio
-_    async def test_422_for_non_integer_id(self, client: AsyncClient):
+    async def test_422_for_non_integer_id(self, client: AsyncClient):
         """HTTP 422, если в URL передана не-числовая строка."""
         resp = await client.get("/articles/not-a-number")
         # FastAPI автоматически валидирует path param как int

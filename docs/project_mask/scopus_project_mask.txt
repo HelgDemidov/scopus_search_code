@@ -357,7 +357,7 @@ class ScopusHTTPClient(ISearchClient):
     def last_rate_reset(self) -> Optional[str]:
         pass
 
-    def _build_query(self, keyword: str, filters: dict | None) -> str:
+    def build_query(self, keyword: str, filters: dict | None=None) -> str:
         pass
 
     async def search(self, keyword: str, count: int=25, filters: dict | None=None) -> List[Article]:
@@ -448,6 +448,10 @@ class ISearchClient(ABC):
     @property
     @abstractmethod
     def last_rate_reset(self) -> str | None:
+        pass
+
+    @abstractmethod
+    def build_query(self, keyword: str, filters: dict | None=None) -> str:
         pass
 
     @abstractmethod
@@ -952,7 +956,7 @@ class ArticleResponse(BaseModel):
     model_config = {'from_attributes': True}
 
 class PaginatedArticleResponse(BaseModel):
-    articles: List[ArticleResponse]
+    items: List[ArticleResponse]
     total: int
 
 class CountByField(BaseModel):
@@ -1544,7 +1548,7 @@ FILE: tests\integration\test_article_by_id_e2e.py
 
 Запускать ТОЛЬКО когда Railway-деплой из ветки database-search-debugging активен:
 
-    E2E_BASE_URL=https://scopus-search-code-staging.up.railway.app \\
+    E2E_BASE_URL=https://your-instance.up.railway.app \\
     E2E_TEST_EMAIL=your@email.com E2E_TEST_PASSWORD=YourPass123! \\
     pytest tests/integration/test_article_by_id_e2e.py -v -s
 
@@ -1648,7 +1652,10 @@ class FakeScopusClient(ISearchClient):
     def last_rate_reset(self) -> str | None:
         pass
 
-    async def search(self, keyword: str, count: int=25) -> list:
+    def build_query(self, keyword: str, filters: dict | None=None) -> str:
+        pass
+
+    async def search(self, keyword: str, count: int=25, filters: dict | None=None) -> list:
         pass
 
 async def override_get_scopus_client():
@@ -1656,6 +1663,62 @@ async def override_get_scopus_client():
 
 @pytest.mark.asyncio
 async def test_find_articles_rate_limits_headers(authenticated_client: AsyncClient, monkeypatch):
+    pass
+
+============================================================
+FILE: tests\integration\test_catalog_filters_e2e.py
+============================================================
+"""
+T-5: E2E-тесты серверной фильтрации GET /articles/.
+
+Проверяют, что PostgresCatalogRepository._apply_filters() корректно
+транслирует Query-параметры FastAPI в WHERE-клаузы SQL через полный
+HTTP-стек: HTTP GET → роутер → CatalogService → PostgresCatalogRepository → PostgreSQL.
+
+Каждый тест: seed данных через pg_session → запрос через pg_client → assert.
+Авторизация не нужна — GET /articles/ публичный эндпоинт.
+"""
+import datetime
+import pytest
+from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.article import Article
+from app.models.catalog_article import CatalogArticle
+
+def _make_article(*, title: str, year: int, document_type: str | None=None, open_access: bool | None=None, affiliation_country: str | None=None, doi: str | None=None) -> Article:
+    pass
+
+async def _seed(session: AsyncSession, articles: list[Article], keyword: str='test') -> None:
+    pass
+
+@pytest.mark.requires_pg
+@pytest.mark.asyncio
+async def test_year_from_filters_by_publication_year(pg_session: AsyncSession, pg_client: AsyncClient) -> None:
+    pass
+
+@pytest.mark.requires_pg
+@pytest.mark.asyncio
+async def test_year_to_filters_by_publication_year(pg_session: AsyncSession, pg_client: AsyncClient) -> None:
+    pass
+
+@pytest.mark.requires_pg
+@pytest.mark.asyncio
+async def test_doc_types_filters_by_document_type(pg_session: AsyncSession, pg_client: AsyncClient) -> None:
+    pass
+
+@pytest.mark.requires_pg
+@pytest.mark.asyncio
+async def test_open_access_true_filters_correctly(pg_session: AsyncSession, pg_client: AsyncClient) -> None:
+    pass
+
+@pytest.mark.requires_pg
+@pytest.mark.asyncio
+async def test_countries_filters_by_affiliation_country(pg_session: AsyncSession, pg_client: AsyncClient) -> None:
+    pass
+
+@pytest.mark.requires_pg
+@pytest.mark.asyncio
+async def test_combined_filters_narrow_results(pg_session: AsyncSession, pg_client: AsyncClient) -> None:
     pass
 
 ============================================================
@@ -2095,6 +2158,87 @@ async def test_seed_upsert_failure_skips_save_seeded_and_commit():
     """Если upsert_many бросил — save_seeded и commit не вызываются."""
 
 ============================================================
+FILE: tests\unit\test_interface_contract.py
+============================================================
+"""
+Страж ABC-контракта ISearchClient.
+
+Проверяет, что любая реализация ISearchClient, пропустившая build_query
+или search, не может быть инстанциирована — Python задержит это на этапе импорта.
+Такие тесты гарантируют, что контракт стабилен при рефакторинге интерфейса.
+"""
+from typing import List
+import pytest
+from app.interfaces.search_client import ISearchClient
+from app.models.article import Article
+
+class _NoBuildQuery(ISearchClient):
+    """ Реализация без build_query — не должна инстанциироваться."""
+
+    @property
+    def last_rate_limit(self) -> str | None:
+        pass
+
+    @property
+    def last_rate_remaining(self) -> str | None:
+        pass
+
+    @property
+    def last_rate_reset(self) -> str | None:
+        pass
+
+    async def search(self, keyword: str, count: int=25, filters: dict | None=None) -> List[Article]:
+        pass
+
+class _NoSearch(ISearchClient):
+    """ Реализация без search — не должна инстанциероваться."""
+
+    @property
+    def last_rate_limit(self) -> str | None:
+        pass
+
+    @property
+    def last_rate_remaining(self) -> str | None:
+        pass
+
+    @property
+    def last_rate_reset(self) -> str | None:
+        pass
+
+    def build_query(self, keyword: str, filters: dict | None=None) -> str:
+        pass
+
+class _FullImpl(ISearchClient):
+    """ Полная реализация всех абстрактных методов — должна инстанциероваться."""
+
+    @property
+    def last_rate_limit(self) -> str | None:
+        pass
+
+    @property
+    def last_rate_remaining(self) -> str | None:
+        pass
+
+    @property
+    def last_rate_reset(self) -> str | None:
+        pass
+
+    def build_query(self, keyword: str, filters: dict | None=None) -> str:
+        pass
+
+    async def search(self, keyword: str, count: int=25, filters: dict | None=None) -> List[Article]:
+        pass
+
+def test_cannot_instantiate_without_build_query():
+    pass
+
+def test_cannot_instantiate_without_search():
+    pass
+
+def test_full_implementation_instantiates_without_errors():
+    pass
+
+============================================================
 FILE: tests\unit\test_scopus_client.py
 ============================================================
 import pytest
@@ -2104,6 +2248,47 @@ from app.infrastructure.scopus_client import ScopusHTTPClient
 @pytest.mark.asyncio
 async def test_scopus_client_search_and_limits(monkeypatch):
     pass
+
+class TestBuildQuery:
+
+    def _client(self) -> ScopusHTTPClient:
+        pass
+
+    def test_no_filters_returns_base_clause(self):
+        pass
+
+    def test_empty_filters_dict_returns_base_clause(self):
+        pass
+
+    def test_year_from_appends_pubyear_gt(self):
+        pass
+
+    def test_year_to_appends_pubyear_lt(self):
+        pass
+
+    def test_single_doc_type_article(self):
+        pass
+
+    def test_multiple_doc_types_joined_with_or(self):
+        pass
+
+    def test_unknown_doc_type_is_silently_skipped(self):
+        pass
+
+    def test_open_access_true_appends_oa1(self):
+        pass
+
+    def test_open_access_false_no_oa_clause(self):
+        pass
+
+    def test_single_country(self):
+        pass
+
+    def test_multiple_countries_joined_with_or(self):
+        pass
+
+    def test_all_filters_combined_base_clause_is_first(self):
+        pass
 
 ============================================================
 FILE: tests\unit\test_search_history_repository.py
@@ -2197,7 +2382,7 @@ class FakeSearchClient(ISearchClient):
     def last_rate_reset(self) -> str | None:
         pass
 
-    def _build_query(self, keyword: str, filters: dict | None=None) -> str:
+    def build_query(self, keyword: str, filters: dict | None=None) -> str:
         pass
 
     async def search(self, keyword: str, count: int=25, filters: dict | None=None) -> List[Article]:
@@ -2246,7 +2431,7 @@ class FakeSearchResultRepository(ISearchResultRepository):
         pass
 
 class FakeSession:
-    """Минимальная заглушка AsyncSession — только commit()."""
+    """  Минимальная заглушка AsyncSession — только commit()."""
 
     def __init__(self):
         pass
@@ -2286,7 +2471,13 @@ async def test_find_and_save_filters_saved_to_history():
 
 @pytest.mark.asyncio
 async def test_find_and_save_scopus_query_saved_to_history():
-    """scopus_query, построенный _build_query(), сохраняется в историю поиска."""
+    """scopus_query, построенный build_query(), сохраняется в историю поиска."""
+
+@pytest.mark.asyncio
+async def test_find_and_save_uses_interface_build_query_not_private():
+    """Страж TD: SearchService вызывает build_query по контракту,
+а не приватный _build_query. Если сервис вернется к _build_query,
+тест упадет с AttributeError."""
 
 @pytest.mark.asyncio
 async def test_find_and_save_empty_returns_empty_and_skips_pipeline():
