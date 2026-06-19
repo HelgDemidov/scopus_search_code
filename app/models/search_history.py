@@ -67,6 +67,10 @@ class SearchHistory(Base):
 
     query: Mapped[str] = mapped_column(Text, nullable=False)
 
+    # Итоговый CQL-запрос, отправленный в Scopus API — включает keyword + все фильтры.
+    # NULL для старых записей, созданных до введения этого поля
+    scopus_query: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     # Метка времени записи — основа скользящего окна квоты
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True),

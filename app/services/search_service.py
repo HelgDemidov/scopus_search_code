@@ -50,6 +50,11 @@ class SearchService:
 
         Если любой шаг бросает исключение — транзакция откатывается целиком.
         """
+        # Вычисляем итоговый CQL-запрос заранее — до обращения в Scopus.
+        # search_client.search() вызовет тот же _build_query() внутри, но здесь
+        # нам нужна строка для сохранения в search_history.scopus_query
+        scopus_query = self.search_client._build_query(keyword, filters)
+
         # Шаг 1: идем в Scopus с ключевым словом и фильтрами, получаем статьи без id
         articles = await self.search_client.search(
             keyword=keyword,
@@ -70,6 +75,7 @@ class SearchService:
             query=keyword,
             result_count=len(articles_with_ids),
             filters=filters,
+            scopus_query=scopus_query,  # Сохраняем построенный CQL-запрос
         )
 
         # Шаг 4: связываем статьи с записью истории через search_result_articles

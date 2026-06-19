@@ -13,6 +13,8 @@ class SearchHistoryItemResponse(BaseModel):
     created_at: datetime.datetime
     result_count: int
     filters: dict
+    # Итоговый CQL-запрос, отправленный в Scopus API; None для старых записей
+    scopus_query: str | None = None
 
     @computed_field                          # вычисляется автоматически при сериализации
     @property

@@ -18,6 +18,7 @@ class PostgresSearchHistoryRepository(ISearchHistoryRepository):
         query: str,
         result_count: int,
         filters: dict | None = None,
+        scopus_query: str | None = None,
     ) -> SearchHistory:
         # Нормализуем None -> {} чтобы не нарушать NOT NULL ограничение
         row = SearchHistory(
@@ -25,6 +26,7 @@ class PostgresSearchHistoryRepository(ISearchHistoryRepository):
             query=query,
             result_count=result_count,
             filters=filters or {},
+            scopus_query=scopus_query,  # NULL для старых записей — допустимо
         )
         self.session.add(row)
         await self.session.flush()   # заполняем id и created_at без commit — вызывающий управляет транзакцией
