@@ -42,6 +42,12 @@ class FakeSearchClient(ISearchClient):
     def last_rate_reset(self) -> str | None:
         return None
 
+    def _build_query(self, keyword: str, filters: dict | None = None) -> str:
+        # Минимальная заглушка: возвращает базовый CQL без реальной маппинг-логики.
+        # SearchService вызывает этот метод до search() для формирования scopus_query,
+        # поэтому заглушка обязана существовать во всех реализациях ISearchClient
+        return f"TITLE-ABS-KEY({keyword})"
+
     # filters добавлен в соответствии с обновлённым интерфейсом ISearchClient
     async def search(
         self,
@@ -88,12 +94,14 @@ class FakeSearchHistoryRepository(ISearchHistoryRepository):
         query: str,
         result_count: int,
         filters: dict | None = None,
+        scopus_query: str | None = None,  # добавлен параметр из ISearchHistoryRepository
     ) -> SearchHistory:
         self.insert_calls.append({
             "user_id": user_id,
             "query": query,
             "result_count": result_count,
             "filters": filters,
+            "scopus_query": scopus_query,  # сохраняем для проверки в тестах
         })
         return SearchHistory(
             id=len(self.insert_calls),
@@ -286,6 +294,15 @@ async def test_find_and_save_filters_saved_to_history():
     svc, _, _, hr, *_ = _mk_service(articles=[_mk_article()])
     await svc.find_and_save("quantum", user_id=5, filters=filters)
     assert hr.insert_calls[0]["filters"] == filters
+
+
+@pytest.mark.asyncio
+async def test_find_and_save_scopus_query_saved_to_history():
+    """scopus_query, построенный _build_query(), сохраняется в историю поиска."""
+    svc, sc, _, hr, *_ = _mk_service(articles=[_mk_article()])
+    await svc.find_and_save("climate", user_id=3)
+    # _build_query заглушки возвращает "TITLE-ABS-KEY(climate)"
+    assert hr.insert_calls[0]["scopus_query"] == "TITLE-ABS-KEY(climate)"
 
 
 # ================================================================ #
