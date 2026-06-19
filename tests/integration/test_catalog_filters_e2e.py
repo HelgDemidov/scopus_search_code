@@ -61,6 +61,7 @@ async def _seed(session: AsyncSession, articles: list[Article], keyword: str = "
 #  T5-1: year_from                                                     #
 # ------------------------------------------------------------------ #
 
+@pytest.mark.requires_pg
 @pytest.mark.asyncio
 async def test_year_from_filters_by_publication_year(
     pg_session: AsyncSession,
@@ -85,6 +86,7 @@ async def test_year_from_filters_by_publication_year(
 #  T5-2: year_to                                                       #
 # ------------------------------------------------------------------ #
 
+@pytest.mark.requires_pg
 @pytest.mark.asyncio
 async def test_year_to_filters_by_publication_year(
     pg_session: AsyncSession,
@@ -109,6 +111,7 @@ async def test_year_to_filters_by_publication_year(
 #  T5-3: doc_types                                                     #
 # ------------------------------------------------------------------ #
 
+@pytest.mark.requires_pg
 @pytest.mark.asyncio
 async def test_doc_types_filters_by_document_type(
     pg_session: AsyncSession,
@@ -133,6 +136,7 @@ async def test_doc_types_filters_by_document_type(
 #  T5-4: open_access=true                                              #
 # ------------------------------------------------------------------ #
 
+@pytest.mark.requires_pg
 @pytest.mark.asyncio
 async def test_open_access_true_filters_correctly(
     pg_session: AsyncSession,
@@ -157,6 +161,7 @@ async def test_open_access_true_filters_correctly(
 #  T5-5: countries                                                     #
 # ------------------------------------------------------------------ #
 
+@pytest.mark.requires_pg
 @pytest.mark.asyncio
 async def test_countries_filters_by_affiliation_country(
     pg_session: AsyncSession,
@@ -181,6 +186,7 @@ async def test_countries_filters_by_affiliation_country(
 #  T5-6: комбинация year_from + open_access                           #
 # ------------------------------------------------------------------ #
 
+@pytest.mark.requires_pg
 @pytest.mark.asyncio
 async def test_combined_filters_narrow_results(
     pg_session: AsyncSession,
