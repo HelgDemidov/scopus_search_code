@@ -20,7 +20,7 @@ export interface ArticleResponse {
 }
 
 export interface PaginatedArticleResponse {
-  articles: ArticleResponse[];
+  items: ArticleResponse[];  // переименовано articles → items: синхронизировано с бэкенд-схемой
   total: number;
 }
 
