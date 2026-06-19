@@ -23,7 +23,7 @@ class ArticleResponse(BaseModel):
 
 class PaginatedArticleResponse(BaseModel):
     # Схема ответа для пагинации согласно ТЗ
-    articles: List[ArticleResponse]
+    items: List[ArticleResponse]  # переименовано: согласовано с test_catalog_filters_e2e.py
     total: int
 
 

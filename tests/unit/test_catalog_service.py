@@ -158,7 +158,7 @@ async def test_get_catalog_paginated_page1_correct_limit_offset():
 
     assert isinstance(result, PaginatedArticleResponse)
     assert result.total == 25
-    assert len(result.articles) == 10
+    assert len(result.items) == 10
     call = cr.get_all_calls[0]
     assert call["limit"] == 10
     assert call["offset"] == 0
@@ -172,7 +172,7 @@ async def test_get_catalog_paginated_page3_partial():
 
     result = await svc.get_catalog_paginated(page=3, size=10)
 
-    assert len(result.articles) == 5
+    assert len(result.items) == 5
     call = cr.get_all_calls[0]
     assert call["limit"] == 10
     assert call["offset"] == 20

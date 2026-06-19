@@ -2,7 +2,7 @@
 
 Запускать ТОЛЬКО когда Railway-деплой из ветки database-search-debugging активен:
 
-    E2E_BASE_URL=https://scopus-search-code-staging.up.railway.app \\
+    E2E_BASE_URL=https://your-instance.up.railway.app \\
     E2E_TEST_EMAIL=your@email.com E2E_TEST_PASSWORD=YourPass123! \\
     pytest tests/integration/test_article_by_id_e2e.py -v -s
 
@@ -50,7 +50,7 @@ async def _get_access_token(client: httpx.AsyncClient) -> str | None:
         f"{BASE_URL}/users/login",
         json={"email": TEST_EMAIL, "password": TEST_PASSWORD},
     )
-    print(f"\n[DEBUG] /users/login → {resp.status_code}: {resp.text}") 
+    print(f"\n[DEBUG] /users/login → {resp.status_code}: {resp.text}")
     if resp.status_code == 200:
         return resp.json().get("access_token")
     return None
@@ -62,9 +62,10 @@ async def _get_first_article_id(client: httpx.AsyncClient) -> int | None:
     if resp.status_code != 200:
         return None
     data = resp.json()
-    if not data.get("articles"):
+    # items — актуальный ключ PaginatedArticleResponse после переименования articles → items
+    if not data.get("items"):
         return None
-    return data["articles"][0].get("id")
+    return data["items"][0].get("id")
 
 
 # ---------------------------------------------------------------------------
@@ -100,10 +101,11 @@ async def test_e2e_article_list_has_id_field():
 
     assert resp.status_code == 200
     data = resp.json()
-    assert "articles" in data
-    assert len(data["articles"]) > 0, "Список статей пуст — нет данных в БД"
+    # items — актуальный ключ PaginatedArticleResponse после переименования
+    assert "items" in data
+    assert len(data["items"]) > 0, "Список статей пуст — нет данных в БД"
 
-    for article in data["articles"]:
+    for article in data["items"]:
         assert "id" in article, f"Поле id отсутствует в статье: {article}"
         assert isinstance(article["id"], int), f"id должен быть int, получен {type(article['id'])}"
 

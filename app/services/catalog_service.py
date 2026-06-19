@@ -82,7 +82,7 @@ class CatalogService:
             ArticleResponse.model_validate(article)
             for article in db_articles
         ]
-        return PaginatedArticleResponse(articles=article_responses, total=total)
+        return PaginatedArticleResponse(items=article_responses, total=total)
 
     # ------------------------------------------------------------------ #
     #  get_stats                                                           #
