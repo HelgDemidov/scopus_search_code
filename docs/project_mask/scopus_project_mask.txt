@@ -197,7 +197,7 @@ FILE: app\infrastructure\postgres_catalog_repo.py
 ============================================================
 from typing import List
 import sqlalchemy as sa
-from sqlalchemy import func, select
+from sqlalchemy import extract, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.interfaces.catalog_repository import ICatalogRepository
@@ -210,13 +210,19 @@ class PostgresCatalogRepository(ICatalogRepository):
     def __init__(self, session: AsyncSession):
         pass
 
-    async def get_all(self, limit: int, offset: int, keyword: str | None=None, search: str | None=None) -> List[Article]:
+    def _apply_filters(self, stmt: sa.Select, keyword: str | None, search: str | None, year_from: int | None, year_to: int | None, doc_types: list[str] | None, open_access: bool | None, countries: list[str] | None) -> sa.Select:
+        """Применяет все активные фильтры к переданному SELECT-стейтменту.
+
+Используется в get_all() и get_total_count() — единственный источник WHERE-логики.
+Не добавляет ORDER BY, LIMIT, OFFSET — ответственность вызывающего кода."""
+
+    async def get_all(self, limit: int, offset: int, keyword: str | None=None, search: str | None=None, year_from: int | None=None, year_to: int | None=None, doc_types: list[str] | None=None, open_access: bool | None=None, countries: list[str] | None=None) -> List[Article]:
         """Статьи каталога с пагинацией и опциональными фильтрами.
 
 keyword: точное совпадение catalog_articles.keyword (ключевое слово сидера).
 search:  ILIKE-поиск по title и author через escape_ilike()."""
 
-    async def get_total_count(self, keyword: str | None=None, search: str | None=None) -> int:
+    async def get_total_count(self, keyword: str | None=None, search: str | None=None, year_from: int | None=None, year_to: int | None=None, doc_types: list[str] | None=None, open_access: bool | None=None, countries: list[str] | None=None) -> int:
         """COUNT с теми же фильтрами что get_all — для корректной пагинации."""
 
     async def save_seeded(self, articles: List[Article], keyword: str) -> List[Article]:
@@ -248,7 +254,7 @@ class PostgresSearchHistoryRepository(ISearchHistoryRepository):
     def __init__(self, session: AsyncSession):
         pass
 
-    async def insert_row(self, user_id: int, query: str, result_count: int, filters: dict | None=None) -> SearchHistory:
+    async def insert_row(self, user_id: int, query: str, result_count: int, filters: dict | None=None, scopus_query: str | None=None) -> SearchHistory:
         pass
 
     async def count_in_window(self, user_id: int, since: datetime.datetime) -> int:
@@ -394,13 +400,18 @@ from app.models.article import Article
 class ICatalogRepository(ABC):
 
     @abstractmethod
-    async def get_all(self, limit: int, offset: int, keyword: str | None=None, search: str | None=None) -> List[Article]:
+    async def get_all(self, limit: int, offset: int, keyword: str | None=None, search: str | None=None, year_from: int | None=None, year_to: int | None=None, doc_types: list[str] | None=None, open_access: bool | None=None, countries: list[str] | None=None) -> List[Article]:
         """Возвращает статьи каталога с пагинацией и опциональными фильтрами.
-keyword: точное совпадение с ключевым словом сидера; None — без фильтра.
-search: ILIKE-поиск по title и author; None — без fulltext-фильтра."""
+keyword:     точное совпадение с ключевым словом сидера; None — без фильтра.
+search:      ILIKE-поиск по title и author; None — без fulltext-фильтра.
+year_from:   год публикации >= year_from; None — без нижней границы.
+year_to:     год публикации <= year_to; None — без верхней границы.
+doc_types:   фильтр по типу документа (Article, Review и т.д.); None — все типы.
+open_access: True — только OA; False — только не-OA; None — все.
+countries:   фильтр по стране аффилиации (один или несколько); None — все страны."""
 
     @abstractmethod
-    async def get_total_count(self, keyword: str | None=None, search: str | None=None) -> int:
+    async def get_total_count(self, keyword: str | None=None, search: str | None=None, year_from: int | None=None, year_to: int | None=None, doc_types: list[str] | None=None, open_access: bool | None=None, countries: list[str] | None=None) -> int:
         """Считает статьи каталога с теми же фильтрами, что get_all — для корректной пагинации."""
 
     @abstractmethod
@@ -454,9 +465,10 @@ from app.models.search_history import SearchHistory
 class ISearchHistoryRepository(ABC):
 
     @abstractmethod
-    async def insert_row(self, user_id: int, query: str, result_count: int, filters: dict | None=None) -> SearchHistory:
+    async def insert_row(self, user_id: int, query: str, result_count: int, filters: dict | None=None, scopus_query: str | None=None) -> SearchHistory:
         """Вставляет одну запись в search_history и возвращает её с заполненными
-id и created_at из БД. filters=None сохраняется как {}."""
+id и created_at из БД. filters=None сохраняется как {}.
+scopus_query — итоговый CQL-запрос, отправленный в Scopus API."""
 
     @abstractmethod
     async def count_in_window(self, user_id: int, since: datetime.datetime) -> int:
@@ -667,6 +679,7 @@ class SearchHistory(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     query: Mapped[str] = mapped_column(Text, nullable=False)
+    scopus_query: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     result_count: Mapped[int] = mapped_column(Integer, nullable=False)
     filters: Mapped[dict] = mapped_column(JsonField, nullable=False, default=dict)
@@ -768,7 +781,7 @@ async def get_stats(service: CatalogService=Depends(get_catalog_service)) -> Sta
     pass
 
 @router.get('/', response_model=PaginatedArticleResponse)
-async def get_articles(page: int=Query(1, ge=1, description='Номер страницы'), size: int=Query(10, ge=1, le=100, description='Количество статей на странице'), keyword: str | None=Query(None, min_length=2, description='Фильтр по ключевому слову сидера (точное совпадение)'), search: str | None=Query(None, min_length=2, description='Fulltext-поиск по названию и первому автору (ILIKE, без учета регистра)'), service: CatalogService=Depends(get_catalog_service)) -> PaginatedArticleResponse:
+async def get_articles(page: int=Query(1, ge=1, description='Номер страницы'), size: int=Query(10, ge=1, le=100, description='Количество статей на странице'), keyword: str | None=Query(None, min_length=2, description='Фильтр по ключевому слову сидера (точное совпадение)'), search: str | None=Query(None, min_length=2, description='Fulltext-поиск по названию и первому автору (ILIKE, без учета регистра)'), year_from: int | None=Query(None, ge=1900, le=2100, description='Фильтр: год публикации от (включительно)'), year_to: int | None=Query(None, ge=1900, le=2100, description='Фильтр: год публикации до (включительно)'), doc_types: list[str] | None=Query(None, description='Фильтр: типы документов (можно несколько: ?doc_types=Article&doc_types=Review)'), open_access: bool | None=Query(None, description='Фильтр: True — только open-access; False — только закрытые; без параметра — все'), countries: list[str] | None=Query(None, description='Фильтр: страны аффилиации (можно несколько: ?countries=Germany&countries=France)'), service: CatalogService=Depends(get_catalog_service)) -> PaginatedArticleResponse:
     pass
 
 @router.get('/search/stats', response_model=SearchStatsResponse, tags=['Analytics'])
@@ -776,7 +789,7 @@ async def get_search_stats(search: str=Query(..., min_length=2, description='П�
     pass
 
 @router.get('/find', response_model=list[ArticleResponse])
-async def find_articles(response: Response, keyword: str=Query(..., min_length=2, description='Ключевое слово для поиска'), count: int=Query(25, ge=1, le=25, description='Сколько статей запросить из Scopus (макс 25)'), year_from: int | None=Query(None, description='Фильтр: год публикации от'), year_to: int | None=Query(None, description='Фильтр: год публикации до'), doc_types: list[str] | None=Query(None, description='Фильтр: типы документов'), open_access: bool | None=Query(None, description='Фильтр: только open-access'), country: list[str] | None=Query(None, description='Фильтр: страны'), service: SearchService=Depends(get_search_service), history_service: SearchHistoryService=Depends(get_search_history_service), session: AsyncSession=Depends(get_db_session), current_user: User=Depends(get_current_user)) -> Any:
+async def find_articles(response: Response, keyword: str=Query(..., min_length=2, description='Ключевое слово для поиска'), count: int=Query(25, ge=1, le=25, description='Сколько статей запросить из Scopus (макс 25)'), year_from: int | None=Query(None, description='Фильтр: год публикации от'), year_to: int | None=Query(None, description='Фильтр: год публикации до'), doc_types: list[str] | None=Query(None, description='Фильтр: типы документов'), open_access: bool | None=Query(None, description='Фильтр: только open-access'), countries: list[str] | None=Query(None, description='Фильтр: страны'), service: SearchService=Depends(get_search_service), history_service: SearchHistoryService=Depends(get_search_history_service), session: AsyncSession=Depends(get_db_session), current_user: User=Depends(get_current_user)) -> Any:
     pass
 
 @router.get('/find/quota', response_model=QuotaResponse)
@@ -977,6 +990,7 @@ class SearchHistoryItemResponse(BaseModel):
     created_at: datetime.datetime
     result_count: int
     filters: dict
+    scopus_query: str | None = None
 
     @computed_field
     @property
@@ -1082,11 +1096,16 @@ class CatalogService:
     def __init__(self, article_repo: IArticleRepository, catalog_repo: ICatalogRepository, session: AsyncSession):
         pass
 
-    async def get_catalog_paginated(self, page: int, size: int, keyword: str | None=None, search: str | None=None) -> PaginatedArticleResponse:
+    async def get_catalog_paginated(self, page: int, size: int, keyword: str | None=None, search: str | None=None, year_from: int | None=None, year_to: int | None=None, doc_types: list[str] | None=None, open_access: bool | None=None, countries: list[str] | None=None) -> PaginatedArticleResponse:
         """Пагинированный список статей каталога с опциональными фильтрами.
 
-keyword: точное совпадение по ключевому слову сидера.
-search:  ILIKE-поиск по title/author."""
+keyword:     точное совпадение по ключевому слову сидера.
+search:      ILIKE-поиск по title/author.
+year_from:   год публикации >= year_from.
+year_to:     год публикации <= year_to.
+doc_types:   фильтр по типам документов (список).
+open_access: True — только OA; False — только не-OA; None — все.
+countries:   фильтр по странам аффилиации (список)."""
 
     async def get_stats(self) -> StatsResponse:
         """Агрегированная статистика по каталогу сидера."""
@@ -1981,10 +2000,10 @@ class FakeCatalogRepository(ICatalogRepository):
     def __init__(self, articles: List[Article] | None=None, total: int=0):
         pass
 
-    async def get_all(self, limit: int, offset: int, keyword: str | None=None, search: str | None=None) -> List[Article]:
+    async def get_all(self, limit: int, offset: int, keyword: str | None=None, search: str | None=None, year_from: int | None=None, year_to: int | None=None, doc_types: list[str] | None=None, open_access: bool | None=None, countries: list[str] | None=None) -> List[Article]:
         pass
 
-    async def get_total_count(self, keyword: str | None=None, search: str | None=None) -> int:
+    async def get_total_count(self, keyword: str | None=None, search: str | None=None, year_from: int | None=None, year_to: int | None=None, doc_types: list[str] | None=None, open_access: bool | None=None, countries: list[str] | None=None) -> int:
         pass
 
     async def save_seeded(self, articles: List[Article], keyword: str) -> List[Article]:
@@ -2020,8 +2039,32 @@ async def test_get_catalog_paginated_negative_page_clamped_to_1():
     pass
 
 @pytest.mark.asyncio
-async def test_get_catalog_paginated_passes_filters():
+async def test_get_catalog_paginated_passes_keyword_and_search():
     pass
+
+@pytest.mark.asyncio
+async def test_get_catalog_paginated_passes_year_range():
+    """year_from и year_to пробрасываются и в get_all, и в get_total_count."""
+
+@pytest.mark.asyncio
+async def test_get_catalog_paginated_passes_doc_types():
+    """doc_types пробрасывается в оба вызова репозитория."""
+
+@pytest.mark.asyncio
+async def test_get_catalog_paginated_passes_open_access_true():
+    """open_access=True пробрасывается в оба вызова репозитория."""
+
+@pytest.mark.asyncio
+async def test_get_catalog_paginated_passes_countries():
+    """countries пробрасывается в оба вызова репозитория."""
+
+@pytest.mark.asyncio
+async def test_get_catalog_paginated_all_filters_default_none():
+    """Без передачи фильтров все новые параметры равны None — фильтрация не применяется."""
+
+@pytest.mark.asyncio
+async def test_get_catalog_paginated_filters_consistent_in_all_and_count():
+    """get_all и get_total_count получают идентичный набор фильтров."""
 
 @pytest.mark.asyncio
 async def test_get_stats_returns_stats_response():
@@ -2154,7 +2197,7 @@ class FakeSearchClient(ISearchClient):
     def last_rate_reset(self) -> str | None:
         pass
 
-    async def search(self, keyword: str, count: int=25) -> List[Article]:
+    async def search(self, keyword: str, count: int=25, filters: dict | None=None) -> List[Article]:
         pass
 
 class FakeArticleRepository(IArticleRepository):
@@ -2228,7 +2271,15 @@ async def test_find_and_save_passes_count_to_search_client():
 
 @pytest.mark.asyncio
 async def test_find_and_save_filters_default_none_passed_through():
-    pass
+    """filters=None по умолчанию пробрасывается и в клиент, и в историю."""
+
+@pytest.mark.asyncio
+async def test_find_and_save_filters_passed_to_search_client():
+    """Все поля filters корректно передаются в ISearchClient.search()."""
+
+@pytest.mark.asyncio
+async def test_find_and_save_filters_saved_to_history():
+    """filters сохраняются в запись истории поиска."""
 
 @pytest.mark.asyncio
 async def test_find_and_save_empty_returns_empty_and_skips_pipeline():
