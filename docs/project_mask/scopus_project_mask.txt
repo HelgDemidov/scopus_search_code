@@ -2197,6 +2197,9 @@ class FakeSearchClient(ISearchClient):
     def last_rate_reset(self) -> str | None:
         pass
 
+    def _build_query(self, keyword: str, filters: dict | None=None) -> str:
+        pass
+
     async def search(self, keyword: str, count: int=25, filters: dict | None=None) -> List[Article]:
         pass
 
@@ -2216,7 +2219,7 @@ class FakeSearchHistoryRepository(ISearchHistoryRepository):
     def __init__(self):
         pass
 
-    async def insert_row(self, user_id: int, query: str, result_count: int, filters: dict | None=None) -> SearchHistory:
+    async def insert_row(self, user_id: int, query: str, result_count: int, filters: dict | None=None, scopus_query: str | None=None) -> SearchHistory:
         pass
 
     async def count_in_window(self, user_id: int, since: datetime.datetime) -> int:
@@ -2280,6 +2283,10 @@ async def test_find_and_save_filters_passed_to_search_client():
 @pytest.mark.asyncio
 async def test_find_and_save_filters_saved_to_history():
     """filters сохраняются в запись истории поиска."""
+
+@pytest.mark.asyncio
+async def test_find_and_save_scopus_query_saved_to_history():
+    """scopus_query, построенный _build_query(), сохраняется в историю поиска."""
 
 @pytest.mark.asyncio
 async def test_find_and_save_empty_returns_empty_and_skips_pipeline():

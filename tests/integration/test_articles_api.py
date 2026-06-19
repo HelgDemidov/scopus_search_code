@@ -12,7 +12,8 @@ def mock_scopus_api(monkeypatch):
     """
     Эта фикстура автоматически подменяет реальный метод поиска на наш фейковый.
     """
-    async def mock_search(self, keyword: str, count: int = 10):
+    # Сигнатура мока полностью соответствует ISearchClient.search()
+    async def mock_search(self, keyword: str, count: int = 25, filters: dict | None = None):
         # Вместо запроса в интернет, всегда возвращаем 2 фейковые статьи
         return [
             Article(
@@ -29,8 +30,10 @@ def mock_scopus_api(monkeypatch):
             )
         ]
 
-    # monkeypatch перехватывает вызов метода search в нашем клиенте и подставляет mock_search
-    monkeypatch.setattr("app.infrastructure.scopus_client.ScopusHTTPClient.search", mock_search)
+    monkeypatch.setattr(
+        "app.infrastructure.scopus_client.ScopusHTTPClient.search",
+        mock_search
+    )
 
 
 @pytest.mark.asyncio
