@@ -25,9 +25,30 @@ function PageFallback() {
   );
 }
 
-// Обертка для ленивой загрузки страниц — code splitting через React.lazy + Suspense
+// Обертка для ленивой загрузки страниц — code splitting через React.lazy + Suspense.
+//
+// Фикс: перехватываем TypeError "Failed to fetch dynamically imported module" —
+// браузерный признак stale-chunk после нового деплоя на Vercel/CDN.
+// Новый деплой меняет хэши чанков; браузер со старым index.html пытается
+// загрузить уже несуществующий файл и получает HTML 404 с MIME text/html —
+// строгая MIME-проверка модульных скриптов отказывает в исполнении.
+// window.location.reload() загружает свежий index.html с актуальными хэшами.
 function lazyPage(factory: () => Promise<{ default: React.ComponentType }>) {
-  const Component = lazy(factory);
+  const safeFactory = () =>
+    factory().catch((err: unknown) => {
+      // Stale-chunk: CDN вернул HTML вместо JS после нового деплоя
+      if (
+        err instanceof TypeError &&
+        err.message.includes('Failed to fetch dynamically imported module')
+      ) {
+        window.location.reload();
+      }
+      // Остальные ошибки (сетевые, синтаксические) пробрасываем дальше —
+      // React Router ErrorBoundary покажет понятный экран ошибки
+      return Promise.reject(err);
+    });
+
+  const Component = lazy(safeFactory);
   return (
     <Suspense fallback={<PageFallback />}>
       <Component />
@@ -86,6 +107,17 @@ const router = createBrowserRouter([
 ]);
 
 // ---------------------------------------------------------------------------
+// Модульный флаг — защита от двойного запуска гидрации
+// ---------------------------------------------------------------------------
+
+// Объявлен вне компонента: переживает двойной вызов useEffect в React StrictMode
+// (Strict Mode намеренно монтирует → размонтирует → монтирует заново в dev)
+// и повторное монтирование при hot-reload.
+// Гарантирует ровно один POST /auth/refresh за жизненный цикл страницы,
+// устраняя два одновременных 401, видимых в Network при открытии /auth.
+let _hydrationStarted = false;
+
+// ---------------------------------------------------------------------------
 // Корневой компонент приложения
 // ---------------------------------------------------------------------------
 
@@ -94,6 +126,10 @@ export default function App() {
   const fetchStats = useStatsStore((state) => state.fetchStats);
 
   useEffect(() => {
+    // Guard против двойного вызова useEffect (StrictMode, hot-reload)
+    if (_hydrationStarted) return;
+    _hydrationStarted = true;
+
     // Фаст-путь: синхронная гидрация из localStorage.
     // Позволяет Header немедленно отобразить имя пользователя при перезагрузке.
     const token = localStorage.getItem('access_token');
