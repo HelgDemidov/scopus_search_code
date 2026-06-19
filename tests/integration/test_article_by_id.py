@@ -295,7 +295,7 @@ class TestArticleByIdEndpoint:
         resp = await client.get("/articles/")
         assert resp.status_code == 200
         data = resp.json()
-        assert "articles" in data
+        assert "items" in data
         assert "total" in data
 
     @pytest.mark.asyncio
@@ -311,7 +311,7 @@ class TestArticleByIdEndpoint:
         assert resp.status_code == 200
         data = resp.json()
         assert data["total"] >= 1
-        first = data["articles"][0]
+        first = data["items"][0]
         assert "id" in first, "Поле id отсутствует в ArticleResponse в /articles/ листинге"
         assert isinstance(first["id"], int)
 

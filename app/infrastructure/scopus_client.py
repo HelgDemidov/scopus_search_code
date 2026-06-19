@@ -29,6 +29,20 @@ SCOPUS_FIELDS = (
     "citedby-count,subtypeDescription,openaccess,affiliation"
 )
 
+# Маппинг человекочитаемых названий типов документов на коды Scopus DOCTYPE.
+# Ключи соответствуют значениям subtypeDescription из Scopus API
+# и полю document_type в таблице articles.
+DOCTYPE_MAP: dict[str, str] = {
+    "Article": "ar",
+    "Review": "re",
+    "Conference Paper": "cp",
+    "Book Chapter": "ch",
+    "Editorial": "ed",
+    "Letter": "le",
+    "Note": "no",
+    "Short Survey": "sh",
+}
+
 
 class ScopusHTTPClient(ISearchClient):
     # Принимаем готовый httpx.AsyncClient снаружи (Dependency Injection).
@@ -52,11 +66,58 @@ class ScopusHTTPClient(ISearchClient):
     def last_rate_reset(self) -> Optional[str]:
         return self._last_rate_reset
 
-    async def search(self, keyword: str, count: int = 25) -> List[Article]:
+    def build_query(self, keyword: str, filters: dict | None = None) -> str:
+        # Собирает CQL-строку для Scopus Search API из ключевого слова и фильтров.
+        # Базовая часть — поиск по заголовку, аннотации и ключевым словам.
+        # Все дополнительные клаузы добавляются через AND.
+        parts = [f"TITLE-ABS-KEY({keyword})"]
+
+        if not filters:
+            return parts[0]
+
+        # Фильтр по диапазону лет: PUBYEAR > (year_from - 1) AND PUBYEAR < (year_to + 1)
+        # Scopus использует строгое неравенство, поэтому сдвигаем границы на 1
+        if year_from := filters.get("year_from"):
+            parts.append(f"PUBYEAR > {int(year_from) - 1}")
+        if year_to := filters.get("year_to"):
+            parts.append(f"PUBYEAR < {int(year_to) + 1}")
+
+        # Фильтр по типам документов: DOCTYPE(ar) OR DOCTYPE(re) и т.д.
+        # Несколько типов объединяются через OR внутри общей AND-клаузы
+        doc_types: list[str] = filters.get("document_types") or []
+        if doc_types:
+            dtype_clauses = " OR ".join(
+                f"DOCTYPE({DTYPE_CODE})"
+                for dt in doc_types
+                if (DTYPE_CODE := DOCTYPE_MAP.get(dt))  # Пропускаем неизвестные значения
+            )
+            if dtype_clauses:
+                parts.append(f"({dtype_clauses})")
+
+        # Фильтр по открытому доступу: OA(1) — только open access статьи
+        if filters.get("open_access"):
+            parts.append("OA(1)")
+
+        # Фильтр по странам аффиляции: AFFILCOUNTRY(Germany) OR AFFILCOUNTRY(France)
+        countries: list[str] = filters.get("countries") or []
+        if countries:
+            country_clauses = " OR ".join(
+                f"AFFILCOUNTRY({c})" for c in countries
+            )
+            parts.append(f"({country_clauses})")
+
+        return " AND ".join(parts)
+
+    async def search(
+        self,
+        keyword: str,
+        count: int = 25,
+        filters: dict | None = None,  # Параметры серверной фильтрации
+    ) -> List[Article]:
         page_size = min(count, 25)
 
         params = {
-            "query": f"TITLE-ABS-KEY({keyword})",
+            "query": self.build_query(keyword, filters),  # Используем публичный метод по контракту
             "count": page_size,
             "field": SCOPUS_FIELDS,
             "apiKey": settings.SCOPUS_API_KEY,

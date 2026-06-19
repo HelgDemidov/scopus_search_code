@@ -1,20 +1,7 @@
 import { useState } from 'react';
 import { Checkbox } from '../ui/checkbox';
-import { Switch } from '../ui/switch';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '../ui/popover';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from '../ui/command';
 import {
   Sheet,
   SheetContent,
@@ -26,23 +13,31 @@ import { useStatsStore } from '../../stores/statsStore';
 import { useHistoryStore } from '../../stores/historyStore';
 import type { ArticleClientFilters } from '../../types/api';
 
-// Inner component: sidebar filter content
+// Внутренний компонент: содержимое панели фильтров
 function FiltersContent() {
   const stats = useStatsStore((s) => s.stats);
-  // Filters live in historyStore per §1.3 (filter-slice split)
+  // Фильтры живут в historyStore согласно §1.3 (filter-slice split)
   const { historyFilters: filters, setHistoryFilters: setFilters } = useHistoryStore();
-  const [countriesOpen, setCountriesOpen] = useState(false);
+  // Локальный стейт строки поиска по странам — не часть фильтров стора
+  const [countryQuery, setCountryQuery] = useState('');
 
-  // Filter data: all from useStatsStore().stats per §4.1 (Б-6)
-  // stats?.X guards against stats===null/undefined; stats?.X?.map() also
-  // guards against the sub-field being undefined (e.g. during store init)
+  // Данные фильтров из useStatsStore().stats согласно §4.1 (Б-6)
+  // stats?.X guards против stats===null/undefined; stats?.X?.map() также
+  // guards против undefined sub-field (например при инициализации стора)
   const docTypes  = stats?.by_doc_type?.map((d) => d.label) ?? [];
   const countries = stats?.by_country?.map((c) => c.label) ?? [];
   const years     = stats?.by_year?.map((y) => parseInt(y.label, 10)).filter(Boolean) ?? [];
   const minYear = years.length ? Math.min(...years) : 2000;
   const maxYear = years.length ? Math.max(...years) : new Date().getFullYear();
 
-  // Toggle document type in the selection list
+  // Страны, отфильтрованные по строке поиска (живая фильтрация без API)
+  const filteredCountries = countryQuery.trim()
+    ? countries.filter((c) =>
+        c.toLowerCase().includes(countryQuery.toLowerCase())
+      )
+    : countries;
+
+  // Переключает тип документа в списке выбранных
   function toggleDocType(type: string) {
     const current = filters.docTypes ?? [];
     const updated = current.includes(type)
@@ -51,7 +46,7 @@ function FiltersContent() {
     setFilters({ docTypes: updated.length ? updated : undefined });
   }
 
-  // Toggle country in the multi-select
+  // Переключает страну в мульти-селекте
   function toggleCountry(country: string) {
     const current = filters.countries ?? [];
     const updated = current.includes(country)
@@ -60,7 +55,7 @@ function FiltersContent() {
     setFilters({ countries: updated.length ? updated : undefined });
   }
 
-  // Reset all filters (keyword stays in articleStore — it is server-side)
+  // Сбрасывает все фильтры (keyword остается в articleStore — он серверный)
   function clearFilters() {
     setFilters({
       yearFrom: undefined,
@@ -115,12 +110,13 @@ function FiltersContent() {
         </div>
       </section>
 
-      {/* Document types */}
-      <section>
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">
+      {/* Document types — нативный аккордеон без дополнительных зависимостей */}
+      <details open className="group">
+        <summary className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2 cursor-pointer list-none flex items-center justify-between">
           Document type
-        </p>
-        <div className="flex flex-col gap-1.5">
+          <span className="text-slate-400 group-open:rotate-180 transition-transform text-xs">▾</span>
+        </summary>
+        <div className="flex flex-col gap-1.5 mt-2">
           {docTypes.map((type) => (
             <label key={type} className="flex items-center gap-2 text-sm cursor-pointer">
               <Checkbox
@@ -131,59 +127,56 @@ function FiltersContent() {
             </label>
           ))}
         </div>
-      </section>
+      </details>
 
-      {/* Open Access toggle */}
+      {/* Open Access — Checkbox семантически точнее Switch для группы фильтров */}
       <section>
         <label className="flex items-center gap-2 text-sm cursor-pointer">
-          <Switch
+          <Checkbox
             checked={!!filters.openAccessOnly}
-            onCheckedChange={(checked) => setFilters({ openAccessOnly: checked || undefined })}
+            onCheckedChange={(checked) =>
+              setFilters({ openAccessOnly: checked === true ? true : undefined })
+            }
           />
           <span>Open Access only</span>
         </label>
       </section>
 
-      {/* Countries multi-select (Popover + Command) */}
+      {/* Countries — predictive input вместо Popover+Command */}
       <section>
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">
           Country
         </p>
-        <Popover open={countriesOpen} onOpenChange={setCountriesOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              role="combobox"
-              aria-expanded={countriesOpen}
-              className="w-full justify-between text-sm font-normal"
-            >
-              {(filters.countries?.length ?? 0) > 0
-                ? `${filters.countries!.length} selected`
-                : 'Select countries'}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-64 p-0">
-            <Command>
-              <CommandInput placeholder="Search country…" />
-              <CommandEmpty>No countries found</CommandEmpty>
-              <CommandGroup className="max-h-52 overflow-y-auto">
-                {countries.map((country) => (
-                  <CommandItem
-                    key={country}
-                    value={country}
-                    onSelect={() => toggleCountry(country)}
-                    className="flex items-center gap-2"
-                  >
-                    <Checkbox checked={(filters.countries ?? []).includes(country)} />
-                    {country}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </Command>
-          </PopoverContent>
-        </Popover>
 
-        {/* Selected countries badges */}
+        {/* Строка живой фильтрации списка стран */}
+        <input
+          type="text"
+          value={countryQuery}
+          onChange={(e) => setCountryQuery(e.target.value)}
+          placeholder="Search country…"
+          className="w-full rounded border border-slate-200 dark:border-slate-600 bg-transparent px-2 py-1 text-sm mb-1"
+          aria-label="Filter countries"
+        />
+
+        {/* Список стран с прокруткой */}
+        <ul className="max-h-40 overflow-y-auto flex flex-col gap-1">
+          {filteredCountries.map((country) => (
+            <li key={country}>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={(filters.countries ?? []).includes(country)}
+                  onCheckedChange={() => toggleCountry(country)}
+                />
+                {country}
+              </label>
+            </li>
+          ))}
+          {filteredCountries.length === 0 && (
+            <li className="text-xs text-slate-400 px-1 py-1">No countries found</li>
+          )}
+        </ul>
+
+        {/* Бейджи выбранных стран */}
         {(filters.countries?.length ?? 0) > 0 && (
           <div className="mt-2 flex flex-wrap gap-1">
             {filters.countries!.map((c) => (
@@ -200,7 +193,7 @@ function FiltersContent() {
         )}
       </section>
 
-      {/* Clear filters button */}
+      {/* Кнопка сброса всех фильтров */}
       {hasActiveFilters && (
         <Button
           variant="ghost"
@@ -215,7 +208,7 @@ function FiltersContent() {
   );
 }
 
-// Desktop sidebar: always visible on lg+
+// Десктопный сайдбар: всегда виден на lg+
 export function ArticleFiltersSidebar() {
   return (
     <aside className="hidden lg:flex flex-col w-56 shrink-0">
@@ -225,7 +218,7 @@ export function ArticleFiltersSidebar() {
   );
 }
 
-// Mobile: Sheet triggered by a button
+// Мобильная версия: Sheet, открываемый кнопкой
 export function ArticleFiltersMobile() {
   return (
     <div className="lg:hidden">

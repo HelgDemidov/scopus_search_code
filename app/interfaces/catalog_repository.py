@@ -14,11 +14,21 @@ class ICatalogRepository(ABC):
         offset: int,
         keyword: str | None = None,
         search: str | None = None,
+        year_from: int | None = None,
+        year_to: int | None = None,
+        doc_types: list[str] | None = None,
+        open_access: bool | None = None,
+        countries: list[str] | None = None,
     ) -> List[Article]:
         """
         Возвращает статьи каталога с пагинацией и опциональными фильтрами.
-        keyword: точное совпадение с ключевым словом сидера; None — без фильтра.
-        search: ILIKE-поиск по title и author; None — без fulltext-фильтра.
+        keyword:     точное совпадение с ключевым словом сидера; None — без фильтра.
+        search:      ILIKE-поиск по title и author; None — без fulltext-фильтра.
+        year_from:   год публикации >= year_from; None — без нижней границы.
+        year_to:     год публикации <= year_to; None — без верхней границы.
+        doc_types:   фильтр по типу документа (Article, Review и т.д.); None — все типы.
+        open_access: True — только OA; False — только не-OA; None — все.
+        countries:   фильтр по стране аффилиации (один или несколько); None — все страны.
         """
         pass
 
@@ -27,6 +37,11 @@ class ICatalogRepository(ABC):
         self,
         keyword: str | None = None,
         search: str | None = None,
+        year_from: int | None = None,
+        year_to: int | None = None,
+        doc_types: list[str] | None = None,
+        open_access: bool | None = None,
+        countries: list[str] | None = None,
     ) -> int:
         """
         Считает статьи каталога с теми же фильтрами, что get_all — для корректной пагинации.

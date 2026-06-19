@@ -6,11 +6,13 @@ on:
     branches:
       - main
       - master
+      - filtering
 
   pull_request:
     branches:
       - main
       - master
+      - filtering
 
 # Устанавливаем Node.js 24 для всех actions в этом workflow заранее официального дедлайна (02.06.2026)
 env:

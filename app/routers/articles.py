@@ -1,4 +1,3 @@
-# app/routers/articles.py
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
@@ -54,7 +53,7 @@ def _get_search_result_repo(
     return PostgresSearchResultRepository(session)
 
 
-# Константа квоты — единственный источник правды, остальное живёт в SearchHistoryService
+# Константа квоты — единственный источник правды, остальное живет в SearchHistoryService
 _WINDOW_DAYS = 7
 
 
@@ -86,10 +85,38 @@ async def get_articles(
         None, min_length=2,
         description="Fulltext-поиск по названию и первому автору (ILIKE, без учета регистра)",
     ),
+    year_from: int | None = Query(
+        None, ge=1900, le=2100,
+        description="Фильтр: год публикации от (включительно)",
+    ),
+    year_to: int | None = Query(
+        None, ge=1900, le=2100,
+        description="Фильтр: год публикации до (включительно)",
+    ),
+    doc_types: list[str] | None = Query(
+        None,
+        description="Фильтр: типы документов (можно несколько: ?doc_types=Article&doc_types=Review)",
+    ),
+    open_access: bool | None = Query(
+        None,
+        description="Фильтр: True — только open-access; False — только закрытые; без параметра — все",
+    ),
+    countries: list[str] | None = Query(
+        None,
+        description="Фильтр: страны аффилиации (можно несколько: ?countries=Germany&countries=France)",
+    ),
     service: CatalogService = Depends(get_catalog_service),
 ) -> PaginatedArticleResponse:
     return await service.get_catalog_paginated(
-        page=page, size=size, keyword=keyword, search=search
+        page=page,
+        size=size,
+        keyword=keyword,
+        search=search,
+        year_from=year_from,
+        year_to=year_to,
+        doc_types=doc_types,
+        open_access=open_access,
+        countries=countries,
     )
 
 
@@ -134,24 +161,28 @@ async def find_articles(
     year_to: int | None = Query(None, description="Фильтр: год публикации до"),
     doc_types: list[str] | None = Query(None, description="Фильтр: типы документов"),
     open_access: bool | None = Query(None, description="Фильтр: только open-access"),
-    country: list[str] | None = Query(None, description="Фильтр: страны"),
+    countries: list[str] | None = Query(None, description="Фильтр: страны"),
     service: SearchService = Depends(get_search_service),
     history_service: SearchHistoryService = Depends(get_search_history_service),
     session: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ) -> Any:
-    # Собираем payload фильтров только из непустых значений
+    # Собираем payload фильтров только из непустых значений.
+    # Ключ «document_types» — единый канонический ключ по всему стеку:
+    # роутер → filters_payload → SearchService → build_query → CQL-строка Scopus.
     filters_payload: dict = {}
     if year_from is not None:
         filters_payload["year_from"] = year_from
     if year_to is not None:
         filters_payload["year_to"] = year_to
     if doc_types is not None:
-        filters_payload["doc_types"] = doc_types
+        # Query-параметр называется doc_types (короткий, удобный для HTTP),
+        # но внутри сервисного слоя — document_types (полный, читаемый ключ)
+        filters_payload["document_types"] = doc_types
     if open_access is not None:
         filters_payload["open_access"] = open_access
-    if country is not None:
-        filters_payload["country"] = country
+    if countries is not None:
+        filters_payload["countries"] = countries
 
     # Advisory-lock на уровне транзакции сериализует параллельные проверки квоты
     # одного пользователя. SQLite такую функцию не поддерживает — ограничиваем PG.

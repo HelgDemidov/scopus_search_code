@@ -31,6 +31,12 @@ export interface GetArticlesParams {
   // search — ILIKE-поиск по title и author (пользовательский запрос, коммит 2);
   // keyword и search независимы на уровне API; стор обеспечивает взаимоисключение
   search?: string;
+  // Серверные фильтры — передаются как query-параметры GET /articles/
+  year_from?: number;
+  year_to?: number;
+  doc_types?: string[];
+  open_access?: boolean;
+  countries?: string[];
   // signal — AbortSignal для отмены запроса (axios >= 0.22 + fetch API);
   // вызывающие стороны без signal не замечают изменений
   signal?: AbortSignal;
@@ -43,11 +49,30 @@ export interface GetArticlesParams {
 export async function getArticles(
   params: GetArticlesParams = {},
 ): Promise<PaginatedArticleResponse> {
-  const { page = 1, size = 10, keyword, search, signal } = params;
+  const {
+    page = 1, size = 10,
+    keyword, search,
+    year_from, year_to,
+    doc_types, open_access, countries,
+    signal,
+  } = params;
 
-  const queryParams: Record<string, string | number> = { page, size };
-  if (keyword) queryParams.keyword = keyword;
-  if (search)  queryParams.search  = search;
+  // URLSearchParams обеспечивает корректную сериализацию массивов:
+  // ?doc_types=ar&doc_types=re (без квадратных скобок, как ожидает FastAPI Query)
+  const queryParams = new URLSearchParams();
+  queryParams.set('page', String(page));
+  queryParams.set('size', String(size));
+
+  // Скалярные фильтры — добавляем только при наличии значения
+  if (keyword)             queryParams.set('keyword', keyword);
+  if (search)              queryParams.set('search', search);
+  if (year_from)           queryParams.set('year_from', String(year_from));
+  if (year_to)             queryParams.set('year_to', String(year_to));
+  if (open_access != null) queryParams.set('open_access', String(open_access));
+
+  // Массивы — каждый элемент отдельным append
+  doc_types?.forEach(v => queryParams.append('doc_types', v));
+  countries?.forEach(v => queryParams.append('countries', v));
 
   const response = await apiClient.get<PaginatedArticleResponse>('/articles/', {
     params: queryParams,
@@ -93,16 +118,52 @@ export interface FindArticlesResult {
 }
 
 // ---------------------------------------------------------------------------
+// Параметры live-поиска через Scopus API
+// ---------------------------------------------------------------------------
+
+export interface FindArticlesParams {
+  keyword: string;
+  count?: number;                  // кол-во результатов (макс. 25, дефолт 25)
+  // Фильтры, передаваемые в Scopus через бэкенд
+  year_from?: number;
+  year_to?: number;
+  doc_types?: string[];
+  open_access?: boolean;
+  countries?: string[];
+}
+
+// ---------------------------------------------------------------------------
 // GET /articles/find — live-поиск через Scopus API (только для авторизованных)
 // Требует JWT; квота читается из заголовков X-RateLimit-*
+//
+// Breaking change (коммит 5): сигнатура изменена с (keyword, count) на (params)
+// Единственный вызов в articleStore.ts обновлён в этом же коммите
 // ---------------------------------------------------------------------------
 
 export async function findArticles(
-  keyword: string,
-  count: number = 25,
+  params: FindArticlesParams,
 ): Promise<FindArticlesResult> {
+  const {
+    keyword, count = 25,
+    year_from, year_to,
+    doc_types, open_access, countries,
+  } = params;
+
+  // URLSearchParams — та же причина, что и в getArticles: корректная
+  // сериализация массивов без квадратных скобок для FastAPI Query()
+  const queryParams = new URLSearchParams();
+  queryParams.set('keyword', keyword);
+  queryParams.set('count', String(count));
+
+  if (year_from)           queryParams.set('year_from', String(year_from));
+  if (year_to)             queryParams.set('year_to', String(year_to));
+  if (open_access != null) queryParams.set('open_access', String(open_access));
+
+  doc_types?.forEach(v => queryParams.append('doc_types', v));
+  countries?.forEach(v => queryParams.append('countries', v));
+
   const response = await apiClient.get<ArticleResponse[]>('/articles/find', {
-    params: { keyword, count },
+    params: queryParams,
   });
 
   // Извлекаем квоту из заголовков ответа

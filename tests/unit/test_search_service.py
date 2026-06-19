@@ -27,6 +27,8 @@ class FakeSearchClient(ISearchClient):
         self._raise = raise_exc
         self.last_keyword: str | None = None
         self.last_count: int | None = None
+        # Запоминаем переданные filters для последующих проверок
+        self.last_filters: dict | None = None
 
     @property
     def last_rate_limit(self) -> str | None:
@@ -40,9 +42,21 @@ class FakeSearchClient(ISearchClient):
     def last_rate_reset(self) -> str | None:
         return None
 
-    async def search(self, keyword: str, count: int = 25) -> List[Article]:
+    def build_query(self, keyword: str, filters: dict | None = None) -> str:
+        # Заглушка по контракту ISearchClient — возвращает базовый CQL без маппинга.
+        # SearchService вызывает этот метод до search() для формирования scopus_query
+        return f"TITLE-ABS-KEY({keyword})"
+
+    # filters добавлен в соответствии с обновленным интерфейсом ISearchClient
+    async def search(
+        self,
+        keyword: str,
+        count: int = 25,
+        filters: dict | None = None,
+    ) -> List[Article]:
         self.last_keyword = keyword
         self.last_count = count
+        self.last_filters = filters
         if self._raise is not None:
             raise self._raise
         return self._articles
@@ -79,12 +93,15 @@ class FakeSearchHistoryRepository(ISearchHistoryRepository):
         query: str,
         result_count: int,
         filters: dict | None = None,
+        scopus_query: str | None = None,
     ) -> SearchHistory:
+        # append выполняется ДО вычисления id — первый вызов дает id=1
         self.insert_calls.append({
             "user_id": user_id,
             "query": query,
             "result_count": result_count,
             "filters": filters,
+            "scopus_query": scopus_query,
         })
         return SearchHistory(
             id=len(self.insert_calls),
@@ -92,6 +109,7 @@ class FakeSearchHistoryRepository(ISearchHistoryRepository):
             query=query,
             result_count=result_count,
             filters=filters or {},
+            scopus_query=scopus_query,
             created_at=datetime.datetime.now(tz=datetime.timezone.utc),
         )
 
@@ -136,7 +154,7 @@ class FakeSearchResultRepository(ISearchResultRepository):
 
 
 class FakeSession:
-    """Минимальная заглушка AsyncSession — только commit()."""
+    """  Минимальная заглушка AsyncSession — только commit()."""
     def __init__(self):
         self.commit_call_count = 0
 
@@ -198,7 +216,7 @@ async def test_constructor_stores_all_dependencies():
 
 @pytest.mark.asyncio
 async def test_find_and_save_success_full_pipeline():
-    """Успешный путь: search → upsert_many → insert_row → save_results → commit."""
+    """ Успешный путь: search → upsert_many → insert_row → save_results → commit."""
     svc, sc, ar, hr, sr, sess = _mk_service(
         articles=[_mk_article("10.test/1"), _mk_article("10.test/2")]
     )
@@ -224,7 +242,7 @@ async def test_find_and_save_success_full_pipeline():
     # 4. save_results вызван с корректным search_history_id и статьями с id
     assert len(sr.save_results_calls) == 1
     sr_call = sr.save_results_calls[0]
-    assert sr_call["search_history_id"] == 1  # первая запись истории → id=1
+    assert sr_call["search_history_id"] == 1
     assert len(sr_call["articles"]) == 2
     assert all(a.id is not None for a in sr_call["articles"])
 
@@ -245,9 +263,64 @@ async def test_find_and_save_passes_count_to_search_client():
 
 @pytest.mark.asyncio
 async def test_find_and_save_filters_default_none_passed_through():
-    svc, _, _, hr, *_ = _mk_service(articles=[_mk_article()])
+    """ filters=None по умолчанию пробрасывается и в клиент, и в историю."""
+    svc, sc, _, hr, *_ = _mk_service(articles=[_mk_article()])
     await svc.find_and_save("AI", user_id=42)
+    assert sc.last_filters is None
     assert hr.insert_calls[0]["filters"] is None
+
+
+@pytest.mark.asyncio
+async def test_find_and_save_filters_passed_to_search_client():
+    """ Все поля filters корректно передаются в ISearchClient.search()."""
+    filters = {
+        "year_from": 2020,
+        "year_to": 2024,
+        "document_types": ["ar", "re"],
+        "open_access": True,
+        "countries": ["Russia", "Germany"],
+    }
+    svc, sc, *_ = _mk_service(articles=[_mk_article()])
+    await svc.find_and_save("AI", user_id=1, filters=filters)
+    assert sc.last_filters == filters
+
+
+@pytest.mark.asyncio
+async def test_find_and_save_filters_saved_to_history():
+    """ filters сохраняются в запись истории поиска."""
+    filters = {"open_access": True, "document_types": ["ar"]}
+    svc, _, _, hr, *_ = _mk_service(articles=[_mk_article()])
+    await svc.find_and_save("quantum", user_id=5, filters=filters)
+    assert hr.insert_calls[0]["filters"] == filters
+
+
+@pytest.mark.asyncio
+async def test_find_and_save_scopus_query_saved_to_history():
+    """ scopus_query, построенный build_query(), сохраняется в историю поиска."""
+    svc, sc, _, hr, *_ = _mk_service(articles=[_mk_article()])
+    await svc.find_and_save("climate", user_id=3)
+    # build_query заглушки возвращает "TITLE-ABS-KEY(climate)"
+    assert hr.insert_calls[0]["scopus_query"] == "TITLE-ABS-KEY(climate)"
+
+
+# ================================================================ #
+#  Тест регрессии TD: SearchService использует build_query по контракту    #
+# ================================================================ #
+
+@pytest.mark.asyncio
+async def test_find_and_save_uses_interface_build_query_not_private():
+    """  Страж TD: SearchService вызывает build_query по контракту,
+    а не приватный _build_query. Если сервис вернется к _build_query,
+    тест упадет с AttributeError.
+    """
+    svc, sc, _, hr, *_ = _mk_service(articles=[_mk_article()])
+    # FakeSearchClient не должен иметь _build_query после рефакторинга TD
+    assert not hasattr(sc, "_build_query"), (
+        "FakeSearchClient не должен иметь _build_query после рефакторинга TD"
+    )
+    await svc.find_and_save("neural", user_id=9)
+    # build_query заглушки возвращает "TITLE-ABS-KEY(neural)"
+    assert hr.insert_calls[0]["scopus_query"] == "TITLE-ABS-KEY(neural)"
 
 
 # ================================================================ #
@@ -256,7 +329,7 @@ async def test_find_and_save_filters_default_none_passed_through():
 
 @pytest.mark.asyncio
 async def test_find_and_save_empty_returns_empty_and_skips_pipeline():
-    """Если Scopus вернул 0 статей — никаких записей в БД, commit не вызван."""
+    """ Если Scopus вернул 0 статей — никаких записей в БД, commit не вызван."""
     svc, _, ar, hr, sr, sess = _mk_service(articles=[])
 
     result = await svc.find_and_save("AI", user_id=1)
@@ -274,7 +347,7 @@ async def test_find_and_save_empty_returns_empty_and_skips_pipeline():
 
 @pytest.mark.asyncio
 async def test_find_and_save_search_exception_skips_all_db_ops():
-    """Если Scopus упал — ничего в БД не пишем, commit не вызван."""
+    """ Если Scopus упал — ничего в БД не пишем, commit не вызван."""
     svc, _, ar, hr, sr, sess = _mk_service(search_raise=RuntimeError("scopus down"))
 
     with pytest.raises(RuntimeError, match="scopus down"):
@@ -288,7 +361,7 @@ async def test_find_and_save_search_exception_skips_all_db_ops():
 
 @pytest.mark.asyncio
 async def test_find_and_save_upsert_exception_skips_history_and_results():
-    """Если upsert_many упал — история и search_results не пишутся, commit не вызван."""
+    """ Если upsert_many упал — история и search_results не пишутся, commit не вызван."""
     svc, _, ar, hr, sr, sess = _mk_service(
         articles=[_mk_article()],
         upsert_raise=RuntimeError("db down"),
@@ -297,7 +370,7 @@ async def test_find_and_save_upsert_exception_skips_history_and_results():
     with pytest.raises(RuntimeError, match="db down"):
         await svc.find_and_save("AI", user_id=1)
 
-    assert len(ar.upsert_many_calls) == 1  # upsert вызван, но бросил
-    assert hr.insert_calls == []           # история НЕ записана
-    assert sr.save_results_calls == []     # результаты НЕ записаны
-    assert sess.commit_call_count == 0     # commit НЕ вызван
+    assert len(ar.upsert_many_calls) == 1
+    assert hr.insert_calls == []
+    assert sr.save_results_calls == []
+    assert sess.commit_call_count == 0

@@ -74,3 +74,85 @@ async def test_scopus_client_search_and_limits(monkeypatch):
         assert client.last_rate_limit == "20000"
         assert client.last_rate_remaining == "19884"
         assert client.last_rate_reset == "1774695787"
+
+
+# ================================================================ #
+#  TestBuildQuery: юнит-тесты CQL-построителя                          #
+#  Не требуют HTTP, asyncio или БД. Запускаются мгновенно.         #
+# ================================================================ #
+
+class TestBuildQuery:
+
+    def _client(self) -> ScopusHTTPClient:
+        # Обходим __init__, который требует httpx.AsyncClient.
+        # build_query не использует self._client (только self), поэтому это безопасно
+        return ScopusHTTPClient.__new__(ScopusHTTPClient)
+
+    def test_no_filters_returns_base_clause(self):
+        assert self._client().build_query("AI", None) == "TITLE-ABS-KEY(AI)"
+
+    def test_empty_filters_dict_returns_base_clause(self):
+        # Пустой словарь эквивалентен None — нет дополнительных клауз
+        assert self._client().build_query("AI", {}) == "TITLE-ABS-KEY(AI)"
+
+    def test_year_from_appends_pubyear_gt(self):
+        q = self._client().build_query("AI", {"year_from": 2020})
+        # Scopus использует строгое неравенство, поэтому year_from=2020 → PUBYEAR > 2019
+        assert "PUBYEAR > 2019" in q
+        assert q.startswith("TITLE-ABS-KEY(AI)")
+
+    def test_year_to_appends_pubyear_lt(self):
+        q = self._client().build_query("AI", {"year_to": 2024})
+        # year_to=2024 → PUBYEAR < 2025
+        assert "PUBYEAR < 2025" in q
+
+    def test_single_doc_type_article(self):
+        q = self._client().build_query("AI", {"document_types": ["Article"]})
+        assert "DOCTYPE(ar)" in q
+
+    def test_multiple_doc_types_joined_with_or(self):
+        q = self._client().build_query("AI", {"document_types": ["Article", "Review"]})
+        assert "DOCTYPE(ar)" in q
+        assert "DOCTYPE(re)" in q
+        # Несколько типов объединяются через OR внутри скобок
+        assert "DOCTYPE(ar) OR DOCTYPE(re)" in q
+
+    def test_unknown_doc_type_is_silently_skipped(self):
+        # Неизвестный тип пропускается силентно, без DOCTYPE-клаузы
+        q = self._client().build_query("AI", {"document_types": ["UnknownType"]})
+        assert "DOCTYPE" not in q
+
+    def test_open_access_true_appends_oa1(self):
+        q = self._client().build_query("AI", {"open_access": True})
+        assert "OA(1)" in q
+
+    def test_open_access_false_no_oa_clause(self):
+        # open_access=False — OA-клауза не добавляется
+        q = self._client().build_query("AI", {"open_access": False})
+        assert "OA(1)" not in q
+
+    def test_single_country(self):
+        q = self._client().build_query("AI", {"countries": ["Germany"]})
+        assert "AFFILCOUNTRY(Germany)" in q
+
+    def test_multiple_countries_joined_with_or(self):
+        q = self._client().build_query("AI", {"countries": ["Germany", "France"]})
+        # Несколько стран объединяются через OR
+        assert "AFFILCOUNTRY(Germany) OR AFFILCOUNTRY(France)" in q
+
+    def test_all_filters_combined_base_clause_is_first(self):
+        q = self._client().build_query("AI", {
+            "year_from": 2020,
+            "year_to": 2024,
+            "document_types": ["Article"],
+            "open_access": True,
+            "countries": ["USA"],
+        })
+        # Базовая клауза всегда первая, остальные через AND
+        assert q.startswith("TITLE-ABS-KEY(AI)")
+        assert " AND " in q
+        assert "PUBYEAR > 2019" in q
+        assert "PUBYEAR < 2025" in q
+        assert "DOCTYPE(ar)" in q
+        assert "OA(1)" in q
+        assert "AFFILCOUNTRY(USA)" in q

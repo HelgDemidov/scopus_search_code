@@ -14,10 +14,12 @@ class ISearchHistoryRepository(ABC):
         query: str,
         result_count: int,
         filters: dict | None = None,
+        scopus_query: str | None = None,
     ) -> SearchHistory:
         """
         Вставляет одну запись в search_history и возвращает её с заполненными
         id и created_at из БД. filters=None сохраняется как {}.
+        scopus_query — итоговый CQL-запрос, отправленный в Scopus API.
         """
         pass
 

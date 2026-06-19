@@ -24,7 +24,23 @@ class ISearchClient(ABC):
     def last_rate_reset(self) -> str | None: ...
 
     @abstractmethod
-    async def search(self, keyword: str, count: int = 25) -> List[Article]:
+    def build_query(self, keyword: str, filters: dict | None = None) -> str:
+        # Строит итоговую строку CQL-запроса из ключевого слова и фильтров.
+        # Выделен в контракт, чтобы SearchService мог получить финальный
+        # запрос без зависимости от приватной детали конкретной реализации.
+        # Любая альтернативная реализация (PubMed, Semantic Scholar) обязана
+        # предоставить свою версию построителя запроса
+        pass
+
+    @abstractmethod
+    async def search(
+        self,
+        keyword: str,
+        count: int = 25,
+        filters: dict | None = None,  # Параметры серверной фильтрации от клиента
+    ) -> List[Article]:
         # Выполняет поиск по ключевому слову и возвращает список ORM-объектов Article.
-        # count — макс. кол-во результатов (по бесплатному лимиту Scopus API Key — 25)
+        # count — макс. кол-во результатов (по бесплатному лимиту Scopus API Key — 25).
+        # filters — опциональный словарь с ключами: year_from, year_to,
+        #           document_types (list[str]), open_access (bool), countries (list[str])
         pass

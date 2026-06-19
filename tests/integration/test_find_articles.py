@@ -23,7 +23,8 @@ from app.models.search_history import SearchHistory
 
 @pytest.fixture
 def mock_scopus_two_articles(monkeypatch):
-    async def mock_search(self, keyword: str, count: int = 25):
+    # filters добавлен согласно обновленной сигнатуре ISearchClient.search()
+    async def mock_search(self, keyword: str, count: int = 25, filters: dict | None = None):
         return [
             Article(
                 title="Paper 1",
@@ -58,7 +59,7 @@ async def test_find_happy_path_writes_one_history_row(
     body = resp.json()
     assert len(body) == 2
 
-    # Ровно одна строка истории — result_count соответствует количеству сохранённых
+    # Ровно одна строка истории — result_count соответствует количеству сохраненных
     rows = (await db_session.execute(select(SearchHistory))).scalars().all()
     assert len(rows) == 1
     assert rows[0].query == "AI"
@@ -76,7 +77,7 @@ async def test_find_requires_auth(client: AsyncClient, mock_scopus_two_articles)
 
 
 # ---------------------------------------------------------------------------
-# Quota enforcement: 200 rows pre-seeded → 429, не зовёт Scopus, не пишет строку
+# Quota enforcement: 200 rows pre-seeded → 429, не зовет Scopus, не пишет строку
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
@@ -107,7 +108,8 @@ async def test_find_returns_429_when_quota_exhausted(
     # Спай: search не должен быть вызван
     calls = {"n": 0}
 
-    async def spy_search(self, keyword: str, count: int = 25):
+    # filters добавлен согласно обновленной сигнатуре ISearchClient.search()
+    async def spy_search(self, keyword: str, count: int = 25, filters: dict | None = None):
         calls["n"] += 1
         return []
 
@@ -145,8 +147,8 @@ async def test_find_persists_filters(
             ("doc_types", "ar"),
             ("doc_types", "cp"),
             ("open_access", "true"),
-            ("country", "USA"),
-            ("country", "DEU"),
+            ("countries", "USA"),
+            ("countries", "DEU"),
         ],
     )
     assert resp.status_code == 200, resp.text
@@ -156,13 +158,14 @@ async def test_find_persists_filters(
     f = rows[0].filters
     assert f["year_from"] == 2020
     assert f["year_to"] == 2025
-    assert f["doc_types"] == ["ar", "cp"]
+    # Роутер маппит query-param doc_types → document_types в filters_payload
+    assert f["document_types"] == ["ar", "cp"]
     assert f["open_access"] is True
-    assert f["country"] == ["USA", "DEU"]
+    assert f["countries"] == ["USA", "DEU"]
 
 
 # ---------------------------------------------------------------------------
-# result_count соответствует числу сохранённых статей
+# result_count соответствует числу сохраненных статей
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
@@ -180,7 +183,7 @@ async def test_find_result_count_equals_saved(
 
 
 # ---------------------------------------------------------------------------
-# Ошибка Scopus → строка истории не создаётся
+# Ошибка Scopus → строка истории не создается
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
@@ -189,7 +192,8 @@ async def test_find_scopus_error_writes_no_history(
     db_session: AsyncSession,
     monkeypatch,
 ):
-    async def raising_search(self, keyword: str, count: int = 25):
+    # filters добавлен согласно обновленной сигнатуре ISearchClient.search()
+    async def raising_search(self, keyword: str, count: int = 25, filters: dict | None = None):
         raise RuntimeError("scopus down")
 
     monkeypatch.setattr(
@@ -198,7 +202,7 @@ async def test_find_scopus_error_writes_no_history(
 
     try:
         resp = await authenticated_client.get("/articles/find", params={"keyword": "AI"})
-        # FastAPI обернёт в 500
+        # FastAPI обернет в 500
         assert resp.status_code in (500, 502, 503)
     except RuntimeError:
         # ASGI может пробросить исключение наружу — это тоже допустимо для теста
