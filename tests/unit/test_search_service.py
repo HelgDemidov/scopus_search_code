@@ -27,6 +27,8 @@ class FakeSearchClient(ISearchClient):
         self._raise = raise_exc
         self.last_keyword: str | None = None
         self.last_count: int | None = None
+        # Запоминаем переданные filters для последующих проверок
+        self.last_filters: dict | None = None
 
     @property
     def last_rate_limit(self) -> str | None:
@@ -40,9 +42,16 @@ class FakeSearchClient(ISearchClient):
     def last_rate_reset(self) -> str | None:
         return None
 
-    async def search(self, keyword: str, count: int = 25) -> List[Article]:
+    # filters добавлен в соответствии с обновлённым интерфейсом ISearchClient
+    async def search(
+        self,
+        keyword: str,
+        count: int = 25,
+        filters: dict | None = None,
+    ) -> List[Article]:
         self.last_keyword = keyword
         self.last_count = count
+        self.last_filters = filters
         if self._raise is not None:
             raise self._raise
         return self._articles
@@ -245,9 +254,38 @@ async def test_find_and_save_passes_count_to_search_client():
 
 @pytest.mark.asyncio
 async def test_find_and_save_filters_default_none_passed_through():
-    svc, _, _, hr, *_ = _mk_service(articles=[_mk_article()])
+    """filters=None по умолчанию пробрасывается и в клиент, и в историю."""
+    svc, sc, _, hr, *_ = _mk_service(articles=[_mk_article()])
     await svc.find_and_save("AI", user_id=42)
+    # Клиент получил filters=None
+    assert sc.last_filters is None
+    # История сохранена с filters=None
     assert hr.insert_calls[0]["filters"] is None
+
+
+@pytest.mark.asyncio
+async def test_find_and_save_filters_passed_to_search_client():
+    """Все поля filters корректно передаются в ISearchClient.search()."""
+    filters = {
+        "year_from": 2020,
+        "year_to": 2024,
+        "document_types": ["ar", "re"],
+        "open_access": True,
+        "countries": ["Russia", "Germany"],
+    }
+    svc, sc, *_ = _mk_service(articles=[_mk_article()])
+    await svc.find_and_save("AI", user_id=1, filters=filters)
+    # Фильтр дошёл до клиента без изменений
+    assert sc.last_filters == filters
+
+
+@pytest.mark.asyncio
+async def test_find_and_save_filters_saved_to_history():
+    """filters сохраняются в запись истории поиска."""
+    filters = {"open_access": True, "document_types": ["ar"]}
+    svc, _, _, hr, *_ = _mk_service(articles=[_mk_article()])
+    await svc.find_and_save("quantum", user_id=5, filters=filters)
+    assert hr.insert_calls[0]["filters"] == filters
 
 
 # ================================================================ #

@@ -37,27 +37,57 @@ class FakeCatalogRepository(ICatalogRepository):
         self._articles = articles or []
         self._total = total
         self.get_all_calls: list[dict] = []
+        self.get_count_calls: list[dict] = []
         self.save_seeded_calls: list[dict] = []
         self.stats_call_count = 0
 
+    # Сигнатура синхронизирована с ICatalogRepository после добавления фильтров
     async def get_all(
         self,
         limit: int,
         offset: int,
         keyword: str | None = None,
         search: str | None = None,
+        year_from: int | None = None,
+        year_to: int | None = None,
+        doc_types: list[str] | None = None,
+        open_access: bool | None = None,
+        countries: list[str] | None = None,
     ) -> List[Article]:
-        self.get_all_calls.append(
-            {"limit": limit, "offset": offset, "keyword": keyword, "search": search}
-        )
+        self.get_all_calls.append({
+            "limit": limit,
+            "offset": offset,
+            "keyword": keyword,
+            "search": search,
+            "year_from": year_from,
+            "year_to": year_to,
+            "doc_types": doc_types,
+            "open_access": open_access,
+            "countries": countries,
+        })
         # Имитируем SQL LIMIT/OFFSET
         return self._articles[offset: offset + limit]
 
+    # Сигнатура синхронизирована с ICatalogRepository после добавления фильтров
     async def get_total_count(
         self,
         keyword: str | None = None,
         search: str | None = None,
+        year_from: int | None = None,
+        year_to: int | None = None,
+        doc_types: list[str] | None = None,
+        open_access: bool | None = None,
+        countries: list[str] | None = None,
     ) -> int:
+        self.get_count_calls.append({
+            "keyword": keyword,
+            "search": search,
+            "year_from": year_from,
+            "year_to": year_to,
+            "doc_types": doc_types,
+            "open_access": open_access,
+            "countries": countries,
+        })
         return self._total
 
     async def save_seeded(self, articles: List[Article], keyword: str) -> List[Article]:
@@ -114,7 +144,7 @@ def _mk_service(
 
 
 # ================================================================ #
-#  Тесты get_catalog_paginated                                     #
+#  Тесты get_catalog_paginated — базовая пагинация                 #
 # ================================================================ #
 
 @pytest.mark.asyncio
@@ -160,7 +190,7 @@ async def test_get_catalog_paginated_negative_page_clamped_to_1():
 
 
 @pytest.mark.asyncio
-async def test_get_catalog_paginated_passes_filters():
+async def test_get_catalog_paginated_passes_keyword_and_search():
     svc, _, cr, _ = _mk_service(articles=[], total=0)
 
     await svc.get_catalog_paginated(page=1, size=5, keyword="LLM", search="transformer")
@@ -168,6 +198,92 @@ async def test_get_catalog_paginated_passes_filters():
     call = cr.get_all_calls[0]
     assert call["keyword"] == "LLM"
     assert call["search"] == "transformer"
+
+
+# ================================================================ #
+#  Тесты get_catalog_paginated — новые параметры фильтрации        #
+# ================================================================ #
+
+@pytest.mark.asyncio
+async def test_get_catalog_paginated_passes_year_range():
+    """year_from и year_to пробрасываются и в get_all, и в get_total_count."""
+    svc, _, cr, _ = _mk_service(articles=[], total=0)
+
+    await svc.get_catalog_paginated(page=1, size=10, year_from=2020, year_to=2024)
+
+    assert cr.get_all_calls[0]["year_from"] == 2020
+    assert cr.get_all_calls[0]["year_to"] == 2024
+    assert cr.get_count_calls[0]["year_from"] == 2020
+    assert cr.get_count_calls[0]["year_to"] == 2024
+
+
+@pytest.mark.asyncio
+async def test_get_catalog_paginated_passes_doc_types():
+    """doc_types пробрасывается в оба вызова репозитория."""
+    svc, _, cr, _ = _mk_service(articles=[], total=0)
+
+    await svc.get_catalog_paginated(page=1, size=10, doc_types=["ar", "re"])
+
+    assert cr.get_all_calls[0]["doc_types"] == ["ar", "re"]
+    assert cr.get_count_calls[0]["doc_types"] == ["ar", "re"]
+
+
+@pytest.mark.asyncio
+async def test_get_catalog_paginated_passes_open_access_true():
+    """open_access=True пробрасывается в оба вызова репозитория."""
+    svc, _, cr, _ = _mk_service(articles=[], total=0)
+
+    await svc.get_catalog_paginated(page=1, size=10, open_access=True)
+
+    assert cr.get_all_calls[0]["open_access"] is True
+    assert cr.get_count_calls[0]["open_access"] is True
+
+
+@pytest.mark.asyncio
+async def test_get_catalog_paginated_passes_countries():
+    """countries пробрасывается в оба вызова репозитория."""
+    svc, _, cr, _ = _mk_service(articles=[], total=0)
+
+    await svc.get_catalog_paginated(
+        page=1, size=10, countries=["Russia", "Germany"]
+    )
+
+    assert cr.get_all_calls[0]["countries"] == ["Russia", "Germany"]
+    assert cr.get_count_calls[0]["countries"] == ["Russia", "Germany"]
+
+
+@pytest.mark.asyncio
+async def test_get_catalog_paginated_all_filters_default_none():
+    """Без передачи фильтров все новые параметры равны None — фильтрация не применяется."""
+    svc, _, cr, _ = _mk_service(articles=[], total=0)
+
+    await svc.get_catalog_paginated(page=1, size=10)
+
+    call = cr.get_all_calls[0]
+    assert call["year_from"] is None
+    assert call["year_to"] is None
+    assert call["doc_types"] is None
+    assert call["open_access"] is None
+    assert call["countries"] is None
+
+
+@pytest.mark.asyncio
+async def test_get_catalog_paginated_filters_consistent_in_all_and_count():
+    """get_all и get_total_count получают идентичный набор фильтров."""
+    svc, _, cr, _ = _mk_service(articles=[], total=5)
+    await svc.get_catalog_paginated(
+        page=1, size=10,
+        year_from=2019, year_to=2023,
+        doc_types=["ar"],
+        open_access=False,
+        countries=["China"],
+    )
+
+    # Оба вызова должны получить идентичные фильтры
+    all_call = cr.get_all_calls[0]
+    cnt_call = cr.get_count_calls[0]
+    for key in ("year_from", "year_to", "doc_types", "open_access", "countries"):
+        assert all_call[key] == cnt_call[key], f"Расхождение в поле {key!r}"
 
 
 # ================================================================ #
