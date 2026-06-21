@@ -1,4 +1,3 @@
-
 from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -33,6 +32,10 @@ oauth.register(
 _RT_COOKIE_NAME = "refresh_token"
 _RT_COOKIE_MAX_AGE = 30 * 24 * 3600  # 30 дней в секундах
 
+# Константы для короткоживущей handshake cookie — передает AT через cross-origin redirect
+_AT_HANDSHAKE_COOKIE = "auth_handshake"
+_AT_HANDSHAKE_MAX_AGE = 5 * 60  # 5 минут — только для передачи AT на клиент
+
 
 def _set_rt_cookie(response: JSONResponse | RedirectResponse, token: str) -> None:
     """Устанавливает httpOnly cookie с refresh token — единое место настройки."""
@@ -44,6 +47,27 @@ def _set_rt_cookie(response: JSONResponse | RedirectResponse, token: str) -> Non
         samesite="none",  # cross-origin XHR (Vercel → Railway); CSRF закрыт через
                           # X-Requested-With + CORS allow_origins + RT ротацию
         max_age=_RT_COOKIE_MAX_AGE,
+        path="/",
+    )
+
+
+def _set_at_handshake_cookie(response: RedirectResponse, token: str) -> None:
+    """Короткоживущая НЕ-httpOnly cookie для передачи AT через cross-origin redirect.
+
+    Проблема: браузеры (Chrome 80+, Firefox 96+, Safari 14+) отбрасывают
+    Set-Cookie при cross-site redirect согласно RFC 6265bis §5.4.
+    Решение: устанавливаем обе cookie на одном ответе RedirectResponse —
+    браузер сохраняет их до выполнения редиректа.
+    OAuthCallback.tsx читает auth_handshake через document.cookie (не httpOnly)
+    и немедленно удаляет её — окно доступности минимально (несколько секунд).
+    """
+    response.set_cookie(
+        key=_AT_HANDSHAKE_COOKIE,
+        value=token,
+        httponly=False,   # читается JS в OAuthCallback.tsx
+        secure=True,      # только HTTPS
+        samesite="none",  # cross-origin: Railway → Vercel
+        max_age=_AT_HANDSHAKE_MAX_AGE,
         path="/",
     )
 
@@ -75,11 +99,15 @@ async def google_callback(
     # Создаем refresh token и сохраняем в БД
     rt_value = await create_refresh_token(user_id=user_id, session=session)
 
-    # Редиректим фронтенд на /auth/callback?token=<jwt> и устанавливаем RT cookie
+    # Редиректим фронтенд на /auth/callback БЕЗ token в URL —
+    # AT передается через короткоживущую handshake cookie (не httpOnly),
+    # RT — через httpOnly cookie. Оба Set-Cookie идут на один ответ,
+    # поэтому браузер сохраняет их до выполнения редиректа.
     frontend_url = settings.FRONTEND_URL.rstrip("/")
-    redirect_url = f"{frontend_url}/auth/callback?token={jwt_token}"
+    redirect_url = f"{frontend_url}/auth/callback"
     response = RedirectResponse(url=redirect_url, status_code=HTTP_302_FOUND)
     _set_rt_cookie(response, rt_value)
+    _set_at_handshake_cookie(response, jwt_token)
     return response
 
 
