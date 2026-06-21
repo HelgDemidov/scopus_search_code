@@ -14,16 +14,16 @@
 // Параллельные 401 ждут один Promise-синглтон — race condition исключён.
 //
 // Response interceptor (non-401): сетевые ошибки и 5xx показывают
-// toast-уведомление через sonner; отменённые запросы (AbortController)
+// toast-уведомление через sonner; отмененные запросы (AbortController)
 // пропускаются без уведомления.
 
 import axios from 'axios';
 import { toast } from 'sonner';
 
 // Базовый URL берется из переменной окружения Vite.
-// Production: VITE_API_BASE_URL = 'https://scopus-search-code.up.railway.app' (Railway)
+// Production: VITE_API_BASE_URL = 'https://your-instance.up.railway.app' (Railway)
 // Dev: задать в .env.local как VITE_API_BASE_URL=http://localhost:8000
-// Фоллбэк '' работает только если настроен Vercel rewrites /api/:path* → Railway
+// Фоллбэк '' работает только если настроены Vercel rewrites /api/:path* → Railway
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 
 // Валидация переменной окружения при инициализации модуля
@@ -68,8 +68,8 @@ apiClient.interceptors.request.use((config) => {
 // Silent refresh state — Promise-синглтон вместо булевого флага
 // ---------------------------------------------------------------------------
 
-// Один активный Promise на весь жизненный цикл refresh.
-// Все параллельные 401 ждут один и тот же Promise — race condition исключён:
+// Один активный Promise на весь жизненный цикл рефреша.
+// Все параллельные 401 ждут один и тот же Promise — race condition исключен:
 // POST /auth/refresh вызывается ровно один раз, RT ротируется один раз.
 let refreshingPromise: Promise<string> | null = null;
 
@@ -84,20 +84,19 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // --- Блок 1: 401 — silent refresh (существующая логика, не изменена) ---
+    // --- Блок 1: 401 — silent refresh ---
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       if (!refreshingPromise) {
-        // IIFE позволяет использовать await для динамического импорта;
-        // присваивание refreshingPromise синхронно — все параллельные
-        // interceptor'ы видят непустой синглтон и не запускают второй POST /auth/refresh
-        refreshingPromise = (async () => {
-          // Динамический импорт разрывает циклическую зависимость
-          // client.ts → auth.ts → client.ts
-          const { refreshAccessToken } = await import('./auth');
-          return refreshAccessToken();
-        })()
+        // Фикс race window (Commit 3):
+        // import('./auth') синхронно возвращает Promise<module> — цепочка .then()
+        // строится синхронно, refreshingPromise получает значение до следующего тика.
+        // Второй параллельный 401 увидит refreshingPromise !== null и перейдет
+        // к await refreshingPromise — второй POST /auth/refresh исключен.
+        // Динамический импорт разрывает циклическую зависимость client.ts → auth.ts → client.ts
+        refreshingPromise = import('./auth')
+          .then(({ refreshAccessToken }) => refreshAccessToken())
           .then((newToken) => {
             localStorage.setItem('access_token', newToken);
             window.dispatchEvent(
@@ -121,12 +120,12 @@ apiClient.interceptors.response.use(
 
     // --- Блок 2: non-401 глобальный обработчик ошибок ---
 
-    // Отменённые запросы (AbortController из fetchArticles) — пропускаем молча
+    // Отмененные запросы (AbortController из fetchArticles) — пропускаем молча
     if (axios.isCancel(error)) {
       return Promise.reject(error);
     }
 
-    // Сетевые ошибки и таймауты (!error.response — ответа от сервера нет вообще)
+    // Сетевые ошибки и таймауты (!error.response — ответа от сервера нет вовсе)
     if (!error.response) {
       toast.warning('Network error. Check your connection and try again.');
       return Promise.reject(error);
