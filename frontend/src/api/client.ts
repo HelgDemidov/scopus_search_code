@@ -86,6 +86,19 @@ apiClient.interceptors.response.use(
 
     // --- Блок 1: 401 — silent refresh ---
     if (error.response?.status === 401 && !originalRequest._retry) {
+
+      // Guard: рефреш- и логаут-эндпоинты сами вернули 401 —
+      // RT истёк или невалиден, retry бессмысленен и создаёт лишний round-trip.
+      // Диспатчим auth:logout-required и немедленно отклоняем промис,
+      // не входя в цепочку refreshingPromise.
+      if (
+        originalRequest.url?.includes('/auth/refresh') ||
+        originalRequest.url?.includes('/auth/logout')
+      ) {
+        window.dispatchEvent(new CustomEvent('auth:logout-required'));
+        return Promise.reject(error);
+      }
+
       originalRequest._retry = true;
 
       if (!refreshingPromise) {
