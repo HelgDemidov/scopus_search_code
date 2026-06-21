@@ -1,7 +1,6 @@
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import (
@@ -164,7 +163,6 @@ async def find_articles(
     countries: list[str] | None = Query(None, description="Фильтр: страны"),
     service: SearchService = Depends(get_search_service),
     history_service: SearchHistoryService = Depends(get_search_history_service),
-    session: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ) -> Any:
     # Собираем payload фильтров только из непустых значений.
@@ -183,14 +181,6 @@ async def find_articles(
         filters_payload["open_access"] = open_access
     if countries is not None:
         filters_payload["countries"] = countries
-
-    # Advisory-lock на уровне транзакции сериализует параллельные проверки квоты
-    # одного пользователя. SQLite такую функцию не поддерживает — ограничиваем PG.
-    if session.bind and session.bind.dialect.name == "postgresql":
-        await session.execute(
-            text("SELECT pg_advisory_xact_lock(:uid)"),
-            {"uid": int(current_user.id)},
-        )
 
     # Квотная проверка через SearchHistoryService — не читаем репо напрямую из роутера
     quota = await history_service.get_quota(current_user.id)
