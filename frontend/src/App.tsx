@@ -27,7 +27,7 @@ function PageFallback() {
 
 // Обертка для ленивой загрузки страниц — code splitting через React.lazy + Suspense.
 //
-// Фикс: перехватываем TypeError "Failed to fetch dynamically imported module" —
+// Фикс: перехватываем TypeError «Failed to fetch dynamically imported module» —
 // браузерный признак stale-chunk после нового деплоя на Vercel/CDN.
 // Новый деплой меняет хэши чанков; браузер со старым index.html пытается
 // загрузить уже несуществующий файл и получает HTML 404 с MIME text/html —
@@ -113,8 +113,7 @@ const router = createBrowserRouter([
 // Объявлен вне компонента: переживает двойной вызов useEffect в React StrictMode
 // (Strict Mode намеренно монтирует → размонтирует → монтирует заново в dev)
 // и повторное монтирование при hot-reload.
-// Гарантирует ровно один POST /auth/refresh за жизненный цикл страницы,
-// устраняя два одновременных 401, видимых в Network при открытии /auth.
+// Гарантирует ровно один POST /auth/refresh за жизненный цикл страницы.
 let _hydrationStarted = false;
 
 // ---------------------------------------------------------------------------
@@ -138,24 +137,34 @@ export default function App() {
       fetchUser();
     }
 
-    // Silent refresh при старте — единственный авторитетный способ проверить
-    // валидность сессии: RT cookie отправляется браузером автоматически.
-    // Динамический импорт разрывает циклическую зависимость
-    //   App.tsx → api/auth → client.ts → authStore → App.tsx
-    import('./api/auth').then(({ refreshAccessToken }) =>
-      refreshAccessToken()
-        .then((newToken) => {
-          setToken(newToken);
-          fetchUser();
-        })
-        .catch(() => {
-          // RT отсутствует или истек — очищаем устаревший AT из localStorage
-          localStorage.removeItem('access_token');
-        })
-        .finally(() => {
-          setHydrating(false);
-        }),
-    );
+    // Условный silent refresh (Commit 4):
+    // если мы на /auth/callback — OAuthCallback.tsx управляет сессией
+    // и сам вызовет setHydrating(false). Повторный refresh ротировал бы RT
+    // преждевременно и создавал race condition с fetchUser.
+    const isOAuthCallbackRoute = window.location.pathname === '/auth/callback';
+
+    if (!isOAuthCallbackRoute) {
+      // Нормальный старт: делаем silent refresh — единственный способ проверить
+      // валидность сессии: RT cookie отправляется браузером автоматически.
+      // Динамический импорт разрывает циклическую зависимость
+      //   App.tsx → api/auth → client.ts → authStore → App.tsx
+      import('./api/auth').then(({ refreshAccessToken }) =>
+        refreshAccessToken()
+          .then((newToken) => {
+            setToken(newToken);
+            fetchUser();
+          })
+          .catch(() => {
+            // RT отсутствует или истек — очищаем устаревший AT из localStorage
+            localStorage.removeItem('access_token');
+          })
+          .finally(() => {
+            setHydrating(false);
+          }),
+      );
+    }
+    // Если isOAuthCallbackRoute === true: OAuthCallback.tsx управляет гидрацией самостоятельно,
+    // вызывая setHydrating(false) после fetchUser — нам здесь ничего делаться.
 
     // Слушаем успешный silent refresh от response interceptor.
     // fetchUser вызывается только если user === null — предотвращает гонку
@@ -166,7 +175,7 @@ export default function App() {
       const newToken = (e as CustomEvent<string>).detail;
       if (newToken) {
         setToken(newToken);
-        // Загружаем user только если он ещё не был загружен —
+        // Загружаем user только если он еще не был загружен —
         // в нормальном mid-session сценарии user уже присутствует в сторе
         if (!useAuthStore.getState().user) {
           fetchUser();
