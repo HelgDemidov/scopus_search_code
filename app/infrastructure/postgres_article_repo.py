@@ -129,8 +129,11 @@ class PostgresArticleRepository(IArticleRepository):
                 insert(Article)
                 .values(values_no_doi)
                 .on_conflict_do_update(
-                    # partial index ix_articles_no_doi_unique: (title, publication_date, author) WHERE doi IS NULL
-                    constraint="ix_articles_no_doi_unique",
+                    # partial index ix_articles_no_doi_unique: (title, publication_date, author) WHERE doi IS NULL.
+                    # index_elements + index_where — PostgreSQL сам находит индекс в pg_indexes;
+                    # constraint= по имени искало бы в pg_constraint → UndefinedObjectError
+                    index_elements=["title", "publication_date", "author"],
+                    index_where=sa.text("doi IS NULL"),
                     set_={
                         "journal":             insert(Article).excluded.journal,
                         "cited_by_count":      insert(Article).excluded.cited_by_count,
