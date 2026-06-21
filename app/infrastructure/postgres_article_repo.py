@@ -36,8 +36,30 @@ class PostgresArticleRepository(IArticleRepository):
         if not articles:
             return []
 
-        with_doi    = [a for a in articles if a.doi is not None]
-        without_doi = [a for a in articles if a.doi is None]
+        # Дедупликация входного списка до формирования батчей.
+        # Scopus API иногда возвращает одну статью дважды в одной выдаче
+        # (дубли по DOI или по title+publication_date+author).
+        # ON CONFLICT DO UPDATE не может затронуть одну строку дважды
+        # в рамках одной команды — это вызывает CardinalityViolationError.
+        seen_doi: set[str] = set()
+        seen_no_doi: set[tuple] = set()
+        unique_articles: List[Article] = []
+
+        for a in articles:
+            if a.doi is not None:
+                # Батч 1: уникальность по doi
+                if a.doi not in seen_doi:
+                    seen_doi.add(a.doi)
+                    unique_articles.append(a)
+            else:
+                # Батч 2: уникальность по составному ключу
+                key = (a.title, a.publication_date, a.author)
+                if key not in seen_no_doi:
+                    seen_no_doi.add(key)
+                    unique_articles.append(a)
+
+        with_doi    = [a for a in unique_articles if a.doi is not None]
+        without_doi = [a for a in unique_articles if a.doi is None]
 
         saved: List[Article] = []
 
