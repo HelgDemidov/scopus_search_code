@@ -1,6 +1,9 @@
+# app/routers/articles.py
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import (
@@ -11,6 +14,7 @@ from app.core.dependencies import (
     get_search_service,
     get_search_history_service,
 )
+from app.infrastructure.database import engine                                   # движок для lock-соединения
 from app.infrastructure.postgres_search_result_repo import PostgresSearchResultRepository
 from app.models.search_history import SearchHistory
 from app.models.user import User
@@ -52,8 +56,41 @@ def _get_search_result_repo(
     return PostgresSearchResultRepository(session)
 
 
-# Константа квоты — единственный источник правды, остальное живет в SearchHistoryService
-_WINDOW_DAYS = 7
+_WINDOW_DAYS = 7  # единственный источник правды для квоты
+
+
+# ------------------------------------------------------------------ #
+#  Advisory lock: сериализация /find по user_id                      #
+# ------------------------------------------------------------------ #
+
+@asynccontextmanager
+async def _advisory_lock(user_id: int):
+    """
+    Захватывает pg_advisory_lock(:user_id) на отдельном соединении в режиме AUTOCOMMIT.
+
+    AUTOCOMMIT необходим: сессионный advisory-lock нельзя захватывать внутри
+    открытой транзакции — при откате транзакции lock остался бы висеть навсегда.
+    Отдельное соединение (не из пула сессии A/B) исключает конфликт изоляции.
+
+    Гарантия: между get_quota() и find_and_save() для одного user_id
+    в любой момент работает ровно один запрос.
+    """
+    # Открываем «голое» соединение из пула — без ORM-транзакции
+    async with engine.connect() as lock_conn:
+        # Переводим соединение в AUTOCOMMIT: BEGIN не добавляется автоматически,
+        # поэтому advisory-lock будет строго сессионным, а не транзакционным
+        await lock_conn.execution_options(isolation_level="AUTOCOMMIT")
+        await lock_conn.execute(
+            text("SELECT pg_advisory_lock(:uid)"), {"uid": user_id}
+        )
+        try:
+            yield  # критическая секция: квотная проверка + поиск
+        finally:
+            # Явный unlock в finally — выполнится даже при исключении (429, 500, etc.)
+            await lock_conn.execute(
+                text("SELECT pg_advisory_unlock(:uid)"), {"uid": user_id}
+            )
+            # Соединение возвращается в пул после выхода из async with engine.connect()
 
 
 # ------------------------------------------------------------------ #
@@ -182,22 +219,29 @@ async def find_articles(
     if countries is not None:
         filters_payload["countries"] = countries
 
-    # Квотная проверка через SearchHistoryService — не читаем репо напрямую из роутера
-    quota = await history_service.get_quota(current_user.id)
-    if quota.remaining <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Недельный лимит поиска исчерпан",
+    uid = int(current_user.id)
+
+    # Критическая секция: для одного uid одновременно выполняется не более одного блока.
+    # Второй запрос будет ждать на pg_advisory_lock до освобождения первым.
+    async with _advisory_lock(uid):
+        # Квотная проверка внутри lock-а: теперь никакой другой запрос
+        # этого пользователя не может пройти между проверкой и find_and_save
+        quota = await history_service.get_quota(current_user.id)
+        if quota.remaining <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Недельный лимит поиска исчерпан",
+            )
+
+        articles = await service.find_and_save(
+            keyword,
+            count=count,
+            user_id=uid,
+            filters=filters_payload or None,
         )
 
-    articles = await service.find_and_save(
-        keyword,
-        count=count,
-        user_id=int(current_user.id),
-        filters=filters_payload or None,
-    )
-
-    # Пробрасываем rate-limit заголовки Scopus API в ответ
+    # Заголовки Scopus rate-limit прокидываем вне lock-а —
+    # это чтение атрибутов объекта, не критическая секция
     sc = service.search_client
     if isinstance(sc, ISearchClient):
         if sc.last_rate_limit is not None:
