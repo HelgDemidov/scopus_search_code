@@ -1,11 +1,11 @@
 
 ============================================================
-FILE: app\__init__.py
+FILE: app/__init__.py
 ============================================================
 
 
 ============================================================
-FILE: app\config.py
+FILE: app/config.py
 ============================================================
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import PostgresDsn
@@ -37,12 +37,12 @@ class Settings(BaseSettings):
 settings = Settings()
 
 ============================================================
-FILE: app\core\__init__.py
+FILE: app/core/__init__.py
 ============================================================
 
 
 ============================================================
-FILE: app\core\dependencies.py
+FILE: app/core/dependencies.py
 ============================================================
 from typing import AsyncGenerator
 import httpx
@@ -93,7 +93,7 @@ def get_search_history_service(session: AsyncSession=Depends(get_db_session)) ->
     pass
 
 ============================================================
-FILE: app\core\refresh_token_utils.py
+FILE: app/core/refresh_token_utils.py
 ============================================================
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -112,7 +112,7 @@ async def revoke_refresh_token(token_value: str, session: AsyncSession) -> None:
     """Помечает RT как отозванный — используется при logout и ротации."""
 
 ============================================================
-FILE: app\core\security.py
+FILE: app/core/security.py
 ============================================================
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -136,12 +136,12 @@ def decode_access_token(token: str) -> str | None:
     pass
 
 ============================================================
-FILE: app\infrastructure\__init__.py
+FILE: app/infrastructure/__init__.py
 ============================================================
 
 
 ============================================================
-FILE: app\infrastructure\database.py
+FILE: app/infrastructure/database.py
 ============================================================
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.config import settings
@@ -153,7 +153,7 @@ engine = create_async_engine(url=settings.database_url_str, echo=True, connect_a
 async_session_maker = async_sessionmaker(bind=engine, expire_on_commit=False)
 
 ============================================================
-FILE: app\infrastructure\postgres_article_repo.py
+FILE: app/infrastructure/postgres_article_repo.py
 ============================================================
 from typing import List
 import sqlalchemy as sa
@@ -193,7 +193,7 @@ Seeded-статьи сохраняют is_seeded=True и keyword до удале
   - если user_id=None — проверяем только catalog_articles"""
 
 ============================================================
-FILE: app\infrastructure\postgres_catalog_repo.py
+FILE: app/infrastructure/postgres_catalog_repo.py
 ============================================================
 from typing import List
 import sqlalchemy as sa
@@ -240,7 +240,7 @@ ON CONFLICT DO NOTHING: повторный вызов с теми же стат�
 Агрегирует только статьи из catalog_articles (не весь реестр articles)."""
 
 ============================================================
-FILE: app\infrastructure\postgres_search_history_repo.py
+FILE: app/infrastructure/postgres_search_history_repo.py
 ============================================================
 import datetime
 from typing import List
@@ -267,7 +267,7 @@ class PostgresSearchHistoryRepository(ISearchHistoryRepository):
         pass
 
 ============================================================
-FILE: app\infrastructure\postgres_search_result_repo.py
+FILE: app/infrastructure/postgres_search_result_repo.py
 ============================================================
 import datetime
 from typing import List
@@ -309,7 +309,7 @@ search: ILIKE по title/author статей через escape_ilike().
 since:  только поиски начиная с этой даты (search_history.created_at >= since)."""
 
 ============================================================
-FILE: app\infrastructure\postgres_user_repo.py
+FILE: app/infrastructure/postgres_user_repo.py
 ============================================================
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -328,7 +328,7 @@ class PostgresUserRepository(IUserRepository):
         pass
 
 ============================================================
-FILE: app\infrastructure\scopus_client.py
+FILE: app/infrastructure/scopus_client.py
 ============================================================
 from datetime import date
 from typing import List, Optional
@@ -364,12 +364,12 @@ class ScopusHTTPClient(ISearchClient):
         pass
 
 ============================================================
-FILE: app\interfaces\__init__.py
+FILE: app/interfaces/__init__.py
 ============================================================
 
 
 ============================================================
-FILE: app\interfaces\article_repository.py
+FILE: app/interfaces/article_repository.py
 ============================================================
 from abc import ABC, abstractmethod
 from typing import List
@@ -391,7 +391,7 @@ user_id: если передан — дополнительно проверяе
          если None — возвращает статью без проверки владения."""
 
 ============================================================
-FILE: app\interfaces\catalog_repository.py
+FILE: app/interfaces/catalog_repository.py
 ============================================================
 from abc import ABC, abstractmethod
 from typing import List
@@ -427,7 +427,7 @@ total_articles, total_journals, total_countries, open_access_count,
 by_year, by_journal, by_country, by_doc_type, top_keywords."""
 
 ============================================================
-FILE: app\interfaces\search_client.py
+FILE: app/interfaces/search_client.py
 ============================================================
 from abc import ABC, abstractmethod
 from typing import List
@@ -459,7 +459,7 @@ class ISearchClient(ABC):
         pass
 
 ============================================================
-FILE: app\interfaces\search_history_repo.py
+FILE: app/interfaces/search_history_repo.py
 ============================================================
 import datetime
 from abc import ABC, abstractmethod
@@ -492,7 +492,7 @@ reset_at = oldest_created_at + 7 days.
 Возвращает None если окно пустое (использованных запросов нет)."""
 
 ============================================================
-FILE: app\interfaces\search_result_repo.py
+FILE: app/interfaces/search_result_repo.py
 ============================================================
 import datetime
 from abc import ABC, abstractmethod
@@ -521,7 +521,7 @@ search: опциональный ILIKE-фильтр по title/author стате
 since: опциональный фильтр — только поиски начиная с этой даты."""
 
 ============================================================
-FILE: app\interfaces\user_repository.py
+FILE: app/interfaces/user_repository.py
 ============================================================
 from abc import ABC, abstractmethod
 from app.models.user import User
@@ -537,7 +537,7 @@ class IUserRepository(ABC):
         pass
 
 ============================================================
-FILE: app\main.py
+FILE: app/main.py
 ============================================================
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
@@ -573,12 +573,12 @@ async def root() -> dict[str, str]:
     pass
 
 ============================================================
-FILE: app\models\__init__.py
+FILE: app/models/__init__.py
 ============================================================
 
 
 ============================================================
-FILE: app\models\article.py
+FILE: app/models/article.py
 ============================================================
 import datetime
 from sqlalchemy import Boolean, Date, DateTime, Index, Integer, String
@@ -605,7 +605,7 @@ class Article(Base):
         pass
 
 ============================================================
-FILE: app\models\base.py
+FILE: app/models/base.py
 ============================================================
 from sqlalchemy.orm import DeclarativeBase
 
@@ -613,7 +613,7 @@ class Base(DeclarativeBase):
     pass
 
 ============================================================
-FILE: app\models\catalog_article.py
+FILE: app/models/catalog_article.py
 ============================================================
 import datetime
 from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
@@ -633,7 +633,7 @@ class CatalogArticle(Base):
         pass
 
 ============================================================
-FILE: app\models\refresh_token.py
+FILE: app/models/refresh_token.py
 ============================================================
 from datetime import datetime
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, func
@@ -653,7 +653,7 @@ class RefreshToken(Base):
         pass
 
 ============================================================
-FILE: app\models\search_history.py
+FILE: app/models/search_history.py
 ============================================================
 import json
 import datetime
@@ -692,7 +692,7 @@ class SearchHistory(Base):
         pass
 
 ============================================================
-FILE: app\models\search_result_article.py
+FILE: app/models/search_result_article.py
 ============================================================
 from sqlalchemy import ForeignKey, Index, Integer, SmallInteger, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
@@ -710,7 +710,7 @@ class SearchResultArticle(Base):
         pass
 
 ============================================================
-FILE: app\models\seeder_keyword.py
+FILE: app/models/seeder_keyword.py
 ============================================================
 import datetime
 from sqlalchemy import DateTime, Integer, String
@@ -730,7 +730,7 @@ class SeederKeyword(Base):
         pass
 
 ============================================================
-FILE: app\models\user.py
+FILE: app/models/user.py
 ============================================================
 from datetime import datetime
 from sqlalchemy import Integer, String, func
@@ -749,12 +749,12 @@ class User(Base):
         pass
 
 ============================================================
-FILE: app\routers\__init__.py
+FILE: app/routers/__init__.py
 ============================================================
 
 
 ============================================================
-FILE: app\routers\articles.py
+FILE: app/routers/articles.py
 ============================================================
 from contextlib import asynccontextmanager
 from typing import Any
@@ -826,7 +826,7 @@ async def get_article_by_id(article_id: int, service: 'ArticleService'=Depends(_
     pass
 
 ============================================================
-FILE: app\routers\auth.py
+FILE: app/routers/auth.py
 ============================================================
 from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, Depends
@@ -878,7 +878,7 @@ async def logout(request: Request, session: AsyncSession=Depends(get_db_session)
     """Отзывает RT на сервере и удаляет cookie — сервер-сайд logout."""
 
 ============================================================
-FILE: app\routers\health.py
+FILE: app/routers/health.py
 ============================================================
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -895,7 +895,7 @@ async def health_db(session: AsyncSession=Depends(get_db_session)) -> dict[str, 
     pass
 
 ============================================================
-FILE: app\routers\seeder_router.py
+FILE: app/routers/seeder_router.py
 ============================================================
 import os
 from fastapi import APIRouter, Depends, Header, HTTPException, status
@@ -917,7 +917,7 @@ async def seed_keyword(keyword: str, count: int=25, session: AsyncSession=Depend
     pass
 
 ============================================================
-FILE: app\routers\users.py
+FILE: app/routers/users.py
 ============================================================
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
@@ -956,12 +956,12 @@ async def password_reset_request(data: PasswordResetRequest, service: UserServic
     pass
 
 ============================================================
-FILE: app\schemas\__init__.py
+FILE: app/schemas/__init__.py
 ============================================================
 
 
 ============================================================
-FILE: app\schemas\article_schemas.py
+FILE: app/schemas/article_schemas.py
 ============================================================
 from datetime import date
 from typing import List
@@ -1007,7 +1007,7 @@ class SearchStatsResponse(BaseModel):
     by_doc_type: List[CountByField]
 
 ============================================================
-FILE: app\schemas\search_history_schemas.py
+FILE: app/schemas/search_history_schemas.py
 ============================================================
 import datetime
 from pydantic import BaseModel, ConfigDict, computed_field
@@ -1046,7 +1046,7 @@ class SearchResultsResponse(BaseModel):
     total: int
 
 ============================================================
-FILE: app\schemas\user_schemas.py
+FILE: app/schemas/user_schemas.py
 ============================================================
 import re
 from datetime import datetime
@@ -1087,12 +1087,12 @@ class PasswordResetRequest(BaseModel):
     email: EmailStr
 
 ============================================================
-FILE: app\services\__init__.py
+FILE: app/services/__init__.py
 ============================================================
 
 
 ============================================================
-FILE: app\services\article_service.py
+FILE: app/services/article_service.py
 ============================================================
 from app.interfaces.article_repository import IArticleRepository
 from app.schemas.article_schemas import ArticleResponse
@@ -1111,7 +1111,7 @@ user_id: если передан — статья должна быть в ка�
 user_id=None — без проверки владения (для admin/seeder сценариев)."""
 
 ============================================================
-FILE: app\services\catalog_service.py
+FILE: app/services/catalog_service.py
 ============================================================
 from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -1147,7 +1147,7 @@ countries:   фильтр по странам аффилиации (список
 Вызывающий код (сидер) не должен делать commit()."""
 
 ============================================================
-FILE: app\services\search_history_service.py
+FILE: app/services/search_history_service.py
 ============================================================
 import datetime
 from datetime import timezone, timedelta
@@ -1168,7 +1168,7 @@ class SearchHistoryService:
         pass
 
 ============================================================
-FILE: app\services\search_service.py
+FILE: app/services/search_service.py
 ============================================================
 from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -1201,7 +1201,7 @@ class SearchService:
 Если любой шаг бросает исключение — транзакция откатывается целиком."""
 
 ============================================================
-FILE: app\services\user_service.py
+FILE: app/services/user_service.py
 ============================================================
 import secrets as secrets_module
 from typing import Tuple
@@ -1231,18 +1231,18 @@ class UserService:
         pass
 
 ============================================================
-FILE: app\utils\__init__.py
+FILE: app/utils/__init__.py
 ============================================================
 
 
 ============================================================
-FILE: app\utils\db_utils.py
+FILE: app/utils/db_utils.py
 ============================================================
 def escape_ilike(s: str) -> str:
     pass
 
 ============================================================
-FILE: db_seeder\seeder__scripts\keyword_generator.py
+FILE: db_seeder/seeder__scripts/keyword_generator.py
 ============================================================
 import json
 from datetime import datetime
@@ -1271,7 +1271,7 @@ cluster_keywords — только фразы активного кластера
 только релевантные конкурирующие фразы, а не все ~3800 из базы."""
 
 ============================================================
-FILE: db_seeder\seeder__scripts\seed_db.py
+FILE: db_seeder/seeder__scripts/seed_db.py
 ============================================================
 import os
 import asyncio
@@ -1300,12 +1300,12 @@ if __name__ == '__main__':
     asyncio.run(seed_database())
 
 ============================================================
-FILE: tests\__init__.py
+FILE: tests/__init__.py
 ============================================================
 
 
 ============================================================
-FILE: tests\conftest.py
+FILE: tests/conftest.py
 ============================================================
 from dotenv import load_dotenv
 load_dotenv(override=False)
@@ -1351,12 +1351,12 @@ async def authenticated_client(client: AsyncClient, logged_in: dict) -> AsyncCli
     """Client с Bearer-токеном в headers — для тестов, требующих авторизованный запрос."""
 
 ============================================================
-FILE: tests\integration\__init__.py
+FILE: tests/integration/__init__.py
 ============================================================
 
 
 ============================================================
-FILE: tests\integration\conftest.py
+FILE: tests/integration/conftest.py
 ============================================================
 import os
 from typing import AsyncGenerator
@@ -1394,7 +1394,7 @@ async def pg_authenticated_client(pg_client: AsyncClient, pg_logged_in: dict) ->
     pass
 
 ============================================================
-FILE: tests\integration\test_article_by_id.py
+FILE: tests/integration/test_article_by_id.py
 ============================================================
 """Сквозные интеграционные тесты для всей сводной таблицы изменений.
 
@@ -1567,7 +1567,7 @@ class TestArticleIdRouting:
         pass
 
 ============================================================
-FILE: tests\integration\test_article_by_id_e2e.py
+FILE: tests/integration/test_article_by_id_e2e.py
 ============================================================
 """E2E smoke-тесты против живого задеплоенного бэкенда.
 
@@ -1635,7 +1635,7 @@ async def test_e2e_authenticated_find(monkeypatch):
 Пропускается если E2E_TEST_EMAIL/E2E_TEST_PASSWORD не заданы."""
 
 ============================================================
-FILE: tests\integration\test_articles_api.py
+FILE: tests/integration/test_articles_api.py
 ============================================================
 from datetime import date
 import pytest
@@ -1651,7 +1651,7 @@ async def test_find_and_save_articles_integration(authenticated_client: AsyncCli
     pass
 
 ============================================================
-FILE: tests\integration\test_articles_headers.py
+FILE: tests/integration/test_articles_headers.py
 ============================================================
 import pytest
 from httpx import AsyncClient
@@ -1691,7 +1691,7 @@ async def test_find_articles_rate_limits_headers(authenticated_client: AsyncClie
     pass
 
 ============================================================
-FILE: tests\integration\test_catalog_filters_e2e.py
+FILE: tests/integration/test_catalog_filters_e2e.py
 ============================================================
 """
 T-5: E2E-тесты серверной фильтрации GET /articles/.
@@ -1747,7 +1747,7 @@ async def test_combined_filters_narrow_results(pg_session: AsyncSession, pg_clie
     pass
 
 ============================================================
-FILE: tests\integration\test_find_articles.py
+FILE: tests/integration/test_find_articles.py
 ============================================================
 """Integration tests for Commit 3: /articles/find with auth, quota, history, filters.
 
@@ -1793,7 +1793,7 @@ async def test_find_scopus_error_writes_no_history(authenticated_client: AsyncCl
     pass
 
 ============================================================
-FILE: tests\integration\test_find_articles_postgres.py
+FILE: tests/integration/test_find_articles_postgres.py
 ============================================================
 """PostgreSQL-only tests for Commit 3 /articles/find advisory-lock concurrency.
 
@@ -1852,7 +1852,7 @@ AsyncClient с разными сессиями, никак не связанны
 между тестами через teardown-порядок."""
 
 ============================================================
-FILE: tests\integration\test_rt_e2e.py
+FILE: tests/integration/test_rt_e2e.py
 ============================================================
 """E2E-тест: полный жизненный цикл refresh token.
 
@@ -1872,7 +1872,7 @@ async def test_full_refresh_token_lifecycle(client: AsyncClient, logged_in: dict
     pass
 
 ============================================================
-FILE: tests\integration\test_rt_edge_cases.py
+FILE: tests/integration/test_rt_edge_cases.py
 ============================================================
 """Edge-case тесты refresh token.
 
@@ -1910,7 +1910,7 @@ async def test_logout_idempotent(client: AsyncClient, logged_in: dict) -> None:
     """Двойной вызов POST /auth/logout не должен вызывать ошибку — оба раза 200."""
 
 ============================================================
-FILE: tests\integration\test_search_history_api.py
+FILE: tests/integration/test_search_history_api.py
 ============================================================
 """Integration tests for Commit 2: /articles/history and /articles/find/quota.
 
@@ -1995,7 +1995,7 @@ async def test_history_route_does_not_match_article_id(pg_client: AsyncClient, p
     """'history' и 'find' не матчатся как int-сегмент /{article_id} → не 422."""
 
 ============================================================
-FILE: tests\integration\test_users_api.py
+FILE: tests/integration/test_users_api.py
 ============================================================
 import pytest
 from httpx import AsyncClient
@@ -2013,7 +2013,7 @@ async def test_login_integration(async_client: AsyncClient):
     pass
 
 ============================================================
-FILE: tests\unit\test_article_service.py
+FILE: tests/unit/test_article_service.py
 ============================================================
 from datetime import date
 from typing import List
@@ -2059,7 +2059,7 @@ async def test_get_by_id_found_maps_all_fields():
     """model_validate корректно проецирует ORM-объект в ArticleResponse."""
 
 ============================================================
-FILE: tests\unit\test_catalog_service.py
+FILE: tests/unit/test_catalog_service.py
 ============================================================
 from datetime import date
 from typing import List
@@ -2183,7 +2183,7 @@ async def test_seed_upsert_failure_skips_save_seeded_and_commit():
     """Если upsert_many бросил — save_seeded и commit не вызываются."""
 
 ============================================================
-FILE: tests\unit\test_interface_contract.py
+FILE: tests/unit/test_interface_contract.py
 ============================================================
 """
 Страж ABC-контракта ISearchClient.
@@ -2264,7 +2264,7 @@ def test_full_implementation_instantiates_without_errors():
     pass
 
 ============================================================
-FILE: tests\unit\test_scopus_client.py
+FILE: tests/unit/test_scopus_client.py
 ============================================================
 import pytest
 import httpx
@@ -2316,7 +2316,7 @@ class TestBuildQuery:
         pass
 
 ============================================================
-FILE: tests\unit\test_search_history_repository.py
+FILE: tests/unit/test_search_history_repository.py
 ============================================================
 import datetime
 from typing import List
@@ -2374,7 +2374,7 @@ async def test_reset_at_calculation():
     pass
 
 ============================================================
-FILE: tests\unit\test_search_service.py
+FILE: tests/unit/test_search_service.py
 ============================================================
 import datetime
 from datetime import date
@@ -2517,7 +2517,7 @@ async def test_find_and_save_upsert_exception_skips_history_and_results():
     """Если upsert_many упал — история и search_results не пишутся, commit не вызван."""
 
 ============================================================
-FILE: tests\unit\test_user_service.py
+FILE: tests/unit/test_user_service.py
 ============================================================
 import pytest
 from app.models.user import User
