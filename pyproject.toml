@@ -1,3 +1,10 @@
+[project]
+name = "scopus-search-code"
+version = "0.1.0"
+description = "Scopus search and analysis project"
+requires-python = ">=3.12"
+dependencies = []
+
 [tool.ruff]
 # Максимальная длина строки увеличина со стандартной (88) до 115
 line-length = 115

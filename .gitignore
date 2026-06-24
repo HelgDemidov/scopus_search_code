@@ -40,3 +40,6 @@ htmlcov/
 
 # Claude CLI files
 .claude/
+
+# project mask
+docs/project_tree/scopus_project_tree.txt
