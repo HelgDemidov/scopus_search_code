@@ -758,12 +758,13 @@ FILE: app/routers/articles.py
 ============================================================
 from contextlib import asynccontextmanager
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.dependencies import get_catalog_service, get_db_session, get_current_user, get_optional_current_user, get_search_service, get_search_history_service
+from app.core.dependencies import get_catalog_service, get_current_user, get_db_session, get_optional_current_user, get_search_history_service, get_search_service
 from app.infrastructure.database import engine
 from app.infrastructure.postgres_search_result_repo import PostgresSearchResultRepository
+from app.interfaces.search_client import ISearchClient
 from app.models.search_history import SearchHistory
 from app.models.user import User
 from app.schemas.article_schemas import ArticleResponse, CountByField, PaginatedArticleResponse, SearchStatsResponse, StatsResponse
@@ -772,7 +773,6 @@ from app.services.article_service import ArticleService
 from app.services.catalog_service import CatalogService
 from app.services.search_history_service import SearchHistoryService
 from app.services.search_service import SearchService
-from app.interfaces.search_client import ISearchClient
 router = APIRouter(prefix='/articles', tags=['Articles'])
 
 def _get_article_service(session: AsyncSession=Depends(get_db_session)) -> 'ArticleService':

@@ -2,20 +2,21 @@
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import (
     get_catalog_service,
-    get_db_session,
     get_current_user,
+    get_db_session,
     get_optional_current_user,
-    get_search_service,
     get_search_history_service,
+    get_search_service,
 )
-from app.infrastructure.database import engine                                   # движок для lock-соединения
+from app.infrastructure.database import engine  # движок для lock-соединения
 from app.infrastructure.postgres_search_result_repo import PostgresSearchResultRepository
+from app.interfaces.search_client import ISearchClient
 from app.models.search_history import SearchHistory
 from app.models.user import User
 from app.schemas.article_schemas import (
@@ -34,7 +35,6 @@ from app.services.article_service import ArticleService
 from app.services.catalog_service import CatalogService
 from app.services.search_history_service import SearchHistoryService
 from app.services.search_service import SearchService
-from app.interfaces.search_client import ISearchClient
 
 router = APIRouter(prefix="/articles", tags=["Articles"])
 
@@ -75,11 +75,12 @@ async def _advisory_lock(user_id: int):
     Гарантия: между get_quota() и find_and_save() для одного user_id
     в любой момент работает ровно один запрос.
     """
-    # Открываем «голое» соединение из пула — без ORM-транзакции
-    async with engine.connect() as lock_conn:
-        # Переводим соединение в AUTOCOMMIT: BEGIN не добавляется автоматически,
-        # поэтому advisory-lock будет строго сессионным, а не транзакционным
-        await lock_conn.execution_options(isolation_level="AUTOCOMMIT")
+    # Открываем «голое» соединение из пула — без ORM-транзакции.
+    # execution_options задаётся на уровне движка (до открытия соединения):
+    # engine.execution_options() возвращает бранч движка с заданными опциями,
+    # не затрагивая оригинальный пул. AUTOCOMMIT применяется при старте соединения,
+    # поэтому asyncpg никогда не выдаёт BEGIN — lock строго сессионный.
+    async with engine.execution_options(isolation_level="AUTOCOMMIT").connect() as lock_conn:
         await lock_conn.execute(
             text("SELECT pg_advisory_lock(:uid)"), {"uid": user_id}
         )
