@@ -1,0 +1,16 @@
+# Сash and logs
+*.log
+.pytest_cache/
+.coverage
+htmlcov/
+
+# deploy configs
+.vercel/
+.railway/
+
+# project mask
+docs/project_mask/scopus_project_mask.txt
+
+# DBs / migrations
+*.db
+*.sqlite

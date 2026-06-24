@@ -37,3 +37,6 @@ postgres_data/
 # Coverage
 .coverage
 htmlcov/
+
+# Claude CLI files
+.claude/
