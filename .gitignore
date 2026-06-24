@@ -40,7 +40,7 @@ htmlcov/
 
 # Claude CLI files
 .claude/
+CLAUDE.local.md
 
 # project mask
 docs/project_tree/scopus_project_tree.txt
-CLAUDE.local.md
