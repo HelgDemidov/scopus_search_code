@@ -65,13 +65,6 @@ npm run build         # tsc -b && vite build
 - Advisory locks: separate `engine.connect()` with `execution_options(isolation_level="AUTOCOMMIT")`
 - Conventional commits: feat/fix/refactor/test/chore
 
-## Testing conventions
-- Unit: AsyncMock / MagicMock, never real DB
-- `manual` — requires real Scopus API key + external HTTP calls; do not run in CI
-- `integration` — marks tests that use real DB
-- `requires_pg` — skipped when DATABASE_TEST_URL is not set (logic in conftest.py)
-- Run one file at a time: `pytest tests/unit/path/to/test.py`
-
 ## Do NOT
 - Synchronous SQLAlchemy calls or sync DB sessions in async routes/services.
 - Hardcoded secrets in code or tests. Use `.env` variables strictly (keep structure in `.env.example`).
