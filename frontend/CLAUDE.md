@@ -24,19 +24,20 @@ Router: react-router-dom 7. Tests: Vitest 4 + Testing Library (jsdom).
 - `frontend/src/stores/`     — Zustand stores (global state only)
 - `frontend/src/hooks/`      — custom React hooks
 - `frontend/src/types/`      — TypeScript types and interfaces
-- `frontend/src/constants/`  — application-level constants
+- `frontend/src/constants/`  — application-level constants (scopusFilters.ts — SCOPUS_DOC_TYPES, SCOPUS_COUNTRIES)
 - `frontend/src/lib/`        — utilities (cn() etc.)
 - `frontend/src/test/`       — test setup: setup.ts (jest-dom matchers, loaded via setupFiles)
 - `frontend/src/App.tsx`     — root component and routing
 - `frontend/src/main.tsx`    — React entry point
 
-## Test files
-- `frontend/src/App.integration.test.tsx`
-  — auth event bus integration tests
-- `frontend/src/components/articles/pagination.integration.test.tsx`
-  — pagination integration tests (PaginationBar + usePagination + articleStore)
+## Test files (co-location pattern — тест рядом с источником)
+- `frontend/src/App.integration.test.tsx`            — auth event bus integration tests
+- `frontend/src/api/articles.test.ts`                — API param tests (B5 regression suite)
+- `frontend/src/components/articles/ArticleFilters.test.tsx` — dual-mode filters (40 unit tests)
+- `frontend/src/components/articles/pagination.integration.test.tsx` — pagination integration
 
 Unit tests: `src/**/*.test.{ts,tsx}` excluding `*.integration.test.*`
+Total frontend tests (main, 2026-06-25): **169** (все зелёные).
 
 Coverage scope (test:coverage / CI): PaginationBar.tsx, usePagination.ts, articleStore.ts.
 
@@ -67,17 +68,74 @@ npm run build            # tsc -b && vite build
   chunkSizeWarningLimit=1000 in vite.config.ts — this Rollup warning is expected, not a bug
 
 ## Key stores and responsibilities
-- `articleStore`  — articles list, live Scopus results, pagination, `searchMode` (TODO: currently local useState in HomePage — not yet lifted to store), `currentKeyword` (TODO: not yet stored — keyword is ephemeral local state in SearchBar)
-- `historyStore`  — search history items + `historyFilters` (client-side filter state shared between modes)
-- `statsStore`    — catalog stats (by_year, by_country, by_doc_type); pre-fetched in `App.tsx:194` on startup; used by ArticleFilters sidebar for filter options in catalog mode
+- `articleStore`  — articles list, live Scopus results, pagination, `searchMode` ('catalog'|'scopus'), `currentKeyword`; `setSearchMode()` автоматически вызывает `historyStore.resetFilters()`
+- `historyStore`  — search history items + `historyFilters` (клиентские фильтры, shared между режимами) + `resetFilters()` → сбрасывает historyFilters в `{}`
+- `statsStore`    — catalog stats (by_year, by_country, by_doc_type); pre-fetched в `App.tsx` на старте; используется ArticleFilters в catalog-режиме как источник опций фильтров
 - `authStore`     — JWT token, user, hydration state
 - `quotaStore`    — Scopus weekly quota (remaining/limit/reset_at)
 
+## Dual-mode filtering system (filtering-2, merged 2026-06-25)
+
+### Режимная логика (FiltersContent в ArticleFilters.tsx)
+- **Catalog**: любое изменение фильтра → `setPage(1)` + `fetchArticles()` (год — debounce 400 мс)
+- **Scopus**: любое изменение фильтра → amber-badge «Filters changed — search again to apply»; badge сбрасывается через `useEffect(() => setFiltersChanged(false), [liveResults])` когда поиск завершается
+
+### Источники опций — зависят от режима
+| Фильтр | Catalog | Scopus |
+|---|---|---|
+| doc_types | `statsStore.stats.by_doc_type` | `SCOPUS_DOC_TYPES` (constants/scopusFilters.ts) |
+| countries | `statsStore.stats.by_country` | `SCOPUS_COUNTRIES` (constants/scopusFilters.ts) |
+| year range | min/max из `stats.by_year` | без ограничений (1900 — текущий год) |
+
+### Архитектура ArticleFilters.tsx
+- `MultiSelectCombobox` — переиспользуемый Popover+Command multi-select с live-поиском и badge-чипами
+- `FiltersContent` — вся бизнес-логика (не экспортируется напрямую)
+- `ArticleFiltersSidebar` — desktop aside (hidden lg:flex w-56) — публичный экспорт
+- `ArticleFiltersMobile` — mobile Sheet (lg:hidden) — публичный экспорт
+
 ## Critical architectural notes
-- `fetchStats()` is called globally in `App.tsx` on app startup — stats are always available before any component renders; no need to call it again in individual components
-- `searchMode` ('scopus' | 'catalog') is currently `useState` local to `HomePage.tsx` — NOT in any store. ArticleFilters has no access to it. This is a known limitation.
-- `historyFilters` in `historyStore` is the source of truth for active filter state; both `fetchArticles()` and `searchScopusLive()` read it via `useHistoryStore.getState()` at call time
-- Changing `historyFilters` does NOT auto-trigger a re-fetch. Filters are only applied on the next explicit search submission.
+- `fetchStats()` вызывается в `App.tsx` при старте — stats всегда доступны до первого рендера
+- `searchMode` находится в `articleStore` — доступен любому компоненту через `useArticleStore(s => s.searchMode)`; больше НЕ является локальным useState в HomePage
+- `setSearchMode()` автоматически вызывает `historyStore.resetFilters()` при смене режима
+- `historyFilters` в `historyStore` — единственный источник истины для фильтров; `fetchArticles()` и `searchScopusLive()` читают через `useHistoryStore.getState()` в момент вызова
+- `setHistoryFilters()` сам по себе НЕ триггерит ре-фетч — в catalog-режиме это делает `onFilterChange()` внутри FiltersContent; в scopus-режиме ре-фетч не происходит до следующего явного поиска
+
+## Vitest testing patterns (выученные уроки)
+
+### Checkbox mock — используй button, не input
+`fireEvent.change` на контролируемом `<input type="checkbox" checked={false}>` ненадёжен в jsdom
+(e.target.checked может не отражать переданный инициализатор). Вместо этого:
+```tsx
+vi.mock('../ui/checkbox', () => ({
+  Checkbox: ({ checked, onCheckedChange }) => (
+    <button role="checkbox" aria-checked={!!checked}
+      onClick={() => onCheckedChange?.(!checked)} />
+  ),
+}));
+// В тесте: fireEvent.click(screen.getByRole('checkbox'))
+```
+
+### Fake timers + React Testing Library — опасная комбинация
+`vi.useFakeTimers()` внутри тела теста мешает RTL cleanup (React effects не завершаются) →
+следующие тесты видят дублирующиеся DOM-элементы. Предпочтительная альтернатива:
+```typescript
+// Тест debounce-механизма без fake timers:
+const spy = vi.spyOn(globalThis, 'setTimeout');
+fireEvent.change(input, { target: { value: '2020' } });
+expect(spy).toHaveBeenCalledWith(expect.any(Function), 400);
+spy.mockRestore();
+```
+
+### vi.hoisted для мутируемого состояния в vi.mock
+```typescript
+const { articleState } = vi.hoisted(() => ({
+  articleState: { searchMode: 'catalog', fetchArticles: vi.fn(), ... }
+}));
+vi.mock('../../stores/articleStore', () => ({
+  useArticleStore: (sel?) => sel ? sel(articleState) : articleState,
+}));
+// beforeEach: articleState.fetchArticles = vi.fn() — переназначение работает
+```
 
 ## Conventions
 - Components: PascalCase `.tsx`; utilities: camelCase `.ts`
@@ -85,3 +143,4 @@ npm run build            # tsc -b && vite build
 - Global state via Zustand stores only (`frontend/src/stores/`), not component-local state
 - shadcn/ui components in `src/components/ui/` are inlined (not npm-imported) and have already been customized for this project (`command.tsx` uses custom InputGroup and icons; `input-group.tsx` is a non-standard addition). Direct edits are allowed. Prefer extending through composition for minor additions.
 - `"type": "module"` in package.json — ESM only, no CommonJS
+- Тестовые файлы: co-location (рядом с источником), конвенция имён: `*.test.tsx` (unit), `*.integration.test.tsx` (integration)
