@@ -276,5 +276,5 @@ resetFilters: () => set({ historyFilters: {} })
 | 4.4 Тест-покрытие (169 frontend тестов, все зелёные) | ✅ commit `4a57469` |
 
 Баги B1–B6, B8–B13 закрыты. B7 (quota decrement в UI) вне скоупа — частично покрыт существующим `fetchQuota()`.
-Ветка `filtering-2` удалена после мерджа. Документация обновлена в `frontend/CLAUDE.md` и памяти агента.
+Ветка `filtering-2` присутствует (локально и remote). Документация обновлена в `frontend/CLAUDE.md` и памяти агента.
 - Scopus `NOT OA(1)` (B6) — defensive fix, UI никогда не генерирует `open_access=False`
