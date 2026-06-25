@@ -39,12 +39,20 @@ App config: `app/config.py` (Pydantic Settings).
 `frontend/`    — React 18/TypeScript SPA; see frontend/CLAUDE.md for details
 
 ## Backend commands (repo root, WSL2 bash)
+Менеджер пакетов — **uv** (`uv.lock` + `.venv`). `.venv` активирован автоматически в WSL2-шелле,
+поэтому прямые вызовы работают. `uv run <tool>` переносимее (не зависит от активации):
 ```bash
-ruff check app tests
-mypy app
-pytest -m "not requires_pg"               # unit + SQLite integration (зеркало CI job 'test')
-pytest -m requires_pg                     # PG 16; нужен DATABASE_TEST_URL (throwaway, НЕ Supabase)
-pytest tests/unit/test_X.py -v            # single file — preferred when using CLI
+uv run ruff check app tests
+uv run mypy app
+uv run pytest -m "not requires_pg"        # unit + SQLite integration (зеркало CI job 'test')
+uv run pytest -m requires_pg             # PG 16; нужен DATABASE_TEST_URL (throwaway, НЕ Supabase)
+uv run pytest tests/unit/test_X.py -v   # single file — preferred when using CLI
+```
+Поиск по коду — **rg** (ripgrep, установлен в `/usr/bin/rg`), не grep:
+```bash
+rg "pattern" app/         # быстрее grep, уважает .gitignore автоматически
+rg -t py "pattern"        # только .py файлы
+rg -l "pattern" tests/    # только имена файлов
 ```
 
 ## Frontend commands (from frontend/)
@@ -92,9 +100,11 @@ tests/integration/*e2e*  E2E_BASE_URL → .github/workflows/e2e.yml (live Railwa
 ```
 CI coverage: job `test` + job `test-pg` → artifacts combine → job `coverage` fail-under=75 (текущий: 79%).
 
-**Advisory lock constraint:** `GET /articles/find` вызывает `pg_advisory_lock` через модульный `engine`
-(обходит FastAPI DI). Все тесты, вызывающие этот эндпоинт, обязаны иметь `@pytest.mark.requires_pg`
-и запускаться в job `test-pg`.
+**Advisory lock (ИСПРАВЛЕНО в commit 4f66ee2):** `pg_advisory_lock` вынесен в DI-фабрику
+`get_advisory_lock_factory()` (`app/core/dependencies.py`). Тесты переопределяют её через
+`_noop_lock` в `tests/conftest.py`. Новые тесты бизнес-логики `GET /articles/find` → маркер
+`requires_pg` НЕ нужен. Только тесты конкурентной сериализации (`test_find_articles_postgres.py`)
+обязаны иметь `requires_pg`.
 
 ## Migration chain note
 `seeder_keywords` NOT в `Base.metadata` через тестовый import-chain (seeder_router не импортирует
