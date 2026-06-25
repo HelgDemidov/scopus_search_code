@@ -122,16 +122,16 @@ class TestBuildQuery:
         q = self._client().build_query("AI", {"document_types": ["UnknownType"]})
         assert "DOCTYPE" not in q
 
-    def test_open_access_true_appends_oa1(self):
+    def test_open_access_true_appends_openaccess1(self):
         q = self._client().build_query("AI", {"open_access": True})
-        assert "OA(1)" in q
+        assert "OPENACCESS(1)" in q
 
-    def test_open_access_false_appends_not_oa1(self):
-        # open_access=False → NOT OA(1) (только закрытые статьи)
+    def test_open_access_false_appends_not_openaccess1(self):
+        # open_access=False → NOT OPENACCESS(1) (только закрытые статьи)
         q = self._client().build_query("AI", {"open_access": False})
-        assert "NOT OA(1)" in q
-        # Убеждаемся, что голый OA(1) без NOT не добавлен
-        assert "AND OA(1)" not in q
+        assert "NOT OPENACCESS(1)" in q
+        # Убеждаемся, что голый OPENACCESS(1) без NOT не добавлен
+        assert "AND OPENACCESS(1)" not in q
 
     def test_single_country(self):
         q = self._client().build_query("AI", {"countries": ["Germany"]})
@@ -156,5 +156,5 @@ class TestBuildQuery:
         assert "PUBYEAR > 2019" in q
         assert "PUBYEAR < 2025" in q
         assert "DOCTYPE(ar)" in q
-        assert "OA(1)" in q
+        assert "OPENACCESS(1)" in q
         assert "AFFILCOUNTRY(USA)" in q

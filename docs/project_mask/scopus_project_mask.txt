@@ -2327,10 +2327,10 @@ class TestBuildQuery:
     def test_unknown_doc_type_is_silently_skipped(self):
         pass
 
-    def test_open_access_true_appends_oa1(self):
+    def test_open_access_true_appends_openaccess1(self):
         pass
 
-    def test_open_access_false_appends_not_oa1(self):
+    def test_open_access_false_appends_not_openaccess1(self):
         pass
 
     def test_single_country(self):

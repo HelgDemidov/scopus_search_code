@@ -94,12 +94,12 @@ class ScopusHTTPClient(ISearchClient):
             if dtype_clauses:
                 parts.append(f"({dtype_clauses})")
 
-        # Фильтр по открытому доступу: OA(1) — только OA; NOT OA(1) — только закрытые
+        # Фильтр по открытому доступу: OPENACCESS(1) — только OA; NOT OPENACCESS(1) — только закрытые
         oa = filters.get("open_access")
         if oa is True:
-            parts.append("OA(1)")
+            parts.append("OPENACCESS(1)")
         elif oa is False:
-            parts.append("NOT OA(1)")
+            parts.append("NOT OPENACCESS(1)")
 
         # Фильтр по странам аффиляции: AFFILCOUNTRY(Germany) OR AFFILCOUNTRY(France)
         countries: list[str] = filters.get("countries") or []
