@@ -66,9 +66,22 @@ npm run build            # tsc -b && vite build
 - vendor-charts chunk (Tremor + Recharts + D3) ~850 kB raw is intentional;
   chunkSizeWarningLimit=1000 in vite.config.ts — this Rollup warning is expected, not a bug
 
+## Key stores and responsibilities
+- `articleStore`  — articles list, live Scopus results, pagination, `searchMode` (TODO: currently local useState in HomePage — not yet lifted to store), `currentKeyword` (TODO: not yet stored — keyword is ephemeral local state in SearchBar)
+- `historyStore`  — search history items + `historyFilters` (client-side filter state shared between modes)
+- `statsStore`    — catalog stats (by_year, by_country, by_doc_type); pre-fetched in `App.tsx:194` on startup; used by ArticleFilters sidebar for filter options in catalog mode
+- `authStore`     — JWT token, user, hydration state
+- `quotaStore`    — Scopus weekly quota (remaining/limit/reset_at)
+
+## Critical architectural notes
+- `fetchStats()` is called globally in `App.tsx` on app startup — stats are always available before any component renders; no need to call it again in individual components
+- `searchMode` ('scopus' | 'catalog') is currently `useState` local to `HomePage.tsx` — NOT in any store. ArticleFilters has no access to it. This is a known limitation.
+- `historyFilters` in `historyStore` is the source of truth for active filter state; both `fetchArticles()` and `searchScopusLive()` read it via `useHistoryStore.getState()` at call time
+- Changing `historyFilters` does NOT auto-trigger a re-fetch. Filters are only applied on the next explicit search submission.
+
 ## Conventions
 - Components: PascalCase `.tsx`; utilities: camelCase `.ts`
 - API calls only in `frontend/src/api/`, never in components
 - Global state via Zustand stores only (`frontend/src/stores/`), not component-local state
-- Do not edit shadcn/ui components directly — extend through composition
+- shadcn/ui components in `src/components/ui/` are inlined (not npm-imported) and have already been customized for this project (`command.tsx` uses custom InputGroup and icons; `input-group.tsx` is a non-standard addition). Direct edits are allowed. Prefer extending through composition for minor additions.
 - `"type": "module"` in package.json — ESM only, no CommonJS
