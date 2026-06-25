@@ -73,6 +73,8 @@ function makeArticleState(overrides: Record<string, unknown> = {}) {
     size: 10 as PageSize,
     total: 0,
     appendMode: false,
+    searchMode: 'scopus' as 'scopus' | 'catalog',
+    currentKeyword: null as string | null,
     // Поля авторизованной Scopus-пагинации
     liveSize: 10 as 10 | 'all',
     setFilters: vi.fn(),
@@ -82,6 +84,8 @@ function makeArticleState(overrides: Record<string, unknown> = {}) {
     setAppendMode: vi.fn(),
     searchScopusLive: vi.fn().mockResolvedValue(undefined),
     setLiveSize: vi.fn(),
+    setSearchMode: vi.fn(),
+    setCurrentKeyword: vi.fn(),
     ...overrides,
   };
 }
@@ -319,22 +323,50 @@ describe('HomePage — auth mode (ArticleList neutral stubs)', () => {
 
 describe('HomePage — auth mode (searchMode toggle)', () => {
 
-  it('обе кнопки переключателя рендерятся: Scopus active, Catalog inactive', () => {
+  it('обе кнопки переключателя рендерятся: Scopus active (дефолт), Catalog inactive', () => {
     authIsAuthenticated = true;
+    // searchMode: 'scopus' — дефолт в makeArticleState
     render(<HomePage />);
     const scopusBtn = screen.getByRole('button', { name: /Search Scopus Database/i });
     const catalogBtn = screen.getByRole('button', { name: /Search AI.*Collection/i });
-    // Дефолт — Scopus активен
     expect(scopusBtn).toHaveAttribute('aria-pressed', 'true');
     expect(catalogBtn).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('клик на "Search AI & Neural Network Technologies Collection" меняет aria-pressed', async () => {
+  it('в catalog-режиме (searchMode=catalog из стора) aria-pressed корректны', () => {
     authIsAuthenticated = true;
+    articleState = makeArticleState({ searchMode: 'catalog' });
     render(<HomePage />);
-    await userEvent.click(screen.getByRole('button', { name: /Search AI.*Collection/i }));
     expect(screen.getByRole('button', { name: /Search AI.*Collection/i })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: /Search Scopus Database/i })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('клик на кнопку Catalog вызывает setSearchMode("catalog")', async () => {
+    authIsAuthenticated = true;
+    const setSearchMode = vi.fn();
+    articleState = makeArticleState({ setSearchMode });
+    render(<HomePage />);
+    await userEvent.click(screen.getByRole('button', { name: /Search AI.*Collection/i }));
+    expect(setSearchMode).toHaveBeenCalledWith('catalog');
+  });
+
+  it('клик на кнопку Scopus вызывает setSearchMode("scopus")', async () => {
+    authIsAuthenticated = true;
+    const setSearchMode = vi.fn();
+    // Пресетируем catalog, чтобы кнопка Scopus была кликабельна (смена режима)
+    articleState = makeArticleState({ searchMode: 'catalog', setSearchMode });
+    render(<HomePage />);
+    await userEvent.click(screen.getByRole('button', { name: /Search Scopus Database/i }));
+    expect(setSearchMode).toHaveBeenCalledWith('scopus');
+  });
+
+  it('handleSearch вызывает setCurrentKeyword с поисковым запросом', async () => {
+    authIsAuthenticated = true;
+    const setCurrentKeyword = vi.fn();
+    articleState = makeArticleState({ setCurrentKeyword });
+    render(<HomePage />);
+    await act(async () => { await userEvent.click(screen.getByTestId('search-bar')); });
+    expect(setCurrentKeyword).toHaveBeenCalledWith('ai');
   });
 
   it('в catalog-режиме handleSearch вызывает setFilters+fetchArticles, не searchScopusLive', async () => {
@@ -342,42 +374,28 @@ describe('HomePage — auth mode (searchMode toggle)', () => {
     const setFilters = vi.fn();
     const fetchArticles = vi.fn().mockResolvedValue(undefined);
     const searchScopusLive = vi.fn().mockResolvedValue(undefined);
-    articleState = makeArticleState({ setFilters, fetchArticles, searchScopusLive });
+    // Пресетируем catalog-режим в стейте — мок-setSearchMode не меняет состояние
+    articleState = makeArticleState({ searchMode: 'catalog', setFilters, fetchArticles, searchScopusLive });
     render(<HomePage />);
-
-    // Переключаемся в catalog
-    await userEvent.click(screen.getByRole('button', { name: /Search AI.*Collection/i }));
-    // Запускаем поиск
-    await act(async () => {
-      await userEvent.click(screen.getByTestId('search-bar'));
-    });
-
+    await act(async () => { await userEvent.click(screen.getByTestId('search-bar')); });
     expect(setFilters).toHaveBeenCalledWith({ search: 'ai', keyword: undefined });
     expect(fetchArticles).toHaveBeenCalled();
     expect(searchScopusLive).not.toHaveBeenCalled();
   });
 
-  it('в catalog-режиме ArticleList получает page/size/total из стора', async () => {
+  it('в catalog-режиме ArticleList получает page/size/total из стора', () => {
     authIsAuthenticated = true;
-    articleState = makeArticleState({
-      page: 2,
-      size: 25 as PageSize,
-      total: 50,
-      appendMode: false,
-    });
+    articleState = makeArticleState({ searchMode: 'catalog', page: 2, size: 25 as PageSize, total: 50 });
     render(<HomePage />);
-
-    await userEvent.click(screen.getByRole('button', { name: /Search AI.*Collection/i }));
-
     expect(capturedArticleListProps.page).toBe(2);
     expect(capturedArticleListProps.size).toBe(25);
     expect(capturedArticleListProps.total).toBe(50);
   });
 
-  it('в catalog-режиме ScopusPaginationBar не рендерится', async () => {
+  it('в catalog-режиме ScopusPaginationBar не рендерится', () => {
     authIsAuthenticated = true;
+    articleState = makeArticleState({ searchMode: 'catalog' });
     render(<HomePage />);
-    await userEvent.click(screen.getByRole('button', { name: /Search AI.*Collection/i }));
     expect(screen.queryByTestId('scopus-pagination-bar')).toBeNull();
   });
 });

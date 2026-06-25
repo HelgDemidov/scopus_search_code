@@ -14,13 +14,19 @@ vi.mock('../api/articles', () => ({
   findArticles: vi.fn(),
 }));
 
-// Мок historyStore — перекрываем dynamic import внутри fetchArticles:
-//   const { useHistoryStore } = await import('./historyStore')
-// historyFilters: {} означает «не применять client-side фильтры»
+// vi.hoisted — объявляем стабильный мок до подъёма vi.mock,
+// чтобы можно было проверять вызовы resetFilters из setSearchMode
+const { mockResetFilters } = vi.hoisted(() => ({ mockResetFilters: vi.fn() }));
+
+// Мок historyStore — перекрываем как static import (articleStore.ts теперь импортирует
+// useHistoryStore статически), так и dynamic import внутри fetchArticles/searchScopusLive.
+// historyFilters: {} — не применять client-side фильтры
+// resetFilters — стабильная ссылка через vi.hoisted
 vi.mock('./historyStore', () => ({
   useHistoryStore: {
     getState: () => ({
       historyFilters: {},
+      resetFilters: mockResetFilters,
     }),
   },
 }));
@@ -49,6 +55,8 @@ const INITIAL_STATE = {
   liveResults: [] as ArticleResponse[],
   scopusQuota: null,
   liveSize: 10 as 10 | 'all',
+  searchMode: 'scopus' as 'scopus' | 'catalog',
+  currentKeyword: null as string | null,
   isLoading: false,
   isLiveSearching: false,
   error: null,
@@ -339,5 +347,50 @@ describe('setLiveSize', () => {
     expect(page).toBe(3);
     expect(appendMode).toBe(true);
     expect(liveResults).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Блок 6: setSearchMode
+// ---------------------------------------------------------------------------
+
+describe('setSearchMode', () => {
+  it('обновляет searchMode', () => {
+    act(() => { useArticleStore.getState().setSearchMode('catalog'); });
+    expect(useArticleStore.getState().searchMode).toBe('catalog');
+  });
+
+  it('не вызывает resetFilters, если режим не изменился', () => {
+    // searchMode дефолт = 'scopus'; передаём тот же режим — early return
+    act(() => { useArticleStore.getState().setSearchMode('scopus'); });
+    expect(mockResetFilters).not.toHaveBeenCalled();
+  });
+
+  it('вызывает resetFilters при смене режима', () => {
+    act(() => { useArticleStore.getState().setSearchMode('catalog'); });
+    expect(mockResetFilters).toHaveBeenCalledTimes(1);
+  });
+
+  it('переключение туда-обратно вызывает resetFilters дважды', () => {
+    act(() => { useArticleStore.getState().setSearchMode('catalog'); });
+    act(() => { useArticleStore.getState().setSearchMode('scopus'); });
+    expect(mockResetFilters).toHaveBeenCalledTimes(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Блок 7: setCurrentKeyword
+// ---------------------------------------------------------------------------
+
+describe('setCurrentKeyword', () => {
+  it('сохраняет ключевое слово', () => {
+    act(() => { useArticleStore.getState().setCurrentKeyword('neural network'); });
+    expect(useArticleStore.getState().currentKeyword).toBe('neural network');
+  });
+
+  it('перезаписывает предыдущее значение', () => {
+    useArticleStore.setState({ currentKeyword: 'old' });
+    act(() => { useArticleStore.getState().setCurrentKeyword('new'); });
+    expect(useArticleStore.getState().currentKeyword).toBe('new');
   });
 });

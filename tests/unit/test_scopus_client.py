@@ -126,10 +126,12 @@ class TestBuildQuery:
         q = self._client().build_query("AI", {"open_access": True})
         assert "OA(1)" in q
 
-    def test_open_access_false_no_oa_clause(self):
-        # open_access=False — OA-клауза не добавляется
+    def test_open_access_false_appends_not_oa1(self):
+        # open_access=False → NOT OA(1) (только закрытые статьи)
         q = self._client().build_query("AI", {"open_access": False})
-        assert "OA(1)" not in q
+        assert "NOT OA(1)" in q
+        # Убеждаемся, что голый OA(1) без NOT не добавлен
+        assert "AND OA(1)" not in q
 
     def test_single_country(self):
         q = self._client().build_query("AI", {"countries": ["Germany"]})

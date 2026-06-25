@@ -74,6 +74,10 @@ export default function HomePage() {
     setSize,
     setAppendMode,
     searchScopusLive,
+    // Режим поиска и ключевое слово — подняты из local useState в стор (Шаг 4)
+    searchMode,
+    setSearchMode,
+    setCurrentKeyword,
     // Поля стора для аутентифицированной Scopus-пагинации
     liveSize,
     setLiveSize,
@@ -85,13 +89,6 @@ export default function HomePage() {
   // livePage — эфемерное UI-состояние вне стора;
   // сбрасывается при каждом новом поиске и при смене liveSize
   const [livePage, setLivePage] = useState(1);
-
-  // Переключатель режима поиска для авторизованных пользователей:
-  //   'scopus'  — живой поиск по глобальной базе Scopus (до 25 результатов)
-  //   'catalog' — поиск по тематической коллекции AI & Neural Network Technologies
-  // По умолчанию 'scopus' — основной сценарий авторизованного пользователя.
-  // При выходе компонент размонтируется; useState сбросится при следующем входе
-  const [searchMode, setSearchMode] = useState<'scopus' | 'catalog'>('scopus');
 
   useEffect(() => {
     if (!error || !isAuthenticated) return;
@@ -156,6 +153,7 @@ export default function HomePage() {
 
   function handleSearch(query: string) {
     setHasSearched(true);
+    setCurrentKeyword(query);
 
     if (isAuthenticated) {
       if (searchMode === 'scopus') {

@@ -137,3 +137,54 @@ describe('setHistoryFilters', () => {
     expect(historyFilters.yearTo).toBe(2024);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Блок: resetFilters
+// ---------------------------------------------------------------------------
+
+describe('resetFilters', () => {
+  it('очищает все активные фильтры — historyFilters становится {}', () => {
+    useHistoryStore.setState({
+      historyFilters: {
+        yearFrom: 2020,
+        yearTo: 2024,
+        docTypes: ['Article'],
+        openAccessOnly: true,
+        countries: ['Russia'],
+      },
+    });
+
+    act(() => {
+      useHistoryStore.getState().resetFilters();
+    });
+
+    expect(useHistoryStore.getState().historyFilters).toEqual({});
+  });
+
+  it('не затрагивает другие поля стора (items, isLoading, error)', () => {
+    const items = [makeHistoryItem(1), makeHistoryItem(2)];
+    useHistoryStore.setState({
+      historyFilters: { yearFrom: 2020 },
+      items,
+      isLoading: false,
+      error: null,
+    });
+
+    act(() => {
+      useHistoryStore.getState().resetFilters();
+    });
+
+    const { items: savedItems, isLoading, error } = useHistoryStore.getState();
+    expect(savedItems).toHaveLength(2);
+    expect(isLoading).toBe(false);
+    expect(error).toBeNull();
+  });
+
+  it('вызов при уже пустых фильтрах — не бросает ошибку, результат {}', () => {
+    act(() => {
+      useHistoryStore.getState().resetFilters();
+    });
+
+    expect(useHistoryStore.getState().historyFilters).toEqual({});
+  });
+});

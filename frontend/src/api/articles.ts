@@ -64,11 +64,11 @@ export async function getArticles(
   queryParams.set('size', String(size));
 
   // Скалярные фильтры — добавляем только при наличии значения
-  if (keyword)             queryParams.set('keyword', keyword);
-  if (search)              queryParams.set('search', search);
-  if (year_from)           queryParams.set('year_from', String(year_from));
-  if (year_to)             queryParams.set('year_to', String(year_to));
-  if (open_access != null) queryParams.set('open_access', String(open_access));
+  if (keyword)              queryParams.set('keyword', keyword);
+  if (search)               queryParams.set('search', search);
+  if (year_from != null)    queryParams.set('year_from', String(year_from));
+  if (year_to != null)      queryParams.set('year_to', String(year_to));
+  if (open_access != null)  queryParams.set('open_access', String(open_access));
 
   // Массивы — каждый элемент отдельным append
   doc_types?.forEach(v => queryParams.append('doc_types', v));
@@ -155,9 +155,9 @@ export async function findArticles(
   queryParams.set('keyword', keyword);
   queryParams.set('count', String(count));
 
-  if (year_from)           queryParams.set('year_from', String(year_from));
-  if (year_to)             queryParams.set('year_to', String(year_to));
-  if (open_access != null) queryParams.set('open_access', String(open_access));
+  if (year_from != null)    queryParams.set('year_from', String(year_from));
+  if (year_to != null)      queryParams.set('year_to', String(year_to));
+  if (open_access != null)  queryParams.set('open_access', String(open_access));
 
   doc_types?.forEach(v => queryParams.append('doc_types', v));
   countries?.forEach(v => queryParams.append('countries', v));
