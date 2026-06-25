@@ -22,10 +22,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Удаляем три колонки, которые никогда не заполняются с бесплатным API-ключом
-    op.drop_column('articles', 'author_keywords')
-    op.drop_column('articles', 'abstract')
-    op.drop_column('articles', 'fund_sponsor')
+    # Удаляем три колонки, которые никогда не заполняются с бесплатным API-ключом.
+    # IF EXISTS: при запуске с нуля (staging/fresh DB) эти колонки отсутствуют
+    # в initial_migration — production получил их из доалембиковой истории.
+    op.execute("ALTER TABLE articles DROP COLUMN IF EXISTS author_keywords")
+    op.execute("ALTER TABLE articles DROP COLUMN IF EXISTS abstract")
+    op.execute("ALTER TABLE articles DROP COLUMN IF EXISTS fund_sponsor")
 
 
 def downgrade() -> None:

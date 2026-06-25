@@ -71,3 +71,15 @@ npm run build         # tsc -b && vite build
 - CommonJS in frontend (use ESM `import/export` only, no `require`).
 - Bare `except:` in Python — use specific exception types only (e.g., `HTTPException`, `ValueError`).
 - Pydantic v1 syntax in FastAPI schemas (use Pydantic v2 `model_config` and modern fields).
+
+## DB & env-var map (critical)
+Two Supabase instances: production (`btmiovdmasqufufyuokx`) and staging (`gpbymgvkqtiueoyborrw`).
+```
+DATABASE_URL (local .env)     → production Supabase  (uvicorn locally)
+DATABASE_URL (GitHub Secret)  → staging Supabase     (e2e CI — Pydantic Settings only)
+DATABASE_SUPABASE_STAGING_URL → staging Supabase
+DATABASE_TEST_URL (CI/local)  → throwaway PG container — NEVER point at Supabase (tests do drop_all)
+```
+Test layers: unit/integration → SQLite in-memory | requires_pg → PG 16 container | e2e → live Railway staging.
+`seeder_keywords` is NOT in `Base.metadata` via the test import chain (seeder_router doesn't import SeederKeyword)
+→ drop_all never drops it. Migration f9a3c1e2b7d4 uses IF EXISTS for idempotency on fresh DBs.
