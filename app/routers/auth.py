@@ -6,6 +6,12 @@ from starlette.requests import Request
 from starlette.status import HTTP_302_FOUND, HTTP_401_UNAUTHORIZED
 
 from app.config import settings
+from app.core.cookie_constants import (
+    AT_HANDSHAKE_COOKIE_NAME,
+    AT_HANDSHAKE_MAX_AGE,
+    RT_COOKIE_MAX_AGE,
+    RT_COOKIE_NAME,
+)
 from app.core.dependencies import get_db_session
 from app.core.refresh_token_utils import (
     create_refresh_token,
@@ -28,25 +34,17 @@ oauth.register(
     client_kwargs={"scope": "openid email profile"},
 )
 
-# Константа для httpOnly cookie с refresh token
-_RT_COOKIE_NAME = "refresh_token"
-_RT_COOKIE_MAX_AGE = 30 * 24 * 3600  # 30 дней в секундах
-
-# Константы для короткоживущей handshake cookie — передает AT через cross-origin redirect
-_AT_HANDSHAKE_COOKIE = "auth_handshake"
-_AT_HANDSHAKE_MAX_AGE = 5 * 60  # 5 минут — только для передачи AT на клиент
-
 
 def _set_rt_cookie(response: JSONResponse | RedirectResponse, token: str) -> None:
     """Устанавливает httpOnly cookie с refresh token — единое место настройки."""
     response.set_cookie(
-        key=_RT_COOKIE_NAME,
+        key=RT_COOKIE_NAME,
         value=token,
         httponly=True,    # недоступен JavaScript — защита от XSS
         secure=True,      # только HTTPS
         samesite="none",  # cross-origin XHR (Vercel → Railway); CSRF закрыт через
                           # X-Requested-With + CORS allow_origins + RT ротацию
-        max_age=_RT_COOKIE_MAX_AGE,
+        max_age=RT_COOKIE_MAX_AGE,
         path="/",
     )
 
@@ -62,12 +60,12 @@ def _set_at_handshake_cookie(response: RedirectResponse, token: str) -> None:
     и немедленно удаляет её — окно доступности минимально (несколько секунд).
     """
     response.set_cookie(
-        key=_AT_HANDSHAKE_COOKIE,
+        key=AT_HANDSHAKE_COOKIE_NAME,
         value=token,
         httponly=False,   # читается JS в OAuthCallback.tsx
         secure=True,      # только HTTPS
         samesite="none",  # cross-origin: Railway → Vercel
-        max_age=_AT_HANDSHAKE_MAX_AGE,
+        max_age=AT_HANDSHAKE_MAX_AGE,
         path="/",
     )
 
@@ -122,21 +120,25 @@ async def refresh_access_token(
     if request.headers.get("X-Requested-With") != "XMLHttpRequest":
         return JSONResponse(status_code=403, content={"detail": "Forbidden"})
 
-    rt_cookie = request.cookies.get(_RT_COOKIE_NAME)
+    rt_cookie = request.cookies.get(RT_COOKIE_NAME)
     if not rt_cookie:
         return JSONResponse(status_code=HTTP_401_UNAUTHORIZED, content={"detail": "No refresh token"})
 
     rt = await get_valid_refresh_token(rt_cookie, session)
     if not rt:
-        return JSONResponse(status_code=HTTP_401_UNAUTHORIZED, content={"detail": "Refresh token expired or revoked"})
+        return JSONResponse(
+            status_code=HTTP_401_UNAUTHORIZED,
+            content={"detail": "Refresh token expired or revoked"},
+        )
 
     # Ротация RT: отзываем старый, выдаем новый — защита от повторного использования
     await revoke_refresh_token(rt_cookie, session)
     new_rt_value = await create_refresh_token(user_id=rt.user_id, session=session)
 
     # Получаем email пользователя для создания нового AT (sub = email, как в текущей логике)
-    from sqlalchemy import select
-    from app.models.user import User
+    from sqlalchemy import select  # noqa: PLC0415
+
+    from app.models.user import User  # noqa: PLC0415
     result = await session.execute(select(User).where(User.id == rt.user_id))
     user = result.scalar_one_or_none()
     if not user:
@@ -155,11 +157,11 @@ async def logout(
     session: AsyncSession = Depends(get_db_session),
 ) -> JSONResponse:
     """Отзывает RT на сервере и удаляет cookie — сервер-сайд logout."""
-    rt_cookie = request.cookies.get(_RT_COOKIE_NAME)
+    rt_cookie = request.cookies.get(RT_COOKIE_NAME)
     if rt_cookie:
         await revoke_refresh_token(rt_cookie, session)
 
     response = JSONResponse({"ok": True})
     # Удаляем cookie — max_age=0 удаляет немедленно
-    response.delete_cookie(key=_RT_COOKIE_NAME, path="/", httponly=True, secure=True, samesite="none")
+    response.delete_cookie(key=RT_COOKIE_NAME, path="/", httponly=True, secure=True, samesite="none")
     return response

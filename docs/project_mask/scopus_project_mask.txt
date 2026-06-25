@@ -42,6 +42,14 @@ FILE: app/core/__init__.py
 
 
 ============================================================
+FILE: app/core/cookie_constants.py
+============================================================
+RT_COOKIE_NAME: str = 'refresh_token'
+RT_COOKIE_MAX_AGE: int = 30 * 24 * 3600
+AT_HANDSHAKE_COOKIE_NAME: str = 'auth_handshake'
+AT_HANDSHAKE_MAX_AGE: int = 5 * 60
+
+============================================================
 FILE: app/core/dependencies.py
 ============================================================
 from collections.abc import AsyncGenerator, Callable
@@ -838,6 +846,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 from starlette.status import HTTP_302_FOUND, HTTP_401_UNAUTHORIZED
 from app.config import settings
+from app.core.cookie_constants import AT_HANDSHAKE_COOKIE_NAME, AT_HANDSHAKE_MAX_AGE, RT_COOKIE_MAX_AGE, RT_COOKIE_NAME
 from app.core.dependencies import get_db_session
 from app.core.refresh_token_utils import create_refresh_token, get_valid_refresh_token, revoke_refresh_token
 from app.core.security import create_access_token
@@ -846,10 +855,6 @@ from app.services.user_service import UserService
 router = APIRouter(prefix='/auth', tags=['Auth'])
 oauth = OAuth()
 oauth.register(name='google', client_id=settings.GOOGLE_CLIENT_ID, client_secret=settings.GOOGLE_CLIENT_SECRET, server_metadata_url='https://accounts.google.com/.well-known/openid-configuration', client_kwargs={'scope': 'openid email profile'})
-_RT_COOKIE_NAME = 'refresh_token'
-_RT_COOKIE_MAX_AGE = 30 * 24 * 3600
-_AT_HANDSHAKE_COOKIE = 'auth_handshake'
-_AT_HANDSHAKE_MAX_AGE = 5 * 60
 
 def _set_rt_cookie(response: JSONResponse | RedirectResponse, token: str) -> None:
     """Устанавливает httpOnly cookie с refresh token — единое место настройки."""
@@ -925,6 +930,7 @@ FILE: app/routers/users.py
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.cookie_constants import RT_COOKIE_MAX_AGE, RT_COOKIE_NAME
 from app.core.dependencies import get_db_session
 from app.core.refresh_token_utils import create_refresh_token
 from app.core.security import decode_access_token, oauth2_scheme
@@ -933,8 +939,6 @@ from app.models.user import User
 from app.schemas.user_schemas import PasswordResetRequest, TokenResponse, UserLoginRequest, UserRegisterRequest, UserResponse
 from app.services.user_service import UserService
 router = APIRouter(prefix='/users', tags=['Users'])
-_RT_COOKIE_NAME = 'refresh_token'
-_RT_COOKIE_MAX_AGE = 30 * 24 * 3600
 
 def get_user_service(session: AsyncSession=Depends(get_db_session)) -> UserService:
     pass
