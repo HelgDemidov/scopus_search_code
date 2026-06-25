@@ -1,8 +1,14 @@
-"""Integration tests for Commit 3: /articles/find with auth, quota, history, filters.
+"""Integration tests for /articles/find: auth, quota, history, filters.
 
-Выполняются на SQLite in-memory через shared conftest (client + authenticated_client).
-PG-only детали (advisory-lock concurrency, JSONB-специфика) вынесены в
-test_find_articles_postgres.py и маркируются requires_pg.
+Тесты, вызывающие GET /articles/find, маркированы requires_pg — эндпоинт
+всегда захватывает pg_advisory_lock через модульный engine из database.py,
+который требует доступного PostgreSQL независимо от override get_db_session.
+
+В джобе test-pg: advisory-lock идёт в PG (DATABASE_URL = реальный контейнер),
+данные — в SQLite (переопределённый get_db_session). Бизнес-логика корректна.
+В джобе test (SQLite-only): эти тесты исключены маркером (-m "not requires_pg").
+
+test_find_requires_auth: requires_pg не нужен — 401 возвращается до вызова lock.
 """
 import datetime
 from datetime import date, timezone, timedelta
@@ -49,6 +55,7 @@ def mock_scopus_two_articles(monkeypatch):
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
+@pytest.mark.requires_pg
 async def test_find_happy_path_writes_one_history_row(
     authenticated_client: AsyncClient,
     db_session: AsyncSession,
@@ -81,6 +88,7 @@ async def test_find_requires_auth(client: AsyncClient, mock_scopus_two_articles)
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
+@pytest.mark.requires_pg
 async def test_find_returns_429_when_quota_exhausted(
     authenticated_client: AsyncClient,
     db_session: AsyncSession,
@@ -133,6 +141,7 @@ async def test_find_returns_429_when_quota_exhausted(
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
+@pytest.mark.requires_pg
 async def test_find_persists_filters(
     authenticated_client: AsyncClient,
     db_session: AsyncSession,
@@ -169,6 +178,7 @@ async def test_find_persists_filters(
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
+@pytest.mark.requires_pg
 async def test_find_result_count_equals_saved(
     authenticated_client: AsyncClient,
     db_session: AsyncSession,
@@ -187,6 +197,7 @@ async def test_find_result_count_equals_saved(
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
+@pytest.mark.requires_pg
 async def test_find_scopus_error_writes_no_history(
     authenticated_client: AsyncClient,
     db_session: AsyncSession,

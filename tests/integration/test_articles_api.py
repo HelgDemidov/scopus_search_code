@@ -37,6 +37,7 @@ def mock_scopus_api(monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.requires_pg
 async def test_find_and_save_articles_integration(authenticated_client: AsyncClient):
     # Act 1: поиск через Scopus
     find_response = await authenticated_client.get(
