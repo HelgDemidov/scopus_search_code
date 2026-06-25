@@ -14,6 +14,7 @@ from app.core.cookie_constants import (
 )
 from app.core.dependencies import get_db_session
 from app.core.refresh_token_utils import (
+    cleanup_stale_tokens,
     create_refresh_token,
     get_valid_refresh_token,
     revoke_refresh_token,
@@ -134,6 +135,8 @@ async def refresh_access_token(
     # Ротация RT: отзываем старый, выдаем новый — защита от повторного использования
     await revoke_refresh_token(rt_cookie, session)
     new_rt_value = await create_refresh_token(user_id=rt.user_id, session=session)
+    # Piggyback cleanup: удаляем устаревшие RT пользователя попутно при ротации
+    await cleanup_stale_tokens(user_id=rt.user_id, session=session)
 
     # Получаем email пользователя для создания нового AT (sub = email, как в текущей логике)
     from sqlalchemy import select  # noqa: PLC0415

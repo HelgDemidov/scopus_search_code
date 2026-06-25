@@ -122,7 +122,7 @@ FILE: app/core/refresh_token_utils.py
 ============================================================
 import secrets
 from datetime import datetime, timedelta, timezone
-from sqlalchemy import select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.refresh_token import RefreshToken
 REFRESH_TOKEN_EXPIRE_DAYS = 30
@@ -135,6 +135,12 @@ async def get_valid_refresh_token(token_value: str, session: AsyncSession) -> Re
 
 async def revoke_refresh_token(token_value: str, session: AsyncSession) -> None:
     """Помечает RT как отозванный — используется при logout и ротации."""
+
+async def cleanup_stale_tokens(user_id: int, session: AsyncSession) -> None:
+    """Удаляет истёкшие и отозванные RT пользователя.
+
+Вызывается попутно при каждой ротации (piggyback cleanup) —
+предотвращает неограниченный рост таблицы без отдельного scheduler."""
 
 ============================================================
 FILE: app/core/security.py
@@ -848,7 +854,7 @@ from starlette.status import HTTP_302_FOUND, HTTP_401_UNAUTHORIZED
 from app.config import settings
 from app.core.cookie_constants import AT_HANDSHAKE_COOKIE_NAME, AT_HANDSHAKE_MAX_AGE, RT_COOKIE_MAX_AGE, RT_COOKIE_NAME
 from app.core.dependencies import get_db_session
-from app.core.refresh_token_utils import create_refresh_token, get_valid_refresh_token, revoke_refresh_token
+from app.core.refresh_token_utils import cleanup_stale_tokens, create_refresh_token, get_valid_refresh_token, revoke_refresh_token
 from app.core.security import create_access_token
 from app.infrastructure.postgres_user_repo import PostgresUserRepository
 from app.services.user_service import UserService
@@ -1881,6 +1887,26 @@ async def test_different_users_do_not_share_lock(_mock_scopus, tmp_path):
 AsyncClient с разными сессиями, никак не связанных с pg_authenticated_client
 из conftest. Использование pg_engine из conftest создало бы неявную связанность
 между тестами через teardown-порядок."""
+
+============================================================
+FILE: tests/integration/test_rt_cleanup.py
+============================================================
+"""Тест piggyback cleanup устаревших refresh token.
+
+Сценарий: после логина seeder'им 2 стейл-строки (одна revoked=True,
+одна expired) для того же user_id. Вызываем POST /auth/refresh —
+cleanup_stale_tokens() удаляет обе, в таблице остаётся только новый RT.
+"""
+from datetime import datetime, timedelta, timezone
+import pytest
+from httpx import AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.refresh_token import RefreshToken
+
+@pytest.mark.asyncio
+async def test_refresh_cleanup_removes_stale_tokens(client: AsyncClient, db_session: AsyncSession, logged_in: dict) -> None:
+    """POST /auth/refresh удаляет устаревшие RT того же пользователя (piggyback cleanup)."""
 
 ============================================================
 FILE: tests/integration/test_rt_e2e.py
