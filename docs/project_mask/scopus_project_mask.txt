@@ -2330,7 +2330,7 @@ class TestBuildQuery:
     def test_open_access_true_appends_oa1(self):
         pass
 
-    def test_open_access_false_no_oa_clause(self):
+    def test_open_access_false_appends_not_oa1(self):
         pass
 
     def test_single_country(self):
