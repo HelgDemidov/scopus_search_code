@@ -19,9 +19,10 @@ jobs:
       E2E_TEST_PASSWORD: ${{ secrets.STAGING_TEST_PASSWORD }}
       # SCOPUS_API_KEY нужен для теста live-поиска test_e2e_authenticated_find
       SCOPUS_API_KEY: ${{ secrets.SCOPUS_API_KEY }}
-      # Нужны ТОЛЬКО для инициализации Settings() при импорте app.*
-      # содержит значение Connection String DATABASE_SUPABASE_STAGING_URL
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      # Нужен ТОЛЬКО для инициализации Settings() при импорте app.*
+      # Используем DATABASE_SUPABASE_STAGING_URL — избегаем двусмысленного DATABASE_URL,
+      # который локально указывает на production, а в GH Secrets исторически на staging.
+      DATABASE_URL: ${{ secrets.DATABASE_SUPABASE_STAGING_URL }}
       SECRET_KEY: ${{ secrets.SECRET_KEY }}
 
     steps:
