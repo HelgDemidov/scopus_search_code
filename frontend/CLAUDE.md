@@ -49,4 +49,5 @@ npm run test / test:watch / test:coverage / lint / build
 - Tailwind v3 via PostCSS (NOT @tailwindcss/vite — это v4). vendor-charts chunk ~850 kB — ожидаемо.
 - ESM only (`"type": "module"`). PascalCase компоненты `.tsx`, camelCase утилиты `.ts`.
 - shadcn/ui в `components/ui/` — прямые правки разрешены (уже кастомизированы).
+- **`Button` (и любой shadcn/ui компонент, используемый как `<PopoverTrigger asChild>`)** обязан быть обёрнут в `React.forwardRef` — иначе в React 18.3.1 Radix ref-chain обрывается, `isPositioned` остаётся `false`, Popover рендерится за экраном (`translate(0, -200%)`). Исправлено в commit `62228bd`.
 - Тест-файлы: co-location, `*.test.tsx` (unit) / `*.integration.test.tsx` (integration).

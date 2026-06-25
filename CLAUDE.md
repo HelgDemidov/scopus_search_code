@@ -31,6 +31,10 @@ Frontend: `cd frontend && npm run test / lint / build`
 - Advisory locks: `engine.execution_options(isolation_level="AUTOCOMMIT").connect()` — вынесено в DI `get_advisory_lock_factory()`
 - Conventional commits: feat/fix/refactor/test/chore
 
+## Scopus CQL notes
+- Open Access фильтр: `OPENACCESS(1)` / `NOT OPENACCESS(1)` — **не** `OA(1)` (Scopus API отвергает с 400).
+  Проверено прямым запросом к API 2026-06-25. Файл: `app/infrastructure/scopus_client.py`.
+
 ## Do NOT
 - Sync SQLAlchemy calls in async routes. Hardcoded secrets. CommonJS in frontend.
 - Bare `except:` — только конкретные типы. Pydantic v1 syntax в FastAPI схемах.

@@ -278,3 +278,24 @@ resetFilters: () => set({ historyFilters: {} })
 Баги B1–B6, B8–B13 закрыты. B7 (quota decrement в UI) вне скоупа — частично покрыт существующим `fetchQuota()`.
 Ветка `filtering-2` присутствует (локально и remote). Документация обновлена в `frontend/CLAUDE.md` и памяти агента.
 - Scopus `NOT OA(1)` (B6) — defensive fix, UI никогда не генерирует `open_access=False`
+
+---
+
+## 8. Постпродакшн-фиксы (2026-06-25, после merge в main)
+
+Два production-бага обнаружены и исправлены после мерджа при ручном тестировании на Vercel/Railway.
+
+### P1 — Popover-дропдауны Document Type и Country не открывались
+
+**Симптом:** при нажатии кнопки панель сереет (`data-state="open"`), но список не появляется.  
+**Root cause:** `Button` в `frontend/src/components/ui/button.tsx` не был обёрнут в `React.forwardRef`.  
+В React 18.3.1 `ref` не enumerable в props — `...props` spread его не передаёт. Radix UI `PopperAnchor` получал `ref.current = null` → `context.anchor = null` → `@floating-ui` никогда не вычислял позицию → `isPositioned = false` бессрочно → wrapper рендерился с `transform: translate(0, -200%)` (за экраном).  
+**Исправление:** `Button` обёрнут в `React.forwardRef` с явным `ref={ref}` на `Comp`. commit `62228bd`.
+
+### P2 — Open Access Only checkbox вызывал 500 + CORS-ошибку
+
+**Симптом:** поиск с `open_access=true` → Railway отвечал 500, браузер видел CORS-ошибку.  
+**Root cause:** оператор `OA(1)` не является валидным Scopus CQL-синтаксисом; API возвращал `400 Bad Request`.  
+`httpx.HTTPStatusError` не был обработан в роутере → FastAPI генерировал 500 без CORS-заголовков → браузер получал двойную ошибку (CORS + 500).  
+**Правильный оператор:** `OPENACCESS(1)` / `NOT OPENACCESS(1)`. Проверено прямым запросом к Scopus API.  
+**Исправление:** `scopus_client.py` + тесты. commit `2696ec0`.
