@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { getMe } from '../api/users';
 import type { UserResponse } from '../types/api';
+import { clearTokenValue, setTokenValue } from './tokenStore';
 
 // Интерфейс стора авторизации — §4.3
 interface AuthStore {
@@ -26,23 +27,16 @@ interface AuthStore {
   setHydrating: (value: boolean) => void;
 }
 
-// Читаем токен синхронно до create() — до первого рендера React.
-// Без этого PrivateRoute видит isAuthenticated=false и редиректит на /auth.
-// localStorage будет убран в Commit 3; пока сохраняем для совместимости.
-const _initialToken = localStorage.getItem('access_token');
-
 export const useAuthStore = create<AuthStore>((set, get) => ({
-  // Синхронная инициализация — токен извлекаем до первого рендера
-  token: _initialToken,
-  isAuthenticated: !!_initialToken,
+  token: null,
+  isAuthenticated: false,
   user: null,
   // Гидрация начинается при монтировании App; завершается в finally refreshAccessToken
   isHydrating: true,
   isFetchingUser: false,
 
-  // Сохраняем токен и в localStorage, и в стор одновременно.
   setToken: (token: string) => {
-    localStorage.setItem('access_token', token);
+    setTokenValue(token);
     set({ token, isAuthenticated: true });
   },
 
@@ -81,7 +75,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     } catch {
       // Сетевая ошибка — выполняем локальный logout в любом случае
     } finally {
-      localStorage.removeItem('access_token');
+      clearTokenValue();
       set({ token: null, user: null, isAuthenticated: false });
     }
   },

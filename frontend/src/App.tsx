@@ -129,15 +129,7 @@ export default function App() {
     if (_hydrationStarted) return;
     _hydrationStarted = true;
 
-    // Фаст-путь: синхронная гидрация из localStorage.
-    // Позволяет Header немедленно отобразить имя пользователя при перезагрузке.
-    const token = localStorage.getItem('access_token');
-    if (token) {
-      setToken(token);
-      fetchUser();
-    }
-
-    // Условный silent refresh (Commit 4):
+    // Условный silent refresh:
     // если мы на /auth/callback — OAuthCallback.tsx управляет сессией
     // и сам вызовет setHydrating(false). Повторный refresh ротировал бы RT
     // преждевременно и создавал race condition с fetchUser.
