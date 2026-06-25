@@ -5,7 +5,7 @@ on:
   push:
     branches:
       - main
-      - filtering-2
+      - auth-refactoring
     # Запускаем только когда меняется frontend или сам воркфлоу
     paths:
       - 'frontend/**'
