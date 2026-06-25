@@ -1,16 +1,11 @@
 name: Frontend tests
 
-# Запускается при каждом push в ветки anonymous-pagination, authorized-pagination,
-# english-version, fixing-vulnerabilities, filtering и main
+# Запускается при каждом push в ветки main и filtering-2
 on:
   push:
     branches:
-      - anonymous-pagination
-      - authorized-pagination
-      - english-version
-      - fixing-vulnerabilities
       - main
-      - filtering
+      - filtering-2
     # Запускаем только когда меняется frontend или сам воркфлоу
     paths:
       - 'frontend/**'
