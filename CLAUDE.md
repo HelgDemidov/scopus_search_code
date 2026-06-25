@@ -31,9 +31,9 @@ App config: `app/config.py` (Pydantic Settings).
 `app/utils/`   — db_utils.py
 `app/schemas/` — Pydantic v2 schemas
 `db_seeder/`   — standalone seeder module
-`tests/conftest.py`          — shared fixtures for all tests
+`tests/conftest.py`          — shared fixtures (SQLite in-memory)
 `tests/unit/`                — unit tests (mocked, no DB)
-`tests/integration/`         — integration tests (real DB)
+`tests/integration/`         — integration tests (SQLite или PG в зависимости от маркера)
 `tests/requirements-test.txt` — test dependencies
 
 `frontend/`    — React 18/TypeScript SPA; see frontend/CLAUDE.md for details
@@ -42,9 +42,9 @@ App config: `app/config.py` (Pydantic Settings).
 ```bash
 ruff check app tests
 mypy app
-pytest -m "not integration and not manual"
-pytest -m integration                      # requires DATABASE_TEST_URL
-pytest tests/unit/test_X.py -v             # single file — preferred when using CLI
+pytest -m "not requires_pg"               # unit + SQLite integration (зеркало CI job 'test')
+pytest -m requires_pg                     # PG 16; нужен DATABASE_TEST_URL (throwaway, НЕ Supabase)
+pytest tests/unit/test_X.py -v            # single file — preferred when using CLI
 ```
 
 ## Frontend commands (from frontend/)
@@ -62,7 +62,7 @@ npm run build         # tsc -b && vite build
 - Code comments in Russian, use е (not ё); explain why/what, not every line
 - Pydantic v2: model_validator, field_validator (not v1-style)
 - SQLAlchemy 2.x async: `async with session.begin()`
-- Advisory locks: separate `engine.connect()` with `execution_options(isolation_level="AUTOCOMMIT")`
+- Advisory locks: `engine.execution_options(isolation_level="AUTOCOMMIT").connect()`
 - Conventional commits: feat/fix/refactor/test/chore
 
 ## Do NOT
@@ -76,10 +76,28 @@ npm run build         # tsc -b && vite build
 Two Supabase instances: production (`btmiovdmasqufufyuokx`) and staging (`gpbymgvkqtiueoyborrw`).
 ```
 DATABASE_URL (local .env)     → production Supabase  (uvicorn locally)
-DATABASE_URL (GitHub Secret)  → staging Supabase     (e2e CI — Pydantic Settings only)
-DATABASE_SUPABASE_STAGING_URL → staging Supabase
+DATABASE_URL (e2e CI env)     → staging Supabase     (из секрета DATABASE_SUPABASE_STAGING_URL)
+DATABASE_SUPABASE_STAGING_URL → staging Supabase     (e2e CI + seeder staging)
 DATABASE_TEST_URL (CI/local)  → throwaway PG container — NEVER point at Supabase (tests do drop_all)
 ```
-Test layers: unit/integration → SQLite in-memory | requires_pg → PG 16 container | e2e → live Railway staging.
-`seeder_keywords` is NOT in `Base.metadata` via the test import chain (seeder_router doesn't import SeederKeyword)
-→ drop_all never drops it. Migration f9a3c1e2b7d4 uses IF EXISTS for idempotency on fresh DBs.
+Примечание: GitHub Secret с именем `DATABASE_URL` удалён. `e2e.yml` задаёт переменную окружения
+`DATABASE_URL` из `${{ secrets.DATABASE_SUPABASE_STAGING_URL }}`.
+
+## Test layers & CI coverage
+```
+tests/unit/              no marker    → CI job 'test'    (SQLite)
+tests/integration/       no marker    → CI job 'test'    (SQLite)
+tests/integration/       requires_pg  → CI job 'test-pg' (PG 16 container)
+tests/integration/*e2e*  E2E_BASE_URL → .github/workflows/e2e.yml (live Railway staging)
+```
+CI coverage: job `test` + job `test-pg` → artifacts combine → job `coverage` fail-under=75 (текущий: 79%).
+
+**Advisory lock constraint:** `GET /articles/find` вызывает `pg_advisory_lock` через модульный `engine`
+(обходит FastAPI DI). Все тесты, вызывающие этот эндпоинт, обязаны иметь `@pytest.mark.requires_pg`
+и запускаться в job `test-pg`.
+
+## Migration chain note
+`seeder_keywords` NOT в `Base.metadata` через тестовый import-chain (seeder_router не импортирует
+SeederKeyword) → drop_all никогда не дропает её. Migration `f9a3c1e2b7d4` использует
+`ALTER TABLE ... DROP COLUMN IF EXISTS` — идемпотентна на fresh DB (initial migration не создаёт
+`author_keywords`/`abstract`/`fund_sponsor`, они существовали только в production из доалембиковой истории).
