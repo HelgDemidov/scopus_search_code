@@ -13,6 +13,7 @@ interface HistoryStore {
   historyFilters: HistoryFilters;
   fetchHistory: () => Promise<void>;
   setHistoryFilters: (filters: Partial<HistoryFilters>) => void;
+  resetFilters: () => void;
 }
 
 export const useHistoryStore = create<HistoryStore>((set) => ({
@@ -34,6 +35,10 @@ export const useHistoryStore = create<HistoryStore>((set) => ({
 
   setHistoryFilters: (filters: Partial<HistoryFilters>) => {
     set((state) => ({ historyFilters: { ...state.historyFilters, ...filters } }));
+  },
+
+  resetFilters: () => {
+    set({ historyFilters: {} });
   },
 }));
 
