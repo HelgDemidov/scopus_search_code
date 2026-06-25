@@ -262,4 +262,19 @@ resetFilters: () => set({ historyFilters: {} })
 - `open_access=False` («только не-OA») — UI не поддерживает, не планируется
 - Сохранение фильтров между сессиями (localStorage) — не планируется
 - Обновление опций каталога в реальном времени (websocket/polling) — не планируется
+
+---
+
+## 7. Статус выполнения (итог, 2026-06-25)
+
+**ТЗ выполнено полностью.** PR #16 смерджен в `main` (merge commit `d4637d7`).
+
+| Раздел | Статус |
+|---|---|
+| 4.1 Backend (B6: NOT OA(1) в CQL) | ✅ commit `550767e` |
+| 4.2 Шаги 1–7 (типы, константы, сторы, HomePage, ArticleFilters, B5-fix) | ✅ commits `df81f53`…`51b07bb` |
+| 4.4 Тест-покрытие (169 frontend тестов, все зелёные) | ✅ commit `4a57469` |
+
+Баги B1–B6, B8–B13 закрыты. B7 (quota decrement в UI) вне скоупа — частично покрыт существующим `fetchQuota()`.
+Ветка `filtering-2` удалена после мерджа. Документация обновлена в `frontend/CLAUDE.md` и памяти агента.
 - Scopus `NOT OA(1)` (B6) — defensive fix, UI никогда не генерирует `open_access=False`

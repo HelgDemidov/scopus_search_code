@@ -38,8 +38,10 @@ postgres_data/
 .coverage
 htmlcov/
 
-# Claude CLI files
+# Claude CLI files — сессии и память вне репо; skills версионируются
 .claude/
+!.claude/commands/
+!.claude/commands/*.md
 CLAUDE.local.md
 
 # project mask
