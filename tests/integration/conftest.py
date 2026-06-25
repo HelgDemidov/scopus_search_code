@@ -8,6 +8,7 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.dependencies import get_db_session
+from app.infrastructure.database import engine as _app_engine
 from app.main import app
 from app.models.base import Base
 
@@ -100,3 +101,19 @@ async def pg_authenticated_client(pg_client: AsyncClient, pg_logged_in: dict) ->
     pg_client.headers.update({"Authorization": f"Bearer {pg_logged_in['access_token']}"})
     pg_client.cookies.set("refresh_token", pg_logged_in["rt_cookie"])
     return pg_client
+
+
+@pytest_asyncio.fixture(autouse=True, scope="function")
+async def _dispose_app_engine():
+    """Диспозит пул соединений module-level engine после каждого теста.
+
+    asyncio_default_fixture_loop_scope=function создаёт новый event loop
+    на каждый тест. Module-level engine из database.py — синглтон: его
+    asyncpg-соединения привязаны к loop предыдущего теста. При повторном
+    использовании asyncpg бросает RuntimeError("Future attached to a different loop").
+
+    dispose() после теста очищает пул — следующий тест создаёт соединения
+    в своём loop. Не влияет на продакшн-движок: вызывается только в тестах.
+    """
+    yield
+    await _app_engine.dispose()
