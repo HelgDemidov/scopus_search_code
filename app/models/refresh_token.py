@@ -14,8 +14,10 @@ class RefreshToken(Base):
     # Непрозрачный UUID-токен — не JWT, не декодируется на клиенте
     token: Mapped[str] = mapped_column(String(128), unique=True, index=True, nullable=False)
 
-    # Владелец токена — каскадное удаление при удалении пользователя
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    # Владелец токена — каскадное удаление при удалении пользователя; индекс для revoke-all-for-user
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
 
     # Срок истечения — проверяется при каждом обращении к /auth/refresh
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
