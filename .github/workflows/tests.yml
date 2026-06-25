@@ -55,14 +55,15 @@ jobs:
       run: |
         python -m pytest tests -vv --cov=app --cov-report=term-missing -m "not requires_pg"
 
-    - name: Rename coverage file for artifact
-      run: mv .coverage .coverage.sqlite
+    - name: Prepare coverage artifact
+      # upload-artifact@v4 не загружает dotfiles по умолчанию — копируем без ведущей точки
+      run: mkdir -p coverage-data && cp .coverage coverage-data/coverage.sqlite
 
     - name: Upload SQLite coverage
       uses: actions/upload-artifact@v4
       with:
         name: coverage-sqlite
-        path: .coverage.sqlite
+        path: coverage-data/coverage.sqlite
 
   # ---------------------------------------------------------------------------
   # Джоб 2: PostgreSQL 16 in-process, полная изоляция
@@ -117,14 +118,14 @@ jobs:
         run: |
           python -m pytest tests/integration -vv -m requires_pg --cov=app --cov-report=term-missing
 
-      - name: Rename coverage file for artifact
-        run: mv .coverage .coverage.pg
+      - name: Prepare coverage artifact
+        run: mkdir -p coverage-data && cp .coverage coverage-data/coverage.pg
 
       - name: Upload PG coverage
         uses: actions/upload-artifact@v4
         with:
           name: coverage-pg
-          path: .coverage.pg
+          path: coverage-data/coverage.pg
 
   # ---------------------------------------------------------------------------
   # Джоб 3: объединяет coverage из test + test-pg и проверяет суммарный порог
@@ -155,5 +156,5 @@ jobs:
 
       - name: Combine and check coverage
         run: |
-          coverage combine .coverage.sqlite .coverage.pg
+          coverage combine coverage.sqlite coverage.pg
           coverage report --fail-under=75 --include="app/*"
