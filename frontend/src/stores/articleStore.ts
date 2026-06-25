@@ -2,7 +2,8 @@ import axios from 'axios';
 import { create } from 'zustand';
 import { getArticles, findArticles } from '../api/articles';
 import type { PageSize } from '../components/articles/PaginationBar';
-import type { ArticleResponse, ArticleFilters } from '../types/api';
+import type { ArticleResponse, ArticleFilters, SearchMode } from '../types/api';
+import { useHistoryStore } from './historyStore';
 
 // Интерфейс стора статей — §4.1
 // fetchStats и stats здесь отсутствуют намеренно: они живут только в useStatsStore
@@ -29,6 +30,10 @@ interface ArticleStore {
   //   'all' — показать все вернувшиеся результаты (до 25) без пагинатора
   liveSize: 10 | 'all';
 
+  // Режим поиска и текущее ключевое слово
+  searchMode: SearchMode;
+  currentKeyword: string | null;
+
   // UI-состояние
   isLoading: boolean;
   isLiveSearching: boolean;
@@ -43,6 +48,8 @@ interface ArticleStore {
   setSortBy: (sortBy: 'date' | 'citations') => void;
   setLiveSize: (s: 10 | 'all') => void;
   searchScopusLive: (keyword: string) => Promise<void>;
+  setSearchMode: (mode: SearchMode) => void;
+  setCurrentKeyword: (kw: string) => void;
 }
 
 export const useArticleStore = create<ArticleStore>((set, get) => ({
@@ -56,6 +63,8 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
   liveResults: [],
   scopusQuota: null,
   liveSize: 10,   // дефолт — постраничный режим по 10 результатов
+  searchMode: 'scopus',
+  currentKeyword: null,
   isLoading: false,
   isLiveSearching: false,
   error: null,
@@ -152,6 +161,16 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
   // Переключает режим отображения live-результатов;
   // сброс livePage в 1 — ответственность компонента (livePage живет в useState)
   setLiveSize: (s: 10 | 'all') => set({ liveSize: s }),
+
+  // Смена режима поиска: сбрасывает фильтры, чтобы каталог-фильтры не утекали в Scopus
+  setSearchMode: (mode: SearchMode) => {
+    if (get().searchMode === mode) return;
+    set({ searchMode: mode });
+    useHistoryStore.getState().resetFilters();
+  },
+
+  // Сохраняет последнее ключевое слово для повтора поиска при смене фильтра
+  setCurrentKeyword: (kw: string) => set({ currentKeyword: kw }),
 
   // Live-поиск через Scopus API; передаем historyFilters как серверные фильтры
   searchScopusLive: async (keyword: string) => {
