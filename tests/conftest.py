@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv(override=False)
 
+from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 import pytest_asyncio
@@ -8,10 +9,19 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-from app.core.dependencies import get_db_session
+from app.core.dependencies import get_advisory_lock_factory, get_db_session
 from app.main import app
 from app.models.article import Article
 from app.models.base import Base
+
+
+# No-op замена advisory lock для SQLite-тестов:
+# pg_advisory_lock — PostgreSQL-специфична, в SQLite недоступна.
+# Бизнес-логика (квота, история, фильтры) проверяется без блокировки;
+# сама сериализация конкурентных запросов тестируется в test_find_articles_postgres.py.
+@asynccontextmanager
+async def _noop_lock(user_id: int):
+    yield
 
 # URL тестовой БД — SQLite in-memory через aiosqlite
 # Не требует PostgreSQL, изолирован на уровне функции
@@ -59,6 +69,7 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
         yield db_session
 
     app.dependency_overrides[get_db_session] = override_get_db
+    app.dependency_overrides[get_advisory_lock_factory] = lambda: _noop_lock
 
     async with AsyncClient(
         transport=ASGITransport(app=app),

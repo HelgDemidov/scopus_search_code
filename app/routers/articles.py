@@ -1,12 +1,11 @@
 # app/routers/articles.py
-from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import (
+    get_advisory_lock_factory,
     get_catalog_service,
     get_current_user,
     get_db_session,
@@ -14,7 +13,6 @@ from app.core.dependencies import (
     get_search_history_service,
     get_search_service,
 )
-from app.infrastructure.database import engine  # движок для lock-соединения
 from app.infrastructure.postgres_search_result_repo import PostgresSearchResultRepository
 from app.interfaces.search_client import ISearchClient
 from app.models.search_history import SearchHistory
@@ -39,6 +37,12 @@ from app.services.search_service import SearchService
 router = APIRouter(prefix="/articles", tags=["Articles"])
 
 
+# ------------------------------------------------------------------ #
+#  Advisory lock: перенесена в dependencies.py для DI-совместимости  #
+# ------------------------------------------------------------------ #
+# Используем get_advisory_lock_factory() через Depends() в find_articles.
+# В продакшне → pg_advisory_lock; в SQLite-тестах → no-op из conftest.
+
 # Фабрика ArticleService остается локальной — сервис нужен только здесь
 # и требует отдельной сессии, не смешанной с CatalogService
 def _get_article_service(
@@ -57,41 +61,6 @@ def _get_search_result_repo(
 
 
 _WINDOW_DAYS = 7  # единственный источник правды для квоты
-
-
-# ------------------------------------------------------------------ #
-#  Advisory lock: сериализация /find по user_id                      #
-# ------------------------------------------------------------------ #
-
-@asynccontextmanager
-async def _advisory_lock(user_id: int):
-    """
-    Захватывает pg_advisory_lock(:user_id) на отдельном соединении в режиме AUTOCOMMIT.
-
-    AUTOCOMMIT необходим: сессионный advisory-lock нельзя захватывать внутри
-    открытой транзакции — при откате транзакции lock остался бы висеть навсегда.
-    Отдельное соединение (не из пула сессии A/B) исключает конфликт изоляции.
-
-    Гарантия: между get_quota() и find_and_save() для одного user_id
-    в любой момент работает ровно один запрос.
-    """
-    # Открываем «голое» соединение из пула — без ORM-транзакции.
-    # execution_options задаётся на уровне движка (до открытия соединения):
-    # engine.execution_options() возвращает бранч движка с заданными опциями,
-    # не затрагивая оригинальный пул. AUTOCOMMIT применяется при старте соединения,
-    # поэтому asyncpg никогда не выдаёт BEGIN — lock строго сессионный.
-    async with engine.execution_options(isolation_level="AUTOCOMMIT").connect() as lock_conn:
-        await lock_conn.execute(
-            text("SELECT pg_advisory_lock(:uid)"), {"uid": user_id}
-        )
-        try:
-            yield  # критическая секция: квотная проверка + поиск
-        finally:
-            # Явный unlock в finally — выполнится даже при исключении (429, 500, etc.)
-            await lock_conn.execute(
-                text("SELECT pg_advisory_unlock(:uid)"), {"uid": user_id}
-            )
-            # Соединение возвращается в пул после выхода из async with engine.connect()
 
 
 # ------------------------------------------------------------------ #
@@ -202,6 +171,7 @@ async def find_articles(
     service: SearchService = Depends(get_search_service),
     history_service: SearchHistoryService = Depends(get_search_history_service),
     current_user: User = Depends(get_current_user),
+    lock_factory=Depends(get_advisory_lock_factory),
 ) -> Any:
     # Собираем payload фильтров только из непустых значений.
     # Ключ «document_types» — единый канонический ключ по всему стеку:
@@ -224,7 +194,8 @@ async def find_articles(
 
     # Критическая секция: для одного uid одновременно выполняется не более одного блока.
     # Второй запрос будет ждать на pg_advisory_lock до освобождения первым.
-    async with _advisory_lock(uid):
+    # lock_factory инжектируется через DI — в продакшне pg_advisory_lock, в тестах no-op.
+    async with lock_factory(uid):
         # Квотная проверка внутри lock-а: теперь никакой другой запрос
         # этого пользователя не может пройти между проверкой и find_and_save
         quota = await history_service.get_quota(current_user.id)

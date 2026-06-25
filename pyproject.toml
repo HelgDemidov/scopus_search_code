@@ -19,6 +19,12 @@ exclude = [
 # Включаем базовые правила: E (ошибки стиля), F (логические ошибки), I (сортировка импортов)
 select = ["E", "F", "I"]
 
+[tool.ruff.lint.per-file-ignores]
+# load_dotenv(override=False) намеренно стоит до app-импортов:
+# Pydantic Settings читает .env при старте, load_dotenv должен успеть раньше.
+# E402/I001 в этом файле — intentional, а не ошибка.
+"tests/conftest.py" = ["E402", "I001"]
+
 [tool.mypy]
 python_version = "3.12"
 # Запрещаем писать функции без указания типов (например: def foo(x: int) -> str:)

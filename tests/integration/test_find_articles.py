@@ -55,7 +55,6 @@ def mock_scopus_two_articles(monkeypatch):
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-@pytest.mark.requires_pg
 async def test_find_happy_path_writes_one_history_row(
     authenticated_client: AsyncClient,
     db_session: AsyncSession,
@@ -88,7 +87,6 @@ async def test_find_requires_auth(client: AsyncClient, mock_scopus_two_articles)
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-@pytest.mark.requires_pg
 async def test_find_returns_429_when_quota_exhausted(
     authenticated_client: AsyncClient,
     db_session: AsyncSession,
@@ -141,7 +139,6 @@ async def test_find_returns_429_when_quota_exhausted(
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-@pytest.mark.requires_pg
 async def test_find_persists_filters(
     authenticated_client: AsyncClient,
     db_session: AsyncSession,
@@ -178,7 +175,6 @@ async def test_find_persists_filters(
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-@pytest.mark.requires_pg
 async def test_find_result_count_equals_saved(
     authenticated_client: AsyncClient,
     db_session: AsyncSession,
@@ -197,7 +193,6 @@ async def test_find_result_count_equals_saved(
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-@pytest.mark.requires_pg
 async def test_find_scopus_error_writes_no_history(
     authenticated_client: AsyncClient,
     db_session: AsyncSession,

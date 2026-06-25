@@ -1,13 +1,17 @@
 # app/core/dependencies.py
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
+from contextlib import asynccontextmanager
+from typing import Any
 
 import httpx
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import decode_access_token, oauth2_scheme
 from app.infrastructure.database import async_session_maker
+from app.infrastructure.database import engine as _lock_engine
 from app.infrastructure.postgres_article_repo import PostgresArticleRepository
 from app.infrastructure.postgres_catalog_repo import PostgresCatalogRepository
 from app.infrastructure.postgres_search_history_repo import PostgresSearchHistoryRepository
@@ -147,3 +151,31 @@ def get_search_history_service(
     return SearchHistoryService(
         history_repo=PostgresSearchHistoryRepository(session),
     )
+
+
+# ------------------------------------------------------------------ #
+#  Advisory lock: фабрика контекстного менеджера                     #
+# ------------------------------------------------------------------ #
+
+@asynccontextmanager
+async def _real_advisory_lock(user_id: int) -> AsyncGenerator[None, None]:
+    """pg_advisory_lock на отдельном AUTOCOMMIT-соединении из пула _lock_engine.
+
+    Логика идентична предыдущей реализации в articles.py — перенесена сюда,
+    чтобы зависимость можно было подменить через app.dependency_overrides в тестах.
+    """
+    async with _lock_engine.execution_options(isolation_level="AUTOCOMMIT").connect() as conn:
+        await conn.execute(text("SELECT pg_advisory_lock(:uid)"), {"uid": user_id})
+        try:
+            yield
+        finally:
+            await conn.execute(text("SELECT pg_advisory_unlock(:uid)"), {"uid": user_id})
+
+
+def get_advisory_lock_factory() -> Callable[[int], Any]:
+    """DI-зависимость: возвращает фабрику advisory lock.
+
+    В продакшне — _real_advisory_lock (pg_advisory_lock через AUTOCOMMIT-соединение).
+    В SQLite-тестах переопределяется через app.dependency_overrides на no-op.
+    """
+    return _real_advisory_lock

@@ -47,7 +47,6 @@ async def override_get_scopus_client():
 
 
 @pytest.mark.asyncio
-@pytest.mark.requires_pg
 async def test_find_articles_rate_limits_headers(authenticated_client: AsyncClient, monkeypatch):
     # Переопределяем зависимость клиента для роутера
     app.dependency_overrides[get_scopus_client] = override_get_scopus_client
