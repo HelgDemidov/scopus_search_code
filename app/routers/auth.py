@@ -1,6 +1,7 @@
 from authlib.integrations.starlette_client import OAuth
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 from starlette.status import HTTP_302_FOUND, HTTP_401_UNAUTHORIZED
@@ -12,15 +13,20 @@ from app.core.cookie_constants import (
     RT_COOKIE_MAX_AGE,
     RT_COOKIE_NAME,
 )
-from app.core.dependencies import get_db_session
+from app.core.dependencies import get_db_session, get_email_service
+from app.core.password_reset_utils import create_password_reset_token, get_valid_reset_token
 from app.core.refresh_token_utils import (
     cleanup_stale_tokens,
     create_refresh_token,
     get_valid_refresh_token,
+    revoke_all_user_tokens,
     revoke_refresh_token,
 )
-from app.core.security import create_access_token
+from app.core.security import create_access_token, hash_password
 from app.infrastructure.postgres_user_repo import PostgresUserRepository
+from app.interfaces.email_service import IEmailService
+from app.models.user import User
+from app.schemas.user_schemas import PasswordResetConfirmRequest, PasswordResetRequest
 from app.services.user_service import UserService
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -139,9 +145,6 @@ async def refresh_access_token(
     await cleanup_stale_tokens(user_id=rt.user_id, session=session)
 
     # Получаем email пользователя для создания нового AT (sub = email, как в текущей логике)
-    from sqlalchemy import select  # noqa: PLC0415
-
-    from app.models.user import User  # noqa: PLC0415
     result = await session.execute(select(User).where(User.id == rt.user_id))
     user = result.scalar_one_or_none()
     if not user:
@@ -168,3 +171,45 @@ async def logout(
     # Удаляем cookie — max_age=0 удаляет немедленно
     response.delete_cookie(key=RT_COOKIE_NAME, path="/", httponly=True, secure=True, samesite="none")
     return response
+
+
+@router.post("/password-reset")
+async def request_password_reset(
+    data: PasswordResetRequest,
+    session: AsyncSession = Depends(get_db_session),
+    email_svc: IEmailService = Depends(get_email_service),
+) -> JSONResponse:
+    """Инициирует сброс пароля — всегда 200, не раскрывает наличие аккаунта."""
+    result = await session.execute(select(User).where(User.email == data.email))
+    user = result.scalar_one_or_none()
+    if user:
+        token = await create_password_reset_token(user_id=user.id, session=session)
+        reset_url = f"{settings.FRONTEND_URL.rstrip('/')}/reset-password?token={token}"
+        await email_svc.send_password_reset_email(user.email, reset_url)
+    return JSONResponse({"message": "If this email is registered, a reset link has been sent."})
+
+
+@router.post("/password-reset/confirm")
+async def confirm_password_reset(
+    data: PasswordResetConfirmRequest,
+    session: AsyncSession = Depends(get_db_session),
+) -> JSONResponse:
+    """Применяет новый пароль — атомарно помечает токен использованным, отзывает все RT."""
+    prt = await get_valid_reset_token(data.token, session)
+    if prt is None:
+        raise HTTPException(status_code=422, detail="Токен недействителен или истёк")
+
+    result = await session.execute(select(User).where(User.id == prt.user_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=422, detail="Токен недействителен или истёк")
+
+    # Атомарно: сменить пароль + пометить токен использованным (защита от replay)
+    user.hashed_password = hash_password(data.new_password)
+    prt.used = True
+    await session.commit()
+
+    # Force re-login на всех устройствах — RT выданные до смены пароля недействительны
+    await revoke_all_user_tokens(user_id=user.id, session=session)
+
+    return JSONResponse({"message": "Password updated successfully."})

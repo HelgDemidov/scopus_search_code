@@ -12,12 +12,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import decode_access_token, oauth2_scheme
 from app.infrastructure.database import async_session_maker
 from app.infrastructure.database import engine as _lock_engine
+from app.infrastructure.email_service import SMTPEmailService
 from app.infrastructure.postgres_article_repo import PostgresArticleRepository
 from app.infrastructure.postgres_catalog_repo import PostgresCatalogRepository
 from app.infrastructure.postgres_search_history_repo import PostgresSearchHistoryRepository
 from app.infrastructure.postgres_search_result_repo import PostgresSearchResultRepository
 from app.infrastructure.postgres_user_repo import PostgresUserRepository
 from app.infrastructure.scopus_client import ScopusHTTPClient
+from app.interfaces.email_service import IEmailService
 from app.models.user import User
 from app.services.article_service import ArticleService
 from app.services.catalog_service import CatalogService
@@ -170,6 +172,10 @@ async def _real_advisory_lock(user_id: int) -> AsyncGenerator[None, None]:
             yield
         finally:
             await conn.execute(text("SELECT pg_advisory_unlock(:uid)"), {"uid": user_id})
+
+
+def get_email_service() -> IEmailService:
+    return SMTPEmailService()
 
 
 def get_advisory_lock_factory() -> Callable[[int], Any]:

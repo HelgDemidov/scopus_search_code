@@ -14,7 +14,6 @@ from app.core.security import (
 from app.infrastructure.postgres_user_repo import PostgresUserRepository
 from app.models.user import User
 from app.schemas.user_schemas import (
-    PasswordResetRequest,
     TokenResponse,
     UserLoginRequest,
     UserRegisterRequest,
@@ -98,10 +97,3 @@ async def get_me(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
-@router.post("/password-reset-request", status_code=status.HTTP_200_OK)
-async def password_reset_request(
-    data: PasswordResetRequest,
-    service: UserService = Depends(get_user_service)
-) -> dict[str, str]:
-    message = await service.request_password_reset(data.email)
-    return {"message": message}

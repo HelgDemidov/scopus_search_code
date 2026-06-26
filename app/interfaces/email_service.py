@@ -1,0 +1,6 @@
+from abc import ABC, abstractmethod
+
+
+class IEmailService(ABC):
+    @abstractmethod
+    async def send_password_reset_email(self, to_email: str, reset_url: str) -> None: ...

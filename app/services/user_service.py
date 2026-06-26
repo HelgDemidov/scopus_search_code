@@ -37,12 +37,6 @@ class UserService:
         # Возвращает объект пользователя по email из JWT-токена
         return await self.user_repo.get_by_email(email)
 
-    async def request_password_reset(self, email: str) -> str:
-        # Инициирует процедуру сброса пароля
-        # Best practice: не раскрываем наличие аккаунта в базе
-        await self.user_repo.get_by_email(email)
-        return "Если этот email зарегистрирован, инструкции по сбросу пароля высланы на него."
-
     async def get_or_create_by_google(self, email: str, name: str) -> Tuple[str, int]:
         # Альтернативный путь аутентификации через Google OAuth
         # Ищем существующего пользователя по email
