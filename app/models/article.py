@@ -20,6 +20,23 @@ class Article(Base):
             unique=True,
             postgresql_where=text("doi IS NOT NULL"),
         ),
+        # Индексы для серверной фильтрации каталога (migration 0008)
+        Index("ix_articles_document_type", "document_type"),
+        Index("ix_articles_affiliation_country", "affiliation_country"),
+        Index(
+            "ix_articles_open_access_true",
+            "open_access",
+            postgresql_where=text("open_access = true"),
+        ),
+        # Partial unique index для upsert статей без DOI (migration 0006)
+        Index(
+            "ix_articles_no_doi_unique",
+            "title",
+            "publication_date",
+            "author",
+            unique=True,
+            postgresql_where=text("doi IS NULL"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

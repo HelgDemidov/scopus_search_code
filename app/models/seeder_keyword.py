@@ -26,5 +26,8 @@ class SeederKeyword(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
+    # Смещение Scopus start-параметра для следующей страницы (migration 0012)
+    last_offset: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+
     def __repr__(self) -> str:
         return f"<SeederKeyword(keyword='{self.keyword[:40]}', cluster='{self.cluster}')>"
