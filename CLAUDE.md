@@ -68,7 +68,25 @@ tests/integration/*e2e*  E2E_BASE_URL       → e2e.yml          (live Railway s
 CI coverage: jobs `test` + `test-pg` → combined artifacts → `coverage` fail-under=75 (текущий: 79%).
 Advisory lock в DI-фабрике → новые тесты `GET /articles/find` не требуют `requires_pg`; только `test_find_articles_postgres.py` (конкурентность).
 
+### Полная матрица CI-джобов (2026-06-26)
+| Воркфлоу | Джоб | Что проверяет | Триггер |
+|---|---|---|---|
+| `tests.yml` | `test` | pytest SQLite, not requires_pg | push+PR → main |
+| `tests.yml` | `test-pg` | alembic upgrade+check; pytest PG requires_pg | push+PR → main |
+| `tests.yml` | `quality` | ruff check+format, mypy, pip-audit | push+PR → main |
+| `tests.yml` | `coverage` | combined 75% threshold | после test+test-pg |
+| `frontend-tests.yml` | `typecheck` | tsc --noEmit | push main (paths: frontend/**) |
+| `frontend-tests.yml` | `lint` | ESLint --max-warnings 0; npm audit --audit-level=high | push main |
+| `frontend-tests.yml` | `unit` | vitest unit-тесты | push main |
+| `frontend-tests.yml` | `integration` | vitest integration + coverage | push main |
+| `frontend-tests.yml` | `build` | npm run build (Vite production) | push main |
+| `e2e.yml` | `e2e` | smoke-тесты против Railway staging | push main |
+
+**Branch protection (main, 2026-06-26):** force push запрещён; удаление запрещено; required checks для PR: `test`, `test-pg`, `Code quality (ruff + mypy + pip-audit)` (strict: ветка должна быть актуальна с main). enforce_admins=false — прямой пуш owner'а работает.
+**Dependabot:** `.github/dependabot.yml` — pip + npm + github-actions, еженедельно по понедельникам, limit=3 PR на экосистему.
+
 ## Migration chain note
-`seeder_keywords` NOT в `Base.metadata` (seeder_router не импортирует SeederKeyword) → drop_all её не трогает.
+`seeder_keywords` NOT в `Base.metadata` в рантайме (seeder_router не импортирует SeederKeyword) → drop_all её не трогает. В alembic/env.py SeederKeyword импортируется явно для автогенерации.
 Migration `f9a3c1e2b7d4`: `ALTER TABLE ... DROP COLUMN IF EXISTS` — идемпотентна на fresh DB.
-Chain: `f9a3c1e2b7d4` → `0010_add_user_id_index_to_refresh_tokens` → `0011_create_password_reset_tokens_table` → `0012_add_last_offset_to_seeder_keywords` (head).
+Chain: `f9a3c1e2b7d4` → `0010` → `0011` → `0012` → `0013_fix_schema_drift` (head).
+Миграция 0013: NOT NULL для `created_at` в refresh_tokens/password_reset_tokens; пересоздаёт ix_search_history_user_created без DESC (SQLite-совместимость).

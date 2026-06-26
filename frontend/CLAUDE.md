@@ -32,14 +32,17 @@ Unit: `src/**/*.test.{ts,tsx}` | Integration: `*.integration.test.*`
 Total (main, 2026-06-26): **179** тестов, все зелёные (+10 из auth-refactoring: ForgotPasswordPage.test, ResetPasswordPage.test).
 Vitest patterns (Checkbox mock, fake timers, vi.hoisted) — см. память [[feedback-vitest-testing-patterns]].
 
-## CI: frontend-tests.yml (triggers: push main + feature, paths: frontend/**)
-| Job | Command |
+## CI: frontend-tests.yml (triggers: push main, paths: frontend/**)
+| Job | Что делает |
 |---|---|
-| `typecheck` | `npx tsc --noEmit` |
-| `unit` | `npx vitest run --exclude 'src/**/*.integration.test.*' src/**/*.test.ts src/**/*.test.tsx` |
-| `integration` | `npx vitest run src/components/articles/pagination.integration.test.tsx src/App.integration.test.tsx` |
+| `typecheck` | `npx tsc --noEmit` — полная проверка типов |
+| `lint` | `npm run lint` (ESLint 10 flat config, --max-warnings 0) + `npm audit --audit-level=high` |
+| `unit` | `npx vitest run` unit-тесты (исключает *.integration.test.*) |
+| `integration` | `npx vitest run` integration + coverage artifact |
+| `build` | `npm run build` — Vite production bundle (ловит что tsc пропускает) |
 
 Node.js: 22. `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` — для actions runner, не для Node.
+**ESLint:** flat config `eslint.config.js` (ESLint 10 + typescript-eslint 8 + react-hooks 7 + react-refresh). shadcn/ui overrides в отдельном блоке в конце файла (last block wins). `react-hooks/set-state-in-effect` disable-comments — **внутри** тела useEffect, перед первым setState.
 
 ## Commands (from frontend/)
 ```bash
