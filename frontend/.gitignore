@@ -13,6 +13,9 @@ dist-ssr/
 .env.production
 .env*.local
 
+# Артефакты покрытия (Vitest --coverage)
+coverage/
+
 # Кеш инструментов
 .vite/
 
