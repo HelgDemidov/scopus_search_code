@@ -4,7 +4,7 @@
 // не создают собственные экземпляры axios.
 //
 // Request interceptor: добавляет Authorization: Bearer <token> к каждому запросу,
-// если токен присутствует в localStorage.
+// если токен присутствует в tokenStore (in-memory, не localStorage).
 //
 // Response interceptor (401): при получении 401 Unauthorized
 // пытается тихо обновить AT через RT cookie (silent refresh).
@@ -19,6 +19,7 @@
 
 import axios from 'axios';
 import { toast } from 'sonner';
+import { getToken, setTokenValue } from '../stores/tokenStore';
 
 // Базовый URL берется из переменной окружения Vite.
 // Production: VITE_API_BASE_URL = 'https://your-instance.up.railway.app' (Railway)
@@ -53,11 +54,11 @@ export const apiClient = axios.create({
 });
 
 // ---------------------------------------------------------------------------
-// Request interceptor — добавляем Bearer-токен из localStorage
+// Request interceptor — добавляем Bearer-токен из tokenStore (in-memory)
 // ---------------------------------------------------------------------------
 
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token');
+  const token = getToken();
   if (token) {
     config.headers['Authorization'] = `Bearer ${token}`;
   }
@@ -111,7 +112,7 @@ apiClient.interceptors.response.use(
         refreshingPromise = import('./auth')
           .then(({ refreshAccessToken }) => refreshAccessToken())
           .then((newToken) => {
-            localStorage.setItem('access_token', newToken);
+            setTokenValue(newToken);
             window.dispatchEvent(
               new CustomEvent('auth:token-refreshed', { detail: newToken })
             );

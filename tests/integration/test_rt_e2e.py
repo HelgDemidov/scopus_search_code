@@ -88,11 +88,18 @@ async def test_full_refresh_token_lifecycle(
     )
 
     # --- Шаг 8: проверяем состояние БД напрямую ---
-    # Оба RT должны быть помечены revoked=True
+    # Piggyback cleanup в шаге 3 удалил RT_v1 (стал revoked=True сразу после ротации).
+    # RT_v2 был отозван через logout, но cleanup не запускается на /auth/logout —
+    # строка остаётся в БД с revoked=True (будет удалена при следующем /auth/refresh).
+    db_session.expire_all()
     result = await db_session.execute(
         select(RefreshToken).where(RefreshToken.token.in_([rt_v1, rt_v2]))
     )
     rt_rows = result.scalars().all()
-    assert len(rt_rows) == 2, "В БД должны быть оба RT"
-    for row in rt_rows:
-        assert row.revoked is True, f"RT id={row.id} должен быть revoked=True"
+
+    # RT_v1 удалён cleanup-ом; RT_v2 остался как revoked=True
+    tokens_in_db = {row.token for row in rt_rows}
+    assert rt_v1 not in tokens_in_db, "RT_v1 должен быть удалён piggyback cleanup-ом"
+    assert rt_v2 in tokens_in_db, "RT_v2 должен быть в БД (cleanup не запускается при logout)"
+    rt_v2_row = next(r for r in rt_rows if r.token == rt_v2)
+    assert rt_v2_row.revoked is True, "RT_v2 должен быть помечен revoked=True после logout"

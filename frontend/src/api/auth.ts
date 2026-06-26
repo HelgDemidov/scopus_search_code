@@ -1,10 +1,11 @@
 // API-функции авторизации (§2.1 спека)
 //
-// login                — POST /users/login (JSON: { email, password })
-// register             — POST /users/register (JSON)
-// passwordResetRequest — POST /users/password-reset-request (JSON)
-// refreshAccessToken   — POST /auth/refresh (RT передается как httpOnly cookie)
-// serverLogout         — POST /auth/logout (отзывает RT на сервере)
+// login                 — POST /users/login (JSON: { email, password })
+// register              — POST /users/register (JSON)
+// requestPasswordReset  — POST /auth/password-reset (JSON: { email })
+// confirmPasswordReset  — POST /auth/password-reset/confirm (JSON: { token, new_password })
+// refreshAccessToken    — POST /auth/refresh (RT передается как httpOnly cookie)
+// serverLogout          — POST /auth/logout (отзывает RT на сервере)
 
 import { apiClient } from './client';
 import type { TokenResponse } from '../types/api';
@@ -54,11 +55,19 @@ export async function register(data: RegisterData): Promise<RegisterResponse> {
 }
 
 // ---------------------------------------------------------------------------
-// POST /users/password-reset-request — запрос сброса пароля
+// POST /auth/password-reset — запрос письма со ссылкой сброса пароля
 // ---------------------------------------------------------------------------
 
-export async function passwordResetRequest(email: string): Promise<void> {
-  await apiClient.post('/users/password-reset-request', { email });
+export async function requestPasswordReset(email: string): Promise<void> {
+  await apiClient.post('/auth/password-reset', { email });
+}
+
+// ---------------------------------------------------------------------------
+// POST /auth/password-reset/confirm — применить новый пароль по токену из письма
+// ---------------------------------------------------------------------------
+
+export async function confirmPasswordReset(token: string, newPassword: string): Promise<void> {
+  await apiClient.post('/auth/password-reset/confirm', { token, new_password: newPassword });
 }
 
 // ---------------------------------------------------------------------------

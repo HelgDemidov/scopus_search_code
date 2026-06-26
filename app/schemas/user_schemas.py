@@ -5,6 +5,20 @@ from typing import Self
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 
+def _validate_password_strength(v: str) -> str:
+    if not re.match(r"^[\x20-\x7E]+$", v):
+        raise ValueError("Пароль может содержать только латинские буквы, цифры и стандартные спецсимволы")
+    if not any(c.isupper() for c in v):
+        raise ValueError("Пароль должен содержать хотя бы одну заглавную букву")
+    if not any(c.islower() for c in v):
+        raise ValueError("Пароль должен содержать хотя бы одну строчную букву")
+    if not any(c.isdigit() for c in v):
+        raise ValueError("Пароль должен содержать хотя бы одну цифру")
+    if not re.search(r"[!@#$%^&*()_+=\-\[\]{};':\"\\|,.<>/?]", v):
+        raise ValueError("Пароль должен содержать хотя бы один спецсимвол")
+    return v
+
+
 class UserRegisterRequest(BaseModel):
     # Пользовательские данные при регистрации
     username: str = Field(min_length=3, max_length=50)
@@ -15,19 +29,7 @@ class UserRegisterRequest(BaseModel):
     @field_validator("password")
     @classmethod
     def password_strength(cls, v: str) -> str:
-        # Проверка на допустимые символы (только ASCII: латиница, цифры, спецсимволы)
-        if not re.match(r"^[\x20-\x7E]+$", v):
-            raise ValueError("Пароль может содержать только латинские буквы, цифры и стандартные спецсимволы")
-            
-        if not any(c.isupper() for c in v):
-            raise ValueError("Пароль должен содержать хотя бы одну заглавную букву")
-        if not any(c.islower() for c in v):
-            raise ValueError("Пароль должен содержать хотя бы одну строчную букву")
-        if not any(c.isdigit() for c in v):
-            raise ValueError("Пароль должен содержать хотя бы одну цифру")
-        if not re.search(r"[!@#$%^&*()_+=\-\[\]{};':\"\\|,.<>/?]", v):
-            raise ValueError("Пароль должен содержать хотя бы один спецсимвол")
-        return v
+        return _validate_password_strength(v)
 
     @model_validator(mode="after")
     def passwords_match(self) -> Self:
@@ -59,3 +61,13 @@ class TokenResponse(BaseModel):
 class PasswordResetRequest(BaseModel):
     # Запрос сброса пароля: клиент присылает только email
     email: EmailStr
+
+
+class PasswordResetConfirmRequest(BaseModel):
+    token: str
+    new_password: str = Field(min_length=8, max_length=255)
+
+    @field_validator("new_password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        return _validate_password_strength(v)

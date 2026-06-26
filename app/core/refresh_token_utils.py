@@ -1,7 +1,7 @@
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.refresh_token import RefreshToken
@@ -61,3 +61,32 @@ async def revoke_refresh_token(token_value: str, session: AsyncSession) -> None:
     if rt:
         rt.revoked = True
         await session.commit()
+
+
+async def revoke_all_user_tokens(user_id: int, session: AsyncSession) -> None:
+    """Отзывает все активные RT пользователя — вызывается при смене пароля (force re-login)."""
+    await session.execute(
+        update(RefreshToken)
+        .where(RefreshToken.user_id == user_id, RefreshToken.revoked.is_(False))
+        .values(revoked=True)
+    )
+    await session.commit()
+
+
+async def cleanup_stale_tokens(user_id: int, session: AsyncSession) -> None:
+    """Удаляет истёкшие и отозванные RT пользователя.
+
+    Вызывается попутно при каждой ротации (piggyback cleanup) —
+    предотвращает неограниченный рост таблицы без отдельного scheduler.
+    """
+    now = datetime.now(timezone.utc)
+    await session.execute(
+        delete(RefreshToken).where(
+            RefreshToken.user_id == user_id,
+            or_(
+                RefreshToken.revoked.is_(True),
+                RefreshToken.expires_at < now,
+            ),
+        )
+    )
+    await session.commit()

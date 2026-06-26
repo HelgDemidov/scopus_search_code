@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: str = ''
     OAUTH_REDIRECT_URI: str = 'http://localhost:8000/auth/google/callback'
     SESSION_SECRET_KEY: str = ''
+    SMTP_HOST: str = 'smtp.gmail.com'
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ''
+    SMTP_PASSWORD: str = ''
+    FROM_EMAIL: str = ''
     FRONTEND_URL: str = 'http://localhost:5173'
     ALLOWED_ORIGINS: str = ''
 
@@ -42,6 +47,14 @@ FILE: app/core/__init__.py
 
 
 ============================================================
+FILE: app/core/cookie_constants.py
+============================================================
+RT_COOKIE_NAME: str = 'refresh_token'
+RT_COOKIE_MAX_AGE: int = 30 * 24 * 3600
+AT_HANDSHAKE_COOKIE_NAME: str = 'auth_handshake'
+AT_HANDSHAKE_MAX_AGE: int = 5 * 60
+
+============================================================
 FILE: app/core/dependencies.py
 ============================================================
 from collections.abc import AsyncGenerator, Callable
@@ -55,12 +68,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import decode_access_token, oauth2_scheme
 from app.infrastructure.database import async_session_maker
 from app.infrastructure.database import engine as _lock_engine
+from app.infrastructure.email_service import SMTPEmailService
 from app.infrastructure.postgres_article_repo import PostgresArticleRepository
 from app.infrastructure.postgres_catalog_repo import PostgresCatalogRepository
 from app.infrastructure.postgres_search_history_repo import PostgresSearchHistoryRepository
 from app.infrastructure.postgres_search_result_repo import PostgresSearchResultRepository
 from app.infrastructure.postgres_user_repo import PostgresUserRepository
 from app.infrastructure.scopus_client import ScopusHTTPClient
+from app.interfaces.email_service import IEmailService
 from app.models.user import User
 from app.services.article_service import ArticleService
 from app.services.catalog_service import CatalogService
@@ -103,6 +118,9 @@ async def _real_advisory_lock(user_id: int) -> AsyncGenerator[None, None]:
 Логика идентична предыдущей реализации в articles.py — перенесена сюда,
 чтобы зависимость можно было подменить через app.dependency_overrides в тестах."""
 
+def get_email_service() -> IEmailService:
+    pass
+
 def get_advisory_lock_factory() -> Callable[[int], Any]:
     """DI-зависимость: возвращает фабрику advisory lock.
 
@@ -110,11 +128,27 @@ def get_advisory_lock_factory() -> Callable[[int], Any]:
 В SQLite-тестах переопределяется через app.dependency_overrides на no-op."""
 
 ============================================================
-FILE: app/core/refresh_token_utils.py
+FILE: app/core/password_reset_utils.py
 ============================================================
 import secrets
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.password_reset_token import PasswordResetToken
+PASSWORD_RESET_EXPIRE_SECONDS = 3600
+
+async def create_password_reset_token(user_id: int, session: AsyncSession) -> str:
+    """Генерирует токен сброса пароля и сохраняет в БД."""
+
+async def get_valid_reset_token(token: str, session: AsyncSession) -> PasswordResetToken | None:
+    """Возвращает токен, если он существует, не использован и не истёк."""
+
+============================================================
+FILE: app/core/refresh_token_utils.py
+============================================================
+import secrets
+from datetime import datetime, timedelta, timezone
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.refresh_token import RefreshToken
 REFRESH_TOKEN_EXPIRE_DAYS = 30
@@ -127,6 +161,15 @@ async def get_valid_refresh_token(token_value: str, session: AsyncSession) -> Re
 
 async def revoke_refresh_token(token_value: str, session: AsyncSession) -> None:
     """Помечает RT как отозванный — используется при logout и ротации."""
+
+async def revoke_all_user_tokens(user_id: int, session: AsyncSession) -> None:
+    """Отзывает все активные RT пользователя — вызывается при смене пароля (force re-login)."""
+
+async def cleanup_stale_tokens(user_id: int, session: AsyncSession) -> None:
+    """Удаляет истёкшие и отозванные RT пользователя.
+
+Вызывается попутно при каждой ротации (piggyback cleanup) —
+предотвращает неограниченный рост таблицы без отдельного scheduler."""
 
 ============================================================
 FILE: app/core/security.py
@@ -168,6 +211,20 @@ if is_cloud_db:
     connect_args = {'ssl': 'require'}
 engine = create_async_engine(url=settings.database_url_str, echo=True, connect_args=connect_args)
 async_session_maker = async_sessionmaker(bind=engine, expire_on_commit=False)
+
+============================================================
+FILE: app/infrastructure/email_service.py
+============================================================
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+import aiosmtplib
+from app.config import settings
+from app.interfaces.email_service import IEmailService
+
+class SMTPEmailService(IEmailService):
+
+    async def send_password_reset_email(self, to_email: str, reset_url: str) -> None:
+        pass
 
 ============================================================
 FILE: app/infrastructure/postgres_article_repo.py
@@ -444,6 +501,17 @@ total_articles, total_journals, total_countries, open_access_count,
 by_year, by_journal, by_country, by_doc_type, top_keywords."""
 
 ============================================================
+FILE: app/interfaces/email_service.py
+============================================================
+from abc import ABC, abstractmethod
+
+class IEmailService(ABC):
+
+    @abstractmethod
+    async def send_password_reset_email(self, to_email: str, reset_url: str) -> None:
+        pass
+
+============================================================
 FILE: app/interfaces/search_client.py
 ============================================================
 from abc import ABC, abstractmethod
@@ -650,6 +718,26 @@ class CatalogArticle(Base):
         pass
 
 ============================================================
+FILE: app/models/password_reset_token.py
+============================================================
+from datetime import datetime
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy.orm import Mapped, mapped_column
+from app.models.base import Base
+
+class PasswordResetToken(Base):
+    __tablename__ = 'password_reset_tokens'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    token: Mapped[str] = mapped_column(String(128), unique=True, index=True, nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    def __repr__(self) -> str:
+        pass
+
+============================================================
 FILE: app/models/refresh_token.py
 ============================================================
 from datetime import datetime
@@ -661,7 +749,7 @@ class RefreshToken(Base):
     __tablename__ = 'refresh_tokens'
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     token: Mapped[str] = mapped_column(String(128), unique=True, index=True, nullable=False)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revoked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -832,24 +920,26 @@ async def get_article_by_id(article_id: int, service: 'ArticleService'=Depends(_
 FILE: app/routers/auth.py
 ============================================================
 from authlib.integrations.starlette_client import OAuth
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 from starlette.status import HTTP_302_FOUND, HTTP_401_UNAUTHORIZED
 from app.config import settings
-from app.core.dependencies import get_db_session
-from app.core.refresh_token_utils import create_refresh_token, get_valid_refresh_token, revoke_refresh_token
-from app.core.security import create_access_token
+from app.core.cookie_constants import AT_HANDSHAKE_COOKIE_NAME, AT_HANDSHAKE_MAX_AGE, RT_COOKIE_MAX_AGE, RT_COOKIE_NAME
+from app.core.dependencies import get_db_session, get_email_service
+from app.core.password_reset_utils import create_password_reset_token, get_valid_reset_token
+from app.core.refresh_token_utils import cleanup_stale_tokens, create_refresh_token, get_valid_refresh_token, revoke_all_user_tokens, revoke_refresh_token
+from app.core.security import create_access_token, hash_password
 from app.infrastructure.postgres_user_repo import PostgresUserRepository
+from app.interfaces.email_service import IEmailService
+from app.models.user import User
+from app.schemas.user_schemas import PasswordResetConfirmRequest, PasswordResetRequest
 from app.services.user_service import UserService
 router = APIRouter(prefix='/auth', tags=['Auth'])
 oauth = OAuth()
 oauth.register(name='google', client_id=settings.GOOGLE_CLIENT_ID, client_secret=settings.GOOGLE_CLIENT_SECRET, server_metadata_url='https://accounts.google.com/.well-known/openid-configuration', client_kwargs={'scope': 'openid email profile'})
-_RT_COOKIE_NAME = 'refresh_token'
-_RT_COOKIE_MAX_AGE = 30 * 24 * 3600
-_AT_HANDSHAKE_COOKIE = 'auth_handshake'
-_AT_HANDSHAKE_MAX_AGE = 5 * 60
 
 def _set_rt_cookie(response: JSONResponse | RedirectResponse, token: str) -> None:
     """Устанавливает httpOnly cookie с refresh token — единое место настройки."""
@@ -879,6 +969,14 @@ async def refresh_access_token(request: Request, session: AsyncSession=Depends(g
 @router.post('/logout')
 async def logout(request: Request, session: AsyncSession=Depends(get_db_session)) -> JSONResponse:
     """Отзывает RT на сервере и удаляет cookie — сервер-сайд logout."""
+
+@router.post('/password-reset')
+async def request_password_reset(data: PasswordResetRequest, session: AsyncSession=Depends(get_db_session), email_svc: IEmailService=Depends(get_email_service)) -> JSONResponse:
+    """Инициирует сброс пароля — всегда 200, не раскрывает наличие аккаунта."""
+
+@router.post('/password-reset/confirm')
+async def confirm_password_reset(data: PasswordResetConfirmRequest, session: AsyncSession=Depends(get_db_session)) -> JSONResponse:
+    """Применяет новый пароль — атомарно помечает токен использованным, отзывает все RT."""
 
 ============================================================
 FILE: app/routers/health.py
@@ -925,16 +1023,15 @@ FILE: app/routers/users.py
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.cookie_constants import RT_COOKIE_MAX_AGE, RT_COOKIE_NAME
 from app.core.dependencies import get_db_session
 from app.core.refresh_token_utils import create_refresh_token
 from app.core.security import decode_access_token, oauth2_scheme
 from app.infrastructure.postgres_user_repo import PostgresUserRepository
 from app.models.user import User
-from app.schemas.user_schemas import PasswordResetRequest, TokenResponse, UserLoginRequest, UserRegisterRequest, UserResponse
+from app.schemas.user_schemas import TokenResponse, UserLoginRequest, UserRegisterRequest, UserResponse
 from app.services.user_service import UserService
 router = APIRouter(prefix='/users', tags=['Users'])
-_RT_COOKIE_NAME = 'refresh_token'
-_RT_COOKIE_MAX_AGE = 30 * 24 * 3600
 
 def get_user_service(session: AsyncSession=Depends(get_db_session)) -> UserService:
     pass
@@ -952,10 +1049,6 @@ async def login(data: UserLoginRequest, service: UserService=Depends(get_user_se
 
 @router.get('/me', response_model=UserResponse)
 async def get_me(current_user: User=Depends(get_current_user)) -> User:
-    pass
-
-@router.post('/password-reset-request', status_code=status.HTTP_200_OK)
-async def password_reset_request(data: PasswordResetRequest, service: UserService=Depends(get_user_service)) -> dict[str, str]:
     pass
 
 ============================================================
@@ -1056,6 +1149,9 @@ from datetime import datetime
 from typing import Self
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
+def _validate_password_strength(v: str) -> str:
+    pass
+
 class UserRegisterRequest(BaseModel):
     username: str = Field(min_length=3, max_length=50)
     email: EmailStr
@@ -1088,6 +1184,15 @@ class TokenResponse(BaseModel):
 
 class PasswordResetRequest(BaseModel):
     email: EmailStr
+
+class PasswordResetConfirmRequest(BaseModel):
+    token: str
+    new_password: str = Field(min_length=8, max_length=255)
+
+    @field_validator('new_password')
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        pass
 
 ============================================================
 FILE: app/services/__init__.py
@@ -1225,9 +1330,6 @@ class UserService:
         pass
 
     async def get_current_user(self, email: str) -> User | None:
-        pass
-
-    async def request_password_reset(self, email: str) -> str:
         pass
 
     async def get_or_create_by_google(self, email: str, name: str) -> Tuple[str, int]:
@@ -1877,6 +1979,98 @@ async def test_different_users_do_not_share_lock(_mock_scopus, tmp_path):
 AsyncClient с разными сессиями, никак не связанных с pg_authenticated_client
 из conftest. Использование pg_engine из conftest создало бы неявную связанность
 между тестами через teardown-порядок."""
+
+============================================================
+FILE: tests/integration/test_password_reset.py
+============================================================
+"""Тесты сброса пароля через email.
+
+Покрываемые сценарии:
+  - POST /auth/password-reset с несуществующим email → 200 (не раскрываем аккаунт)
+  - POST /auth/password-reset с существующим email → 200 + токен создан в БД
+  - POST /auth/password-reset/confirm с невалидным токеном → 422
+  - POST /auth/password-reset/confirm с истёкшим токеном → 422
+  - POST /auth/password-reset/confirm с already-used токеном → 422
+  - Успешный confirm → пароль изменён + все RT revoked
+  - После confirm → логин со старым паролем → 401
+  - После confirm → логин с новым паролем → 200
+  - Слабый пароль на confirm → 422
+"""
+from datetime import datetime, timedelta, timezone
+import pytest
+from httpx import AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.dependencies import get_email_service
+from app.interfaces.email_service import IEmailService
+from app.main import app
+from app.models.password_reset_token import PasswordResetToken
+from app.models.refresh_token import RefreshToken
+
+class _NoOpEmailService(IEmailService):
+
+    async def send_password_reset_email(self, to_email: str, reset_url: str) -> None:
+        pass
+
+@pytest.fixture(autouse=True)
+def override_email_service():
+    """Подменяет SMTP-сервис no-op заглушкой для всех тестов в модуле."""
+
+@pytest.mark.asyncio
+async def test_password_reset_request_unknown_email_returns_200(client: AsyncClient) -> None:
+    """Несуществующий email → 200 с одинаковым сообщением (не раскрываем наличие аккаунта)."""
+
+@pytest.mark.asyncio
+async def test_password_reset_request_known_email_creates_token(client: AsyncClient, db_session: AsyncSession, registered_user: dict) -> None:
+    """Существующий email → 200 + токен появляется в password_reset_tokens."""
+
+@pytest.mark.asyncio
+async def test_password_reset_confirm_invalid_token_returns_422(client: AsyncClient) -> None:
+    """Несуществующий токен → 422."""
+
+@pytest.mark.asyncio
+async def test_password_reset_confirm_expired_token_returns_422(client: AsyncClient, db_session: AsyncSession, registered_user: dict) -> None:
+    """Истёкший токен → 422."""
+
+@pytest.mark.asyncio
+async def test_password_reset_confirm_used_token_returns_422(client: AsyncClient, db_session: AsyncSession, registered_user: dict) -> None:
+    """Already-used токен → 422 (защита от replay)."""
+
+@pytest.mark.asyncio
+async def test_password_reset_confirm_success_revokes_all_rt(client: AsyncClient, db_session: AsyncSession, registered_user: dict, logged_in: dict) -> None:
+    """После confirm: токен помечен used=True, все RT пользователя revoked=True."""
+
+@pytest.mark.asyncio
+async def test_password_reset_confirm_old_password_rejected(client: AsyncClient, db_session: AsyncSession, registered_user: dict) -> None:
+    """После confirm старый пароль → 401 на /users/login."""
+
+@pytest.mark.asyncio
+async def test_password_reset_confirm_new_password_accepted(client: AsyncClient, db_session: AsyncSession, registered_user: dict) -> None:
+    """После confirm новый пароль → 200 + access_token на /users/login."""
+
+@pytest.mark.asyncio
+async def test_password_reset_confirm_weak_password_returns_422(client: AsyncClient, db_session: AsyncSession, registered_user: dict) -> None:
+    """Слабый пароль на confirm → 422 от Pydantic field_validator."""
+
+============================================================
+FILE: tests/integration/test_rt_cleanup.py
+============================================================
+"""Тест piggyback cleanup устаревших refresh token.
+
+Сценарий: после логина seeder'им 2 стейл-строки (одна revoked=True,
+одна expired) для того же user_id. Вызываем POST /auth/refresh —
+cleanup_stale_tokens() удаляет обе, в таблице остаётся только новый RT.
+"""
+from datetime import datetime, timedelta, timezone
+import pytest
+from httpx import AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.refresh_token import RefreshToken
+
+@pytest.mark.asyncio
+async def test_refresh_cleanup_removes_stale_tokens(client: AsyncClient, db_session: AsyncSession, logged_in: dict) -> None:
+    """POST /auth/refresh удаляет устаревшие RT того же пользователя (piggyback cleanup)."""
 
 ============================================================
 FILE: tests/integration/test_rt_e2e.py

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cookie_constants import RT_COOKIE_MAX_AGE, RT_COOKIE_NAME
 from app.core.dependencies import get_db_session
 from app.core.refresh_token_utils import create_refresh_token
 from app.core.security import (
@@ -13,7 +14,6 @@ from app.core.security import (
 from app.infrastructure.postgres_user_repo import PostgresUserRepository
 from app.models.user import User
 from app.schemas.user_schemas import (
-    PasswordResetRequest,
     TokenResponse,
     UserLoginRequest,
     UserRegisterRequest,
@@ -22,10 +22,6 @@ from app.schemas.user_schemas import (
 from app.services.user_service import UserService
 
 router = APIRouter(prefix="/users", tags=["Users"])
-
-# Константы cookie — дублируем из auth.py для независимости модуля
-_RT_COOKIE_NAME = "refresh_token"
-_RT_COOKIE_MAX_AGE = 30 * 24 * 3600
 
 
 def get_user_service(session: AsyncSession = Depends(get_db_session)) -> UserService:
@@ -85,12 +81,12 @@ async def login(
 
     response = JSONResponse({"access_token": at_token, "token_type": "bearer"})
     response.set_cookie(
-        key=_RT_COOKIE_NAME,
+        key=RT_COOKIE_NAME,
         value=rt_value,
         httponly=True,
         secure=True,
         samesite="none",  # cross-origin: Vercel → Railway
-        max_age=_RT_COOKIE_MAX_AGE,
+        max_age=RT_COOKIE_MAX_AGE,
         path="/",
     )
     return response
@@ -101,10 +97,3 @@ async def get_me(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
-@router.post("/password-reset-request", status_code=status.HTTP_200_OK)
-async def password_reset_request(
-    data: PasswordResetRequest,
-    service: UserService = Depends(get_user_service)
-) -> dict[str, str]:
-    message = await service.request_password_reset(data.email)
-    return {"message": message}

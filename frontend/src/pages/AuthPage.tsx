@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import type { Location } from 'react-router-dom';
 import { useForm, type UseFormRegisterReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -95,6 +95,14 @@ function SignInForm({ redirectTo }: { redirectTo: string }) {
         {errors.password && (
           <p className="text-xs text-rose-600 dark:text-rose-400">{errors.password.message}</p>
         )}
+        <div className="text-right">
+          <Link
+            to="/forgot-password"
+            className="text-xs text-slate-500 hover:text-blue-600 dark:hover:text-blue-400"
+          >
+            Forgot password?
+          </Link>
+        </div>
       </div>
 
       {serverError && (

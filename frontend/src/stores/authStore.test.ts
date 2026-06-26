@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
+import { clearTokenValue, getToken } from './tokenStore';
 
 // ---------------------------------------------------------------------------
 // Моки модулей — объявляем ДО первого импорта стора
@@ -41,8 +42,9 @@ const INITIAL_STATE = {
 };
 
 beforeEach(() => {
-  // Сбрасываем Zustand-синглтон, localStorage и моки
+  // Сбрасываем Zustand-синглтон, tokenStore и моки
   useAuthStore.setState(INITIAL_STATE);
+  clearTokenValue();
   localStorage.clear();
   vi.clearAllMocks();
 });
@@ -91,7 +93,7 @@ describe('setHydrating', () => {
 // ---------------------------------------------------------------------------
 
 describe('setToken', () => {
-  it('сохраняет token, устанавливает isAuthenticated=true', () => {
+  it('сохраняет token в Zustand state, устанавливает isAuthenticated=true', () => {
     act(() => {
       useAuthStore.getState().setToken('test.jwt.token');
     });
@@ -101,13 +103,14 @@ describe('setToken', () => {
     expect(isAuthenticated).toBe(true);
   });
 
-  it('пишет AT в localStorage (для цикла холодного старта + OAuth callback)', () => {
+  it('сохраняет AT в tokenStore (in-memory), НЕ в localStorage', () => {
     act(() => {
       useAuthStore.getState().setToken('test.jwt.token');
     });
 
-    // localStorage.getItem — фиксирует намеренность сохранения в localStorage
-    expect(localStorage.getItem('access_token')).toBe('test.jwt.token');
+    // AT хранится только в памяти — XSS не имеет доступа через localStorage
+    expect(getToken()).toBe('test.jwt.token');
+    expect(localStorage.getItem('access_token')).toBeNull();
   });
 });
 
@@ -116,10 +119,9 @@ describe('setToken', () => {
 // ---------------------------------------------------------------------------
 
 describe('logout', () => {
-  it('очищает стор и localStorage после успешного serverLogout', async () => {
-    // Предустанавливаем авторизованное состояние
-    useAuthStore.setState({ token: 'tok', isAuthenticated: true });
-    localStorage.setItem('access_token', 'tok');
+  it('очищает стор и tokenStore после успешного serverLogout', async () => {
+    // Предустанавливаем авторизованное состояние через setToken (обновляет и стор, и tokenStore)
+    act(() => { useAuthStore.getState().setToken('tok'); });
 
     await act(async () => {
       await useAuthStore.getState().logout();
@@ -129,7 +131,7 @@ describe('logout', () => {
     expect(token).toBeNull();
     expect(user).toBeNull();
     expect(isAuthenticated).toBe(false);
-    expect(localStorage.getItem('access_token')).toBeNull();
+    expect(getToken()).toBeNull();
   });
 
   it('вызывает serverLogout через динамический импорт (циклическая зависимость)', async () => {
@@ -144,14 +146,13 @@ describe('logout', () => {
     // Сеть недоступна или RT уже недействителен — локальный logout всё равно выполняется
     mockServerLogout.mockRejectedValueOnce(new Error('Network error'));
 
-    useAuthStore.setState({ token: 'tok', isAuthenticated: true });
-    localStorage.setItem('access_token', 'tok');
+    act(() => { useAuthStore.getState().setToken('tok'); });
 
     await act(async () => {
       await useAuthStore.getState().logout();
     });
 
     expect(useAuthStore.getState().isAuthenticated).toBe(false);
-    expect(localStorage.getItem('access_token')).toBeNull();
+    expect(getToken()).toBeNull();
   });
 });

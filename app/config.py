@@ -34,7 +34,15 @@ class Settings(BaseSettings):
     # Секрет для подписи OAuth state в cookie (SessionMiddleware)
     SESSION_SECRET_KEY: str = ""
 
-    # 6. URLs фронтенда
+    # 6. SMTP (aiosmtplib) — для отправки писем сброса пароля
+    # Gmail: smtp.gmail.com:587 + App Password (не основной пароль аккаунта)
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    FROM_EMAIL: str = ""
+
+    # 7. URLs фронтенда
     FRONTEND_URL: str = "http://localhost:5173"
     # Список разрешенных CORS-origins через запятую
     # Пример Railway: https://scopus-search-code.vercel.app
