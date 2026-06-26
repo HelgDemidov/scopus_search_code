@@ -33,7 +33,7 @@ jobs:
       # 1. Checkout — нужен для доступа к тест-файлам и requirements.txt
       # -----------------------------------------------------------------------
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       # -----------------------------------------------------------------------
       # 2. Python — та же версия, что в production
@@ -105,7 +105,7 @@ jobs:
 # Railway runtime + Supabase staging БД + реальный сетевой путь.
 #
 # Триггеры:
-#   - push в db-refactoring (smoke-check после каждого коммита)
+#   - push в main (smoke-check после каждого коммита)
 #   - workflow_dispatch (ручной запуск из GitHub UI)
 #
 # Секреты (Settings → Secrets and variables → Actions):

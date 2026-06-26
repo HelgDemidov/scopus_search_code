@@ -1005,11 +1005,11 @@ from app.services.catalog_service import CatalogService
 router = APIRouter(prefix='/seeder', tags=['seeder'])
 _SEEDER_SECRET: str = os.environ.get('SEEDER_SECRET', '')
 
-def _check_secret(x_seeder_secret: str=Header(...)):
+def _check_secret(x_seeder_secret: str=Header(...)) -> None:
     pass
 
 @router.post('/seed', dependencies=[Depends(_check_secret)])
-async def seed_keyword(keyword: str, count: int=25, start: int=0, session: AsyncSession=Depends(get_db_session)):
+async def seed_keyword(keyword: str, count: int=25, start: int=0, session: AsyncSession=Depends(get_db_session)) -> dict[str, object]:
     pass
 
 ============================================================

@@ -17,7 +17,7 @@ router = APIRouter(prefix="/seeder", tags=["seeder"])
 _SEEDER_SECRET: str = os.environ.get("SEEDER_SECRET", "")
 
 
-def _check_secret(x_seeder_secret: str = Header(...)):
+def _check_secret(x_seeder_secret: str = Header(...)) -> None:
     # Проверяем заголовок X-Seeder-Secret — не user JWT, не зависит от сессии
     if not _SEEDER_SECRET or x_seeder_secret != _SEEDER_SECRET:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
@@ -29,7 +29,7 @@ async def seed_keyword(
     count: int = 25,
     start: int = 0,
     session: AsyncSession = Depends(get_db_session),
-):
+) -> dict[str, object]:
     # Вызываем Scopus, сохраняем в catalog_articles через CatalogService.seed()
     async with httpx.AsyncClient(timeout=30.0) as http_client:
         scopus = ScopusHTTPClient(http_client)
