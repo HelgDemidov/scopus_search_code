@@ -11,9 +11,9 @@ class PostgresUserRepository(IUserRepository):
         self.session = session
 
     async def create(self, user: User) -> User:
-        self.session.add(user)          # Добавляем в транзакцию
-        await self.session.commit()     # Сохраняем в БД
-        await self.session.refresh(user)# Обновляем объект (чтобы база выдала ему сгенерированный ID)
+        self.session.add(user)  # Добавляем в транзакцию
+        await self.session.commit()  # Сохраняем в БД
+        await self.session.refresh(user)  # Обновляем объект (чтобы база выдала ему сгенерированный ID)
         return user
 
     async def get_by_email(self, email: str) -> User | None:

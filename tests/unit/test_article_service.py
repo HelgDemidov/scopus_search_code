@@ -13,13 +13,14 @@ from app.services.article_service import ArticleService
 #  Фейковый репозиторий                                            #
 # ================================================================ #
 
+
 class FakeArticleRepository(IArticleRepository):
     """Заглушка IArticleRepository — реализует только методы, существующие в интерфейсе."""
 
     def __init__(self, articles: list[Article] | None = None):
         # Словарь id → Article для имитации хранилища
         self._store: dict[int, Article] = {}
-        for a in (articles or []):
+        for a in articles or []:
             if a.id is not None:
                 self._store[a.id] = a
 
@@ -39,6 +40,7 @@ class FakeArticleRepository(IArticleRepository):
 #  Хелперы                                                         #
 # ================================================================ #
 
+
 def _mk_article(article_id: int, doi: str | None = None) -> Article:
     return Article(
         id=article_id,
@@ -52,6 +54,7 @@ def _mk_article(article_id: int, doi: str | None = None) -> Article:
 # ================================================================ #
 #  Тесты get_by_id                                                 #
 # ================================================================ #
+
 
 @pytest.mark.asyncio
 async def test_get_by_id_found_returns_article_response():

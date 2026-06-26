@@ -15,6 +15,7 @@ from app.services.catalog_service import CatalogService
 #  Фейковые реализации интерфейсов                                  #
 # ================================================================ #
 
+
 class FakeArticleRepository(IArticleRepository):
     def __init__(self):
         self.upsert_many_calls: List[List[Article]] = []
@@ -51,19 +52,21 @@ class FakeCatalogRepository(ICatalogRepository):
         open_access: bool | None = None,
         countries: list[str] | None = None,
     ) -> List[Article]:
-        self.get_all_calls.append({
-            "limit": limit,
-            "offset": offset,
-            "keyword": keyword,
-            "search": search,
-            "year_from": year_from,
-            "year_to": year_to,
-            "doc_types": doc_types,
-            "open_access": open_access,
-            "countries": countries,
-        })
+        self.get_all_calls.append(
+            {
+                "limit": limit,
+                "offset": offset,
+                "keyword": keyword,
+                "search": search,
+                "year_from": year_from,
+                "year_to": year_to,
+                "doc_types": doc_types,
+                "open_access": open_access,
+                "countries": countries,
+            }
+        )
         # Имитируем SQL LIMIT/OFFSET
-        return self._articles[offset: offset + limit]
+        return self._articles[offset : offset + limit]
 
     # Сигнатура синхронизирована с ICatalogRepository после добавления фильтров
     async def get_total_count(
@@ -76,15 +79,17 @@ class FakeCatalogRepository(ICatalogRepository):
         open_access: bool | None = None,
         countries: list[str] | None = None,
     ) -> int:
-        self.get_count_calls.append({
-            "keyword": keyword,
-            "search": search,
-            "year_from": year_from,
-            "year_to": year_to,
-            "doc_types": doc_types,
-            "open_access": open_access,
-            "countries": countries,
-        })
+        self.get_count_calls.append(
+            {
+                "keyword": keyword,
+                "search": search,
+                "year_from": year_from,
+                "year_to": year_to,
+                "doc_types": doc_types,
+                "open_access": open_access,
+                "countries": countries,
+            }
+        )
         return self._total
 
     async def save_seeded(self, articles: List[Article], keyword: str) -> List[Article]:
@@ -119,6 +124,7 @@ class FakeSession:
 #  Хелперы                                                         #
 # ================================================================ #
 
+
 def _mk_article(article_id: int) -> Article:
     return Article(
         id=article_id,
@@ -143,6 +149,7 @@ def _mk_service(
 # ================================================================ #
 #  Тесты get_catalog_paginated — базовая пагинация                 #
 # ================================================================ #
+
 
 @pytest.mark.asyncio
 async def test_get_catalog_paginated_page1_correct_limit_offset():
@@ -201,6 +208,7 @@ async def test_get_catalog_paginated_passes_keyword_and_search():
 #  Тесты get_catalog_paginated — новые параметры фильтрации        #
 # ================================================================ #
 
+
 @pytest.mark.asyncio
 async def test_get_catalog_paginated_passes_year_range():
     """year_from и year_to пробрасываются и в get_all, и в get_total_count."""
@@ -241,9 +249,7 @@ async def test_get_catalog_paginated_passes_countries():
     """countries пробрасывается в оба вызова репозитория."""
     svc, _, cr, _ = _mk_service(articles=[], total=0)
 
-    await svc.get_catalog_paginated(
-        page=1, size=10, countries=["Russia", "Germany"]
-    )
+    await svc.get_catalog_paginated(page=1, size=10, countries=["Russia", "Germany"])
 
     assert cr.get_all_calls[0]["countries"] == ["Russia", "Germany"]
     assert cr.get_count_calls[0]["countries"] == ["Russia", "Germany"]
@@ -269,8 +275,10 @@ async def test_get_catalog_paginated_filters_consistent_in_all_and_count():
     """get_all и get_total_count получают идентичный набор фильтров."""
     svc, _, cr, _ = _mk_service(articles=[], total=5)
     await svc.get_catalog_paginated(
-        page=1, size=10,
-        year_from=2019, year_to=2023,
+        page=1,
+        size=10,
+        year_from=2019,
+        year_to=2023,
         doc_types=["ar"],
         open_access=False,
         countries=["China"],
@@ -286,6 +294,7 @@ async def test_get_catalog_paginated_filters_consistent_in_all_and_count():
 # ================================================================ #
 #  Тесты get_stats                                                 #
 # ================================================================ #
+
 
 @pytest.mark.asyncio
 async def test_get_stats_returns_stats_response():
@@ -335,6 +344,7 @@ async def test_get_stats_delegates_to_catalog_repo():
 # ================================================================ #
 #  Тесты seed                                                      #
 # ================================================================ #
+
 
 @pytest.mark.asyncio
 async def test_seed_calls_upsert_then_save_seeded_then_commit():

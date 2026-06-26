@@ -104,9 +104,7 @@ class ScopusHTTPClient(ISearchClient):
         # Фильтр по странам аффиляции: AFFILCOUNTRY(Germany) OR AFFILCOUNTRY(France)
         countries: list[str] = filters.get("countries") or []
         if countries:
-            country_clauses = " OR ".join(
-                f"AFFILCOUNTRY({c})" for c in countries
-            )
+            country_clauses = " OR ".join(f"AFFILCOUNTRY({c})" for c in countries)
             parts.append(f"({country_clauses})")
 
         return " AND ".join(parts)
@@ -116,7 +114,7 @@ class ScopusHTTPClient(ISearchClient):
         keyword: str,
         count: int = 25,
         filters: dict | None = None,  # Параметры серверной фильтрации
-        start: int = 0,               # Offset для пагинации (Scopus free: max start=4975)
+        start: int = 0,  # Offset для пагинации (Scopus free: max start=4975)
     ) -> List[Article]:
         page_size = min(count, 25)
 

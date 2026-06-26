@@ -38,10 +38,12 @@ class UserRegisterRequest(BaseModel):
             raise ValueError("Пароли не совпадают")
         return self
 
+
 class UserLoginRequest(BaseModel):
     # Данные для входа (аутентификации) зарегистрированного пользователя
     email: EmailStr
     password: str
+
 
 class UserResponse(BaseModel):
     # То, что мы отдаем клиенту
@@ -53,10 +55,12 @@ class UserResponse(BaseModel):
     # Разрешаем Pydantic читать данные из ORM-объекта (не только из словаря)
     model_config = {"from_attributes": True}
 
+
 class TokenResponse(BaseModel):
     # Ответ при успешном логине: JWT-токен и его тип
     access_token: str
     token_type: str = "bearer"
+
 
 class PasswordResetRequest(BaseModel):
     # Запрос сброса пароля: клиент присылает только email

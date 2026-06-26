@@ -27,13 +27,9 @@ async def create_refresh_token(user_id: int, session: AsyncSession) -> str:
     return token_value
 
 
-async def get_valid_refresh_token(
-    token_value: str, session: AsyncSession
-) -> RefreshToken | None:
+async def get_valid_refresh_token(token_value: str, session: AsyncSession) -> RefreshToken | None:
     """Возвращает действующий RT или None, если он невалиден / истёк / отозван."""
-    result = await session.execute(
-        select(RefreshToken).where(RefreshToken.token == token_value)
-    )
+    result = await session.execute(select(RefreshToken).where(RefreshToken.token == token_value))
     rt = result.scalar_one_or_none()
 
     if rt is None or rt.revoked:
@@ -42,11 +38,7 @@ async def get_valid_refresh_token(
     # Нормализуем expires_at к UTC: SQLite возвращает naive datetime (tzinfo=None),
     # PostgreSQL возвращает aware datetime. Прямое сравнение двух типов — TypeError.
     # replace(tzinfo=UTC) безопасен для naive: не сдвигает значение, только добавляет метку.
-    expires_at_utc = (
-        rt.expires_at.replace(tzinfo=timezone.utc)
-        if rt.expires_at.tzinfo is None
-        else rt.expires_at
-    )
+    expires_at_utc = rt.expires_at.replace(tzinfo=timezone.utc) if rt.expires_at.tzinfo is None else rt.expires_at
     if expires_at_utc < datetime.now(timezone.utc):
         return None
     return rt
@@ -54,9 +46,7 @@ async def get_valid_refresh_token(
 
 async def revoke_refresh_token(token_value: str, session: AsyncSession) -> None:
     """Помечает RT как отозванный — используется при logout и ротации."""
-    result = await session.execute(
-        select(RefreshToken).where(RefreshToken.token == token_value)
-    )
+    result = await session.execute(select(RefreshToken).where(RefreshToken.token == token_value))
     rt = result.scalar_one_or_none()
     if rt:
         rt.revoked = True

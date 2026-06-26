@@ -37,6 +37,7 @@ pytestmark = pytest.mark.skipif(
 # Хелперы
 # ---------------------------------------------------------------------------
 
+
 async def _get_access_token(client: httpx.AsyncClient) -> str | None:
     """Логинится под тестовым пользователем, возвращает AT или None.
 
@@ -71,6 +72,7 @@ async def _get_first_article_id(client: httpx.AsyncClient) -> int | None:
 # ---------------------------------------------------------------------------
 # E2E-тесты
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_e2e_stats_returns_data():

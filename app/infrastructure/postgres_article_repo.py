@@ -58,7 +58,7 @@ class PostgresArticleRepository(IArticleRepository):
                     seen_no_doi.add(key)
                     unique_articles.append(a)
 
-        with_doi    = [a for a in unique_articles if a.doi is not None]
+        with_doi = [a for a in unique_articles if a.doi is not None]
         without_doi = [a for a in unique_articles if a.doi is None]
 
         saved: List[Article] = []
@@ -67,14 +67,14 @@ class PostgresArticleRepository(IArticleRepository):
         if with_doi:
             values_doi = [
                 {
-                    "title":               a.title,
-                    "journal":             a.journal,
-                    "author":              a.author,
-                    "publication_date":    a.publication_date,
-                    "doi":                 a.doi,
-                    "cited_by_count":      a.cited_by_count,
-                    "document_type":       a.document_type,
-                    "open_access":         a.open_access,
+                    "title": a.title,
+                    "journal": a.journal,
+                    "author": a.author,
+                    "publication_date": a.publication_date,
+                    "doi": a.doi,
+                    "cited_by_count": a.cited_by_count,
+                    "document_type": a.document_type,
+                    "open_access": a.open_access,
                     "affiliation_country": a.affiliation_country,
                 }
                 for a in with_doi
@@ -87,13 +87,13 @@ class PostgresArticleRepository(IArticleRepository):
                     index_elements=["doi"],
                     index_where=sa.text("doi IS NOT NULL"),
                     set_={
-                        "title":               insert(Article).excluded.title,
-                        "journal":             insert(Article).excluded.journal,
-                        "author":              insert(Article).excluded.author,
-                        "publication_date":    insert(Article).excluded.publication_date,
-                        "cited_by_count":      insert(Article).excluded.cited_by_count,
-                        "document_type":       insert(Article).excluded.document_type,
-                        "open_access":         insert(Article).excluded.open_access,
+                        "title": insert(Article).excluded.title,
+                        "journal": insert(Article).excluded.journal,
+                        "author": insert(Article).excluded.author,
+                        "publication_date": insert(Article).excluded.publication_date,
+                        "cited_by_count": insert(Article).excluded.cited_by_count,
+                        "document_type": insert(Article).excluded.document_type,
+                        "open_access": insert(Article).excluded.open_access,
                         "affiliation_country": insert(Article).excluded.affiliation_country,
                     },
                 )
@@ -104,23 +104,21 @@ class PostgresArticleRepository(IArticleRepository):
 
             # Батчевый SELECT для перечитывания id/created_at статей с DOI
             dois = [a.doi for a in with_doi]
-            result = await self.session.execute(
-                select(Article).where(Article.doi.in_(dois))
-            )
+            result = await self.session.execute(select(Article).where(Article.doi.in_(dois)))
             saved.extend(result.scalars().all())
 
         # --- Батч 2: статьи без DOI --------------------------------------- #
         if without_doi:
             values_no_doi = [
                 {
-                    "title":               a.title,
-                    "journal":             a.journal,
-                    "author":              a.author,
-                    "publication_date":    a.publication_date,
-                    "doi":                 None,
-                    "cited_by_count":      a.cited_by_count,
-                    "document_type":       a.document_type,
-                    "open_access":         a.open_access,
+                    "title": a.title,
+                    "journal": a.journal,
+                    "author": a.author,
+                    "publication_date": a.publication_date,
+                    "doi": None,
+                    "cited_by_count": a.cited_by_count,
+                    "document_type": a.document_type,
+                    "open_access": a.open_access,
                     "affiliation_country": a.affiliation_country,
                 }
                 for a in without_doi
@@ -135,10 +133,10 @@ class PostgresArticleRepository(IArticleRepository):
                     index_elements=["title", "publication_date", "author"],
                     index_where=sa.text("doi IS NULL"),
                     set_={
-                        "journal":             insert(Article).excluded.journal,
-                        "cited_by_count":      insert(Article).excluded.cited_by_count,
-                        "document_type":       insert(Article).excluded.document_type,
-                        "open_access":         insert(Article).excluded.open_access,
+                        "journal": insert(Article).excluded.journal,
+                        "cited_by_count": insert(Article).excluded.cited_by_count,
+                        "document_type": insert(Article).excluded.document_type,
+                        "open_access": insert(Article).excluded.open_access,
                         "affiliation_country": insert(Article).excluded.affiliation_country,
                     },
                 )
@@ -148,10 +146,7 @@ class PostgresArticleRepository(IArticleRepository):
 
             # Батчевый SELECT: выбираем статьи по (title, publication_date, author) WHERE doi IS NULL.
             # Tuple IN-конструкция позволяет один раунд-трип вместо N запросов
-            keys = [
-                (a.title, a.publication_date, a.author)
-                for a in without_doi
-            ]
+            keys = [(a.title, a.publication_date, a.author) for a in without_doi]
             result = await self.session.execute(
                 select(Article).where(
                     Article.doi.is_(None),
@@ -187,11 +182,7 @@ class PostgresArticleRepository(IArticleRepository):
         from app.models.search_result_article import SearchResultArticle
 
         # Статья всегда видна, если седирована (находится в catalog_articles)
-        catalog_exists = (
-            select(sa.literal(1))
-            .where(CatalogArticle.article_id == article_id)
-            .exists()
-        )
+        catalog_exists = select(sa.literal(1)).where(CatalogArticle.article_id == article_id).exists()
         stmt = select(Article).where(
             Article.id == article_id,
             catalog_exists,

@@ -10,6 +10,7 @@
 
 test_find_requires_auth: requires_pg не нужен — 401 возвращается до вызова lock.
 """
+
 import datetime
 from datetime import date, timedelta, timezone
 
@@ -25,6 +26,7 @@ from app.models.search_history import SearchHistory
 # Mock Scopus: возвращает 2 статьи. Подменяем сам метод клиента —
 # роутер всё равно вызывает service.find_and_save, который ходит в клиент.
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def mock_scopus_two_articles(monkeypatch):
@@ -44,14 +46,14 @@ def mock_scopus_two_articles(monkeypatch):
                 doi="10.t/2",
             ),
         ]
-    monkeypatch.setattr(
-        "app.infrastructure.scopus_client.ScopusHTTPClient.search", mock_search
-    )
+
+    monkeypatch.setattr("app.infrastructure.scopus_client.ScopusHTTPClient.search", mock_search)
 
 
 # ---------------------------------------------------------------------------
 # Happy path: аутентифицированный запрос сохраняет статьи и пишет одну строку истории
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_find_happy_path_writes_one_history_row(
@@ -75,6 +77,7 @@ async def test_find_happy_path_writes_one_history_row(
 # Auth guard: без токена → 401 (существующий guard get_current_user)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_find_requires_auth(client: AsyncClient, mock_scopus_two_articles):
     resp = await client.get("/articles/find", params={"keyword": "AI"})
@@ -84,6 +87,7 @@ async def test_find_requires_auth(client: AsyncClient, mock_scopus_two_articles)
 # ---------------------------------------------------------------------------
 # Quota enforcement: 200 rows pre-seeded → 429, не зовет Scopus, не пишет строку
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_find_returns_429_when_quota_exhausted(
@@ -118,24 +122,21 @@ async def test_find_returns_429_when_quota_exhausted(
         calls["n"] += 1
         return []
 
-    monkeypatch.setattr(
-        "app.infrastructure.scopus_client.ScopusHTTPClient.search", spy_search
-    )
+    monkeypatch.setattr("app.infrastructure.scopus_client.ScopusHTTPClient.search", spy_search)
 
     resp = await authenticated_client.get("/articles/find", params={"keyword": "AI"})
     assert resp.status_code == 429
     assert calls["n"] == 0
 
     # Количество строк истории не изменилось
-    count_after = len(
-        (await db_session.execute(select(SearchHistory))).scalars().all()
-    )
+    count_after = len((await db_session.execute(select(SearchHistory))).scalars().all())
     assert count_after == 200
 
 
 # ---------------------------------------------------------------------------
 # Filter persistence: переданные фильтры попадают в строку истории
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_find_persists_filters(
@@ -173,6 +174,7 @@ async def test_find_persists_filters(
 # result_count соответствует числу сохраненных статей
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_find_result_count_equals_saved(
     authenticated_client: AsyncClient,
@@ -191,6 +193,7 @@ async def test_find_result_count_equals_saved(
 # Ошибка Scopus → строка истории не создается
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_find_scopus_error_writes_no_history(
     authenticated_client: AsyncClient,
@@ -201,9 +204,7 @@ async def test_find_scopus_error_writes_no_history(
     async def raising_search(self, keyword: str, count: int = 25, filters: dict | None = None):
         raise RuntimeError("scopus down")
 
-    monkeypatch.setattr(
-        "app.infrastructure.scopus_client.ScopusHTTPClient.search", raising_search
-    )
+    monkeypatch.setattr("app.infrastructure.scopus_client.ScopusHTTPClient.search", raising_search)
 
     try:
         resp = await authenticated_client.get("/articles/find", params={"keyword": "AI"})

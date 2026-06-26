@@ -39,6 +39,7 @@ from app.models.user import User
 # Вспомогательная функция: вставляет n строк истории для указанного user_id
 # ---------------------------------------------------------------------------
 
+
 async def _insert_history_rows(
     session: AsyncSession,
     user_id: int,
@@ -68,6 +69,7 @@ async def _insert_history_rows(
 # Тесты: GET /articles/history
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 @pytest.mark.requires_pg
 async def test_history_requires_auth(pg_client: AsyncClient):
@@ -93,18 +95,19 @@ async def test_history_returns_only_current_user_rows(
     user_id = me_resp.json()["id"]
 
     # Регистрируем второго пользователя через HTTP
-    reg_resp = await pg_client.post("/users/register", json={
-        "username": "other_hist",
-        "email": "other_hist@example.com",
-        "password": "Str0ngPass!",
-        "password_confirm": "Str0ngPass!",
-    })
+    reg_resp = await pg_client.post(
+        "/users/register",
+        json={
+            "username": "other_hist",
+            "email": "other_hist@example.com",
+            "password": "Str0ngPass!",
+            "password_confirm": "Str0ngPass!",
+        },
+    )
     assert reg_resp.status_code == 201
 
     # Получаем user_id второго пользователя через SELECT в той же сессии
-    res = await pg_session.execute(
-        select(User).where(User.username == "other_hist")
-    )
+    res = await pg_session.execute(select(User).where(User.username == "other_hist"))
     other_user = res.scalar_one()
 
     # Вставляем по 2 строки истории на каждого пользователя
@@ -116,9 +119,7 @@ async def test_history_returns_only_current_user_rows(
     body = resp.json()
 
     # Собираем id строк other_user из БД
-    other_rows = await pg_session.execute(
-        select(SearchHistory.id).where(SearchHistory.user_id == other_user.id)
-    )
+    other_rows = await pg_session.execute(select(SearchHistory.id).where(SearchHistory.user_id == other_user.id))
     other_ids = {row[0] for row in other_rows.fetchall()}
 
     # В ответе не должно быть ни одного id из чужой истории
@@ -206,6 +207,7 @@ async def test_history_response_schema(
 # Тесты: GET /articles/find/quota
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 @pytest.mark.requires_pg
 async def test_quota_requires_auth(pg_client: AsyncClient):
@@ -273,14 +275,14 @@ async def test_quota_used_counts_only_window(
 
     # Счетчик должен вырасти ровно на 2, а не на 7
     assert used_after == used_before + 2, (
-        f"Ожидали used={used_before + 2}, получили {used_after}: "
-        "строки за пределами окна не должны учитываться"
+        f"Ожидали used={used_before + 2}, получили {used_after}: строки за пределами окна не должны учитываться"
     )
 
 
 # ---------------------------------------------------------------------------
 # Тест: роутная безопасность
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 @pytest.mark.requires_pg
@@ -293,11 +295,7 @@ async def test_history_route_does_not_match_article_id(
 
     # Если /history заматчился бы как /{article_id}, было бы 422 (int validation error)
     resp = await pg_client.get("/articles/history", headers=auth_headers)
-    assert resp.status_code != 422, (
-        "'history' матчится как int article_id — нарушен порядок роутов"
-    )
+    assert resp.status_code != 422, "'history' матчится как int article_id — нарушен порядок роутов"
 
     resp2 = await pg_client.get("/articles/find/quota", headers=auth_headers)
-    assert resp2.status_code != 422, (
-        "'find' матчится как int article_id — нарушен порядок роутов"
-    )
+    assert resp2.status_code != 422, "'find' матчится как int article_id — нарушен порядок роутов"

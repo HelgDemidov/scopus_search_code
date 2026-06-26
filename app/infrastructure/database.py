@@ -13,14 +13,11 @@ if is_cloud_db:
 # 1. Создаем асинхронный "движок" (Engine)
 # Он управляет пулом соединений с базой данных
 engine = create_async_engine(
-    url=settings.database_url_str, #_str добавлено для облачной реализации
+    url=settings.database_url_str,  # _str добавлено для облачной реализации
     echo=True,  # Показать SQL-запросы в консоли (удобная опция для отладки)
-    connect_args=connect_args # строка добавлена для облачной реализации на Supabase
+    connect_args=connect_args,  # строка добавлена для облачной реализации на Supabase
 )
 
 # 2. Создаем фабрику сессий (SessionMaker)
 # Через сессию будем отправлять запросы: session.add(), session.commit()
-async_session_maker = async_sessionmaker(
-    bind=engine,
-    expire_on_commit=False
-)
+async_session_maker = async_sessionmaker(bind=engine, expire_on_commit=False)

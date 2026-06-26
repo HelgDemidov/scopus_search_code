@@ -2463,7 +2463,7 @@ from app.interfaces.search_client import ISearchClient
 from app.models.article import Article
 
 class _NoBuildQuery(ISearchClient):
-    """ Реализация без build_query — не должна инстанциироваться."""
+    """Реализация без build_query — не должна инстанциироваться."""
 
     @property
     def last_rate_limit(self) -> str | None:
@@ -2481,7 +2481,7 @@ class _NoBuildQuery(ISearchClient):
         pass
 
 class _NoSearch(ISearchClient):
-    """ Реализация без search — не должна инстанциероваться."""
+    """Реализация без search — не должна инстанциероваться."""
 
     @property
     def last_rate_limit(self) -> str | None:
@@ -2499,7 +2499,7 @@ class _NoSearch(ISearchClient):
         pass
 
 class _FullImpl(ISearchClient):
-    """ Полная реализация всех абстрактных методов — должна инстанциероваться."""
+    """Полная реализация всех абстрактных методов — должна инстанциероваться."""
 
     @property
     def last_rate_limit(self) -> str | None:
@@ -2731,7 +2731,7 @@ class FakeSearchResultRepository(ISearchResultRepository):
         pass
 
 class FakeSession:
-    """  Минимальная заглушка AsyncSession — только commit()."""
+    """Минимальная заглушка AsyncSession — только commit()."""
 
     def __init__(self):
         pass

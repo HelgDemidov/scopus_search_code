@@ -7,7 +7,6 @@ from app.models.article import Article
 
 
 class IArticleRepository(ABC):
-
     @abstractmethod
     async def upsert_many(self, articles: List[Article]) -> List[Article]:
         """

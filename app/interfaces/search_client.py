@@ -38,7 +38,7 @@ class ISearchClient(ABC):
         keyword: str,
         count: int = 25,
         filters: dict | None = None,  # Параметры серверной фильтрации от клиента
-        start: int = 0,               # Offset для пагинации (Scopus free: max 5000)
+        start: int = 0,  # Offset для пагинации (Scopus free: max 5000)
     ) -> List[Article]:
         # Выполняет поиск по ключевому слову и возвращает список ORM-объектов Article.
         # count — макс. кол-во результатов (Scopus free API cap: 25).

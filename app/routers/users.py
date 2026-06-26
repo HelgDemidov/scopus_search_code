@@ -31,8 +31,7 @@ def get_user_service(session: AsyncSession = Depends(get_db_session)) -> UserSer
 
 # Определение функции перенесено из security.py
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    service: UserService = Depends(get_user_service)
+    token: str = Depends(oauth2_scheme), service: UserService = Depends(get_user_service)
 ) -> User:
     email = decode_access_token(token)
     if not email:
@@ -50,10 +49,7 @@ async def get_current_user(
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def register(
-    data: UserRegisterRequest,
-    service: UserService = Depends(get_user_service)
-) -> User:
+async def register(data: UserRegisterRequest, service: UserService = Depends(get_user_service)) -> User:
     try:
         user = await service.register(data)
         return user
@@ -95,5 +91,3 @@ async def login(
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)) -> User:
     return current_user
-
-

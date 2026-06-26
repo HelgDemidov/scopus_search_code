@@ -31,6 +31,7 @@ def _mk_article(n: int) -> Article:
 #  Проверка секрета                                                #
 # ================================================================ #
 
+
 @pytest.mark.asyncio
 async def test_seed_wrong_secret_returns_403(client: AsyncClient, monkeypatch):
     monkeypatch.setattr(seeder_module, "_SEEDER_SECRET", _TEST_SECRET)
@@ -46,6 +47,7 @@ async def test_seed_wrong_secret_returns_403(client: AsyncClient, monkeypatch):
 # ================================================================ #
 #  Пустой ответ Scopus                                             #
 # ================================================================ #
+
 
 @pytest.mark.asyncio
 async def test_seed_empty_scopus_returns_saved_zero(client: AsyncClient, monkeypatch):
@@ -70,6 +72,7 @@ async def test_seed_empty_scopus_returns_saved_zero(client: AsyncClient, monkeyp
 # ================================================================ #
 #  Параметр start                                                  #
 # ================================================================ #
+
 
 @pytest.mark.asyncio
 async def test_seed_start_default_zero_in_response(client: AsyncClient, monkeypatch):
@@ -133,6 +136,7 @@ async def test_seed_start_forwarded_to_scopus_client(client: AsyncClient, monkey
 # ================================================================ #
 #  Сохранение статей (мок CatalogService.seed)                     #
 # ================================================================ #
+
 
 @pytest.mark.asyncio
 async def test_seed_with_articles_returns_correct_saved_count(client: AsyncClient, monkeypatch):

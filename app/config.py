@@ -3,7 +3,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-
     # Указываем Pydantic читать настройки из файла .env
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -6,6 +6,7 @@ from app.core.dependencies import get_db_session
 
 router = APIRouter(prefix="/health", tags=["Health"])
 
+
 @router.api_route(
     "",  # регистрируется как /health — лёгкая проверка живости процесса
     methods=["GET"],
@@ -15,6 +16,7 @@ async def health_check() -> dict[str, str]:
     # Проверяет только то, что процесс запущен и отвечает — без обращения к БД
     # Используется в e2e.yml как предварительный smoke-check перед запуском pytest
     return {"status": "ok"}
+
 
 @router.api_route(
     "/db",

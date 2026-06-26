@@ -12,6 +12,7 @@ def mock_scopus_api(monkeypatch):
     """
     Эта фикстура автоматически подменяет реальный метод поиска на наш фейковый.
     """
+
     # Сигнатура мока полностью соответствует ISearchClient.search()
     async def mock_search(self, keyword: str, count: int = 25, filters: dict | None = None, start: int = 0):
         # Вместо запроса в интернет, всегда возвращаем 2 фейковые статьи
@@ -27,22 +28,16 @@ def mock_scopus_api(monkeypatch):
                 author="Jane Smith",
                 publication_date=date(2026, 1, 2),
                 doi="10.123/mock2",
-            )
+            ),
         ]
 
-    monkeypatch.setattr(
-        "app.infrastructure.scopus_client.ScopusHTTPClient.search",
-        mock_search
-    )
+    monkeypatch.setattr("app.infrastructure.scopus_client.ScopusHTTPClient.search", mock_search)
 
 
 @pytest.mark.asyncio
 async def test_find_and_save_articles_integration(authenticated_client: AsyncClient):
     # Act 1: поиск через Scopus
-    find_response = await authenticated_client.get(
-        "/articles/find",
-        params={"keyword": "AI"}
-    )
+    find_response = await authenticated_client.get("/articles/find", params={"keyword": "AI"})
 
     # Assert 1: /find возвращает 2 статьи
     assert find_response.status_code == 200

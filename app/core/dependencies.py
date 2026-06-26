@@ -39,6 +39,7 @@ _oauth2_scheme_optional = OAuth2PasswordBearer(
 #  База: сессия БД                                                    #
 # ------------------------------------------------------------------ #
 
+
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     # Dependency: создает сессию БД на время одного запроса
     # yield — ключевое слово: FastAPI получит сессию, выполнит запрос,
@@ -50,6 +51,7 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 # ------------------------------------------------------------------ #
 #  Пользователи                                                       #
 # ------------------------------------------------------------------ #
+
 
 def get_user_service(
     session: AsyncSession = Depends(get_db_session),
@@ -64,6 +66,7 @@ async def get_current_user(
 ) -> User:
     # Обязательная JWT-аутентификация: бросает 401 если токен отсутствует или невалиден
     from fastapi import HTTPException, status
+
     email = decode_access_token(token)
     if not email:
         raise HTTPException(
@@ -98,6 +101,7 @@ async def get_optional_current_user(
 #  Scopus HTTP-клиент                                                 #
 # ------------------------------------------------------------------ #
 
+
 async def get_scopus_client() -> AsyncGenerator[ScopusHTTPClient, None]:
     # Один httpx.AsyncClient на запрос — создается и закрывается через async with
     async with httpx.AsyncClient(timeout=30.0) as client:
@@ -107,6 +111,7 @@ async def get_scopus_client() -> AsyncGenerator[ScopusHTTPClient, None]:
 # ------------------------------------------------------------------ #
 #  Сервисы статей и каталога                                          #
 # ------------------------------------------------------------------ #
+
 
 def get_article_service(
     session: AsyncSession = Depends(get_db_session),
@@ -128,6 +133,7 @@ def get_catalog_service(
 #  Сервис пользовательского поиска                                    #
 # ------------------------------------------------------------------ #
 
+
 def get_search_service(
     session: AsyncSession = Depends(get_db_session),
     scopus_client: ScopusHTTPClient = Depends(get_scopus_client),
@@ -146,6 +152,7 @@ def get_search_service(
 #  Сервис истории поиска                                              #
 # ------------------------------------------------------------------ #
 
+
 def get_search_history_service(
     session: AsyncSession = Depends(get_db_session),
 ) -> SearchHistoryService:
@@ -158,6 +165,7 @@ def get_search_history_service(
 # ------------------------------------------------------------------ #
 #  Advisory lock: фабрика контекстного менеджера                     #
 # ------------------------------------------------------------------ #
+
 
 @asynccontextmanager
 async def _real_advisory_lock(user_id: int) -> AsyncGenerator[None, None]:

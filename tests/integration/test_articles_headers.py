@@ -55,6 +55,7 @@ async def test_find_articles_rate_limits_headers(authenticated_client: AsyncClie
     # Мокаем сервис поиска, чтобы не стучаться в БД или реальный Scopus
     async def mock_find_and_save(*args, **kwargs):
         return []
+
     monkeypatch.setattr(SearchService, "find_and_save", mock_find_and_save)
 
     response = await authenticated_client.get("/articles/find?keyword=test&count=10")

@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+
 load_dotenv(override=False)
 
 from contextlib import asynccontextmanager
@@ -23,14 +24,13 @@ from app.models.base import Base
 async def _noop_lock(user_id: int):
     yield
 
+
 # URL тестовой БД — SQLite in-memory через aiosqlite
 # Не требует PostgreSQL, изолирован на уровне функции
 _TEST_DB_URL = "sqlite+aiosqlite:///:memory:"
 
 
-async def fetch_article_after_insert(
-    session: AsyncSession, doi: str
-) -> Article:
+async def fetch_article_after_insert(session: AsyncSession, doi: str) -> Article:
     """Загружает ORM-объект статьи из БД по doi после Core INSERT.
 
     save_many() использует Core-уровень SQLAlchemy (insert().on_conflict_do_update),
@@ -64,6 +64,7 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
 @pytest_asyncio.fixture(scope="function")
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     """AsyncClient с переопределенной зависимостью БД — все эндпоинты используют тестовую сессию."""
+
     # Переопределяем get_db_session: FastAPI будет использовать тестовую сессию
     async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
         yield db_session

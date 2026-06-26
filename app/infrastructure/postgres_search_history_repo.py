@@ -29,7 +29,7 @@ class PostgresSearchHistoryRepository(ISearchHistoryRepository):
             scopus_query=scopus_query,  # NULL для старых записей — допустимо
         )
         self.session.add(row)
-        await self.session.flush()   # заполняем id и created_at без commit — вызывающий управляет транзакцией
+        await self.session.flush()  # заполняем id и created_at без commit — вызывающий управляет транзакцией
         await self.session.refresh(row)
         return row
 

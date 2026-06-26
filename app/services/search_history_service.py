@@ -11,7 +11,7 @@ from app.schemas.search_history_schemas import (
 
 class SearchHistoryService:
     # Бизнес-логика чтения истории и расчета квоты. Не знает ни про httpx, ни про SQLAlchemy.
-    QUOTA_LIMIT = 200    # максимум запросов за скользящее 7-дневное окно
+    QUOTA_LIMIT = 200  # максимум запросов за скользящее 7-дневное окно
     WINDOW_DAYS = 7
 
     def __init__(self, history_repo: ISearchHistoryRepository):

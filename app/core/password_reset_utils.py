@@ -29,18 +29,14 @@ async def create_password_reset_token(user_id: int, session: AsyncSession) -> st
 
 async def get_valid_reset_token(token: str, session: AsyncSession) -> PasswordResetToken | None:
     """Возвращает токен, если он существует, не использован и не истёк."""
-    result = await session.execute(
-        select(PasswordResetToken).where(PasswordResetToken.token == token)
-    )
+    result = await session.execute(select(PasswordResetToken).where(PasswordResetToken.token == token))
     prt = result.scalar_one_or_none()
     if prt is None or prt.used:
         return None
 
     # SQLite возвращает naive datetime — нормализуем к UTC без сдвига значения
     expires_at_utc = (
-        prt.expires_at.replace(tzinfo=timezone.utc)
-        if prt.expires_at.tzinfo is None
-        else prt.expires_at
+        prt.expires_at.replace(tzinfo=timezone.utc) if prt.expires_at.tzinfo is None else prt.expires_at
     )
     if expires_at_utc < datetime.now(timezone.utc):
         return None

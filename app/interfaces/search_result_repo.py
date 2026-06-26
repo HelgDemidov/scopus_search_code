@@ -7,7 +7,6 @@ from app.models.article import Article
 
 
 class ISearchResultRepository(ABC):
-
     @abstractmethod
     async def save_results(
         self,

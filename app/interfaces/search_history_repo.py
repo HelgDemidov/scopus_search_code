@@ -6,7 +6,6 @@ from app.models.search_history import SearchHistory
 
 
 class ISearchHistoryRepository(ABC):
-
     @abstractmethod
     async def insert_row(
         self,

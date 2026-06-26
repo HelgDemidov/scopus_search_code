@@ -23,9 +23,7 @@ class SeederKeyword(Base):
 
     # Когда фраза была последний раз использована сидером
     used_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
     def __repr__(self) -> str:

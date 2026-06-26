@@ -6,7 +6,6 @@ from app.models.article import Article
 
 
 class ICatalogRepository(ABC):
-
     @abstractmethod
     async def get_all(
         self,

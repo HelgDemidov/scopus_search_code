@@ -51,10 +51,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     # включая пароли и другие чувствительные поля, которые не должны попасть в логи/мониторинг
     return JSONResponse(
         status_code=422,
-        content={"detail": [
-            {"loc": e["loc"], "msg": e["msg"], "type": e["type"]}
-            for e in exc.errors()
-        ]},
+        content={"detail": [{"loc": e["loc"], "msg": e["msg"], "type": e["type"]} for e in exc.errors()]},
     )
 
 
@@ -64,6 +61,7 @@ app.include_router(users.router)
 app.include_router(articles.router)
 app.include_router(health.router)
 app.include_router(seeder_router)
+
 
 @app.get("/", tags=["Health"])
 async def root() -> dict[str, str]:

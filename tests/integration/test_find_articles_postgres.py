@@ -7,6 +7,7 @@
 
 Skipped if DATABASE_TEST_URL не задан (см. tests/integration/conftest.py::pg_engine).
 """
+
 import asyncio
 import datetime
 from datetime import date, timedelta, timezone
@@ -35,9 +36,8 @@ def _mock_scopus(monkeypatch):
                 # keyword и is_seeded удалены — поля больше нет в модели
             )
         ]
-    monkeypatch.setattr(
-        "app.infrastructure.scopus_client.ScopusHTTPClient.search", mock_search
-    )
+
+    monkeypatch.setattr("app.infrastructure.scopus_client.ScopusHTTPClient.search", mock_search)
 
 
 @pytest.mark.asyncio
@@ -71,10 +71,7 @@ async def test_single_slot_allows_exactly_one_success(
     pg_session.add_all(rows)
     await pg_session.commit()
 
-    tasks = [
-        pg_authenticated_client.get("/articles/find", params={"keyword": "AI"})
-        for _ in range(5)
-    ]
+    tasks = [pg_authenticated_client.get("/articles/find", params={"keyword": "AI"}) for _ in range(5)]
     responses = await asyncio.gather(*tasks)
 
     codes = [r.status_code for r in responses]
@@ -113,18 +110,25 @@ async def test_parallel_requests_near_quota_boundary(_mock_scopus, tmp_path):
 
     app.dependency_overrides[get_db_session] = override_get_db
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac:
-        reg = await ac.post("/users/register", json={
-            "username": "concu", "email": "concu@example.com",
-            "password": "Str0ngPass!", "password_confirm": "Str0ngPass!",
-        })
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        reg = await ac.post(
+            "/users/register",
+            json={
+                "username": "concu",
+                "email": "concu@example.com",
+                "password": "Str0ngPass!",
+                "password_confirm": "Str0ngPass!",
+            },
+        )
         assert reg.status_code == 201, f"Register failed: {reg.text}"
 
-        login = await ac.post("/users/login", json={
-            "email": "concu@example.com", "password": "Str0ngPass!",
-        })
+        login = await ac.post(
+            "/users/login",
+            json={
+                "email": "concu@example.com",
+                "password": "Str0ngPass!",
+            },
+        )
         assert login.status_code == 200, f"Login failed: {login.text}"
 
         token = login.json()["access_token"]
@@ -136,22 +140,21 @@ async def test_parallel_requests_near_quota_boundary(_mock_scopus, tmp_path):
 
         async with session_maker() as s:
             now = datetime.datetime.now(tz=timezone.utc)
-            s.add_all([
-                SearchHistory(
-                    user_id=user_id,
-                    query=f"q{i}",
-                    result_count=1,
-                    filters={},
-                    created_at=now - timedelta(minutes=i),
-                )
-                for i in range(199)
-            ])
+            s.add_all(
+                [
+                    SearchHistory(
+                        user_id=user_id,
+                        query=f"q{i}",
+                        result_count=1,
+                        filters={},
+                        created_at=now - timedelta(minutes=i),
+                    )
+                    for i in range(199)
+                ]
+            )
             await s.commit()
 
-        tasks = [
-            ac.get("/articles/find", params={"keyword": "AI"})
-            for _ in range(5)
-        ]
+        tasks = [ac.get("/articles/find", params={"keyword": "AI"}) for _ in range(5)]
         responses = await asyncio.gather(*tasks)
         codes = [r.status_code for r in responses]
 
@@ -193,25 +196,32 @@ async def test_different_users_do_not_share_lock(_mock_scopus, tmp_path):
 
     app.dependency_overrides[get_db_session] = override_get_db
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac1, AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as ac2:
-
-        for (name, email, client) in [
+    async with (
+        AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac1,
+        AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac2,
+    ):
+        for name, email, client in [
             ("usr1", "u1@ex.com", ac1),
             ("usr2", "u2@ex.com", ac2),
         ]:
-            reg = await client.post("/users/register", json={
-                "username": name, "email": email,
-                "password": "Str0ngPass!", "password_confirm": "Str0ngPass!",
-            })
+            reg = await client.post(
+                "/users/register",
+                json={
+                    "username": name,
+                    "email": email,
+                    "password": "Str0ngPass!",
+                    "password_confirm": "Str0ngPass!",
+                },
+            )
             assert reg.status_code == 201, f"Register {email} failed: {reg.text}"
 
-            login = await client.post("/users/login", json={
-                "email": email, "password": "Str0ngPass!",
-            })
+            login = await client.post(
+                "/users/login",
+                json={
+                    "email": email,
+                    "password": "Str0ngPass!",
+                },
+            )
             assert login.status_code == 200, f"Login {email} failed: {login.text}"
             client.headers["Authorization"] = f"Bearer {login.json()['access_token']}"
 

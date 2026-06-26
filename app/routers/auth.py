@@ -47,10 +47,10 @@ def _set_rt_cookie(response: JSONResponse | RedirectResponse, token: str) -> Non
     response.set_cookie(
         key=RT_COOKIE_NAME,
         value=token,
-        httponly=True,    # недоступен JavaScript — защита от XSS
-        secure=True,      # только HTTPS
+        httponly=True,  # недоступен JavaScript — защита от XSS
+        secure=True,  # только HTTPS
         samesite="none",  # cross-origin XHR (Vercel → Railway); CSRF закрыт через
-                          # X-Requested-With + CORS allow_origins + RT ротацию
+        # X-Requested-With + CORS allow_origins + RT ротацию
         max_age=RT_COOKIE_MAX_AGE,
         path="/",
     )
@@ -69,8 +69,8 @@ def _set_at_handshake_cookie(response: RedirectResponse, token: str) -> None:
     response.set_cookie(
         key=AT_HANDSHAKE_COOKIE_NAME,
         value=token,
-        httponly=False,   # читается JS в OAuthCallback.tsx
-        secure=True,      # только HTTPS
+        httponly=False,  # читается JS в OAuthCallback.tsx
+        secure=True,  # только HTTPS
         samesite="none",  # cross-origin: Railway → Vercel
         max_age=AT_HANDSHAKE_MAX_AGE,
         path="/",

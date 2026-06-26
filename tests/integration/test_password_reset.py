@@ -29,6 +29,7 @@ from app.models.refresh_token import RefreshToken
 # No-op email-сервис: SMTP не вызывается, но интерфейс соблюдён
 # ---------------------------------------------------------------------------
 
+
 class _NoOpEmailService(IEmailService):
     async def send_password_reset_email(self, to_email: str, reset_url: str) -> None:
         pass
@@ -37,6 +38,7 @@ class _NoOpEmailService(IEmailService):
 # ---------------------------------------------------------------------------
 # Фикстура: подмена email-сервиса для всех тестов модуля
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def override_email_service():
@@ -49,6 +51,7 @@ def override_email_service():
 # ---------------------------------------------------------------------------
 # POST /auth/password-reset
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_password_reset_request_unknown_email_returns_200(
@@ -91,6 +94,7 @@ async def test_password_reset_request_known_email_creates_token(
 # ---------------------------------------------------------------------------
 # POST /auth/password-reset/confirm — негативные сценарии
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_password_reset_confirm_invalid_token_returns_422(
@@ -157,6 +161,7 @@ async def test_password_reset_confirm_used_token_returns_422(
 # POST /auth/password-reset/confirm — успешный сценарий
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_password_reset_confirm_success_revokes_all_rt(
     client: AsyncClient,
@@ -179,9 +184,7 @@ async def test_password_reset_confirm_success_revokes_all_rt(
     db_session.expire_all()
 
     updated_prt = (
-        await db_session.execute(
-            select(PasswordResetToken).where(PasswordResetToken.token == token)
-        )
+        await db_session.execute(select(PasswordResetToken).where(PasswordResetToken.token == token))
     ).scalar_one()
     assert updated_prt.used is True
 

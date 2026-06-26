@@ -6,6 +6,7 @@
 3. Просроченный RT (expires_at в прошлом) → 401
 4. Двойной logout (идемпотентность) → 200 оба раза
 """
+
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -19,6 +20,7 @@ from app.models.user import User
 # ---------------------------------------------------------------------------
 # Вспомогательная функция: создает пользователя + просроченный RT напрямую в БД
 # ---------------------------------------------------------------------------
+
 
 async def _seed_expired_rt(session: AsyncSession) -> tuple[str, str]:
     """Возвращает (email, expired_rt_value) — не идет через HTTP-слой."""
@@ -48,6 +50,7 @@ async def _seed_expired_rt(session: AsyncSession) -> tuple[str, str]:
 # Тест 1: нет cookie вообще
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_refresh_without_cookie(client: AsyncClient) -> None:
     """POST /auth/refresh без Cookie → 401 + понятное сообщение об ошибке."""
@@ -60,6 +63,7 @@ async def test_refresh_without_cookie(client: AsyncClient) -> None:
 # ---------------------------------------------------------------------------
 # Тест 2: повторное использование отозванного RT (replay-атака)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_refresh_with_revoked_token(
@@ -93,6 +97,7 @@ async def test_refresh_with_revoked_token(
 # Тест 3: просроченный RT (expires_at < now)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_refresh_with_expired_token(
     client: AsyncClient,
@@ -113,6 +118,7 @@ async def test_refresh_with_expired_token(
 # ---------------------------------------------------------------------------
 # Тест 4: двойной logout (идемпотентность)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_logout_idempotent(

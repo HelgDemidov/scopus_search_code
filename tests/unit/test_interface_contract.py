@@ -6,6 +6,7 @@
 или search, не может быть инстанциирована — Python задержит это на этапе импорта.
 Такие тесты гарантируют, что контракт стабилен при рефакторинге интерфейса.
 """
+
 from typing import List
 
 import pytest
@@ -17,8 +18,10 @@ from app.models.article import Article
 #  Вспомогательные классы для проверок                               #
 # ================================================================ #
 
+
 class _NoBuildQuery(ISearchClient):
-    """ Реализация без build_query — не должна инстанциироваться."""
+    """Реализация без build_query — не должна инстанциироваться."""
+
     @property
     def last_rate_limit(self) -> str | None:
         return None
@@ -43,7 +46,8 @@ class _NoBuildQuery(ISearchClient):
 
 
 class _NoSearch(ISearchClient):
-    """ Реализация без search — не должна инстанциероваться."""
+    """Реализация без search — не должна инстанциероваться."""
+
     @property
     def last_rate_limit(self) -> str | None:
         return None
@@ -63,7 +67,8 @@ class _NoSearch(ISearchClient):
 
 
 class _FullImpl(ISearchClient):
-    """ Полная реализация всех абстрактных методов — должна инстанциероваться."""
+    """Полная реализация всех абстрактных методов — должна инстанциероваться."""
+
     @property
     def last_rate_limit(self) -> str | None:
         return None
@@ -92,6 +97,7 @@ class _FullImpl(ISearchClient):
 #  Тесты                                                          #
 # ================================================================ #
 
+
 def test_cannot_instantiate_without_build_query():
     # build_query является частью ABC-контракта ISearchClient.
     # Пропуск метода должен привести к TypeError при попытке инстанции
@@ -115,6 +121,4 @@ def test_full_implementation_instantiates_without_errors():
     # search доступен как публичный метод
     assert callable(instance.search)
     # Приватного _build_query не должно существовать
-    assert not hasattr(instance, "_build_query"), (
-        "_build_query не должен появляться в интерфейсе или реализации"
-    )
+    assert not hasattr(instance, "_build_query"), "_build_query не должен появляться в интерфейсе или реализации"

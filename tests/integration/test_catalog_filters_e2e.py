@@ -9,6 +9,7 @@ HTTP-стек: HTTP GET → роутер → CatalogService → PostgresCatalogR
 Каждый тест: seed данных через pg_session → запрос через pg_client → assert.
 Авторизация не нужна — GET /articles/ публичный эндпоинт.
 """
+
 import datetime
 
 import pytest
@@ -21,6 +22,7 @@ from app.models.catalog_article import CatalogArticle
 # ------------------------------------------------------------------ #
 #  Хелпер: сконструировать Article без сессии                         #
 # ------------------------------------------------------------------ #
+
 
 def _make_article(
     *,
@@ -48,10 +50,7 @@ async def _seed(session: AsyncSession, articles: list[Article], keyword: str = "
     session.add_all(articles)
     await session.flush()  # получаем id до создания CatalogArticle
 
-    catalog_rows = [
-        CatalogArticle(article_id=a.id, keyword=keyword)
-        for a in articles
-    ]
+    catalog_rows = [CatalogArticle(article_id=a.id, keyword=keyword) for a in articles]
     session.add_all(catalog_rows)
     await session.commit()
 
@@ -59,6 +58,7 @@ async def _seed(session: AsyncSession, articles: list[Article], keyword: str = "
 # ------------------------------------------------------------------ #
 #  T5-1: year_from                                                     #
 # ------------------------------------------------------------------ #
+
 
 @pytest.mark.requires_pg
 @pytest.mark.asyncio
@@ -85,6 +85,7 @@ async def test_year_from_filters_by_publication_year(
 #  T5-2: year_to                                                       #
 # ------------------------------------------------------------------ #
 
+
 @pytest.mark.requires_pg
 @pytest.mark.asyncio
 async def test_year_to_filters_by_publication_year(
@@ -109,6 +110,7 @@ async def test_year_to_filters_by_publication_year(
 # ------------------------------------------------------------------ #
 #  T5-3: doc_types                                                     #
 # ------------------------------------------------------------------ #
+
 
 @pytest.mark.requires_pg
 @pytest.mark.asyncio
@@ -135,6 +137,7 @@ async def test_doc_types_filters_by_document_type(
 #  T5-4: open_access=true                                              #
 # ------------------------------------------------------------------ #
 
+
 @pytest.mark.requires_pg
 @pytest.mark.asyncio
 async def test_open_access_true_filters_correctly(
@@ -160,6 +163,7 @@ async def test_open_access_true_filters_correctly(
 #  T5-5: countries                                                     #
 # ------------------------------------------------------------------ #
 
+
 @pytest.mark.requires_pg
 @pytest.mark.asyncio
 async def test_countries_filters_by_affiliation_country(
@@ -184,6 +188,7 @@ async def test_countries_filters_by_affiliation_country(
 # ------------------------------------------------------------------ #
 #  T5-6: комбинация year_from + open_access                           #
 # ------------------------------------------------------------------ #
+
 
 @pytest.mark.requires_pg
 @pytest.mark.asyncio

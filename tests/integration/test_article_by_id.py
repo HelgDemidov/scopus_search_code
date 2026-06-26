@@ -64,6 +64,7 @@ _ARTICLE_KWARGS = dict(
 # Фикстуры — изолированная in-memory БД (аналогично conftest.py)
 # ---------------------------------------------------------------------------
 
+
 @pytest_asyncio.fixture(scope="function")
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
     """Изолированная SQLite БД для каждого теста."""
@@ -80,6 +81,7 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
 @pytest_asyncio.fixture(scope="function")
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     """AsyncClient с переопределенной зависимостью get_db_session."""
+
     async def _override() -> AsyncGenerator[AsyncSession, None]:
         yield db_session
 
@@ -102,7 +104,7 @@ async def saved_article(db_session: AsyncSession) -> Article:
     # seed() делает upsert_many + save_seeded + commit() атомарно
     saved = await service.seed(
         articles=[Article(**_ARTICLE_KWARGS)],
-        keyword=_TEST_KEYWORD,                # явный str
+        keyword=_TEST_KEYWORD,  # явный str
     )
     return saved[0]
 
@@ -110,6 +112,7 @@ async def saved_article(db_session: AsyncSession) -> Article:
 # ---------------------------------------------------------------------------
 # 1. Pydantic-схема: ArticleResponse должна содержать поле id: int
 # ---------------------------------------------------------------------------
+
 
 class TestArticleResponseSchema:
     """Пункт 1 сводной таблицы: id: int в ArticleResponse."""
@@ -136,23 +139,21 @@ class TestArticleResponseSchema:
     def test_schema_requires_id_not_none(self):
         """id=None должен вызвать ValidationError: поле обязательное."""
         import pydantic
+
         with pytest.raises(pydantic.ValidationError):
-            ArticleResponse.model_validate(
-                {"id": None, "title": "X", "publication_date": "2024-01-01"}
-            )
+            ArticleResponse.model_validate({"id": None, "title": "X", "publication_date": "2024-01-01"})
 
 
 # ---------------------------------------------------------------------------
 # 2–3. Репозиторий: интерфейс + реализация get_by_id
 # ---------------------------------------------------------------------------
 
+
 class TestRepositoryGetById:
     """Пункты 2–3: IArticleRepository.get_by_id и PostgresArticleRepository.get_by_id."""
 
     @pytest.mark.asyncio
-    async def test_get_by_id_returns_article(
-        self, db_session: AsyncSession, saved_article: Article
-    ):
+    async def test_get_by_id_returns_article(self, db_session: AsyncSession, saved_article: Article):
         """get_by_id должен вернуть тот же объект, что был сохранен."""
         repo = PostgresArticleRepository(db_session)
         result = await repo.get_by_id(saved_article.id)
@@ -163,18 +164,14 @@ class TestRepositoryGetById:
         assert result.doi == _ARTICLE_KWARGS["doi"]
 
     @pytest.mark.asyncio
-    async def test_get_by_id_returns_none_for_missing(
-        self, db_session: AsyncSession
-    ):
+    async def test_get_by_id_returns_none_for_missing(self, db_session: AsyncSession):
         """get_by_id с несуществующим id должен вернуть None."""
         repo = PostgresArticleRepository(db_session)
         result = await repo.get_by_id(99999)
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_get_by_id_returns_none_for_negative_id(
-        self, db_session: AsyncSession
-    ):
+    async def test_get_by_id_returns_none_for_negative_id(self, db_session: AsyncSession):
         """Отрицательный id — граничный случай, должен вернуть None (не 500)."""
         repo = PostgresArticleRepository(db_session)
         result = await repo.get_by_id(-1)
@@ -185,13 +182,12 @@ class TestRepositoryGetById:
 # 4. ArticleService.get_by_id — делегирование и конвертация ORM → Pydantic
 # ---------------------------------------------------------------------------
 
+
 class TestArticleServiceGetById:
     """Пункт 4: ArticleService.get_by_id."""
 
     @pytest.mark.asyncio
-    async def test_service_returns_pydantic_model(
-        self, db_session: AsyncSession, saved_article: Article
-    ):
+    async def test_service_returns_pydantic_model(self, db_session: AsyncSession, saved_article: Article):
         """Сервис должен вернуть ArticleResponse (не ORM Article)."""
         repo = PostgresArticleRepository(db_session)
         service = ArticleService(article_repo=repo)
@@ -203,9 +199,7 @@ class TestArticleServiceGetById:
         assert result.title == _ARTICLE_KWARGS["title"]
 
     @pytest.mark.asyncio
-    async def test_service_returns_none_for_missing(
-        self, db_session: AsyncSession
-    ):
+    async def test_service_returns_none_for_missing(self, db_session: AsyncSession):
         """Сервис возвращает None, если репозиторий возвращает None."""
         repo = PostgresArticleRepository(db_session)
         service = ArticleService(article_repo=repo)
@@ -217,13 +211,12 @@ class TestArticleServiceGetById:
 # 5 + 9. Роутер: GET /articles/{id} — HTTP-контракт
 # ---------------------------------------------------------------------------
 
+
 class TestArticleByIdEndpoint:
     """Пункты 5, 9: HTTP-эндпоинт GET /articles/{id}."""
 
     @pytest.mark.asyncio
-    async def test_200_returns_correct_structure(
-        self, client: AsyncClient, saved_article: Article
-    ):
+    async def test_200_returns_correct_structure(self, client: AsyncClient, saved_article: Article):
         """HTTP 200 и корректная структура JSON-ответа включая поле id."""
         resp = await client.get(f"/articles/{saved_article.id}")
 
@@ -268,9 +261,7 @@ class TestArticleByIdEndpoint:
         """
         resp = await client.get("/articles/stats")
         # /stats — публичный эндпоинт, должен вернуть 200 с полем total_articles
-        assert resp.status_code == 200, (
-            f"/articles/stats перехвачен маршрутом /{{id}}! Ответ: {resp.text}"
-        )
+        assert resp.status_code == 200, f"/articles/stats перехвачен маршрутом /{{id}}! Ответ: {resp.text}"
         data = resp.json()
         assert "total_articles" in data
 
@@ -298,9 +289,7 @@ class TestArticleByIdEndpoint:
         assert "total" in data
 
     @pytest.mark.asyncio
-    async def test_id_field_present_in_list_response(
-        self, client: AsyncClient, saved_article: Article
-    ):
+    async def test_id_field_present_in_list_response(self, client: AsyncClient, saved_article: Article):
         """
         Пункт 1 (E2E): поле id присутствует в каждом объекте
         при ответе GET /articles/ — убеждаемся, что изменение схемы
@@ -319,6 +308,7 @@ class TestArticleByIdEndpoint:
 # 6. Frontend-тип ArticleResponse.id (косвенная верификация через HTTP-ответ)
 # ---------------------------------------------------------------------------
 
+
 class TestFrontendTypeConsistency:
     """
     Пункт 6: frontend/src/types/api.ts — id: number.
@@ -327,21 +317,18 @@ class TestFrontendTypeConsistency:
     """
 
     @pytest.mark.asyncio
-    async def test_id_is_json_integer(
-        self, client: AsyncClient, saved_article: Article
-    ):
+    async def test_id_is_json_integer(self, client: AsyncClient, saved_article: Article):
         resp = await client.get(f"/articles/{saved_article.id}")
         assert resp.status_code == 200
         data = resp.json()
         # JSON integer → Python int. Если бы пришла строка — isinstance вернул бы False
-        assert isinstance(data["id"], int), (
-            f"id должен быть JSON integer (TS number), получен {type(data['id'])}"
-        )
+        assert isinstance(data["id"], int), f"id должен быть JSON integer (TS number), получен {type(data['id'])}"
 
 
 # ---------------------------------------------------------------------------
 # 7. getArticleById — симуляция логики фронтенд-функции через HTTP
 # ---------------------------------------------------------------------------
+
 
 class TestGetArticleByIdContract:
     """
@@ -350,33 +337,34 @@ class TestGetArticleByIdContract:
     """
 
     @pytest.mark.asyncio
-    async def test_correct_url_pattern(
-        self, client: AsyncClient, saved_article: Article
-    ):
+    async def test_correct_url_pattern(self, client: AsyncClient, saved_article: Article):
         """Фронтенд вызывает apiClient.get(`/articles/${id}`) — проверяем этот URL."""
         resp = await client.get(f"/articles/{saved_article.id}")
         assert resp.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_response_shape_matches_frontend_type(
-        self, client: AsyncClient, saved_article: Article
-    ):
+    async def test_response_shape_matches_frontend_type(self, client: AsyncClient, saved_article: Article):
         """Все поля ArticleResponse из frontend/src/types/api.ts присутствуют в ответе."""
         resp = await client.get(f"/articles/{saved_article.id}")
         data = resp.json()
 
         expected_fields = {
-            "id", "title", "journal", "author", "publication_date",
-            "doi", "cited_by_count", "document_type",
-            "open_access", "affiliation_country",
+            "id",
+            "title",
+            "journal",
+            "author",
+            "publication_date",
+            "doi",
+            "cited_by_count",
+            "document_type",
+            "open_access",
+            "affiliation_country",
         }
         missing = expected_fields - set(data.keys())
         assert not missing, f"В ответе отсутствуют поля: {missing}"
 
     @pytest.mark.asyncio
-    async def test_404_propagates_for_catch_block(
-        self, client: AsyncClient
-    ):
+    async def test_404_propagates_for_catch_block(self, client: AsyncClient):
         """
         ArticlePage.tsx обрабатывает err.response.status === 404.
         Убеждаемся, что бэкенд действительно возвращает 404, а не 500.
@@ -389,16 +377,16 @@ class TestGetArticleByIdContract:
 # 10. App.tsx: маршрут /article/:id — проверяем корректность FastAPI-роутинга
 # ---------------------------------------------------------------------------
 
+
 class TestArticleIdRouting:
     """
     Пункт 10: App.tsx добавляет React Router маршрут /article/:id.
     Тест проверяет FastAPI-сторону: что эндпоинт GET /articles/{id}
     корректно интегрирован в приложение (не конфликтует с другими маршрутами).
     """
+
     @pytest.mark.asyncio
-    async def test_id_route_last_in_router(
-        self, client: AsyncClient, saved_article: Article
-    ):
+    async def test_id_route_last_in_router(self, client: AsyncClient, saved_article: Article):
         """
         GET /articles/{id} объявлен последним в router — убеждаемся,
         что /stats и /find всё ещё доступны.
@@ -413,9 +401,7 @@ class TestArticleIdRouting:
         assert article_resp.json()["id"] == saved_article.id
 
     @pytest.mark.asyncio
-    async def test_multiple_ids_independent(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
+    async def test_multiple_ids_independent(self, client: AsyncClient, db_session: AsyncSession):
         article_repo = PostgresArticleRepository(db_session)
         catalog_repo = PostgresCatalogRepository(db_session)
         service = CatalogService(

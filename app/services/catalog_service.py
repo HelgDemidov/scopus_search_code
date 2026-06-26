@@ -78,10 +78,7 @@ class CatalogService:
         )
 
         # ORM-объекты → Pydantic-схемы
-        article_responses = [
-            ArticleResponse.model_validate(article)
-            for article in db_articles
-        ]
+        article_responses = [ArticleResponse.model_validate(article) for article in db_articles]
         return PaginatedArticleResponse(items=article_responses, total=total)
 
     # ------------------------------------------------------------------ #
@@ -98,26 +95,11 @@ class CatalogService:
             total_journals=raw["total_journals"],
             total_countries=raw["total_countries"],
             open_access_count=raw["open_access_count"],
-            by_year=[
-                CountByField(label=str(r["year"]), count=r["count"])
-                for r in raw["by_year"]
-            ],
-            by_journal=[
-                CountByField(label=r["journal"], count=r["count"])
-                for r in raw["by_journal"]
-            ],
-            by_country=[
-                CountByField(label=r["country"], count=r["count"])
-                for r in raw["by_country"]
-            ],
-            by_doc_type=[
-                CountByField(label=r["doc_type"], count=r["count"])
-                for r in raw["by_doc_type"]
-            ],
-            top_keywords=[
-                CountByField(label=r["keyword"], count=r["count"])
-                for r in raw["top_keywords"]
-            ],
+            by_year=[CountByField(label=str(r["year"]), count=r["count"]) for r in raw["by_year"]],
+            by_journal=[CountByField(label=r["journal"], count=r["count"]) for r in raw["by_journal"]],
+            by_country=[CountByField(label=r["country"], count=r["count"]) for r in raw["by_country"]],
+            by_doc_type=[CountByField(label=r["doc_type"], count=r["count"]) for r in raw["by_doc_type"]],
+            top_keywords=[CountByField(label=r["keyword"], count=r["count"]) for r in raw["top_keywords"]],
         )
 
     # ------------------------------------------------------------------ #

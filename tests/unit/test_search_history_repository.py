@@ -40,10 +40,7 @@ class FakeSearchHistoryRepository(ISearchHistoryRepository):
         since: datetime.datetime,
     ) -> int:
         # Считаем строки для user_id с created_at >= since
-        return sum(
-            1 for r in self._rows
-            if r.user_id == user_id and r.created_at >= since
-        )
+        return sum(1 for r in self._rows if r.user_id == user_id and r.created_at >= since)
 
     async def get_last_n(
         self,
@@ -61,10 +58,7 @@ class FakeSearchHistoryRepository(ISearchHistoryRepository):
         since: datetime.datetime,
     ) -> datetime.datetime | None:
         # Ищем самую раннюю запись в окне для user_id
-        candidates = [
-            r.created_at for r in self._rows
-            if r.user_id == user_id and r.created_at >= since
-        ]
+        candidates = [r.created_at for r in self._rows if r.user_id == user_id and r.created_at >= since]
         return min(candidates) if candidates else None
 
 
@@ -79,7 +73,7 @@ async def test_insert_row_creates_entry():
     assert row.user_id == 1
     assert row.query == "neural networks"
     assert row.result_count == 25
-    assert row.filters == {}          # None нормализуется в {}
+    assert row.filters == {}  # None нормализуется в {}
     assert row.created_at is not None
 
 

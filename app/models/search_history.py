@@ -13,6 +13,7 @@ from app.models.base import Base
 
 class JsonField(TypeDecorator):
     """JSONB на PostgreSQL, TEXT+JSON-сериализация на SQLite (для тестов)"""
+
     impl = Text
     cache_ok = True
 
@@ -20,6 +21,7 @@ class JsonField(TypeDecorator):
         # Возвращаем нативный JSONB для PG и TEXT для всех остальных диалектов
         if dialect.name == "postgresql":
             from sqlalchemy.dialects.postgresql import JSONB
+
             return dialect.type_descriptor(JSONB())
         return dialect.type_descriptor(Text())
 

@@ -39,16 +39,14 @@ class PostgresSearchResultRepository(ISearchResultRepository):
         values = [
             {
                 "search_history_id": search_history_id,
-                "article_id":        article.id,
-                "rank":              rank,
+                "article_id": article.id,
+                "rank": rank,
             }
             for rank, article in enumerate(articles)
         ]
         # ON CONFLICT DO NOTHING: защита от повторного вызова с теми же данными
         stmt = (
-            insert(SearchResultArticle)
-            .values(values)
-            .on_conflict_do_nothing(constraint="uq_sra_history_article")
+            insert(SearchResultArticle).values(values).on_conflict_do_nothing(constraint="uq_sra_history_article")
         )
         await self.session.execute(stmt)
         await self.session.flush()
@@ -109,9 +107,7 @@ class PostgresSearchResultRepository(ISearchResultRepository):
         since:  только поиски начиная с этой даты (search_history.created_at >= since).
         """
         # Субзапрос: search_history_id поисков пользователя с опциональным since-фильтром
-        history_ids_q = select(SearchHistory.id).where(
-            SearchHistory.user_id == user_id
-        )
+        history_ids_q = select(SearchHistory.id).where(SearchHistory.user_id == user_id)
         if since is not None:
             history_ids_q = history_ids_q.where(SearchHistory.created_at >= since)
         history_ids_sq = history_ids_q.subquery()
@@ -123,11 +119,7 @@ class PostgresSearchResultRepository(ISearchResultRepository):
                 SearchResultArticle,
                 SearchResultArticle.article_id == Article.id,
             )
-            .where(
-                SearchResultArticle.search_history_id.in_(
-                    select(history_ids_sq.c.id)
-                )
-            )
+            .where(SearchResultArticle.search_history_id.in_(select(history_ids_sq.c.id)))
         )
 
         # Опциональный ILIKE-фильтр по заголовку или автору
@@ -144,9 +136,7 @@ class PostgresSearchResultRepository(ISearchResultRepository):
         articles_sq = base_q.distinct(Article.id).subquery()
 
         # Итоговый счётчик
-        total_row = await self.session.execute(
-            select(func.count()).select_from(articles_sq)
-        )
+        total_row = await self.session.execute(select(func.count()).select_from(articles_sq))
         total = total_row.scalar_one()
 
         # Распределение по годам
@@ -199,9 +189,9 @@ class PostgresSearchResultRepository(ISearchResultRepository):
         )
 
         return {
-            "total":       total,
-            "by_year":     [{"year": int(r.year), "count": r.count} for r in by_year_rows],
-            "by_journal":  [{"journal": r.journal, "count": r.count} for r in by_journal_rows],
-            "by_country":  [{"country": r.affiliation_country, "count": r.count} for r in by_country_rows],
+            "total": total,
+            "by_year": [{"year": int(r.year), "count": r.count} for r in by_year_rows],
+            "by_journal": [{"journal": r.journal, "count": r.count} for r in by_journal_rows],
+            "by_country": [{"country": r.affiliation_country, "count": r.count} for r in by_country_rows],
             "by_doc_type": [{"doc_type": r.document_type, "count": r.count} for r in by_doc_type_rows],
         }

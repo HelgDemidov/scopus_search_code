@@ -5,6 +5,7 @@
 
 Все 8 шагов в одной тест-функции для наглядности цепочки.
 """
+
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
@@ -58,9 +59,7 @@ async def test_full_refresh_token_lifecycle(
         "/auth/refresh",
         headers={"Cookie": f"refresh_token={rt_v1}"},
     )
-    assert replay_resp.status_code == 401, (
-        "Отозванный RT должен отклоняться (защита от replay-атак)"
-    )
+    assert replay_resp.status_code == 401, "Отозванный RT должен отклоняться (защита от replay-атак)"
 
     # --- Шаг 5: новый AT_v2 работает ---
     me_resp2 = await client.get(
@@ -83,18 +82,14 @@ async def test_full_refresh_token_lifecycle(
         "/auth/refresh",
         headers={"Cookie": f"refresh_token={rt_v2}"},
     )
-    assert post_logout_resp.status_code == 401, (
-        "RT после logout должен быть отклонен"
-    )
+    assert post_logout_resp.status_code == 401, "RT после logout должен быть отклонен"
 
     # --- Шаг 8: проверяем состояние БД напрямую ---
     # Piggyback cleanup в шаге 3 удалил RT_v1 (стал revoked=True сразу после ротации).
     # RT_v2 был отозван через logout, но cleanup не запускается на /auth/logout —
     # строка остаётся в БД с revoked=True (будет удалена при следующем /auth/refresh).
     db_session.expire_all()
-    result = await db_session.execute(
-        select(RefreshToken).where(RefreshToken.token.in_([rt_v1, rt_v2]))
-    )
+    result = await db_session.execute(select(RefreshToken).where(RefreshToken.token.in_([rt_v1, rt_v2])))
     rt_rows = result.scalars().all()
 
     # RT_v1 удалён cleanup-ом; RT_v2 остался как revoked=True

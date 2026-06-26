@@ -10,7 +10,7 @@ async def test_register_user_integration(async_client: AsyncClient):
         "username": "integration_user",
         "email": "integration@example.com",
         "password": "StrongPassword123!",
-        "password_confirm": "StrongPassword123!"
+        "password_confirm": "StrongPassword123!",
     }
 
     # Act: Выполняем реальный HTTP POST-запрос через тестовый клиент FastAPI
@@ -36,7 +36,7 @@ async def test_register_duplicate_email_integration(async_client: AsyncClient):
         "username": "duplicate_user",
         "email": "duplicate@example.com",
         "password": "StrongPassword123!",
-        "password_confirm": "StrongPassword123!"
+        "password_confirm": "StrongPassword123!",
     }
 
     # Act 1: Первичная регистрация (должна пройти успешно)
@@ -59,16 +59,13 @@ async def test_login_integration(async_client: AsyncClient):
         "username": "login_user",
         "email": "login@example.com",
         "password": "StrongPassword123!",
-        "password_confirm": "StrongPassword123!"
+        "password_confirm": "StrongPassword123!",
     }
     await async_client.post("/users/register", json=register_payload)
 
     # Act: Логинимся через JSON — /users/login принимает UserLoginRequest (не OAuth2PasswordRequestForm)
     # Поле называется email, а не username
-    login_payload = {
-        "email": "login@example.com",
-        "password": "StrongPassword123!"
-    }
+    login_payload = {"email": "login@example.com", "password": "StrongPassword123!"}
     response = await async_client.post("/users/login", json=login_payload)
 
     # Assert

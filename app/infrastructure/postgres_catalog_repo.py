@@ -59,11 +59,7 @@ class PostgresCatalogRepository(ICatalogRepository):
 
         # Фильтр по типам документов — case-insensitive IN-список
         if doc_types:
-            stmt = stmt.where(
-                func.lower(Article.document_type).in_(
-                    [dt.lower() for dt in doc_types]
-                )
-            )
+            stmt = stmt.where(func.lower(Article.document_type).in_([dt.lower() for dt in doc_types]))
 
         # Фильтр по open access (True / False / None — все)
         if open_access is not None:
@@ -71,11 +67,7 @@ class PostgresCatalogRepository(ICatalogRepository):
 
         # Фильтр по странам аффилиации — case-insensitive IN-список
         if countries:
-            stmt = stmt.where(
-                func.lower(Article.affiliation_country).in_(
-                    [c.lower() for c in countries]
-                )
-            )
+            stmt = stmt.where(func.lower(Article.affiliation_country).in_([c.lower() for c in countries]))
 
         return stmt
 
@@ -101,15 +93,10 @@ class PostgresCatalogRepository(ICatalogRepository):
         search:  ILIKE-поиск по title и author через escape_ilike().
         """
         # Базовый запрос: JOIN catalog_articles → articles через article_id
-        stmt = (
-            select(Article)
-            .join(CatalogArticle, CatalogArticle.article_id == Article.id)
-        )
+        stmt = select(Article).join(CatalogArticle, CatalogArticle.article_id == Article.id)
 
         # Все WHERE-клаузы через единый хелпер
-        stmt = self._apply_filters(
-            stmt, keyword, search, year_from, year_to, doc_types, open_access, countries
-        )
+        stmt = self._apply_filters(stmt, keyword, search, year_from, year_to, doc_types, open_access, countries)
 
         # Сортировка по дате публикации: свежие статьи первыми
         stmt = stmt.order_by(Article.publication_date.desc()).limit(limit).offset(offset)
@@ -134,15 +121,11 @@ class PostgresCatalogRepository(ICatalogRepository):
         """COUNT с теми же фильтрами что get_all — для корректной пагинации."""
         # Субзапрос для COUNT: те же JOIN + WHERE, без ORDER BY / LIMIT
         stmt = (
-            select(func.count())
-            .select_from(Article)
-            .join(CatalogArticle, CatalogArticle.article_id == Article.id)
+            select(func.count()).select_from(Article).join(CatalogArticle, CatalogArticle.article_id == Article.id)
         )
 
         # Те же WHERE-клаузы через тот же хелпер — гарантия консистентности с get_all
-        stmt = self._apply_filters(
-            stmt, keyword, search, year_from, year_to, doc_types, open_access, countries
-        )
+        stmt = self._apply_filters(stmt, keyword, search, year_from, year_to, doc_types, open_access, countries)
 
         result = await self.session.execute(stmt)
         return result.scalar_one()
@@ -170,7 +153,7 @@ class PostgresCatalogRepository(ICatalogRepository):
         values = [
             {
                 "article_id": a.id,
-                "keyword":    keyword,
+                "keyword": keyword,
             }
             for a in articles
         ]
@@ -196,29 +179,17 @@ class PostgresCatalogRepository(ICatalogRepository):
         Агрегирует только статьи из catalog_articles (не весь реестр articles).
         """
         # CTE: только id статей, которые входят в каталог
-        catalog_ids_cte = (
-            select(CatalogArticle.article_id)
-            .distinct()
-            .cte("catalog_ids")
-        )
+        catalog_ids_cte = select(CatalogArticle.article_id).distinct().cte("catalog_ids")
 
         # Базовый подзапрос каталожных статей — переиспользуем в агрегатах
-        catalog_articles_q = (
-            select(Article)
-            .where(Article.id.in_(select(catalog_ids_cte.c.article_id)))
-            .subquery()
-        )
+        catalog_articles_q = select(Article).where(Article.id.in_(select(catalog_ids_cte.c.article_id))).subquery()
 
         # Итоговые счётчики
         totals = await self.session.execute(
             select(
                 func.count().label("total_articles"),
-                func.count(
-                    catalog_articles_q.c.journal.distinct()
-                ).label("total_journals"),
-                func.count(
-                    catalog_articles_q.c.affiliation_country.distinct()
-                ).label("total_countries"),
+                func.count(catalog_articles_q.c.journal.distinct()).label("total_journals"),
+                func.count(catalog_articles_q.c.affiliation_country.distinct()).label("total_countries"),
                 func.sum(
                     sa.cast(
                         sa.case((catalog_articles_q.c.open_access.is_(True), 1), else_=0),
@@ -290,13 +261,13 @@ class PostgresCatalogRepository(ICatalogRepository):
         )
 
         return {
-            "total_articles":  row.total_articles,
-            "total_journals":  row.total_journals,
+            "total_articles": row.total_articles,
+            "total_journals": row.total_journals,
             "total_countries": row.total_countries,
             "open_access_count": row.open_access_count or 0,
-            "by_year":       [{"year": int(r.year), "count": r.count} for r in by_year_rows],
-            "by_journal":    [{"journal": r.journal, "count": r.count} for r in by_journal_rows],
-            "by_country":    [{"country": r.affiliation_country, "count": r.count} for r in by_country_rows],
-            "by_doc_type":   [{"doc_type": r.document_type, "count": r.count} for r in by_doc_type_rows],
-            "top_keywords":  [{"keyword": r.keyword, "count": r.count} for r in top_keywords_rows],
+            "by_year": [{"year": int(r.year), "count": r.count} for r in by_year_rows],
+            "by_journal": [{"journal": r.journal, "count": r.count} for r in by_journal_rows],
+            "by_country": [{"country": r.affiliation_country, "count": r.count} for r in by_country_rows],
+            "by_doc_type": [{"doc_type": r.document_type, "count": r.count} for r in by_doc_type_rows],
+            "top_keywords": [{"keyword": r.keyword, "count": r.count} for r in top_keywords_rows],
         }

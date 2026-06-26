@@ -39,9 +39,7 @@ async def test_scopus_client_search_and_limits(monkeypatch):
                             # Открытый доступ (приходит строкой "0" / "1")
                             "openaccess": "1",
                             # Аффилиация (вложенный объект)
-                            "affiliation": {
-                                "affiliation-country": "United States"
-                            },
+                            "affiliation": {"affiliation-country": "United States"},
                         }
                     ]
                 }
@@ -82,8 +80,8 @@ async def test_scopus_client_search_and_limits(monkeypatch):
 #  Не требуют HTTP, asyncio или БД. Запускаются мгновенно.         #
 # ================================================================ #
 
-class TestBuildQuery:
 
+class TestBuildQuery:
     def _client(self) -> ScopusHTTPClient:
         # Обходим __init__, который требует httpx.AsyncClient.
         # build_query не использует self._client (только self), поэтому это безопасно
@@ -144,13 +142,16 @@ class TestBuildQuery:
         assert "AFFILCOUNTRY(Germany) OR AFFILCOUNTRY(France)" in q
 
     def test_all_filters_combined_base_clause_is_first(self):
-        q = self._client().build_query("AI", {
-            "year_from": 2020,
-            "year_to": 2024,
-            "document_types": ["Article"],
-            "open_access": True,
-            "countries": ["USA"],
-        })
+        q = self._client().build_query(
+            "AI",
+            {
+                "year_from": 2020,
+                "year_to": 2024,
+                "document_types": ["Article"],
+                "open_access": True,
+                "countries": ["USA"],
+            },
+        )
         # Базовая клауза всегда первая, остальные через AND
         assert q.startswith("TITLE-ABS-KEY(AI)")
         assert " AND " in q
@@ -164,6 +165,7 @@ class TestBuildQuery:
 #  Тесты параметра start (пагинация)                               #
 # ================================================================ #
 
+
 def _make_empty_scopus_response():
     class R:
         status_code = 200
@@ -172,8 +174,13 @@ def _make_empty_scopus_response():
             "X-RateLimit-Remaining": "19000",
             "X-RateLimit-Reset": "0",
         }
-        def json(self): return {"search-results": {"entry": []}}
-        def raise_for_status(self): pass
+
+        def json(self):
+            return {"search-results": {"entry": []}}
+
+        def raise_for_status(self):
+            pass
+
     return R()
 
 
