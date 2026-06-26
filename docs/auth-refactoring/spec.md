@@ -3,7 +3,7 @@
 **Ветка:** `auth-refactoring`
 **Дата создания:** 2026-06-25
 **Обновлено:** 2026-06-26
-**Статус:** Commits 1–4 ✅ · Commit 5 — In Progress
+**Статус:** Завершён ✅ · PR #17 merged 2026-06-26
 
 ---
 
@@ -29,38 +29,10 @@ Commit 1  →  Commit 2  →  Commit 3  →  Commit 4  →  Commits 5a/5b/5c
 Cookie       DB index     RT cleanup   localStorage  Password
 constants    migration    piggyback    removal       reset
 (refactor)   (additive)  (additive)   (frontend)    (full feature)
-   ✅            ✅           ✅           ✅            ⏳
+   ✅            ✅           ✅           ✅            ✅
 ```
 
 Каждый коммит независимо деплоится и проходит CI.
-
----
-
-## Промежуточные итоги (Commits 1–4, 2026-06-26)
-
-### Выполнено
-
-| Commit | Хеш | Результат |
-|---|---|---|
-| 1 — Cookie constants | `c5030d7` | `app/core/cookie_constants.py` создан; дублирование в `auth.py`/`users.py` устранено |
-| 2 — DB index | `6974acd` | Миграция `0010`, `user_id` с `index=True` в модели; `alembic heads` = единственный head |
-| 3 — RT cleanup | `e3dbc57` | `cleanup_stale_tokens()` в `refresh_token_utils.py`; piggyback-вызов в `/auth/refresh`; `test_rt_cleanup.py` (новый), `test_rt_e2e.py` обновлён |
-| 4 — localStorage removal | `61b8f0c` | `tokenStore.ts` (новый); `authStore.ts`, `App.tsx`, `client.ts` очищены от localStorage |
-
-### Метрики
-
-- **Backend тесты:** 104 passed (SQLite, `not requires_pg`)
-- **Frontend тесты:** 99 passed (87 unit + 12 integration)
-- **TypeScript:** `tsc --noEmit` — чистый
-- **Ruff:** все изменённые файлы без ошибок
-- **CI триггеры:** `auth-refactoring` добавлен в `tests.yml` и `frontend-tests.yml`
-
-### Ключевые архитектурные решения, зафиксированные в коде
-
-- Persistent-сессии (30-дневный RT) **оставлены намеренно** — это продуктовый выбор, не баг
-- Circular dep `client.ts ↔ authStore` разорван через изолированный `tokenStore.ts`
-- Cleanup RT — piggyback pattern (без scheduler): дёшево, достаточно для данного масштаба
-- `test_rt_e2e.py` шаг 8 обновлён: `rt_v1` теперь **удаляется** cleanup-ом (не просто `revoked=True`)
 
 ---
 
@@ -614,3 +586,40 @@ export async function confirmPasswordReset(token: string, newPassword: string): 
 | **Commit 5a** PW reset model | `models/password_reset_token.py` (N), `alembic/env.py` (E) | — | `0011_...` (N) | — |
 | **Commit 5b** PW reset backend | `interfaces/email_service.py` (N), `infrastructure/email_service.py` (N), `core/password_reset_utils.py` (N), `core/dependencies.py` (E), `routers/auth.py` (E), `routers/users.py` (E), `schemas/user_schemas.py` (E), `config.py` (E) | — | — | `test_password_reset.py` (N) |
 | **Commit 5c** PW reset frontend | — | `ForgotPasswordPage.tsx` (N), `ResetPasswordPage.tsx` (N), `AuthPage.tsx` (E), `App.tsx` (E), `api/auth.ts` (E) | — | `ForgotPasswordPage.test.tsx` (N), `ResetPasswordPage.test.tsx` (N) |
+
+---
+
+## Итоговый статус (2026-06-26)
+
+### Все коммиты выполнены
+
+| Commit | Хеш | Результат |
+|---|---|---|
+| 1 — Cookie constants | `c5030d7` | `app/core/cookie_constants.py`; дублирование в `auth.py`/`users.py` устранено |
+| 2 — DB index | `6974acd` | Миграция 0010; `ix_refresh_tokens_user_id` |
+| 3 — RT cleanup | `e3dbc57` | `cleanup_stale_tokens()` piggyback в `/auth/refresh`; `test_rt_cleanup.py` |
+| 4 — localStorage removal | `61b8f0c` | `tokenStore.ts`; AT только in-memory; XSS-вектор закрыт |
+| 5a — PW reset model | `7b2a37e` | `PasswordResetToken` модель; миграция 0011 |
+| 5b — PW reset backend | `7e3bf9e` | `IEmailService` → `SMTPEmailService` (aiosmtplib); 2 эндпоинта; 9 тестов |
+| 5c — PW reset frontend | `54dca75` | `ForgotPasswordPage`, `ResetPasswordPage`; "Forgot password?" в `AuthPage`; 10 тестов |
+
+### Метрики (CI на PR #17, merge-коммит)
+
+- **Backend тесты:** 113 passed (SQLite, `not requires_pg`) — все зелёные
+- **Frontend тесты:** все зелёные (`typecheck` + `unit` + `integration`)
+- **TypeScript:** `tsc --noEmit` — чистый
+- **Ruff + mypy:** без ошибок
+
+### Инфраструктура
+
+- Миграции 0010 + 0011 применены к **Production** и **Staging** Supabase
+- Railway env vars (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `FROM_EMAIL`) установлены в обоих окружениях
+- Production и Staging задеплоены из `main` после мерджа PR #17 ✅
+
+### Ключевые архитектурные решения
+
+- Persistent-сессии (30-дневный RT) **оставлены намеренно** — продуктовый выбор, не баг
+- Circular dep `client.ts ↔ authStore` разорван через изолированный `tokenStore.ts`
+- RT cleanup — piggyback pattern (без scheduler): достаточно для данного масштаба
+- Email-провайдер — aiosmtplib (не Resend): нативный async, нет vendor lock-in, SMTP меняется через env vars
+- `IEmailService` ABC — тесты переопределяют через `app.dependency_overrides`, SMTP не вызывается в CI
