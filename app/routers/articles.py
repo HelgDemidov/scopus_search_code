@@ -1,5 +1,5 @@
 # app/routers/articles.py
-from typing import Any
+from typing import Any, Callable
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -171,7 +171,7 @@ async def find_articles(
     service: SearchService = Depends(get_search_service),
     history_service: SearchHistoryService = Depends(get_search_history_service),
     current_user: User = Depends(get_current_user),
-    lock_factory=Depends(get_advisory_lock_factory),
+    lock_factory: Callable[[int], Any] = Depends(get_advisory_lock_factory),
 ) -> Any:
     # Собираем payload фильтров только из непустых значений.
     # Ключ «document_types» — единый канонический ключ по всему стеку:

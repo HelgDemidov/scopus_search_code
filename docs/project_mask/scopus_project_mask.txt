@@ -857,7 +857,7 @@ FILE: app/routers/__init__.py
 ============================================================
 FILE: app/routers/articles.py
 ============================================================
-from typing import Any
+from typing import Any, Callable
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_advisory_lock_factory, get_catalog_service, get_current_user, get_db_session, get_optional_current_user, get_search_history_service, get_search_service
@@ -893,7 +893,7 @@ async def get_search_stats(search: str=Query(..., min_length=2, description='П�
     pass
 
 @router.get('/find', response_model=list[ArticleResponse])
-async def find_articles(response: Response, keyword: str=Query(..., min_length=2, description='Ключевое слово для поиска'), count: int=Query(25, ge=1, le=25, description='Сколько статей запросить из Scopus (макс 25)'), year_from: int | None=Query(None, description='Фильтр: год публикации от'), year_to: int | None=Query(None, description='Фильтр: год публикации до'), doc_types: list[str] | None=Query(None, description='Фильтр: типы документов'), open_access: bool | None=Query(None, description='Фильтр: только open-access'), countries: list[str] | None=Query(None, description='Фильтр: страны'), service: SearchService=Depends(get_search_service), history_service: SearchHistoryService=Depends(get_search_history_service), current_user: User=Depends(get_current_user), lock_factory=Depends(get_advisory_lock_factory)) -> Any:
+async def find_articles(response: Response, keyword: str=Query(..., min_length=2, description='Ключевое слово для поиска'), count: int=Query(25, ge=1, le=25, description='Сколько статей запросить из Scopus (макс 25)'), year_from: int | None=Query(None, description='Фильтр: год публикации от'), year_to: int | None=Query(None, description='Фильтр: год публикации до'), doc_types: list[str] | None=Query(None, description='Фильтр: типы документов'), open_access: bool | None=Query(None, description='Фильтр: только open-access'), countries: list[str] | None=Query(None, description='Фильтр: страны'), service: SearchService=Depends(get_search_service), history_service: SearchHistoryService=Depends(get_search_history_service), current_user: User=Depends(get_current_user), lock_factory: Callable[[int], Any]=Depends(get_advisory_lock_factory)) -> Any:
     pass
 
 @router.get('/find/quota', response_model=QuotaResponse)
