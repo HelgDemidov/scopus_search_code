@@ -5,7 +5,6 @@ on:
   push:
     branches:
       - main
-      - seeder-refactoring
     # Запускаем только когда меняется frontend или сам воркфлоу
     paths:
       - 'frontend/**'
@@ -49,7 +48,37 @@ jobs:
         run: npx tsc --noEmit
 
   # ---------------------------------------------------------------------------
-  # Job 1: unit-тесты
+  # Job 1: ESLint
+  # Выполняется параллельно с typecheck и тестами — не увеличивает wall-clock время CI
+  # Ловит паттерны, которые tsc пропускает: react-hooks, unused vars, import order и т.д.
+  # ---------------------------------------------------------------------------
+  lint:
+    name: ESLint
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+  # ---------------------------------------------------------------------------
+  # Job 3: unit-тесты
   # Запускает все *.test.{ts,tsx} кроме интеграционных файлов
   # Глобы src/**/*.test.ts и src/**/*.test.tsx НЕ в кавычках — bash раскрывает
   # их в реальные пути до передачи в vitest (аналогично ветке main)
@@ -87,7 +116,7 @@ jobs:
             src/**/*.test.tsx
 
   # ---------------------------------------------------------------------------
-  # Job 2: интеграционные тесты
+  # Job 4: интеграционные тесты
   # Явные пути к файлам вместо glob — надёжнее glob-матчинга в vitest v4.1.5
   #   - src/components/articles/pagination.integration.test.tsx (пагинация)
   #   - src/App.integration.test.tsx (auth event bus)
