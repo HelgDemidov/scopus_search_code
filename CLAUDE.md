@@ -42,7 +42,7 @@ Frontend: `cd frontend && npm run test / lint / build`
 - RT cleanup piggyback: `cleanup_stale_tokens()` вызывается при каждой ротации в `/auth/refresh`
 - Password reset: `POST /auth/password-reset` + `POST /auth/password-reset/confirm`; токены в таблице `password_reset_tokens` (migration 0011); после confirm — `revoke_all_user_tokens()`
 - Email: `IEmailService` ABC → `BrevoEmailService` (httpx, `api.brevo.com/v3/smtp/email`). **Railway блокирует SMTP порты 587/465 — никогда не использовать aiosmtplib/SMTP на Railway.** Env var: `BREVO_API_KEY` + `FROM_EMAIL`.
-- Alembic head: `0011_create_password_reset_tokens_table`
+- Alembic head: `0012_add_last_offset_to_seeder_keywords`
 
 ## Do NOT
 - Sync SQLAlchemy calls in async routes. Hardcoded secrets. CommonJS in frontend.
@@ -70,4 +70,4 @@ Advisory lock в DI-фабрике → новые тесты `GET /articles/find
 ## Migration chain note
 `seeder_keywords` NOT в `Base.metadata` (seeder_router не импортирует SeederKeyword) → drop_all её не трогает.
 Migration `f9a3c1e2b7d4`: `ALTER TABLE ... DROP COLUMN IF EXISTS` — идемпотентна на fresh DB.
-Chain: `f9a3c1e2b7d4` → `0010_add_user_id_index_to_refresh_tokens` → `0011_create_password_reset_tokens_table` (head).
+Chain: `f9a3c1e2b7d4` → `0010_add_user_id_index_to_refresh_tokens` → `0011_create_password_reset_tokens_table` → `0012_add_last_offset_to_seeder_keywords` (head).
