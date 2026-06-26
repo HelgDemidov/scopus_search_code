@@ -1,5 +1,5 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import PostgresDsn
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -34,12 +34,8 @@ class Settings(BaseSettings):
     # Секрет для подписи OAuth state в cookie (SessionMiddleware)
     SESSION_SECRET_KEY: str = ""
 
-    # 6. SMTP (aiosmtplib) — для отправки писем сброса пароля
-    # Gmail: smtp.gmail.com:587 + App Password (не основной пароль аккаунта)
-    SMTP_HOST: str = "smtp.gmail.com"
-    SMTP_PORT: int = 587
-    SMTP_USER: str = ""
-    SMTP_PASSWORD: str = ""
+    # 6. Brevo (HTTPS email API) — для отправки писем сброса пароля
+    BREVO_API_KEY: str = ""
     FROM_EMAIL: str = ""
 
     # 7. URLs фронтенда
