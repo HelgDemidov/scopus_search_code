@@ -5,14 +5,10 @@ on:
   push:
     branches:
       - main
-      - master
-      - seeder-refactoring
 
   pull_request:
     branches:
       - main
-      - master
-      - seeder-refactoring
 
 # Устанавливаем Node.js 24 для всех actions в этом workflow заранее официального дедлайна (02.06.2026)
 env:
@@ -114,6 +110,13 @@ jobs:
           pip install -r requirements.txt
           pip install -r tests/requirements-test.txt
 
+      # Проверяем что все модели покрыты миграциями (upgrade head → check)
+      # Запускается ДО pytest: conftest делает drop_all/create_all, что обходит alembic
+      - name: Check Alembic migrations
+        run: |
+          alembic upgrade head
+          alembic check
+
       - name: Run PostgreSQL integration tests
         run: |
           python -m pytest tests/integration -vv -m requires_pg --cov=app --cov-report=term-missing
@@ -158,3 +161,39 @@ jobs:
         run: |
           coverage combine coverage.sqlite coverage.pg
           coverage report --fail-under=75 --include="app/*"
+
+  # ---------------------------------------------------------------------------
+  # Job 4: статический анализ кода + аудит зависимостей
+  # Параллельно с test/test-pg — не увеличивает wall-clock время CI.
+  # ruff/mypy уже в requirements.txt; pip-audit ставится отдельно.
+  # ---------------------------------------------------------------------------
+  quality:
+    name: Code quality (ruff + mypy + pip-audit)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.6.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Ruff lint
+        run: ruff check app tests
+
+      - name: Ruff format check
+        run: ruff format --check app tests
+
+      - name: Mypy type check
+        run: mypy app
+
+      - name: Audit Python dependencies
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt
