@@ -73,12 +73,28 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json-summary'],
-      // Покрытие для целевых файлов пагинации и стора статей
+      // Бизнес-логика фронтенда: только файлы, для которых есть тесты.
+      // Исключены: components/ui/ (vendor-код), components/charts/ (проброс в Tremor),
+      // main.tsx (точка входа), api/auth|client|stats|users (нет тестов).
       include: [
+        'src/api/articles.ts',
+        // App.tsx исключён: v8 показывает 0% из-за vi.mock в App.integration.test.tsx —
+        // инструментирование не работает через замоканные Lazy-роуты (ложный 0%).
+        'src/components/articles/ArticleFilters.tsx',
+        'src/components/articles/ArticleList.tsx',
         'src/components/articles/PaginationBar.tsx',
+        'src/components/articles/ScopusPaginationBar.tsx',
         'src/hooks/usePagination.ts',
+        'src/pages/ForgotPasswordPage.tsx',
+        'src/pages/HomePage.tsx',
+        'src/pages/ResetPasswordPage.tsx',
         'src/stores/articleStore.ts',
+        'src/stores/authStore.ts',
+        'src/stores/historyStore.ts',
       ],
+      thresholds: {
+        statements: 70,
+      },
     },
   },
 })

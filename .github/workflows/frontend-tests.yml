@@ -154,13 +154,10 @@ jobs:
             src/components/articles/pagination.integration.test.tsx \
             src/App.integration.test.tsx
 
-      # Покрытие — отдельный шаг, чтобы не прерывать run при threshold-failures
-      - name: Collect coverage for pagination modules
-        run: |
-          npx vitest run \
-            --coverage \
-            src/components/articles/pagination.integration.test.tsx \
-            src/App.integration.test.tsx
+      # Покрытие — все 179 тестов (unit + integration) против расширенного include.
+      # Порог statements=70 задан в vite.config.ts coverage.thresholds — упадёт здесь.
+      - name: Collect coverage (all tests)
+        run: npx vitest run --coverage
 
       # Публикуем coverage summary в GitHub Actions Job Summary
       - name: Post coverage summary
