@@ -2222,6 +2222,45 @@ async def test_history_route_does_not_match_article_id(pg_client: AsyncClient, p
     """'history' и 'find' не матчатся как int-сегмент /{article_id} → не 422."""
 
 ============================================================
+FILE: tests/integration/test_seeder_endpoint.py
+============================================================
+from datetime import date
+import pytest
+from httpx import AsyncClient
+import app.routers.seeder_router as seeder_module
+from app.infrastructure.scopus_client import ScopusHTTPClient
+from app.models.article import Article
+from app.services.catalog_service import CatalogService
+_TEST_SECRET = 'test_seeder_secret_ci'
+
+def _mk_article(n: int) -> Article:
+    pass
+
+@pytest.mark.asyncio
+async def test_seed_wrong_secret_returns_403(client: AsyncClient, monkeypatch):
+    pass
+
+@pytest.mark.asyncio
+async def test_seed_empty_scopus_returns_saved_zero(client: AsyncClient, monkeypatch):
+    pass
+
+@pytest.mark.asyncio
+async def test_seed_start_default_zero_in_response(client: AsyncClient, monkeypatch):
+    """start не передан → ответ содержит start=0."""
+
+@pytest.mark.asyncio
+async def test_seed_start_param_reflected_in_response(client: AsyncClient, monkeypatch):
+    """start=25 → ответ содержит start=25."""
+
+@pytest.mark.asyncio
+async def test_seed_start_forwarded_to_scopus_client(client: AsyncClient, monkeypatch):
+    """start=75 → ScopusHTTPClient.search получает start=75."""
+
+@pytest.mark.asyncio
+async def test_seed_with_articles_returns_correct_saved_count(client: AsyncClient, monkeypatch):
+    """Scopus возвращает 3 статьи → ответ содержит saved=3."""
+
+============================================================
 FILE: tests/integration/test_users_api.py
 ============================================================
 import pytest
@@ -2542,6 +2581,17 @@ class TestBuildQuery:
     def test_all_filters_combined_base_clause_is_first(self):
         pass
 
+def _make_empty_scopus_response():
+    pass
+
+@pytest.mark.asyncio
+async def test_search_default_start_is_zero(monkeypatch):
+    """start=0 по умолчанию передаётся в Scopus API params."""
+
+@pytest.mark.asyncio
+async def test_search_passes_start_offset_to_scopus(monkeypatch):
+    """Явный start=50 пробрасывается в Scopus API params без изменений."""
+
 ============================================================
 FILE: tests/unit/test_search_history_repository.py
 ============================================================
@@ -2742,6 +2792,23 @@ async def test_find_and_save_search_exception_skips_all_db_ops():
 @pytest.mark.asyncio
 async def test_find_and_save_upsert_exception_skips_history_and_results():
     """Если upsert_many упал — история и search_results не пишутся, commit не вызван."""
+
+============================================================
+FILE: tests/unit/test_seeder_router.py
+============================================================
+import pytest
+from fastapi import HTTPException
+import app.routers.seeder_router as seeder_module
+from app.routers.seeder_router import _check_secret
+
+def test_check_secret_correct_passes(monkeypatch):
+    """Верный секрет не бросает исключение."""
+
+def test_check_secret_wrong_secret_raises_403(monkeypatch):
+    """Неверный секрет → HTTPException 403."""
+
+def test_check_secret_empty_env_always_rejects(monkeypatch):
+    """_SEEDER_SECRET='' (не задан в окружении) → отклоняет любой заголовок."""
 
 ============================================================
 FILE: tests/unit/test_user_service.py
