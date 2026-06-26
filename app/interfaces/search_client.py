@@ -38,9 +38,11 @@ class ISearchClient(ABC):
         keyword: str,
         count: int = 25,
         filters: dict | None = None,  # Параметры серверной фильтрации от клиента
+        start: int = 0,               # Offset для пагинации (Scopus free: max 5000)
     ) -> List[Article]:
         # Выполняет поиск по ключевому слову и возвращает список ORM-объектов Article.
-        # count — макс. кол-во результатов (по бесплатному лимиту Scopus API Key — 25).
+        # count — макс. кол-во результатов (Scopus free API cap: 25).
+        # start — offset пагинации; Scopus free допускает до start=4975 (5000 результатов).
         # filters — опциональный словарь с ключами: year_from, year_to,
         #           document_types (list[str]), open_access (bool), countries (list[str])
         pass

@@ -403,8 +403,8 @@ from datetime import date
 from typing import List, Optional
 import httpx
 from app.config import settings
-from app.models.article import Article
 from app.interfaces.search_client import ISearchClient
+from app.models.article import Article
 SCOPUS_BASE_URL = 'https://api.elsevier.com/content/search/scopus'
 SCOPUS_FIELDS = 'dc:title,prism:publicationName,dc:creator,prism:coverDate,prism:doi,citedby-count,subtypeDescription,openaccess,affiliation'
 DOCTYPE_MAP: dict[str, str] = {'Article': 'ar', 'Review': 're', 'Conference Paper': 'cp', 'Book Chapter': 'ch', 'Editorial': 'ed', 'Letter': 'le', 'Note': 'no', 'Short Survey': 'sh'}
@@ -429,7 +429,7 @@ class ScopusHTTPClient(ISearchClient):
     def build_query(self, keyword: str, filters: dict | None=None) -> str:
         pass
 
-    async def search(self, keyword: str, count: int=25, filters: dict | None=None) -> List[Article]:
+    async def search(self, keyword: str, count: int=25, filters: dict | None=None, start: int=0) -> List[Article]:
         pass
 
 ============================================================
@@ -535,7 +535,7 @@ class ISearchClient(ABC):
         pass
 
     @abstractmethod
-    async def search(self, keyword: str, count: int=25, filters: dict | None=None) -> List[Article]:
+    async def search(self, keyword: str, count: int=25, filters: dict | None=None, start: int=0) -> List[Article]:
         pass
 
 ============================================================
@@ -994,8 +994,8 @@ async def health_db(session: AsyncSession=Depends(get_db_session)) -> dict[str, 
 FILE: app/routers/seeder_router.py
 ============================================================
 import os
-from fastapi import APIRouter, Depends, Header, HTTPException, status
 import httpx
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_db_session
 from app.infrastructure.postgres_article_repo import PostgresArticleRepository
@@ -1009,7 +1009,7 @@ def _check_secret(x_seeder_secret: str=Header(...)):
     pass
 
 @router.post('/seed', dependencies=[Depends(_check_secret)])
-async def seed_keyword(keyword: str, count: int=25, session: AsyncSession=Depends(get_db_session)):
+async def seed_keyword(keyword: str, count: int=25, start: int=0, session: AsyncSession=Depends(get_db_session)):
     pass
 
 ============================================================
