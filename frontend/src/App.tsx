@@ -72,13 +72,14 @@ function RootLayout() {
 // Ленивые страницы — объявляются после lazyPage (нет зависимости от hoisting)
 // ---------------------------------------------------------------------------
 
-const HomePage      = lazyPage(() => import('./pages/HomePage'));
-const ExplorePage   = lazyPage(() => import('./pages/ExplorePage'));
-const AuthPage      = lazyPage(() => import('./pages/AuthPage'));
-const OAuthCallback = lazyPage(() => import('./pages/OAuthCallback'));
-const ProfilePage   = lazyPage(() => import('./pages/ProfilePage'));
-// Страница деталей статьи — публичная, не требует авторизации
-const ArticlePage   = lazyPage(() => import('./pages/ArticlePage'));
+const HomePage            = lazyPage(() => import('./pages/HomePage'));
+const ExplorePage         = lazyPage(() => import('./pages/ExplorePage'));
+const AuthPage            = lazyPage(() => import('./pages/AuthPage'));
+const OAuthCallback       = lazyPage(() => import('./pages/OAuthCallback'));
+const ProfilePage         = lazyPage(() => import('./pages/ProfilePage'));
+const ArticlePage         = lazyPage(() => import('./pages/ArticlePage'));
+const ForgotPasswordPage  = lazyPage(() => import('./pages/ForgotPasswordPage'));
+const ResetPasswordPage   = lazyPage(() => import('./pages/ResetPasswordPage'));
 
 // ---------------------------------------------------------------------------
 // Маршруты по §3 ТЗ
@@ -91,10 +92,11 @@ const router = createBrowserRouter([
     children: [
       { index: true,           element: HomePage },
       { path: 'explore',       element: ExplorePage },
-      { path: 'auth',          element: AuthPage },
-      { path: 'auth/callback', element: OAuthCallback },
-      // Страница статьи — публичная, доступна без авторизации
-      { path: 'article/:id',   element: ArticlePage },
+      { path: 'auth',             element: AuthPage },
+      { path: 'auth/callback',   element: OAuthCallback },
+      { path: 'article/:id',     element: ArticlePage },
+      { path: 'forgot-password', element: ForgotPasswordPage },
+      { path: 'reset-password',  element: ResetPasswordPage },
       {
         // Защищенные маршруты через PrivateRoute
         element: <PrivateRoute />,
