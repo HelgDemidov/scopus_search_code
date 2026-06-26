@@ -30,44 +30,38 @@ def _get_secrets() -> tuple[str, str]:
     )
 
 
-async def _fetch_used_keywords(db_url: str) -> tuple[list[str], dict[str, str]]:
-    # statement_cache_size=0 — обязательно для Supabase Session Pooler (PgBouncer transaction mode)
+async def _open_db(db_url: str):
+    """Открывает одно asyncpg-соединение для всего прогона.
+
+    statement_cache_size=0 обязателен для Supabase Session Pooler (PgBouncer transaction mode).
+    """
     import asyncpg
-    conn = await asyncpg.connect(
+    return await asyncpg.connect(
         db_url.replace("postgresql+asyncpg://", "postgresql://"),
         statement_cache_size=0,
     )
-    try:
-        rows = await conn.fetch("SELECT keyword, cluster FROM seeder_keywords ORDER BY used_at ASC")
-        keywords = [row["keyword"] for row in rows]
-        cluster_map = {row["keyword"]: row["cluster"] for row in rows}
-        return keywords, cluster_map
-    finally:
-        await conn.close()
+
+
+async def _fetch_used_keywords(conn) -> tuple[list[str], dict[str, str]]:
+    rows = await conn.fetch("SELECT keyword, cluster FROM seeder_keywords ORDER BY used_at ASC")
+    keywords = [row["keyword"] for row in rows]
+    cluster_map = {row["keyword"]: row["cluster"] for row in rows}
+    return keywords, cluster_map
 
 
 async def _save_keyword_result(
-    db_url: str, keyword: str, cluster: str, articles_found: int
+    conn, keyword: str, cluster: str, articles_found: int
 ) -> None:
-    # statement_cache_size=0 — обязательно для Supabase Session Pooler (PgBouncer transaction mode)
-    import asyncpg
-    conn = await asyncpg.connect(
-        db_url.replace("postgresql+asyncpg://", "postgresql://"),
-        statement_cache_size=0,
+    await conn.execute(
+        """
+        INSERT INTO seeder_keywords (keyword, cluster, articles_found, used_at)
+        VALUES ($1, $2, $3, now())
+        ON CONFLICT (keyword) DO UPDATE
+            SET articles_found = seeder_keywords.articles_found + EXCLUDED.articles_found,
+                used_at        = now()
+        """,
+        keyword, cluster, articles_found,
     )
-    try:
-        await conn.execute(
-            """
-            INSERT INTO seeder_keywords (keyword, cluster, articles_found, used_at)
-            VALUES ($1, $2, $3, now())
-            ON CONFLICT (keyword) DO UPDATE
-                SET articles_found = EXCLUDED.articles_found,
-                    used_at        = now()
-            """,
-            keyword, cluster, articles_found,
-        )
-    finally:
-        await conn.close()
 
 
 async def seed_database() -> None:
@@ -78,83 +72,86 @@ async def seed_database() -> None:
     db_url, seeder_secret = _get_secrets()
     openrouter_key = os.environ["OPENROUTER_API_KEY"]
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    # Одно соединение на весь прогон — закрывается в finally
+    conn = await _open_db(db_url)
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
 
-        # Заголовки для вызова POST /seeder/seed — статичный секрет вместо JWT
-        # Секрет не истекает, блок повторного логина не нужен
-        headers = {
-            "X-Seeder-Secret": seeder_secret,
-            "Accept": "application/json",
-        }
+            # Заголовки для вызова POST /seeder/seed — статичный секрет вместо JWT
+            headers = {
+                "X-Seeder-Secret": seeder_secret,
+                "Accept": "application/json",
+            }
 
-        # Шаг 1: кластер определяем ДО загрузки истории — нужен для фильтрации used_keywords
-        cluster = get_todays_cluster()
-        print(f"Кластер этого запуска: {Fore.YELLOW}{cluster}{Style.RESET_ALL}")
+            # Шаг 1: кластер определяем ДО загрузки истории — нужен для фильтрации used_keywords
+            cluster = get_todays_cluster()
+            print(f"Кластер этого запуска: {Fore.YELLOW}{cluster}{Style.RESET_ALL}")
 
-        # Шаг 2: загрузка истории использованных фраз из Supabase
-        print(f"{Fore.CYAN}Читаем историю из Supabase...")
-        all_keywords, cluster_map = await _fetch_used_keywords(db_url)
-        print(f"Сохранено фраз в базе (все кластеры): {len(all_keywords)}")
+            # Шаг 2: загрузка истории использованных фраз из Supabase
+            print(f"{Fore.CYAN}Читаем историю из Supabase...")
+            all_keywords, cluster_map = await _fetch_used_keywords(conn)
+            print(f"Сохранено фраз в базе (все кластеры): {len(all_keywords)}")
 
-        # Фильтруем: передаём в генератор только фразы активного кластера
-        # Это кардинально снижает постфактумный отсев в generate_keywords
-        cluster_keywords = [kw for kw, cl in cluster_map.items() if cl == cluster]
-        print(f"Фраз активного кластера '{cluster}': {len(cluster_keywords)}\n")
+            # Фильтруем: передаём в генератор только фразы активного кластера
+            cluster_keywords = [kw for kw, cl in cluster_map.items() if cl == cluster]
+            print(f"Фраз активного кластера '{cluster}': {len(cluster_keywords)}\n")
 
-        # Шаг 3: генерация фраз через OpenRouter — передаём кластер явно
-        print(f"{Fore.CYAN}Генерируем ключевые фразы через OpenRouter...")
-        all_new_keywords = await generate_keywords(
-            cluster_keywords=cluster_keywords,
-            api_key=openrouter_key,
-            cluster=cluster,
-        )
-        keywords = all_new_keywords[:KEYWORDS_TO_USE]
-        print(f"Уникальных новых фраз получено: {len(keywords)}\n")
-
-        for i, keyword in enumerate(keywords, 1):
-            print(
-                f"[{i}/{len(keywords)}] {Fore.YELLOW}'{keyword}'{Style.RESET_ALL}...",
-                end=" "
+            # Шаг 3: генерация фраз через OpenRouter — передаём кластер явно
+            print(f"{Fore.CYAN}Генерируем ключевые фразы через OpenRouter...")
+            all_new_keywords = await generate_keywords(
+                cluster_keywords=cluster_keywords,
+                api_key=openrouter_key,
+                cluster=cluster,
             )
+            keywords = all_new_keywords[:KEYWORDS_TO_USE]
+            print(f"Уникальных новых фраз получено: {len(keywords)}\n")
 
-            try:
-                # POST /seeder/seed: Scopus-запрос и сохранение в catalog_articles
-                # выполняются атомарно внутри приложения через CatalogService.seed()
-                response = await client.post(
-                    f"{BASE_URL}/seeder/seed",
-                    headers=headers,
-                    params={"keyword": keyword, "count": ARTICLES_PER_QUERY},
+            for i, keyword in enumerate(keywords, 1):
+                print(
+                    f"[{i}/{len(keywords)}] {Fore.YELLOW}'{keyword}'{Style.RESET_ALL}...",
+                    end=" "
                 )
 
-                if response.status_code != 200:
-                    print(f"{Fore.RED}Ошибка {response.status_code}: {response.text[:100]}")
-                    continue
-
-                # Ответ: {"keyword": "...", "saved": N, "rate_remaining": "..."}
-                data = response.json()
-                articles_found = data.get("saved", 0)
-                print(f"{Fore.GREEN}Сохранено в каталог: {articles_found} шт.")
-
-                # rate_remaining теперь приходит в теле ответа (пробрасывается из ScopusHTTPClient)
-                rate_remaining = data.get("rate_remaining")
-                if rate_remaining is not None and int(rate_remaining) < RATE_LIMIT_STOP_THRESHOLD:
-                    print(
-                        f"\n{Fore.RED}Алерт! Остаток лимита Scopus: {rate_remaining} запросов. "
-                        f"Останавливаемся."
+                try:
+                    # POST /seeder/seed: Scopus-запрос и сохранение в catalog_articles
+                    # выполняются атомарно внутри приложения через CatalogService.seed()
+                    response = await client.post(
+                        f"{BASE_URL}/seeder/seed",
+                        headers=headers,
+                        params={"keyword": keyword, "count": ARTICLES_PER_QUERY},
                     )
-                    await _save_keyword_result(db_url, keyword, cluster, articles_found)
-                    break
 
-                # Записываем результат запроса в seeder_keywords (INSERT OR UPDATE через ON CONFLICT)
-                await _save_keyword_result(db_url, keyword, cluster, articles_found)
+                    if response.status_code != 200:
+                        print(f"{Fore.RED}Ошибка {response.status_code}: {response.text[:100]}")
+                        continue
 
-            except httpx.RequestError as e:
-                print(f"{Fore.RED}Сетевая ошибка: {e}")
-            except Exception as e:
-                print(f"{Fore.RED}Непредвиденная ошибка: {e}")
+                    # Ответ: {"keyword": "...", "saved": N, "rate_remaining": "..."}
+                    data = response.json()
+                    articles_found = data.get("saved", 0)
+                    print(f"{Fore.GREEN}Сохранено в каталог: {articles_found} шт.")
 
-            # Обязательная пауза — защита Railway и Scopus от перегрузки
-            await asyncio.sleep(DELAY_BETWEEN_REQUESTS)
+                    # rate_remaining приходит в теле ответа (пробрасывается из ScopusHTTPClient)
+                    rate_remaining = data.get("rate_remaining")
+                    if rate_remaining is not None and int(rate_remaining) < RATE_LIMIT_STOP_THRESHOLD:
+                        print(
+                            f"\n{Fore.RED}Алерт! Остаток лимита Scopus: {rate_remaining} запросов. "
+                            f"Останавливаемся."
+                        )
+                        await _save_keyword_result(conn, keyword, cluster, articles_found)
+                        break
+
+                    await _save_keyword_result(conn, keyword, cluster, articles_found)
+
+                except httpx.RequestError as e:
+                    print(f"{Fore.RED}Сетевая ошибка: {e}")
+                except Exception as e:
+                    print(f"{Fore.RED}Непредвиденная ошибка: {e}")
+
+                # Обязательная пауза — защита Railway и Scopus от перегрузки
+                await asyncio.sleep(DELAY_BETWEEN_REQUESTS)
+
+    finally:
+        await conn.close()
 
     print(f"\n{Fore.CYAN}===== Сидер завершен =====")
 

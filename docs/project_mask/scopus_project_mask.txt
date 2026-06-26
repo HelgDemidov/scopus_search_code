@@ -1350,15 +1350,12 @@ import httpx
 CLUSTERS = ['Large Language Models', 'Generative Adversarial Networks', 'Neuromorphic Computing', 'AI Hardware Accelerators', 'AutoML and Self-Improving Systems', 'Reinforcement Learning and Decision Systems']
 OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 MODEL = 'mistralai/mistral-small-3.2-24b-instruct'
-_EXCLUSION_WINDOW = 200
 
 def get_todays_cluster() -> str:
     """Детерминированная per-run ротация кластера.
 
-Каждые ~4 часа UTC выбирается новый кластер из 5.
-При расписании cron 0 */4 * * * (6 запусков в сутки) это даёт
-равномерное распределение нагрузки: каждый кластер получает
-1–2 запуска в сутки вместо 6 подряд на один кластер."""
+Каждые 2 часа UTC выбирается новый кластер (cron 0 */2 * * *, 12 запусков в сутки).
+Формула даёт ровно 2 запуска на каждый из 6 кластеров в сутки."""
 
 def _build_prompt(cluster: str, used_keywords: list[str]) -> str:
     pass
@@ -1388,10 +1385,15 @@ KEYWORDS_TO_USE = 120
 def _get_secrets() -> tuple[str, str]:
     pass
 
-async def _fetch_used_keywords(db_url: str) -> tuple[list[str], dict[str, str]]:
+async def _open_db(db_url: str):
+    """Открывает одно asyncpg-соединение для всего прогона.
+
+statement_cache_size=0 обязателен для Supabase Session Pooler (PgBouncer transaction mode)."""
+
+async def _fetch_used_keywords(conn) -> tuple[list[str], dict[str, str]]:
     pass
 
-async def _save_keyword_result(db_url: str, keyword: str, cluster: str, articles_found: int) -> None:
+async def _save_keyword_result(conn, keyword: str, cluster: str, articles_found: int) -> None:
     pass
 
 async def seed_database() -> None:
