@@ -16,7 +16,7 @@ class SearchHistoryItemResponse(BaseModel):
     # Итоговый CQL-запрос, отправленный в Scopus API; None для старых записей
     scopus_query: str | None = None
 
-    @computed_field                          # вычисляется автоматически при сериализации
+    @computed_field  # type: ignore[prop-decorator]  # mypy не поддерживает декораторы поверх @property
     @property
     def results_available(self) -> bool:
         return self.result_count > 0         # точно по ТЗ раздел 6

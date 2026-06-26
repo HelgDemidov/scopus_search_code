@@ -757,6 +757,7 @@ FILE: app/models/search_history.py
 ============================================================
 import json
 import datetime
+from typing import Any
 from sqlalchemy import DateTime, ForeignKey, Index, Integer, Text
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy.orm import Mapped, mapped_column
@@ -768,13 +769,13 @@ class JsonField(TypeDecorator):
     impl = Text
     cache_ok = True
 
-    def load_dialect_impl(self, dialect):
+    def load_dialect_impl(self, dialect: Any) -> Any:
         pass
 
-    def process_bind_param(self, value, dialect):
+    def process_bind_param(self, value: Any, dialect: Any) -> Any:
         pass
 
-    def process_result_value(self, value, dialect):
+    def process_result_value(self, value: Any, dialect: Any) -> Any:
         pass
 
 class SearchHistory(Base):

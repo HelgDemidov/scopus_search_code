@@ -1,6 +1,7 @@
 # app/models/search_history.py
 import json
 import datetime
+from typing import Any
 
 from sqlalchemy import DateTime, ForeignKey, Index, Integer, Text
 from sqlalchemy.types import TypeDecorator
@@ -15,14 +16,14 @@ class JsonField(TypeDecorator):
     impl = Text
     cache_ok = True
 
-    def load_dialect_impl(self, dialect):
+    def load_dialect_impl(self, dialect: Any) -> Any:
         # Возвращаем нативный JSONB для PG и TEXT для всех остальных диалектов
         if dialect.name == "postgresql":
             from sqlalchemy.dialects.postgresql import JSONB
             return dialect.type_descriptor(JSONB())
         return dialect.type_descriptor(Text())
 
-    def process_bind_param(self, value, dialect):
+    def process_bind_param(self, value: Any, dialect: Any) -> Any:
         # PG получает dict напрямую — JSONB-драйвер сериализует сам
         if dialect.name == "postgresql":
             return value
@@ -32,7 +33,7 @@ class JsonField(TypeDecorator):
             return value
         return json.dumps(value, ensure_ascii=False)
 
-    def process_result_value(self, value, dialect):
+    def process_result_value(self, value: Any, dialect: Any) -> Any:
         # PG возвращает dict напрямую из JSONB — ничего не делаем
         if dialect.name == "postgresql":
             return value
