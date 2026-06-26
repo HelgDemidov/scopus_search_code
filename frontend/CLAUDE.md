@@ -29,8 +29,18 @@ Charts: @tremor/react 3. Forms: react-hook-form + zod. Toasts: sonner. Icons: lu
 
 ## Tests (co-location pattern: тест рядом с источником)
 Unit: `src/**/*.test.{ts,tsx}` | Integration: `*.integration.test.*`
-Total (main, 2026-06-26): **179** тестов, все зелёные (+10 из auth-refactoring: ForgotPasswordPage.test, ResetPasswordPage.test).
+Total (main, 2026-06-26): **181** тест, все зелёные.
 Vitest patterns (Checkbox mock, fake timers, vi.hoisted) — см. память [[feedback-vitest-testing-patterns]].
+
+### Coverage (2026-06-26)
+`vite.config.ts` → `coverage.include`: 12 файлов бизнес-логики (stores/articleStore|authStore|historyStore,
+hooks/usePagination, pages/HomePage|ForgotPassword|ResetPassword, api/articles,
+components/articles/ArticleFilters|ArticleList|PaginationBar|ScopusPaginationBar).
+Threshold: `statements: 70` (фактическое: **76.54%** statements).
+Исключены: `components/ui/` (vendor-код), `components/charts/` (Tremor passthrough),
+`App.tsx` (v8 показывает 0% через vi.mock в интеграционном тесте — ложный ноль), `main.tsx`.
+CI: шаг `Collect coverage (all tests)` в job `integration` запускает все 181 тест с `--coverage`.
+`frontend/coverage/` добавлен в `.gitignore`.
 
 ## CI: frontend-tests.yml (triggers: push main, paths: frontend/**)
 | Job | Что делает |
