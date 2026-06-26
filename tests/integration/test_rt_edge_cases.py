@@ -11,8 +11,10 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.refresh_token_utils import cleanup_stale_tokens, get_valid_refresh_token, revoke_all_user_tokens
 from app.core.security import hash_password
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
@@ -145,3 +147,101 @@ async def test_logout_idempotent(
         f"Повторный logout должен быть идемпотентным, получили: {second_resp.status_code}"
     )
     assert second_resp.json() == {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Прямые тесты функций refresh_token_utils (SQLite, без HTTP-слоя)
+# ---------------------------------------------------------------------------
+
+
+async def _create_user(session: AsyncSession, email: str = "rt_direct@example.com") -> User:
+    user = User(username="rt_direct_user", email=email, hashed_password="fakehash")
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+    return user
+
+
+@pytest.mark.asyncio
+async def test_revoke_all_user_tokens_marks_all_revoked(db_session: AsyncSession) -> None:
+    """revoke_all_user_tokens переводит все активные RT пользователя в revoked=True."""
+    user = await _create_user(db_session)
+    user_id = user.id  # plain int — не зависит от ORM-состояния после expire_all
+
+    rt1 = RefreshToken(
+        token="active-rt-aaa111",
+        user_id=user_id,
+        expires_at=datetime.now(timezone.utc) + timedelta(days=10),
+        revoked=False,
+    )
+    rt2 = RefreshToken(
+        token="active-rt-bbb222",
+        user_id=user_id,
+        expires_at=datetime.now(timezone.utc) + timedelta(days=10),
+        revoked=False,
+    )
+    db_session.add_all([rt1, rt2])
+    await db_session.commit()
+
+    await revoke_all_user_tokens(user_id=user_id, session=db_session)
+
+    db_session.expire_all()
+    result = await db_session.execute(select(RefreshToken).where(RefreshToken.user_id == user_id))
+    tokens = result.scalars().all()
+    assert len(tokens) == 2
+    assert all(t.revoked for t in tokens)
+
+
+@pytest.mark.asyncio
+async def test_cleanup_stale_tokens_removes_stale_keeps_valid(db_session: AsyncSession) -> None:
+    """cleanup_stale_tokens удаляет истёкшие и отозванные RT, оставляет действующий."""
+    user = await _create_user(db_session)
+    user_id = user.id  # plain int — не зависит от ORM-состояния после expire_all
+
+    stale_revoked = RefreshToken(
+        token="stale-rev-ccc333",
+        user_id=user_id,
+        expires_at=datetime.now(timezone.utc) + timedelta(days=5),
+        revoked=True,
+    )
+    stale_expired = RefreshToken(
+        token="stale-exp-ddd444",
+        user_id=user_id,
+        expires_at=datetime.now(timezone.utc) - timedelta(days=1),
+        revoked=False,
+    )
+    valid = RefreshToken(
+        token="valid-rt-eee555",
+        user_id=user_id,
+        expires_at=datetime.now(timezone.utc) + timedelta(days=10),
+        revoked=False,
+    )
+    db_session.add_all([stale_revoked, stale_expired, valid])
+    await db_session.commit()
+
+    await cleanup_stale_tokens(user_id=user_id, session=db_session)
+
+    db_session.expire_all()
+    result = await db_session.execute(select(RefreshToken).where(RefreshToken.user_id == user_id))
+    remaining = result.scalars().all()
+    assert len(remaining) == 1
+    assert remaining[0].token == "valid-rt-eee555"
+
+
+@pytest.mark.asyncio
+async def test_get_valid_refresh_token_expired_returns_none(db_session: AsyncSession) -> None:
+    """get_valid_refresh_token возвращает None для просроченного токена."""
+    user = await _create_user(db_session)
+    user_id = user.id
+
+    expired_rt = RefreshToken(
+        token="expired-direct-fff666",
+        user_id=user_id,
+        expires_at=datetime.now(timezone.utc) - timedelta(days=1),
+        revoked=False,
+    )
+    db_session.add(expired_rt)
+    await db_session.commit()
+
+    result = await get_valid_refresh_token("expired-direct-fff666", db_session)
+    assert result is None

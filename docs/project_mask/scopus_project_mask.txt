@@ -2164,7 +2164,9 @@ FILE: tests/integration/test_rt_edge_cases.py
 from datetime import datetime, timedelta, timezone
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.refresh_token_utils import cleanup_stale_tokens, get_valid_refresh_token, revoke_all_user_tokens
 from app.core.security import hash_password
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
@@ -2187,6 +2189,21 @@ async def test_refresh_with_expired_token(client: AsyncClient, db_session: Async
 @pytest.mark.asyncio
 async def test_logout_idempotent(client: AsyncClient, logged_in: dict) -> None:
     """Двойной вызов POST /auth/logout не должен вызывать ошибку — оба раза 200."""
+
+async def _create_user(session: AsyncSession, email: str='rt_direct@example.com') -> User:
+    pass
+
+@pytest.mark.asyncio
+async def test_revoke_all_user_tokens_marks_all_revoked(db_session: AsyncSession) -> None:
+    """revoke_all_user_tokens переводит все активные RT пользователя в revoked=True."""
+
+@pytest.mark.asyncio
+async def test_cleanup_stale_tokens_removes_stale_keeps_valid(db_session: AsyncSession) -> None:
+    """cleanup_stale_tokens удаляет истёкшие и отозванные RT, оставляет действующий."""
+
+@pytest.mark.asyncio
+async def test_get_valid_refresh_token_expired_returns_none(db_session: AsyncSession) -> None:
+    """get_valid_refresh_token возвращает None для просроченного токена."""
 
 ============================================================
 FILE: tests/integration/test_search_history_api.py
@@ -2317,6 +2334,7 @@ FILE: tests/integration/test_users_api.py
 ============================================================
 import pytest
 from httpx import AsyncClient
+from app.core.security import create_access_token
 
 @pytest.mark.asyncio
 async def test_register_user_integration(async_client: AsyncClient):
@@ -2328,6 +2346,22 @@ async def test_register_duplicate_email_integration(async_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_login_integration(async_client: AsyncClient):
+    pass
+
+@pytest.mark.asyncio
+async def test_get_me_success(async_client: AsyncClient, logged_in: dict):
+    pass
+
+@pytest.mark.asyncio
+async def test_get_me_invalid_token(async_client: AsyncClient):
+    pass
+
+@pytest.mark.asyncio
+async def test_get_me_user_not_found(async_client: AsyncClient):
+    pass
+
+@pytest.mark.asyncio
+async def test_login_wrong_credentials(async_client: AsyncClient):
     pass
 
 ============================================================
@@ -2894,4 +2928,24 @@ async def test_register_user_success(user_service: UserService):
 
 @pytest.mark.asyncio
 async def test_register_user_duplicate_email(user_service: UserService):
+    pass
+
+@pytest.mark.asyncio
+async def test_login_unknown_email_raises(user_service: UserService):
+    pass
+
+@pytest.mark.asyncio
+async def test_get_current_user_returns_user(user_service: UserService):
+    pass
+
+@pytest.mark.asyncio
+async def test_get_current_user_unknown_returns_none(user_service: UserService):
+    pass
+
+@pytest.mark.asyncio
+async def test_get_or_create_by_google_new_user(user_service: UserService):
+    pass
+
+@pytest.mark.asyncio
+async def test_get_or_create_by_google_existing_user(user_service: UserService):
     pass

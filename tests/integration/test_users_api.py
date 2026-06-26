@@ -1,6 +1,8 @@
 import pytest
 from httpx import AsyncClient
 
+from app.core.security import create_access_token
+
 
 # 1. Тест успешной регистрации пользователя
 @pytest.mark.asyncio
@@ -76,3 +78,55 @@ async def test_login_integration(async_client: AsyncClient):
     assert data["token_type"] == "bearer"
     # Убеждаемся, что токен не пустой
     assert len(data["access_token"]) > 20
+
+
+# 4. GET /me: успешный запрос с валидным AT → 200 + данные пользователя
+@pytest.mark.asyncio
+async def test_get_me_success(async_client: AsyncClient, logged_in: dict):
+    resp = await async_client.get(
+        "/users/me",
+        headers={"Authorization": f"Bearer {logged_in['access_token']}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["email"] == "test@example.com"
+    assert "id" in data
+    assert "hashed_password" not in data
+
+
+# 5. GET /me: невалидный JWT → 401
+@pytest.mark.asyncio
+async def test_get_me_invalid_token(async_client: AsyncClient):
+    resp = await async_client.get(
+        "/users/me",
+        headers={"Authorization": "Bearer not.a.valid.jwt"},
+    )
+    assert resp.status_code == 401
+
+
+# 6. GET /me: валидный JWT, но пользователь не найден в БД → 404
+@pytest.mark.asyncio
+async def test_get_me_user_not_found(async_client: AsyncClient):
+    token = create_access_token(subject="ghost@example.com")
+    resp = await async_client.get(
+        "/users/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 404
+
+
+# 7. POST /users/login: неверный пароль → 401
+@pytest.mark.asyncio
+async def test_login_wrong_credentials(async_client: AsyncClient):
+    reg_payload = {
+        "username": "wrongpass_user",
+        "email": "wrongpass@example.com",
+        "password": "Str0ngPass!",
+        "password_confirm": "Str0ngPass!",
+    }
+    await async_client.post("/users/register", json=reg_payload)
+    resp = await async_client.post(
+        "/users/login",
+        json={"email": "wrongpass@example.com", "password": "WrongPassword123!"},
+    )
+    assert resp.status_code == 401
