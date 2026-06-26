@@ -18,6 +18,7 @@ Charts: @tremor/react 3. Forms: react-hook-form + zod. Toasts: sonner. Icons: lu
 - `historyStore`  — search history + `historyFilters` (shared фильтры) + `resetFilters()` → `{}`
 - `statsStore`    — catalog stats (by_year, by_country, by_doc_type); загружается в `App.tsx` на старте
 - `authStore` — JWT/user; `quotaStore` — Scopus weekly quota
+- `tokenStore`    — изолированный держатель AT (только in-memory, без зависимостей); разрывает circular dep `client.ts ↔ authStore`
 
 ## Dual-mode filtering (filtering-2, merged 2026-06-25)
 **Catalog**: изменение фильтра → `setPage(1)` + `fetchArticles()` немедленно (год debounce 400 мс).
@@ -28,7 +29,7 @@ Charts: @tremor/react 3. Forms: react-hook-form + zod. Toasts: sonner. Icons: lu
 
 ## Tests (co-location pattern: тест рядом с источником)
 Unit: `src/**/*.test.{ts,tsx}` | Integration: `*.integration.test.*`
-Total (main, 2026-06-25): **169** тестов, все зелёные.
+Total (main, 2026-06-26): **179** тестов, все зелёные (+10 из auth-refactoring: ForgotPasswordPage.test, ResetPasswordPage.test).
 Vitest patterns (Checkbox mock, fake timers, vi.hoisted) — см. память [[feedback-vitest-testing-patterns]].
 
 ## CI: frontend-tests.yml (triggers: push main + feature, paths: frontend/**)
@@ -44,6 +45,12 @@ Node.js: 22. `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` — для actions runner
 ```bash
 npm run test / test:watch / test:coverage / lint / build
 ```
+
+## Auth pages (auth-refactoring, merged 2026-06-26)
+- `ForgotPasswordPage` (`/forgot-password`) — email → `POST /auth/password-reset`; всегда показывает "Check your email" (не раскрывает наличие аккаунта)
+- `ResetPasswordPage` (`/reset-password?token=...`) — `confirmPasswordReset(token, newPassword)` → `POST /auth/password-reset/confirm`; 422 → inline error + ссылка "Request a new link"; success → `toast.success` + navigate `/auth`
+- **`noValidate` на `<form>` — обязателен** когда используется `<input type="email">` с react-hook-form + Zod: без него jsdom's HTML5 validation перехватывает `submit`, Zod-валидатор никогда не вызывается
+- AT больше не в localStorage; `client.ts` читает через `getToken()` из `tokenStore.ts`
 
 ## Build & conventions
 - Tailwind v3 via PostCSS (NOT @tailwindcss/vite — это v4). vendor-charts chunk ~850 kB — ожидаемо.

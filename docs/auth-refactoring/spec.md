@@ -287,17 +287,27 @@ const token = getToken();
 - **Одноразовость:** `used=True` после consume — реплей-атака невозможна
 - **Отзыв сессий:** после смены пароля отзываем ВСЕ RT пользователя через `revoke_all_user_tokens()` (новая функция в `refresh_token_utils.py`)
 - **Ссылка в письме:** `/reset-password?token=xxx` — параметр в query, не в path (не попадает в Access-Log сервера при referrer-leaking)
-- **Rate limiting:** намеренно не реализуем — масштаб проекта не требует; естественный throttle — SMTP rate limit
+- **Rate limiting:** намеренно не реализуем — масштаб проекта не требует; естественный throttle — Brevo free tier 300 emails/day
 - **Timing attacks:** не применимы на HTTP-уровне для данного масштаба
 - **`PasswordInput`** в `ResetPasswordPage.tsx`: дублируем локально (не выносим в shared component — YAGNI)
 
 #### Важные изменения vs первоначальный план
 
-1. Email-провайдер: Resend → **aiosmtplib**
+1. Email-провайдер: Resend → **aiosmtplib** → **Brevo REST API** (post-merge hotfix, см. ниже)
 2. Добавлена функция `revoke_all_user_tokens(user_id)` в `refresh_token_utils.py` (не только `revoke_refresh_token` для одного токена)
-3. Конфиг: `RESEND_API_KEY` → `SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASSWORD / FROM_EMAIL`
+3. Конфиг: `RESEND_API_KEY` → `SMTP_*` → `BREVO_API_KEY / FROM_EMAIL`
 4. `app/schemas/user_schemas.py` → вынести `_password_strength_validator` в отдельную функцию для переиспользования в `PasswordResetConfirmRequest`
 5. Тест: DI-мок `IEmailService` через `app.dependency_overrides`, не `pytest-mock`
+
+#### Post-merge hotfix: aiosmtplib → Brevo REST API (2026-06-26)
+
+**Причина:** Railway (на GCP) блокирует исходящие соединения на порт 587 (SMTP STARTTLS) на сетевом уровне — silent drop, `SMTPConnectTimeoutError` через ~60с. Порт 465 также недоступен. Починить конфигом невозможно — ограничение сети провайдера.
+
+**Решение:** `aiosmtplib` заменён на `httpx` + Brevo REST API (HTTPS port 443 — никогда не блокируется):
+- `SMTPEmailService` → `BrevoEmailService` в `app/infrastructure/email_service.py`
+- SMTP-переменные удалены из `app/config.py` и Railway Variables
+- Добавлен `BREVO_API_KEY: str = ""` в `app/config.py`
+- `aiosmtplib` удалён из `requirements.txt` (httpx уже был там)
 
 ---
 
@@ -333,7 +343,7 @@ from app.models.password_reset_token import PasswordResetToken  # noqa: F401
 
 ### 5b. Backend — email-сервис, утилиты, эндпоинты
 
-**Новая зависимость:** `aiosmtplib` (добавить в `requirements.txt`)
+**Зависимости:** `httpx` (уже был в requirements.txt); `aiosmtplib` — не добавляем (Railway блокирует SMTP).
 
 **Новые файлы:**
 
@@ -346,34 +356,32 @@ class IEmailService(ABC):
     async def send_password_reset_email(self, to_email: str, reset_url: str) -> None: ...
 ```
 
-`app/infrastructure/email_service.py`:
+`app/infrastructure/email_service.py` (финальная версия — Brevo REST API):
 ```python
-import aiosmtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+import httpx
 from app.config import settings
 from app.interfaces.email_service import IEmailService
 
-class SMTPEmailService(IEmailService):
+class BrevoEmailService(IEmailService):
     async def send_password_reset_email(self, to_email: str, reset_url: str) -> None:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = "Scopus Search — password reset"
-        msg["From"] = settings.FROM_EMAIL
-        msg["To"] = to_email
         html = (
-            f"<p>You requested a password reset.</p>"
-            f"<p><a href='{reset_url}'>Reset your password</a> (valid 1 hour).</p>"
-            f"<p>If you didn't request this, ignore this email.</p>"
+            "<p>You requested a password reset for your Scopus Search account.</p>"
+            f"<p><a href='{reset_url}'>Reset your password</a> (link valid for 1 hour).</p>"
+            "<p>If you did not request this, you can safely ignore this email.</p>"
         )
-        msg.attach(MIMEText(html, "html"))
-        await aiosmtplib.send(
-            msg,
-            hostname=settings.SMTP_HOST,
-            port=settings.SMTP_PORT,
-            username=settings.SMTP_USER,
-            password=settings.SMTP_PASSWORD,
-            start_tls=True,
-        )
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                "https://api.brevo.com/v3/smtp/email",
+                headers={"api-key": settings.BREVO_API_KEY, "Content-Type": "application/json"},
+                json={
+                    "sender": {"name": "Scopus Search", "email": settings.FROM_EMAIL},
+                    "to": [{"email": to_email}],
+                    "subject": "Scopus Search — password reset",
+                    "htmlContent": html,
+                },
+                timeout=10.0,
+            )
+            resp.raise_for_status()
 ```
 
 `app/core/password_reset_utils.py`:
@@ -410,11 +418,8 @@ async def revoke_all_user_tokens(user_id: int, session: AsyncSession) -> None:
 
 `app/config.py` — добавить:
 ```python
-SMTP_HOST: str = "smtp.gmail.com"   # или smtp.mailgun.org / smtp.sendgrid.net
-SMTP_PORT: int = 587
-SMTP_USER: str = ""
-SMTP_PASSWORD: str = ""             # Gmail: App Password (не основной пароль)
-FROM_EMAIL: str = ""
+BREVO_API_KEY: str = ""   # Brevo REST API ключ (api.brevo.com)
+FROM_EMAIL: str = ""      # верифицированный sender в Brevo
 ```
 
 `app/routers/auth.py` — 2 новых эндпоинта:
@@ -584,7 +589,7 @@ export async function confirmPasswordReset(token: string, newPassword: string): 
 | **Commit 3** RT cleanup | `core/refresh_token_utils.py` (E), `routers/auth.py` (E) | — | — | `test_rt_cleanup.py` (N) |
 | **Commit 4** localStorage | — | `stores/tokenStore.ts` (N), `stores/authStore.ts` (E), `App.tsx` (E), `api/client.ts` (E) | — | `authStore.test.ts` (U) |
 | **Commit 5a** PW reset model | `models/password_reset_token.py` (N), `alembic/env.py` (E) | — | `0011_...` (N) | — |
-| **Commit 5b** PW reset backend | `interfaces/email_service.py` (N), `infrastructure/email_service.py` (N), `core/password_reset_utils.py` (N), `core/dependencies.py` (E), `routers/auth.py` (E), `routers/users.py` (E), `schemas/user_schemas.py` (E), `config.py` (E) | — | — | `test_password_reset.py` (N) |
+| **Commit 5b** PW reset backend | `interfaces/email_service.py` (N), `infrastructure/email_service.py` (N → BrevoEmailService), `core/password_reset_utils.py` (N), `core/dependencies.py` (E), `routers/auth.py` (E), `routers/users.py` (E), `schemas/user_schemas.py` (E), `config.py` (E) | — | — | `test_password_reset.py` (N) |
 | **Commit 5c** PW reset frontend | — | `ForgotPasswordPage.tsx` (N), `ResetPasswordPage.tsx` (N), `AuthPage.tsx` (E), `App.tsx` (E), `api/auth.ts` (E) | — | `ForgotPasswordPage.test.tsx` (N), `ResetPasswordPage.test.tsx` (N) |
 
 ---
@@ -600,7 +605,7 @@ export async function confirmPasswordReset(token: string, newPassword: string): 
 | 3 — RT cleanup | `e3dbc57` | `cleanup_stale_tokens()` piggyback в `/auth/refresh`; `test_rt_cleanup.py` |
 | 4 — localStorage removal | `61b8f0c` | `tokenStore.ts`; AT только in-memory; XSS-вектор закрыт |
 | 5a — PW reset model | `7b2a37e` | `PasswordResetToken` модель; миграция 0011 |
-| 5b — PW reset backend | `7e3bf9e` | `IEmailService` → `SMTPEmailService` (aiosmtplib); 2 эндпоинта; 9 тестов |
+| 5b — PW reset backend | `7e3bf9e` | `IEmailService` → `BrevoEmailService` (httpx, Brevo REST API); 2 эндпоинта; 9 тестов |
 | 5c — PW reset frontend | `54dca75` | `ForgotPasswordPage`, `ResetPasswordPage`; "Forgot password?" в `AuthPage`; 10 тестов |
 
 ### Метрики (CI на PR #17, merge-коммит)
@@ -613,7 +618,7 @@ export async function confirmPasswordReset(token: string, newPassword: string): 
 ### Инфраструктура
 
 - Миграции 0010 + 0011 применены к **Production** и **Staging** Supabase
-- Railway env vars (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `FROM_EMAIL`) установлены в обоих окружениях
+- Railway env vars (`BREVO_API_KEY`, `FROM_EMAIL`) установлены в обоих окружениях
 - Production и Staging задеплоены из `main` после мерджа PR #17 ✅
 
 ### Ключевые архитектурные решения
@@ -621,5 +626,5 @@ export async function confirmPasswordReset(token: string, newPassword: string): 
 - Persistent-сессии (30-дневный RT) **оставлены намеренно** — продуктовый выбор, не баг
 - Circular dep `client.ts ↔ authStore` разорван через изолированный `tokenStore.ts`
 - RT cleanup — piggyback pattern (без scheduler): достаточно для данного масштаба
-- Email-провайдер — aiosmtplib (не Resend): нативный async, нет vendor lock-in, SMTP меняется через env vars
-- `IEmailService` ABC — тесты переопределяют через `app.dependency_overrides`, SMTP не вызывается в CI
+- Email-провайдер — **Brevo REST API** (httpx, HTTPS): Railway блокирует SMTP порты 587/465 на сетевом уровне; HTTPS port 443 всегда открыт. Смена провайдера — только env vars + класс реализации.
+- `IEmailService` ABC — тесты переопределяют через `app.dependency_overrides`, реальный HTTP не вызывается в CI

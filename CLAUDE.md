@@ -11,7 +11,8 @@ App config: `app/config.py` (Pydantic Settings).
 `app/services/`   — business logic: search, search_history, catalog, article, user
 `app/infrastructure/` — Postgres repos, scopus_client (CQL-builder), database
 `app/routers/`    — FastAPI handlers: articles, auth, users, health, seeder_router
-`app/core/`       — dependencies.py (DI + advisory lock factory), security.py (JWT/hashing), refresh_token_utils.py
+`app/core/`       — dependencies.py (DI + advisory lock factory + `get_email_service`), security.py (JWT/hashing), refresh_token_utils.py, cookie_constants.py, password_reset_utils.py
+`app/interfaces/` — ABCs: article/catalog/search_history/search_result/user repositories + search_client + `email_service.py` (IEmailService)
 `app/models/`     — SQLAlchemy ORM; `app/schemas/` — Pydantic v2; `app/utils/db_utils.py`
 `tests/conftest.py` — shared fixtures (SQLite in-memory); `tests/unit/` mocked; `tests/integration/` SQLite or PG
 `frontend/`       — React SPA; see frontend/CLAUDE.md for details
@@ -35,9 +36,18 @@ Frontend: `cd frontend && npm run test / lint / build`
 - Open Access фильтр: `OPENACCESS(1)` / `NOT OPENACCESS(1)` — **не** `OA(1)` (Scopus API отвергает с 400).
   Проверено прямым запросом к API 2026-06-25. Файл: `app/infrastructure/scopus_client.py`.
 
+## Auth & security (auth-refactoring, merged 2026-06-26)
+- AT хранится **только in-memory** (Zustand + `tokenStore.ts`) — не localStorage; гидрация только через `POST /auth/refresh`
+- Cookie-константы: `app/core/cookie_constants.py` (RT_COOKIE_NAME, RT_COOKIE_MAX_AGE, AT_HANDSHAKE_COOKIE_NAME)
+- RT cleanup piggyback: `cleanup_stale_tokens()` вызывается при каждой ротации в `/auth/refresh`
+- Password reset: `POST /auth/password-reset` + `POST /auth/password-reset/confirm`; токены в таблице `password_reset_tokens` (migration 0011); после confirm — `revoke_all_user_tokens()`
+- Email: `IEmailService` ABC → `BrevoEmailService` (httpx, `api.brevo.com/v3/smtp/email`). **Railway блокирует SMTP порты 587/465 — никогда не использовать aiosmtplib/SMTP на Railway.** Env var: `BREVO_API_KEY` + `FROM_EMAIL`.
+- Alembic head: `0011_create_password_reset_tokens_table`
+
 ## Do NOT
 - Sync SQLAlchemy calls in async routes. Hardcoded secrets. CommonJS in frontend.
 - Bare `except:` — только конкретные типы. Pydantic v1 syntax в FastAPI схемах.
+- SMTP/aiosmtplib на Railway (порт 587 заблокирован). Использовать Brevo REST API (httpx).
 
 ## DB & env-var map (critical)
 Two Supabase instances: production (`btmiovdmasqufufyuokx`) and staging (`gpbymgvkqtiueoyborrw`).
@@ -60,3 +70,4 @@ Advisory lock в DI-фабрике → новые тесты `GET /articles/find
 ## Migration chain note
 `seeder_keywords` NOT в `Base.metadata` (seeder_router не импортирует SeederKeyword) → drop_all её не трогает.
 Migration `f9a3c1e2b7d4`: `ALTER TABLE ... DROP COLUMN IF EXISTS` — идемпотентна на fresh DB.
+Chain: `f9a3c1e2b7d4` → `0010_add_user_id_index_to_refresh_tokens` → `0011_create_password_reset_tokens_table` (head).
