@@ -150,6 +150,8 @@ class ScopusHTTPClient(ISearchClient):
             creator = entry.get("dc:creator")
             cover_date_str = entry.get("prism:coverDate")
             doi = entry.get("prism:doi")
+            if not doi:
+                continue  # статьи без DOI не сохраняем — низкая ценность, экономия места в БД
             document_type = entry.get("subtypeDescription")
 
             # citedby-count приходит как строка, преобразуем в целое число

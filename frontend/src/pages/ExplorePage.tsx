@@ -147,7 +147,7 @@ export default function ExplorePage() {
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           {mode === 'personal'
             ? 'Aggregated statistics from your search queries.'
-            : 'Aggregated statistics for the article collection.'}
+            : 'Aggregated statistics for the article collection (DOI-indexed articles only).'}
         </p>
       </div>
 
