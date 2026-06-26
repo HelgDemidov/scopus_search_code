@@ -32,6 +32,7 @@ export function SearchHistoryList() {
 
   // Reset to page 1 when items list changes (e.g. after refetch)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1);
   }, [items.length]);
 

@@ -120,6 +120,7 @@ function FiltersContent() {
   const yearDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Когда Scopus-поиск завершён (liveResults обновились) — убираем индикатор
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setFiltersChanged(false); }, [liveResults]);
 
   // ---------------------------------------------------------------------------

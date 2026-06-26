@@ -1411,6 +1411,57 @@ if __name__ == '__main__':
     asyncio.run(seed_database())
 
 ============================================================
+FILE: frontend/node_modules/flatted/python/flatted.py
+============================================================
+import json as _json
+
+class _Known:
+
+    def __init__(self):
+        pass
+
+class _String:
+
+    def __init__(self, value):
+        pass
+
+def _array_keys(value):
+    pass
+
+def _object_keys(value):
+    pass
+
+def _is_array(value):
+    pass
+
+def _is_object(value):
+    pass
+
+def _is_string(value):
+    pass
+
+def _index(known, input, value):
+    pass
+
+def _relate(known, input, value):
+    pass
+
+def _resolver(input, lazy, parsed):
+    pass
+
+def _transform(known, input, value):
+    pass
+
+def _wrap(value):
+    pass
+
+def parse(value, *args, **kwargs):
+    pass
+
+def stringify(value, *args, **kwargs):
+    pass
+
+============================================================
 FILE: tests/__init__.py
 ============================================================
 

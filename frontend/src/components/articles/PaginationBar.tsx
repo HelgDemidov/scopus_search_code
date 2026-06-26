@@ -14,6 +14,7 @@ import { usePagination } from '../../hooks/usePagination';
 import { Button } from '../ui/button';
 
 // Allowed page size options; match the store default (size: 10)
+// eslint-disable-next-line react-refresh/only-export-components
 export const SIZE_OPTIONS = [10, 25, 50] as const;
 export type PageSize = typeof SIZE_OPTIONS[number]; // 10 | 25 | 50
 

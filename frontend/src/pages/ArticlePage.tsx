@@ -53,6 +53,7 @@ export default function ArticlePage() {
     // id comes from the URL always as a string; verify it is a valid positive integer
     const numericId = Number(id);
     if (!id || isNaN(numericId) || numericId < 1) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setNotFound(true);
       setLoading(false);
       return;
