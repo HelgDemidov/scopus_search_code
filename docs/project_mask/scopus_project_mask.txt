@@ -7,8 +7,8 @@ FILE: app/__init__.py
 ============================================================
 FILE: app/config.py
 ============================================================
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import PostgresDsn
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8', extra='ignore')
@@ -24,10 +24,7 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: str = ''
     OAUTH_REDIRECT_URI: str = 'http://localhost:8000/auth/google/callback'
     SESSION_SECRET_KEY: str = ''
-    SMTP_HOST: str = 'smtp.gmail.com'
-    SMTP_PORT: int = 587
-    SMTP_USER: str = ''
-    SMTP_PASSWORD: str = ''
+    BREVO_API_KEY: str = ''
     FROM_EMAIL: str = ''
     FRONTEND_URL: str = 'http://localhost:5173'
     ALLOWED_ORIGINS: str = ''
@@ -68,7 +65,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import decode_access_token, oauth2_scheme
 from app.infrastructure.database import async_session_maker
 from app.infrastructure.database import engine as _lock_engine
-from app.infrastructure.email_service import SMTPEmailService
+from app.infrastructure.email_service import BrevoEmailService
 from app.infrastructure.postgres_article_repo import PostgresArticleRepository
 from app.infrastructure.postgres_catalog_repo import PostgresCatalogRepository
 from app.infrastructure.postgres_search_history_repo import PostgresSearchHistoryRepository
@@ -215,13 +212,11 @@ async_session_maker = async_sessionmaker(bind=engine, expire_on_commit=False)
 ============================================================
 FILE: app/infrastructure/email_service.py
 ============================================================
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-import aiosmtplib
+import httpx
 from app.config import settings
 from app.interfaces.email_service import IEmailService
 
-class SMTPEmailService(IEmailService):
+class BrevoEmailService(IEmailService):
 
     async def send_password_reset_email(self, to_email: str, reset_url: str) -> None:
         pass

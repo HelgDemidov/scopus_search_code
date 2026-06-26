@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import decode_access_token, oauth2_scheme
 from app.infrastructure.database import async_session_maker
 from app.infrastructure.database import engine as _lock_engine
-from app.infrastructure.email_service import SMTPEmailService
+from app.infrastructure.email_service import BrevoEmailService
 from app.infrastructure.postgres_article_repo import PostgresArticleRepository
 from app.infrastructure.postgres_catalog_repo import PostgresCatalogRepository
 from app.infrastructure.postgres_search_history_repo import PostgresSearchHistoryRepository
@@ -175,7 +175,7 @@ async def _real_advisory_lock(user_id: int) -> AsyncGenerator[None, None]:
 
 
 def get_email_service() -> IEmailService:
-    return SMTPEmailService()
+    return BrevoEmailService()
 
 
 def get_advisory_lock_factory() -> Callable[[int], Any]:
