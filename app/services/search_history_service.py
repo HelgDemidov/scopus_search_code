@@ -1,5 +1,5 @@
 import datetime
-from datetime import timezone, timedelta
+from datetime import timedelta, timezone
 
 from app.interfaces.search_history_repo import ISearchHistoryRepository
 from app.schemas.search_history_schemas import (

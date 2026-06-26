@@ -18,7 +18,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.article import Article
 from app.models.catalog_article import CatalogArticle
 
-
 # ------------------------------------------------------------------ #
 #  Хелпер: сконструировать Article без сессии                         #
 # ------------------------------------------------------------------ #

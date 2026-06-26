@@ -9,7 +9,6 @@ from app.models.article import Article
 from app.schemas.article_schemas import ArticleResponse
 from app.services.article_service import ArticleService
 
-
 # ================================================================ #
 #  Фейковый репозиторий                                            #
 # ================================================================ #

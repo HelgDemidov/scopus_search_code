@@ -1,12 +1,12 @@
 # app/models/search_history.py
-import json
 import datetime
+import json
 from typing import Any
 
 from sqlalchemy import DateTime, ForeignKey, Index, Integer, Text
-from sqlalchemy.types import TypeDecorator
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
+from sqlalchemy.types import TypeDecorator
 
 from app.models.base import Base
 

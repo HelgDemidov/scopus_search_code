@@ -9,8 +9,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import settings
-from app.routers import articles, users, health
-from app.routers import auth
+from app.routers import articles, auth, health, users
 from app.routers.seeder_router import router as seeder_router
 
 

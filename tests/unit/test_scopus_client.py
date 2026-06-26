@@ -1,5 +1,6 @@
-import pytest
 import httpx
+import pytest
+
 from app.infrastructure.scopus_client import ScopusHTTPClient
 
 

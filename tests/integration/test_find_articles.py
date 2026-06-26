@@ -11,7 +11,7 @@
 test_find_requires_auth: requires_pg не нужен — 401 возвращается до вызова lock.
 """
 import datetime
-from datetime import date, timezone, timedelta
+from datetime import date, timedelta, timezone
 
 import pytest
 from httpx import AsyncClient
@@ -20,7 +20,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.article import Article
 from app.models.search_history import SearchHistory
-
 
 # ---------------------------------------------------------------------------
 # Mock Scopus: возвращает 2 статьи. Подменяем сам метод клиента —

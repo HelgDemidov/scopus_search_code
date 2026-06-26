@@ -1,11 +1,9 @@
 # tests/unit/test_search_service.py
 import datetime
 from datetime import date
-from typing import List
+from typing import List, cast
 
 import pytest
-
-from typing import cast
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.interfaces.article_repository import IArticleRepository
@@ -15,7 +13,6 @@ from app.interfaces.search_result_repo import ISearchResultRepository
 from app.models.article import Article
 from app.models.search_history import SearchHistory
 from app.services.search_service import SearchService
-
 
 # ================================================================ #
 #  Фейковые реализации интерфейсов                                  #

@@ -4,8 +4,8 @@ from typing import List
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.search_history import SearchHistory
 from app.interfaces.search_history_repo import ISearchHistoryRepository
+from app.models.search_history import SearchHistory
 
 
 class PostgresSearchHistoryRepository(ISearchHistoryRepository):

@@ -1,9 +1,10 @@
 import pytest
 from httpx import AsyncClient
-from app.main import app
+
 from app.core.dependencies import get_scopus_client
-from app.services.search_service import SearchService
 from app.interfaces.search_client import ISearchClient
+from app.main import app
+from app.services.search_service import SearchService
 
 
 # FakeScopusClient реализует полный контракт ISearchClient:

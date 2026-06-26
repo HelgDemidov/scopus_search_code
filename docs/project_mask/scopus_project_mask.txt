@@ -229,8 +229,8 @@ import sqlalchemy as sa
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.article import Article
 from app.interfaces.article_repository import IArticleRepository
+from app.models.article import Article
 
 class PostgresArticleRepository(IArticleRepository):
 
@@ -315,8 +315,8 @@ import datetime
 from typing import List
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.search_history import SearchHistory
 from app.interfaces.search_history_repo import ISearchHistoryRepository
+from app.models.search_history import SearchHistory
 
 class PostgresSearchHistoryRepository(ISearchHistoryRepository):
 
@@ -382,8 +382,8 @@ FILE: app/infrastructure/postgres_user_repo.py
 ============================================================
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.user import User
 from app.interfaces.user_repository import IUserRepository
+from app.models.user import User
 
 class PostgresUserRepository(IUserRepository):
 
@@ -628,8 +628,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 from app.config import settings
-from app.routers import articles, users, health
-from app.routers import auth
+from app.routers import articles, auth, health, users
 from app.routers.seeder_router import router as seeder_router
 
 @asynccontextmanager
@@ -755,13 +754,13 @@ class RefreshToken(Base):
 ============================================================
 FILE: app/models/search_history.py
 ============================================================
-import json
 import datetime
+import json
 from typing import Any
 from sqlalchemy import DateTime, ForeignKey, Index, Integer, Text
-from sqlalchemy.types import TypeDecorator
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
+from sqlalchemy.types import TypeDecorator
 from app.models.base import Base
 
 class JsonField(TypeDecorator):
@@ -978,8 +977,8 @@ async def confirm_password_reset(data: PasswordResetConfirmRequest, session: Asy
 FILE: app/routers/health.py
 ============================================================
 from fastapi import APIRouter, Depends, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_db_session
 router = APIRouter(prefix='/health', tags=['Health'])
 
@@ -1254,7 +1253,7 @@ countries:   фильтр по странам аффилиации (список
 FILE: app/services/search_history_service.py
 ============================================================
 import datetime
-from datetime import timezone, timedelta
+from datetime import timedelta, timezone
 from app.interfaces.search_history_repo import ISearchHistoryRepository
 from app.schemas.search_history_schemas import QuotaResponse, SearchHistoryItemResponse, SearchHistoryResponse
 
@@ -1310,9 +1309,9 @@ FILE: app/services/user_service.py
 import secrets as secrets_module
 from typing import Tuple
 from app.core.security import create_access_token, hash_password, verify_password
+from app.interfaces.user_repository import IUserRepository
 from app.models.user import User
 from app.schemas.user_schemas import UserRegisterRequest
-from app.interfaces.user_repository import IUserRepository
 
 class UserService:
 
@@ -1479,7 +1478,7 @@ import os
 from typing import AsyncGenerator
 import pytest
 import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from app.core.dependencies import get_db_session
 from app.infrastructure.database import engine as _app_engine
@@ -1549,16 +1548,16 @@ import datetime
 from typing import AsyncGenerator
 import pytest
 import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from app.core.dependencies import get_db_session
 from app.infrastructure.postgres_article_repo import PostgresArticleRepository
+from app.infrastructure.postgres_catalog_repo import PostgresCatalogRepository
 from app.main import app
 from app.models.article import Article
 from app.models.base import Base
 from app.schemas.article_schemas import ArticleResponse
 from app.services.article_service import ArticleService
-from app.infrastructure.postgres_catalog_repo import PostgresCatalogRepository
 from app.services.catalog_service import CatalogService
 _TEST_DB_URL = 'sqlite+aiosqlite:///:memory:'
 _TEST_DOI: str = '10.1234/test-doi-001'
@@ -1785,10 +1784,10 @@ FILE: tests/integration/test_articles_headers.py
 ============================================================
 import pytest
 from httpx import AsyncClient
-from app.main import app
 from app.core.dependencies import get_scopus_client
-from app.services.search_service import SearchService
 from app.interfaces.search_client import ISearchClient
+from app.main import app
+from app.services.search_service import SearchService
 
 class FakeScopusClient(ISearchClient):
 
@@ -1892,7 +1891,7 @@ FILE: tests/integration/test_find_articles.py
 test_find_requires_auth: requires_pg не нужен — 401 возвращается до вызова lock.
 """
 import datetime
-from datetime import date, timezone, timedelta
+from datetime import date, timedelta, timezone
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
@@ -1942,9 +1941,9 @@ Skipped if DATABASE_TEST_URL не задан (см. tests/integration/conftest.p
 """
 import asyncio
 import datetime
-from datetime import date, timezone, timedelta
+from datetime import date, timedelta, timezone
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from app.core.dependencies import get_db_session
 from app.main import app
@@ -2166,7 +2165,7 @@ Test matrix (см. тех-спек v4, §4.1, Commit 2):
   DATABASE_TEST_URL задан (CI: GitHub Actions postgres service; локально: docker).
 """
 import datetime
-from datetime import timezone, timedelta
+from datetime import timedelta, timezone
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
@@ -2329,9 +2328,8 @@ async def test_get_by_id_found_maps_all_fields():
 FILE: tests/unit/test_catalog_service.py
 ============================================================
 from datetime import date
-from typing import List
+from typing import List, cast
 import pytest
-from typing import cast
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.interfaces.article_repository import IArticleRepository
 from app.interfaces.catalog_repository import ICatalogRepository
@@ -2533,8 +2531,8 @@ def test_full_implementation_instantiates_without_errors():
 ============================================================
 FILE: tests/unit/test_scopus_client.py
 ============================================================
-import pytest
 import httpx
+import pytest
 from app.infrastructure.scopus_client import ScopusHTTPClient
 
 @pytest.mark.asyncio
@@ -2599,8 +2597,8 @@ FILE: tests/unit/test_search_history_repository.py
 import datetime
 from typing import List
 import pytest
-from app.models.search_history import SearchHistory
 from app.interfaces.search_history_repo import ISearchHistoryRepository
+from app.models.search_history import SearchHistory
 
 class FakeSearchHistoryRepository(ISearchHistoryRepository):
 
@@ -2656,9 +2654,8 @@ FILE: tests/unit/test_search_service.py
 ============================================================
 import datetime
 from datetime import date
-from typing import List
+from typing import List, cast
 import pytest
-from typing import cast
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.interfaces.article_repository import IArticleRepository
 from app.interfaces.search_client import ISearchClient
@@ -2815,9 +2812,9 @@ def test_check_secret_empty_env_always_rejects(monkeypatch):
 FILE: tests/unit/test_user_service.py
 ============================================================
 import pytest
+from app.interfaces.user_repository import IUserRepository
 from app.models.user import User
 from app.schemas.user_schemas import UserRegisterRequest
-from app.interfaces.user_repository import IUserRepository
 from app.services.user_service import UserService
 
 @pytest.fixture(autouse=True)

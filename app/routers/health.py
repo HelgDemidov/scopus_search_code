@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
-
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_db_session
 

@@ -2,9 +2,9 @@ import secrets as secrets_module
 from typing import Tuple
 
 from app.core.security import create_access_token, hash_password, verify_password
+from app.interfaces.user_repository import IUserRepository
 from app.models.user import User
 from app.schemas.user_schemas import UserRegisterRequest
-from app.interfaces.user_repository import IUserRepository
 
 
 class UserService:

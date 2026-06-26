@@ -1,10 +1,8 @@
 # tests/unit/test_catalog_service.py
 from datetime import date
-from typing import List
+from typing import List, cast
 
 import pytest
-
-from typing import cast
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.interfaces.article_repository import IArticleRepository
@@ -12,7 +10,6 @@ from app.interfaces.catalog_repository import ICatalogRepository
 from app.models.article import Article
 from app.schemas.article_schemas import PaginatedArticleResponse, StatsResponse
 from app.services.catalog_service import CatalogService
-
 
 # ================================================================ #
 #  Фейковые реализации интерфейсов                                  #

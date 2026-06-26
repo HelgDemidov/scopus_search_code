@@ -13,7 +13,6 @@ import pytest
 from app.interfaces.search_client import ISearchClient
 from app.models.article import Article
 
-
 # ================================================================ #
 #  Вспомогательные классы для проверок                               #
 # ================================================================ #

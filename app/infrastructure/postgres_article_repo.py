@@ -5,8 +5,8 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.article import Article
 from app.interfaces.article_repository import IArticleRepository
+from app.models.article import Article
 
 
 class PostgresArticleRepository(IArticleRepository):
@@ -183,8 +183,8 @@ class PostgresArticleRepository(IArticleRepository):
           - если user_id=None — проверяем только catalog_articles
         """
         from app.models.catalog_article import CatalogArticle
-        from app.models.search_result_article import SearchResultArticle
         from app.models.search_history import SearchHistory
+        from app.models.search_result_article import SearchResultArticle
 
         # Статья всегда видна, если седирована (находится в catalog_articles)
         catalog_exists = (

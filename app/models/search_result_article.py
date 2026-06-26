@@ -37,4 +37,7 @@ class SearchResultArticle(Base):
     rank: Mapped[int] = mapped_column(SmallInteger, nullable=False)
 
     def __repr__(self) -> str:
-        return f"<SearchResultArticle(search_history_id={self.search_history_id}, article_id={self.article_id}, rank={self.rank})>"
+        return (
+            f"<SearchResultArticle(search_history_id={self.search_history_id}, "
+            f"article_id={self.article_id}, rank={self.rank})>"
+        )

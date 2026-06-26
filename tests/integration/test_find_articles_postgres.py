@@ -9,10 +9,10 @@ Skipped if DATABASE_TEST_URL не задан (см. tests/integration/conftest.p
 """
 import asyncio
 import datetime
-from datetime import date, timezone, timedelta
+from datetime import date, timedelta, timezone
 
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.dependencies import get_db_session

@@ -3,8 +3,8 @@ from typing import List
 
 import pytest
 
-from app.models.search_history import SearchHistory
 from app.interfaces.search_history_repo import ISearchHistoryRepository
+from app.models.search_history import SearchHistory
 
 
 # 1. Fake-репозиторий для изолированного тестирования бизнес-логики
@@ -176,7 +176,7 @@ async def test_reset_at_calculation():
     now = datetime.datetime.now(tz=datetime.timezone.utc)
     since = now - datetime.timedelta(days=7)
 
-    row = await repo.insert_row(user_id=1, query="AI", result_count=5)
+    await repo.insert_row(user_id=1, query="AI", result_count=5)
     oldest = await repo.get_oldest_in_window_created_at(user_id=1, since=since)
 
     assert oldest is not None

@@ -16,7 +16,6 @@ from app.core.security import hash_password
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 
-
 # ---------------------------------------------------------------------------
 # Вспомогательная функция: создает пользователя + просроченный RT напрямую в БД
 # ---------------------------------------------------------------------------

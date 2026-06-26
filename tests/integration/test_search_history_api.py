@@ -25,7 +25,7 @@ Test matrix (см. тех-спек v4, §4.1, Commit 2):
 """
 
 import datetime
-from datetime import timezone, timedelta
+from datetime import timedelta, timezone
 
 import pytest
 from httpx import AsyncClient
@@ -34,7 +34,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.search_history import SearchHistory
 from app.models.user import User
-
 
 # ---------------------------------------------------------------------------
 # Вспомогательная функция: вставляет n строк истории для указанного user_id

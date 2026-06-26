@@ -25,7 +25,6 @@ from app.main import app
 from app.models.password_reset_token import PasswordResetToken
 from app.models.refresh_token import RefreshToken
 
-
 # ---------------------------------------------------------------------------
 # No-op email-сервис: SMTP не вызывается, но интерфейс соблюдён
 # ---------------------------------------------------------------------------
