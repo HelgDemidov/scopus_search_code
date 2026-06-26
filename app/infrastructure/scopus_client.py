@@ -4,8 +4,8 @@ from typing import List, Optional
 import httpx
 
 from app.config import settings
-from app.models.article import Article
 from app.interfaces.search_client import ISearchClient
+from app.models.article import Article
 
 # Базовый URL Scopus Search API
 SCOPUS_BASE_URL = "https://api.elsevier.com/content/search/scopus"
@@ -116,12 +116,14 @@ class ScopusHTTPClient(ISearchClient):
         keyword: str,
         count: int = 25,
         filters: dict | None = None,  # Параметры серверной фильтрации
+        start: int = 0,               # Offset для пагинации (Scopus free: max start=4975)
     ) -> List[Article]:
         page_size = min(count, 25)
 
-        params = {
+        params: dict[str, str | int] = {
             "query": self.build_query(keyword, filters),  # Используем публичный метод по контракту
             "count": page_size,
+            "start": start,
             "field": SCOPUS_FIELDS,
             "apiKey": settings.SCOPUS_API_KEY,
         }

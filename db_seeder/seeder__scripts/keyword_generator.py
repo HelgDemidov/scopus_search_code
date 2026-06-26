@@ -16,33 +16,26 @@ CLUSTERS = [
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 MODEL = "mistralai/mistral-small-3.2-24b-instruct"  # Mistral Small 3.2: нет thinking, свежая (март 2026)
 
-# Ширина окна исключений в промпте: 200 фраз (было 50)
-# 200 × ~5 токенов ≈ 1000 токенов входящего промпта — умеренно при 32k context window Mistral
-_EXCLUSION_WINDOW = 200
-
 
 def get_todays_cluster() -> str:
     """Детерминированная per-run ротация кластера.
 
-    Каждые ~4 часа UTC выбирается новый кластер из 5.
-    При расписании cron 0 */4 * * * (6 запусков в сутки) это даёт
-    равномерное распределение нагрузки: каждый кластер получает
-    1–2 запуска в сутки вместо 6 подряд на один кластер.
+    Каждые 2 часа UTC выбирается новый кластер (cron 0 */2 * * *, 12 запусков в сутки).
+    Формула даёт ровно 2 запуска на каждый из 6 кластеров в сутки.
     """
     now = datetime.utcnow()
-    # Каждые 4 часа — новый слот: 0,4,8,12,16,20 -> слоты 0-5
-    # Добавляем день.toordinal() чтобы слоты не повторялись каждые сутки
+    # hour // 2 даёт 12 уникальных слотов в сутки; ordinal * 12 сдвигает начало каждый день
     slot = (now.toordinal() * 12 + now.hour // 2) % len(CLUSTERS)
     return CLUSTERS[slot]
 
 
 def _build_prompt(cluster: str, used_keywords: list[str]) -> str:
-    # Последние _EXCLUSION_WINDOW фраз кластера — модель избегает их повторения
-    recent = used_keywords[-_EXCLUSION_WINDOW:] if len(used_keywords) > _EXCLUSION_WINDOW else used_keywords
+    # Все фразы кластера передаются в блок исключений — модель не регенерирует уже известные.
+    # При ~600 фразах × ~5 токенов ≈ 3 000 токенов; Mistral 32k держит легко.
     exclusion_block = (
         f"\n\nDo NOT generate any of these already-used phrases:\n"
-        + "\n".join(f"- {k}" for k in recent)
-        if recent else ""
+        + "\n".join(f"- {k}" for k in used_keywords)
+        if used_keywords else ""
     )
     return (
         f"You are a scientific search query specialist for Scopus API queries.\n"
@@ -86,7 +79,7 @@ async def generate_keywords(
         "model": MODEL,
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.8,  # Высокая температура — максимальное разнообразие фраз
-        "max_tokens": 4500,  # 120 фраз × ~10 токенов + запас на блок исключений 200 фраз
+        "max_tokens": 4500,  # 120 фраз × ~10 токенов на выходе — блок исключений в input, не в output
     }
 
     async with httpx.AsyncClient(timeout=60.0) as client:

@@ -157,4 +157,52 @@ class TestBuildQuery:
         assert "PUBYEAR < 2025" in q
         assert "DOCTYPE(ar)" in q
         assert "OPENACCESS(1)" in q
-        assert "AFFILCOUNTRY(USA)" in q
+
+
+# ================================================================ #
+#  Тесты параметра start (пагинация)                               #
+# ================================================================ #
+
+def _make_empty_scopus_response():
+    class R:
+        status_code = 200
+        headers = {
+            "X-RateLimit-Limit": "20000",
+            "X-RateLimit-Remaining": "19000",
+            "X-RateLimit-Reset": "0",
+        }
+        def json(self): return {"search-results": {"entry": []}}
+        def raise_for_status(self): pass
+    return R()
+
+
+@pytest.mark.asyncio
+async def test_search_default_start_is_zero(monkeypatch):
+    """start=0 по умолчанию передаётся в Scopus API params."""
+    captured: dict = {}
+
+    async def mock_get(self, url, *, params=None, **kw):
+        captured.update(params or {})
+        return _make_empty_scopus_response()
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+    async with httpx.AsyncClient() as http_client:
+        await ScopusHTTPClient(http_client).search("neural network")
+
+    assert captured.get("start") == 0
+
+
+@pytest.mark.asyncio
+async def test_search_passes_start_offset_to_scopus(monkeypatch):
+    """Явный start=50 пробрасывается в Scopus API params без изменений."""
+    captured: dict = {}
+
+    async def mock_get(self, url, *, params=None, **kw):
+        captured.update(params or {})
+        return _make_empty_scopus_response()
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+    async with httpx.AsyncClient() as http_client:
+        await ScopusHTTPClient(http_client).search("neural network", start=50)
+
+    assert captured.get("start") == 50

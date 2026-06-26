@@ -6,13 +6,13 @@ on:
     branches:
       - main
       - master
-      - auth-refactoring
+      - seeder-refactoring
 
   pull_request:
     branches:
       - main
       - master
-      - auth-refactoring
+      - seeder-refactoring
 
 # Устанавливаем Node.js 24 для всех actions в этом workflow заранее официального дедлайна (02.06.2026)
 env:

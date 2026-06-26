@@ -1,7 +1,8 @@
 # app/routers/seeder_router.py
 import os
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+
 import httpx
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_db_session
@@ -26,16 +27,16 @@ def _check_secret(x_seeder_secret: str = Header(...)):
 async def seed_keyword(
     keyword: str,
     count: int = 25,
+    start: int = 0,
     session: AsyncSession = Depends(get_db_session),
 ):
     # Вызываем Scopus, сохраняем в catalog_articles через CatalogService.seed()
     async with httpx.AsyncClient(timeout=30.0) as http_client:
         scopus = ScopusHTTPClient(http_client)
-        articles = await scopus.search(keyword=keyword, count=count)
+        articles = await scopus.search(keyword=keyword, count=count, start=start)
 
-    articles_found = len(articles)
     if not articles:
-        return {"keyword": keyword, "saved": 0, "rate_remaining": None}
+        return {"keyword": keyword, "saved": 0, "start": start, "rate_remaining": None}
 
     service = CatalogService(
         catalog_repo=PostgresCatalogRepository(session),
@@ -44,9 +45,10 @@ async def seed_keyword(
     )
     saved = await service.seed(keyword=keyword, articles=articles)
 
-    # Пробрасываем rate_remaining обратно сидеру для проверки лимита Scopus
+    # Пробрасываем rate_remaining и start обратно сидеру для логирования и rate-guard
     return {
         "keyword": keyword,
         "saved": len(saved),
+        "start": start,
         "rate_remaining": scopus.last_rate_remaining,
     }
