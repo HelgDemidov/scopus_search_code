@@ -35,6 +35,7 @@ Frontend: `cd frontend && npm run test / lint / build`
 ## Scopus CQL notes
 - Open Access фильтр: `OPENACCESS(1)` / `NOT OPENACCESS(1)` — **не** `OA(1)` (Scopus API отвергает с 400).
   Проверено прямым запросом к API 2026-06-25. Файл: `app/infrastructure/scopus_client.py`.
+- DOI-фильтр: `ScopusHTTPClient.search()` пропускает статьи без `prism:doi` на этапе парсинга (commit `62d1d13`). Коллекция содержит **только DOI-индексированные статьи**.
 
 ## Auth & security (auth-refactoring, merged 2026-06-26)
 - AT хранится **только in-memory** (Zustand + `tokenStore.ts`) — не localStorage; гидрация только через `POST /auth/refresh`
