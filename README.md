@@ -13,8 +13,8 @@ Russian version: [README.ru.md](README.ru.md)
 
 | Mode | Functionality |
 |---|---|
-| **Without authentication** | Search and browse articles from the thematic collection (~39,500 publications); article detail cards; collection analytics |
-| **With authentication** | Live search in Scopus (up to 25 articles per request); search history with filtering; weekly quota counter; personal search analytics |
+| **Without authentication** | Browse and search the "AI & Neural Network Technologies" thematic collection (~39,500 publications); multi-criteria filtering by year, country, document type, and open-access status; article detail pages; collection analytics (publication trends by year, geography, document type, top journals and keywords) |
+| **With authentication** | All unauthenticated features, plus: live search across the full Scopus database (up to 25 results per query); personal search history with filtering; weekly API quota counter; account management (email/password · Google OAuth · password reset via email) |
 
 ---
 
@@ -29,7 +29,7 @@ GitHub ──► Vercel (Frontend SPA)
                ▼ asyncpg / SQLAlchemy
           Supabase (PostgreSQL 17)
 
-GitHub Actions ──► db_seeder (daily cron)
+GitHub Actions ──► db_seeder (cron, every 2 h)
                        │
                        ▼ POST /seeder/seed
                   Railway (Backend)
@@ -37,11 +37,11 @@ GitHub Actions ──► db_seeder (daily cron)
 
 | Layer | Technology | Hosting |
 |---|---|---|
-| **Frontend** | React 19, TypeScript, Vite, Zustand, Axios, Recharts, shadcn/ui, Tailwind CSS | Vercel |
+| **Frontend** | React 18, TypeScript, Vite, Zustand, Axios, Tremor, shadcn/ui, Tailwind CSS | Vercel |
 | **Backend** | Python 3.12, FastAPI, SQLAlchemy 2.0 async, Alembic, Pydantic v2, httpx, Authlib | Railway |
 | **Database** | PostgreSQL 17 (Supabase), Session Pooler | Supabase (eu-west-1) |
-| **CI/CD** | GitHub Actions (backend pytest + frontend Vitest) | GitHub |
-| **Seeder** | Python + httpx + asyncpg + OpenRouter LLM | GitHub Actions (cron) |
+| **CI/CD** | GitHub Actions — backend (`tests.yml`: pytest · ruff · mypy · alembic check · 80% coverage), frontend (`frontend-tests.yml`: Vitest · ESLint · tsc · 70% coverage · build), staging E2E (`e2e.yml`) | GitHub |
+| **Seeder** | Python + httpx + asyncpg + OpenRouter LLM | GitHub Actions (cron, every 2 h) |
 
 ---
 
@@ -55,9 +55,9 @@ Multi-layer Clean Architecture with a clear separation of responsibilities:
 app/
 ├── routers/          # HTTP endpoints: articles, auth, users, health, seeder
 ├── services/         # Business logic: SearchService, CatalogService,
-│                     #   SearchHistoryService, UserService
+│                     #   ArticleService, SearchHistoryService, UserService
 ├── infrastructure/   # PostgreSQL repositories + ScopusHTTPClient
-├── interfaces/       # ABC interfaces for repositories and clients
+├── interfaces/       # ABC interfaces for repositories, clients, IEmailService
 ├── models/           # SQLAlchemy ORM models (5 tables)
 ├── schemas/          # Pydantic v2 request/response schemas
 ├── core/             # DI, JWT, refresh-token utilities, dependencies
@@ -72,11 +72,12 @@ React SPA with routing via React Router and global state via Zustand:
 ```
 frontend/src/
 ├── api/              # Axios client (client.ts) + articles, auth, stats, users modules
-├── stores/           # articleStore, authStore, historyStore, quotaStore, statsStore
-├── pages/            # HomePage, ExplorePage, ProfilePage, AuthPage,
-│                     #   ArticlePage, OAuthCallback
+├── stores/           # articleStore, authStore, historyStore, quotaStore,
+│                     #   statsStore, tokenStore (AT in-memory, no localStorage)
+├── pages/            # HomePage, ExplorePage, ProfilePage, AuthPage, ArticlePage,
+│                     #   OAuthCallback, ForgotPasswordPage, ResetPasswordPage
 ├── components/       # articles/, charts/, layout/, profile/, search/, ui/
-├── hooks/            # usePagination and other custom hooks
+├── hooks/            # usePagination
 └── types/            # TypeScript types and API interfaces
 ```
 
@@ -88,9 +89,9 @@ frontend/src/
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/articles/` | Paginated list from the thematic collection (`page`, `size`, `keyword`, `search`) |
+| `GET` | `/articles/` | Paginated catalog list; keyword/full-text search + multi-criteria filtering (year range, country, document type, open-access status) |
 | `GET` | `/articles/stats` | Aggregated collection statistics (by year, journal, country, type) |
-| `GET` | `/articles/{id}` | Article detail card |
+| `GET` | `/articles/{id}` | Article detail page |
 | `GET` | `/health` | Health check |
 
 ### Authentication
@@ -104,12 +105,14 @@ frontend/src/
 | `GET` | `/auth/google/callback` | OAuth callback; redirects to frontend with token |
 | `POST` | `/auth/refresh` | Exchange RT cookie for new AT + RT rotation |
 | `POST` | `/auth/logout` | Revoke RT, clear cookie |
+| `POST` | `/auth/password-reset` | Initiate password reset; sends one-time link via Brevo |
+| `POST` | `/auth/password-reset/confirm` | Confirm reset with token; sets new password, revokes all RTs |
 
 ### Private (require JWT)
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/articles/find` | Live search in Scopus (up to 25 articles); checks quota; saves articles and history |
+| `GET` | `/articles/find` | Live Scopus search (up to 25 results); accepts same filters as `GET /articles/`; checks quota; saves result and history |
 | `GET` | `/articles/find/quota` | Weekly quota status: `limit`, `used`, `remaining`, `reset_at` |
 | `GET` | `/articles/history` | User search history (up to 100 records) |
 | `GET` | `/articles/search/stats` | Aggregates over personal search articles |
@@ -129,7 +132,7 @@ Scopus rate limit headers (`X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-Rate
 
 ## Database
 
-Current migration version: `0007_drop_article_legacy_columns`.
+Current migration version: `0013_fix_schema_drift`.
 
 | Table | Purpose | Records (prod) |
 |---|---|---|
@@ -140,17 +143,19 @@ Current migration version: `0007_drop_article_legacy_columns`.
 | `seeder_keywords` | Used seeder phrases with clusters and timestamps | ~4,750 |
 | `users` | Service users | ~9 |
 | `refresh_tokens` | Active refresh tokens with rotation support | ~133 |
+| `password_reset_tokens` | One-time password reset tokens (short-lived) | — |
 
 ---
 
 ## Authentication and Security
 
-- **Access Token** — Bearer JWT, lives 30 minutes, stored in `localStorage`.
-- **Refresh Token** — stored in an `httpOnly; Secure; SameSite=None` cookie (30 days); rotation is supported on every `/auth/refresh` call. Revocation via `/auth/logout`.
-- **Silent refresh** — Axios interceptor on the frontend catches 401, calls `POST /auth/refresh` exactly once (Promise singleton prevents race condition), then retries the original request.
-- **Google OAuth** — Authlib + Starlette SessionMiddleware; state stored in a signed cookie — CSRF protection.
-- **CSRF guard** on `/auth/refresh` — `X-Requested-With: XMLHttpRequest` header is required.
-- **CORS** — strict list of origins from `ALLOWED_ORIGINS`; wildcard `*` with `credentials: true` is not used.
+- **Access Token** — Bearer JWT, lives 30 minutes, stored **in-memory** (Zustand `tokenStore`) — never persisted to `localStorage`; hydrated on page load via `POST /auth/refresh`.
+- **Refresh Token** — `httpOnly; Secure; SameSite=None` cookie (30 days); rotated on every `/auth/refresh` call; stale and revoked tokens pruned automatically. Revocation via `/auth/logout`.
+- **Silent refresh** — Axios interceptor catches 401, calls `POST /auth/refresh` exactly once (Promise singleton prevents race conditions), then retries the original request.
+- **Google OAuth** — Authlib + Starlette SessionMiddleware; state stored in a signed cookie (CSRF protection).
+- **Password reset** — one-time token delivered via Brevo REST API (email); confirm endpoint sets new password and revokes all active refresh tokens.
+- **CSRF guard** on `/auth/refresh` — `X-Requested-With: XMLHttpRequest` header required.
+- **CORS** — strict origin allowlist from `ALLOWED_ORIGINS`; wildcard `*` with `credentials: true` is never used.
 - **Seeder** — authenticated via static `X-Seeder-Secret` header (not a user JWT).
 - Sensitive fields (`input`) are stripped from Pydantic 422 responses via a custom exception handler.
 
@@ -158,22 +163,22 @@ Current migration version: `0007_drop_article_legacy_columns`.
 
 ## Automated Seeder
 
-A daily GitHub Actions workflow populates the thematic collection without consuming user quota.
+A GitHub Actions workflow (runs every 2 hours) populates the thematic collection without consuming user quota.
 
 **Algorithm:**
-1. Determine the thematic cluster for the day (rotating schedule).
-2. Read already-used phrases for the active cluster from `seeder_keywords`.
-3. Generate up to 120 new unique search phrases via OpenRouter API (LLM).
-4. Call `POST /seeder/seed` on the Railway backend for each phrase.
-5. The backend queries Scopus, atomically saves articles to `articles` + `catalog_articles`, returns `rate_remaining`.
-6. The seeder records the result in `seeder_keywords` and stops when `rate_remaining < 500`.
+1. Determine the thematic cluster for the run (rotating schedule).
+2. Read used phrases from `seeder_keywords`; fetch re-pagination candidates (keywords with a saved offset).
+3. **Block A — new keywords (up to 50):** generate phrase candidates via OpenRouter LLM, deduplicate against used phrases, call `POST /seeder/seed` for each, record result in `seeder_keywords`.
+4. **Block B — re-pagination (up to 188):** for each candidate with a saved offset, call `POST /seeder/seed` at the next page to retrieve additional Scopus results for already-indexed keywords.
+5. The backend queries Scopus, atomically upserts into `articles` + `catalog_articles`, returns `rate_remaining`.
+6. Stop either block when `rate_remaining < 500`.
 
 <details>
 <summary>Seeder configuration</summary>
 
-Environment variables read by the seeder: `DATABASE_URL`, `SEEDER_SECRET`, `OPENROUTER_API_KEY`, `SEEDER_BASE_URL`.
+Environment variables: `DATABASE_URL`, `SEEDER_SECRET`, `OPENROUTER_API_KEY`, `SEEDER_BASE_URL`.
 
-Parameters in `seed_db.py`: `ARTICLES_PER_QUERY = 25`, `DELAY_BETWEEN_REQUESTS = 2.0` sec, `KEYWORDS_TO_USE = 120`, `RATE_LIMIT_STOP_THRESHOLD = 500`.
+Parameters in `seed_db.py`: `ARTICLES_PER_QUERY = 25`, `DELAY_BETWEEN_REQUESTS = 2.0` sec, `KEYWORDS_TO_USE = 120` (LLM candidates per run), `NEW_KW_BUDGET = 50` (Block A cap), `REPAG_BUDGET = 188` (Block B cap), `RATE_LIMIT_STOP_THRESHOLD = 500`.
 
 Supabase connection via `asyncpg` with `statement_cache_size=0` (required for PgBouncer transaction mode).
 
@@ -183,34 +188,29 @@ Supabase connection via `asyncpg` with `statement_cache_size=0` (required for Pg
 
 ## Testing
 
-**Backend:** `pytest` + `pytest-asyncio`; all tests green.
+**Backend:** 154 tests (`pytest` + `pytest-asyncio`), all green, across three layers:
 
-| File | Type | Coverage |
+| Layer | Tests | What it covers |
 |---|---|---|
-| `test_find_articles.py` | Integration (SQLite) | `/articles/find`, quota, history |
-| `test_find_articles_postgres.py` | Integration (PG) | `pg_advisory_xact_lock`, parallel requests |
-| `test_search_history_api.py` | Integration | History, filters, aggregates |
-| `test_article_by_id.py` | Integration | Detail card, public access |
-| `test_article_by_id_e2e.py` | E2E (Staging) | Real backend + Supabase staging |
-| `test_rt_e2e.py` / `test_rt_edge_cases.py` | E2E / Integration | RT rotation, logout, edge cases |
-| `test_articles_api.py` / `test_articles_headers.py` | Integration | Pagination, Rate Limit headers |
-| `test_users_api.py` | Integration | Registration, login, profile |
+| Unit (SQLite, mocked) | ~40 | Services (article, catalog, search, user), Scopus client, interface contracts, seeder router |
+| Integration (SQLite) | ~96 | Full HTTP stack: auth, articles, search history, password reset, RT lifecycle, seeder endpoint |
+| Integration (PG) | 18 | `pg_advisory_xact_lock` concurrency; requires `DATABASE_TEST_URL` (throwaway PG, never Supabase) |
+| E2E (Staging) | — | Real Railway + Supabase staging; auto-skipped without `E2E_BASE_URL` |
 
-**Frontend:** Vitest; **92/92 tests** green (unit + integration).
+**Frontend:** 181 tests (`Vitest` + Testing Library), all green; statements coverage 76.5% (threshold: 70%).
 
 <details>
 <summary>Running the tests</summary>
 
 ```bash
-# Backend — SQLite only (no PostgreSQL required)
-pytest tests -vv -m "not requires_pg"
+# Backend — SQLite only (fast, no PostgreSQL required)
+uv run pytest tests/ -m "not requires_pg"
 
-# Backend — all tests (PostgreSQL required)
-pytest tests -vv
+# Backend — all tests (requires DATABASE_TEST_URL → throwaway PG instance)
+uv run pytest tests/
 
 # Frontend
-cd frontend
-npm run test
+cd frontend && npm run test
 ```
 
 </details>
@@ -234,12 +234,14 @@ API: `http://localhost:8000` · Swagger: `http://localhost:8000/docs`
 <summary>Backend without Docker</summary>
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+# Requires uv (https://docs.astral.sh/uv/)
+uv sync
 # Configure .env based on .env.example
-alembic upgrade head
-uvicorn app.main:app --reload
+uv run alembic upgrade head
+uv run uvicorn app.main:app --reload
 ```
+
+API: `http://localhost:8000` · Swagger: `http://localhost:8000/docs`
 
 </details>
 
@@ -278,6 +280,8 @@ VITE_API_BASE_URL=http://localhost:8000
 | `ALLOWED_ORIGINS` | Comma-separated list of allowed CORS origins |
 | `SEEDER_SECRET` | Static secret for `X-Seeder-Secret` header |
 | `OPENROUTER_API_KEY` | OpenRouter API key (seeder phrase generation) |
+| `BREVO_API_KEY` | Brevo API key for transactional email (password reset) |
+| `FROM_EMAIL` | Sender address used by Brevo |
 
 > **Before publishing:** scan the README and `.env.example` for real domains, email addresses, tokens, and any secret-like strings — replace all such values with neutral placeholders.
 

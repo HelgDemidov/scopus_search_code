@@ -9,10 +9,18 @@ interface TopJournalsChartProps {
 }
 
 export function TopJournalsChart({ data, isLoading }: TopJournalsChartProps) {
-  // Выбираем top-10 журналов по количеству статей
+  const MAX_LABEL = 28;
+
   const top10 = [...data]
     .sort((a, b) => b.count - a.count)
-    .slice(0, 10);
+    .slice(0, 10)
+    .map((item) => ({
+      ...item,
+      label:
+        item.label.length > MAX_LABEL
+          ? item.label.slice(0, MAX_LABEL) + '…'
+          : item.label,
+    }));
 
   return (
     <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 flex flex-col gap-3">
@@ -21,7 +29,7 @@ export function TopJournalsChart({ data, isLoading }: TopJournalsChartProps) {
       </h3>
 
       {isLoading ? (
-        <Skeleton className="h-48 w-full rounded-lg" />
+        <Skeleton className="h-80 w-full rounded-lg" />
       ) : (
         <BarChart
           data={top10}
@@ -31,7 +39,8 @@ export function TopJournalsChart({ data, isLoading }: TopJournalsChartProps) {
           layout="vertical"
           showLegend={false}
           showGridLines
-          className="h-48"
+          yAxisWidth={180}
+          className="h-80"
         />
       )}
     </div>

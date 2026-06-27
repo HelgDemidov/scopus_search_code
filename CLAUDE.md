@@ -65,7 +65,7 @@ tests/unit/ + tests/integration/ (no marker) → CI job 'test'    (SQLite)
 tests/integration/ requires_pg              → CI job 'test-pg' (PG 16)
 tests/integration/*e2e*  E2E_BASE_URL       → e2e.yml          (live Railway staging)
 ```
-CI coverage: jobs `test` + `test-pg` → combined artifacts → `coverage` fail-under=75 (текущий: 79%).
+CI coverage: jobs `test` + `test-pg` → combined artifacts → `coverage` fail-under=80 (текущий: ~82%).
 Advisory lock в DI-фабрике → новые тесты `GET /articles/find` не требуют `requires_pg`; только `test_find_articles_postgres.py` (конкурентность).
 
 ### Полная матрица CI-джобов (2026-06-26)
@@ -74,11 +74,11 @@ Advisory lock в DI-фабрике → новые тесты `GET /articles/find
 | `tests.yml` | `test` | pytest SQLite, not requires_pg | push+PR → main |
 | `tests.yml` | `test-pg` | alembic upgrade+check; pytest PG requires_pg | push+PR → main |
 | `tests.yml` | `quality` | ruff check+format, mypy, pip-audit | push+PR → main |
-| `tests.yml` | `coverage` | combined 75% threshold | после test+test-pg |
+| `tests.yml` | `coverage` | combined 80% threshold | после test+test-pg |
 | `frontend-tests.yml` | `typecheck` | tsc --noEmit | push main (paths: frontend/**) |
 | `frontend-tests.yml` | `lint` | ESLint --max-warnings 0; npm audit --audit-level=high | push main |
 | `frontend-tests.yml` | `unit` | vitest unit-тесты | push main |
-| `frontend-tests.yml` | `integration` | vitest integration + coverage | push main |
+| `frontend-tests.yml` | `integration` | vitest integration + coverage (все 181 тест; threshold statements=70%) | push main |
 | `frontend-tests.yml` | `build` | npm run build (Vite production) | push main |
 | `e2e.yml` | `e2e` | smoke-тесты против Railway staging | push main |
 
