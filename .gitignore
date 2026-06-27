@@ -21,6 +21,9 @@ postgres_data/
 .idea/
 .DS_Store
 
+# Node — на случай случайного npx из корня (frontend/ имеет свой .gitignore)
+node_modules/
+
 # Прочие файлы кэша:
 # Pytest
 .pytest_cache/
