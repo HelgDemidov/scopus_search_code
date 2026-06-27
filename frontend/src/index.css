@@ -60,14 +60,14 @@
   }
 
   .dark {
-    /* Тёмная тема */
-    --background: oklch(0.145 0 0);
+    /* Тёмная тема — фон "ночное небо" (#0d1b2a) */
+    --background: #0d1b2a;
     --foreground: oklch(0.985 0 0);
 
-    --card: oklch(0.205 0 0);
+    --card: #152236;
     --card-foreground: oklch(0.985 0 0);
 
-    --popover: oklch(0.205 0 0);
+    --popover: #152236;
     --popover-foreground: oklch(0.985 0 0);
 
     --primary: oklch(0.922 0 0);

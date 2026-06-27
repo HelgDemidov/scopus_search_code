@@ -26,7 +26,7 @@ export function ChartTooltip({
   const value = typeof rawValue === 'number' ? rawValue : Number(rawValue);
 
   return (
-    <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 shadow-lg text-sm">
+    <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#152236] px-3 py-2 shadow-lg text-sm">
       {label && (
         <p className="font-medium text-slate-900 dark:text-slate-100 mb-1 max-w-[220px] break-words">
           {label}
