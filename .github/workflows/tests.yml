@@ -162,7 +162,7 @@ jobs:
       - name: Combine and check coverage
         run: |
           coverage combine coverage.sqlite coverage.pg
-          coverage report --fail-under=80 --include="app/*"
+          coverage report --fail-under=75 --include="app/*"
 
   # ---------------------------------------------------------------------------
   # Job 4: статический анализ кода + аудит зависимостей

@@ -704,6 +704,19 @@ Free tier: 10 000 req/day, 256 MB — достаточно для текущей
 **Cache key пример:** `stats:a3f1c8...` где `a3f1c8` = `sha256('{"countries":["china"]}')`.  
 **Инвалидация:** TTL=60 s автоматически; после seeder-прогона — явный `DEL stats:*`.
 
+**Тестовое покрытие (П-1-Т, pending):**
+
+| Тест | Файл | Что проверяется |
+|------|------|-----------------|
+| `test_get_stats_uses_cache_on_hit` | `tests/unit/test_catalog_service.py` | Redis GET → cache hit → `catalog_repo.get_stats()` не вызывается |
+| `test_get_stats_writes_cache_on_miss` | `tests/unit/test_catalog_service.py` | Redis GET miss → DB → Redis SETEX с правильным ключом и TTL |
+| `test_get_stats_degrades_on_redis_error` | `tests/unit/test_catalog_service.py` | Redis GET бросает исключение → fallback к DB, результат корректен |
+| `test_make_stats_cache_key_deterministic` | `tests/unit/test_redis_client.py` | Одни параметры → один ключ; разные параметры → разные ключи; порядок списков не важен |
+
+Моки: `FakeRedis` с управляемым состоянием (hit/miss/error) через `vi.hoisted`-аналог (`AsyncMock`).  
+Реальный Upstash в тестах **не используется** — только в-памяти fake-объект.  
+CI: тесты SQLite (`not requires_pg`), блокер PR при открытии.
+
 ---
 
 ### П-2. Увеличение `work_mem` в Supabase
