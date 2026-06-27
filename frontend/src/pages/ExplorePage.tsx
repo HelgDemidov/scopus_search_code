@@ -9,11 +9,14 @@ import {
   selectByCountry,
   selectByJournal,
 } from '../stores/historyStore';
+import { useDashboardStore } from '../stores/dashboardStore';
 import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
 import { ErrorBoundary } from '../components/ui/ErrorBoundary';
 import { KpiRow } from '../components/explore/KpiRow';
 import { DimensionDrawer } from '../components/explore/DimensionDrawer';
+import { ChartBuilderPanel } from '../components/explore/ChartBuilderPanel';
+import { DynamicChart } from '../components/charts/DynamicChart';
 
 // Charts — lazy-loaded: не попадают в основной чанк ExplorePage
 const PublicationsByYearChart = lazy(() =>
@@ -84,6 +87,8 @@ function ChartErrorFallback() {
 export default function ExplorePage() {
   const { stats, isLoading, fetchStats } = useStatsStore();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const builderCards = useDashboardStore((s) => s.builderCards);
+  const removeBuilderCard = useDashboardStore((s) => s.removeBuilderCard);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const historyItems = useHistoryStore((s) => s.items);
@@ -200,9 +205,25 @@ export default function ExplorePage() {
                   data={stats?.top_keywords ?? []}
                   isLoading={isLoading}
                 />
+
+                {/* Пользовательские чарты из Chart Builder */}
+                {builderCards.length > 0 && (
+                  <div className="flex flex-col gap-6">
+                    {builderCards.map((card) => (
+                      <DynamicChart
+                        key={card.id}
+                        card={card}
+                        onRemove={() => removeBuilderCard(card.id)}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             </Suspense>
           </ErrorBoundary>
+
+          {/* Chart Builder — всегда виден (не внутри Suspense) */}
+          <ChartBuilderPanel />
         </>
       )}
 

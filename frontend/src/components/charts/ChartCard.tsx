@@ -7,14 +7,13 @@ interface ChartCardProps {
   title: string;
   dimension?: Dimension;
   isLoading?: boolean;
-  // Высота skeleton — совпадает с высотой чарта внутри карточки
   skeletonHeight?: string;
   children: ReactNode;
-  // Клик по заголовку → открыть drawer (опционально)
   onTitleClick?: () => void;
+  // Кнопка или иной элемент в правой части заголовка (например, кнопка удаления)
+  headerAction?: ReactNode;
 }
 
-// Единая оболочка для всех chart-компонентов: заменяет копипасту div+h3 в каждом файле.
 export function ChartCard({
   title,
   dimension,
@@ -22,6 +21,7 @@ export function ChartCard({
   skeletonHeight = 'h-64',
   children,
   onTitleClick,
+  headerAction,
 }: ChartCardProps) {
   const accentColor = dimension ? DIMENSION_COLORS[dimension].base : undefined;
 
@@ -45,6 +45,7 @@ export function ChartCard({
         >
           {title}
         </h3>
+        {headerAction && <div className="ml-auto flex-shrink-0">{headerAction}</div>}
       </div>
 
       {isLoading ? (

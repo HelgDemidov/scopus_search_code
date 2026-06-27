@@ -29,7 +29,7 @@ interface DashboardStore {
 
   // Chart Builder: сессионные пользовательские карточки
   builderCards: BuilderCard[];
-  addBuilderCard: (card: BuilderCard) => void;
+  addBuilderCard: (card: Omit<BuilderCard, 'id'>) => void;
   removeBuilderCard: (id: string) => void;
 }
 
@@ -58,7 +58,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
 
   builderCards: [],
   addBuilderCard: (card) =>
-    set((s) => ({ builderCards: [...s.builderCards, card] })),
+    set((s) => ({ builderCards: [...s.builderCards, { ...card, id: crypto.randomUUID() }] })),
   removeBuilderCard: (id) =>
     set((s) => ({ builderCards: s.builderCards.filter((c) => c.id !== id) })),
 }));

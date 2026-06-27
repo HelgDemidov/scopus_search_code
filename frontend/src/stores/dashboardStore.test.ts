@@ -96,14 +96,16 @@ describe('drawer', () => {
 
 describe('builderCards', () => {
   it('addBuilderCard добавляет карточку в массив', () => {
-    useDashboardStore.getState().addBuilderCard({ id: 'c1', dimension: 'year', chartType: 'bar_v' });
-    expect(useDashboardStore.getState().builderCards).toHaveLength(1);
-    expect(useDashboardStore.getState().builderCards[0]).toMatchObject({ id: 'c1', dimension: 'year' });
+    useDashboardStore.getState().addBuilderCard({ dimension: 'year', chartType: 'bar_v' });
+    const cards = useDashboardStore.getState().builderCards;
+    expect(cards).toHaveLength(1);
+    expect(cards[0]).toMatchObject({ dimension: 'year', chartType: 'bar_v' });
+    expect(typeof cards[0].id).toBe('string');
   });
 
   it('addBuilderCard сохраняет несколько карточек', () => {
-    useDashboardStore.getState().addBuilderCard({ id: 'c1', dimension: 'year', chartType: 'line' });
-    useDashboardStore.getState().addBuilderCard({ id: 'c2', dimension: 'country', chartType: 'pie' });
+    useDashboardStore.getState().addBuilderCard({ dimension: 'year', chartType: 'line' });
+    useDashboardStore.getState().addBuilderCard({ dimension: 'country', chartType: 'pie' });
     expect(useDashboardStore.getState().builderCards).toHaveLength(2);
   });
 
