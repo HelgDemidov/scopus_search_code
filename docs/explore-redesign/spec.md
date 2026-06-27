@@ -386,17 +386,27 @@ dashboardStore: обновлены 2 теста под новую сигнату
 
 ### Фаза 6 — ExplorePage rewrite (сквозная) ✅ ВЫПОЛНЕНА
 - [x] Переписать `ExplorePage.tsx` под новую компоновку (KpiRow → Drawer → Year → 2×2 grid → Thematic → Builder)
-- [ ] Убрать Tremor-импорты из chart-компонентов (оставить только shadcn/ui)
-- [ ] Обновить тесты: заменить Tremor-компоненты на Recharts в моках
+- [x] Убрать `@tremor/react` и все Tremor-импорты из chart-компонентов (commit `b165ce5`)
+- [x] Тесты мокают `recharts`; ни одной ссылки на `@tremor` в `src/` не осталось
 
 ---
 
-## 11. Открытые вопросы (требуют решения до старта реализации)
+## 12. Статус выполнения
 
-| # | Вопрос | Рекомендация |
-|---|---|---|
-| 1 | Убирать ли `@tremor/react` из `package.json` полностью? | Да, после миграции всех chart-компонентов — снизит бандл |
-| 2 | Мобильный breakpoint для drawer (Sheet)? | Sheet переходит в bottom-sheet на `< md` — shadcn/ui поддерживает через `direction` prop |
-| 3 | Сохранять ли `builderCards` в localStorage? | Нет, V1 — сессионное состояние |
-| 4 | `top_keywords`: переименовать в «Thematic Areas» глобально (включая ответ API)? | Переименование поля API — breaking change; для V1 переименовать только на UI |
-| 5 | Минимальная ширина для 6 KPI тайлов в одну строку? | На `< lg` — 3×2 grid; на `< sm` — 2×3 grid |
+**Смёрджено в `main`:** 2026-06-27, PR #29.
+
+| Коммит | Содержание |
+|---|---|
+| `aaa23a8` | Phase 1 — dashboardStore, chartColors, ChartCard, ChartTooltip, KpiTile, KpiRow |
+| `b42e10f` | Phase 2 — 6 chart-компонентов на Recharts + 71 тест |
+| `9f619b6` | Phase 3+6 — DimensionDrawer + ExplorePage полностью переписан |
+| `dd1f56c` | Phase 5 — ChartBuilderPanel + DynamicChart |
+| `1c75e9c` | fix — 4 CI-ошибки после Phase 5 (ESLint, tsc, mock) |
+| `b165ce5` | chore — удалить @tremor/react и мёртвые файлы |
+
+**Итог:** 181 → 270 тестов (+89). `@tremor/react` удалён полностью.
+
+**Вне scope V1 (остаётся на будущее):**
+- Cross-filter V2: серверная фильтрация `GET /articles/stats?countries[]=...`
+- Сохранение `builderCards` в localStorage между сессиями
+- Bottom-sheet для DimensionDrawer на мобильных (`< md`)
