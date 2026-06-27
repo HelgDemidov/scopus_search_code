@@ -9,7 +9,8 @@ import {
 } from 'recharts';
 import { ChartCard } from './ChartCard';
 import { ChartTooltip } from './ChartTooltip';
-import { DIMENSION_COLORS } from './chartColors';
+import { useDimensionColors } from '../../hooks/useDimensionColors';
+import { useTheme } from '../../hooks/useTheme';
 import type { LabelCount } from '../../types/api';
 
 interface PublicationsByYearChartProps {
@@ -17,9 +18,10 @@ interface PublicationsByYearChartProps {
   isLoading: boolean;
 }
 
-const colors = DIMENSION_COLORS.year;
-
 export function PublicationsByYearChart({ data, isLoading }: PublicationsByYearChartProps) {
+  const colors = useDimensionColors('year');
+  const { theme } = useTheme();
+  const gridStroke = theme === 'dark' ? '#1e293b' : '#e2e8f0'; // slate-800 / slate-200
   // Сортируем по возрастанию года (бэкенд может отдавать в произвольном порядке)
   const sorted = [...data].sort((a, b) => Number(a.label) - Number(b.label));
 
@@ -39,7 +41,7 @@ export function PublicationsByYearChart({ data, isLoading }: PublicationsByYearC
             </linearGradient>
           </defs>
 
-          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} vertical={false} />
 
           <XAxis
             dataKey="label"

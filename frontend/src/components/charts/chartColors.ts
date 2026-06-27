@@ -21,54 +21,61 @@ export type ChartType = 'bar_h' | 'bar_v' | 'pie' | 'line' | 'table';
 // ---------------------------------------------------------------------------
 
 export interface DimensionColors {
-  base: string      // заливка бара / основной цвет
-  hover: string     // при наведении
-  selected: string  // активный элемент selection
-  dimmed: string    // диммирование неактивных при выделении
-  label: string     // человекочитаемое название
+  base: string       // заливка бара / основной цвет
+  hover: string      // при наведении
+  selected: string   // активный элемент selection
+  dimmed: string     // диммирование неактивных (light mode)
+  darkDimmed: string // диммирование неактивных (dark mode)
+  label: string      // человекочитаемое название
 }
 
 export const DIMENSION_COLORS: Record<Dimension, DimensionColors> = {
   year: {
-    base:     '#2563eb', // blue-600
-    hover:    '#1d4ed8', // blue-700
-    selected: '#1d4ed8',
-    dimmed:   '#bfdbfe', // blue-200
+    base:       '#2563eb', // blue-600
+    hover:      '#1d4ed8', // blue-700
+    selected:   '#1d4ed8',
+    dimmed:     '#bfdbfe', // blue-200
+    darkDimmed: '#1e40af', // blue-800
     label: 'Publications by Year',
   },
   country: {
-    base:     '#16a34a', // green-600
-    hover:    '#15803d', // green-700
-    selected: '#15803d',
-    dimmed:   '#bbf7d0', // green-200
+    base:       '#16a34a', // green-600
+    hover:      '#15803d', // green-700
+    selected:   '#15803d',
+    dimmed:     '#bbf7d0', // green-200
+    darkDimmed: '#166534', // green-800
     label: 'Countries',
   },
   doc_type: {
-    base:     '#7c3aed', // violet-600
-    hover:    '#6d28d9', // violet-700
-    selected: '#6d28d9',
-    dimmed:   '#ddd6fe', // violet-200
+    base:       '#7c3aed', // violet-600
+    hover:      '#6d28d9', // violet-700
+    selected:   '#6d28d9',
+    dimmed:     '#ddd6fe', // violet-200
+    darkDimmed: '#5b21b6', // violet-800
     label: 'Document Types',
   },
   journal: {
-    base:     '#d97706', // amber-600
-    hover:    '#b45309', // amber-700
-    selected: '#b45309',
-    dimmed:   '#fde68a', // amber-200
+    base:       '#d97706', // amber-600
+    hover:      '#b45309', // amber-700
+    selected:   '#b45309',
+    dimmed:     '#fde68a', // amber-200
+    darkDimmed: '#92400e', // amber-800
     label: 'Top Journals',
   },
   open_access: {
-    base:     '#0d9488', // teal-600
-    hover:    '#0f766e', // teal-700
-    selected: '#0f766e',
-    dimmed:   '#99f6e4', // teal-200
+    base:       '#0d9488', // teal-600
+    hover:      '#0f766e', // teal-700
+    selected:   '#0f766e',
+    dimmed:     '#99f6e4', // teal-200
+    darkDimmed: '#115e59', // teal-800
     label: 'Open Access',
   },
   author: {
-    base:     '#0284c7', // sky-600
-    hover:    '#0369a1', // sky-700
-    selected: '#0369a1',
-    dimmed:   '#bae6fd', // sky-200
+    base:       '#0284c7', // sky-600
+    hover:      '#0369a1', // sky-700
+    selected:   '#0369a1',
+    dimmed:     '#bae6fd', // sky-200
+    darkDimmed: '#075985', // sky-800
     label: 'Top Authors',
   },
 };

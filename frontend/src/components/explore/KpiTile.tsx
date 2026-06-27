@@ -1,5 +1,6 @@
-import { DIMENSION_COLORS, formatCount } from '../charts/chartColors';
+import { formatCount } from '../charts/chartColors';
 import type { Dimension } from '../charts/chartColors';
+import { useDimensionColors } from '../../hooks/useDimensionColors';
 
 interface KpiTileProps {
   label: string;
@@ -13,7 +14,7 @@ interface KpiTileProps {
 // Кликабельный KPI-тайл с цветовым профилем измерения.
 // Активный тайл подсвечивается кольцом + тонированным фоном измерения.
 export function KpiTile({ label, value, dimension, isActive, isLoading = false, onClick }: KpiTileProps) {
-  const colors = DIMENSION_COLORS[dimension];
+  const colors = useDimensionColors(dimension);
 
   // Цвета через inline-стили: Tailwind не поддерживает динамические имена классов.
   // boxShadow — кольцо-outline без сдвига элемента (в отличие от border).
@@ -27,7 +28,7 @@ export function KpiTile({ label, value, dimension, isActive, isLoading = false, 
   return (
     <button
       onClick={onClick}
-      className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 flex flex-col gap-1 cursor-pointer text-left w-full transition-all hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm"
+      className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#152236] p-5 flex flex-col gap-1 cursor-pointer text-left w-full transition-all hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm"
       style={activeStyle}
       aria-pressed={isActive}
     >

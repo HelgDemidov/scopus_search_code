@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Skeleton } from '../ui/skeleton';
-import { DIMENSION_COLORS } from './chartColors';
 import type { Dimension } from './chartColors';
+import { useDimensionColors } from '../../hooks/useDimensionColors';
 
 interface ChartCardProps {
   title: string;
@@ -23,10 +23,11 @@ export function ChartCard({
   onTitleClick,
   headerAction,
 }: ChartCardProps) {
-  const accentColor = dimension ? DIMENSION_COLORS[dimension].base : undefined;
+  const dimColors = useDimensionColors(dimension ?? 'year');
+  const accentColor = dimension ? dimColors.base : undefined;
 
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow">
+    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#152236] p-5 flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow">
       <div className="flex items-center gap-2">
         {accentColor && (
           <span

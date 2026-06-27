@@ -9,8 +9,11 @@ htmlcov/
 .railway/
 
 # project mask & project tree
-docs/project_mask/scopus_project_mask.txt
-docs/project_tree/scopus_project_tree.txt
+docs/project_mask/
+docs/project_tree/
+
+# frontend coverage report
+frontend/coverage/
 
 # DBs / migrations
 *.db
