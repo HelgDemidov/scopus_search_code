@@ -50,6 +50,8 @@ interface ArticleStore {
   searchScopusLive: (keyword: string) => Promise<void>;
   setSearchMode: (mode: SearchMode) => void;
   setCurrentKeyword: (kw: string) => void;
+  resetSearch: () => void;
+  resetKey: number;
 }
 
 export const useArticleStore = create<ArticleStore>((set, get) => ({
@@ -65,6 +67,7 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
   liveSize: 10,   // дефолт — постраничный режим по 10 результатов
   searchMode: 'scopus',
   currentKeyword: null,
+  resetKey: 0,
   isLoading: false,
   isLiveSearching: false,
   error: null,
@@ -171,6 +174,20 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
 
   // Сохраняет последнее ключевое слово для повтора поиска при смене фильтра
   setCurrentKeyword: (kw: string) => set({ currentKeyword: kw }),
+
+  resetSearch: () => {
+    useHistoryStore.getState().resetFilters();
+    set((state) => ({
+      articles: [],
+      liveResults: [],
+      currentKeyword: null,
+      total: 0,
+      page: 1,
+      error: null,
+      filters: {},
+      resetKey: state.resetKey + 1,
+    }));
+  },
 
   // Live-поиск через Scopus API; передаем historyFilters как серверные фильтры
   searchScopusLive: async (keyword: string) => {

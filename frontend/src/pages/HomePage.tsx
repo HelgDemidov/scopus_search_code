@@ -78,6 +78,8 @@ export default function HomePage() {
     searchMode,
     setSearchMode,
     setCurrentKeyword,
+    currentKeyword,
+    resetKey,
     // Поля стора для аутентифицированной Scopus-пагинации
     liveSize,
     setLiveSize,
@@ -98,6 +100,11 @@ export default function HomePage() {
       toast.error(`Search error: ${error}`);
     }
   }, [error, isAuthenticated]);
+
+  // Сброс hasSearched при resetSearch() — currentKeyword становится null
+  useEffect(() => {
+    if (currentKeyword === null) setHasSearched(false);
+  }, [currentKeyword]);
 
   // Сортировка live-результатов (режим Scopus): применяется ко всему массиву до слайса,
   // чтобы смена sortBy не конфликтовала с переключением страниц
@@ -176,7 +183,7 @@ export default function HomePage() {
     <div className="min-h-[calc(100vh-3.5rem)]">
       {!isAuthenticated ? (
         <div className="flex flex-col">
-          <AnonHero onSearch={handleSearch} />
+          <AnonHero key={resetKey} onSearch={handleSearch} />
           {hasSearched && (
             <div className="mx-auto w-full max-w-screen-lg px-4 pb-12">
               {/* Анонимный режим: ArticleList изолирован в ErrorBoundary */}
@@ -236,7 +243,7 @@ export default function HomePage() {
           {/* SearchBar + бейдж квоты (бейдж отображается только в режиме Scopus) */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
             <div className="flex-1 w-full">
-              <SearchBar onSearch={handleSearch} />
+              <SearchBar key={resetKey} onSearch={handleSearch} />
             </div>
             {searchMode === 'scopus' && <ScopusQuotaBadge />}
           </div>

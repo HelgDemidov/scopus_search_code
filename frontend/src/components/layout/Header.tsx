@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { ThemeToggle } from '../theme/ThemeToggle';
+import { useArticleStore } from '../../stores/articleStore';
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -27,6 +28,7 @@ function getInitials(name: string): string {
 export function Header() {
   const { user, isAuthenticated, logout } = useAuthStore();
   const navigate = useNavigate();
+  const resetSearch = useArticleStore((s) => s.resetSearch);
 
   // Display name: username ?? part of email before @
   const displayName = user
@@ -45,6 +47,7 @@ export function Header() {
         {/* Logo — aria-label kept in English per spec §1.6 */}
         <Link
           to="/"
+          onClick={resetSearch}
           className="flex items-center gap-2 text-slate-900 no-underline dark:text-slate-100"
         >
           {/* Inline SVG logo */}
