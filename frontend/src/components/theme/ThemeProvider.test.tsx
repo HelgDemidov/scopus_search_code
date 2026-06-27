@@ -25,7 +25,7 @@ function mockMedia(prefersColorSchemeDark = false, prefersReducedMotion = false)
     media: query,
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
-  } as MediaQueryList)));
+  } as unknown as MediaQueryList)));
 }
 
 describe('ThemeProvider', () => {

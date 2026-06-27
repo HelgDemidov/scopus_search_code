@@ -10,7 +10,7 @@ function mockMedia(prefersReducedMotion = false) {
     media: q,
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
-  } as MediaQueryList)));
+  } as unknown as MediaQueryList)));
 }
 
 function renderToggle() {

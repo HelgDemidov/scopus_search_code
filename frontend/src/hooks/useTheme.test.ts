@@ -9,7 +9,7 @@ function mockMedia() {
     media: q,
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
-  } as MediaQueryList)));
+  } as unknown as MediaQueryList)));
 }
 
 describe('useTheme', () => {
