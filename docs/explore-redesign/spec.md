@@ -656,3 +656,129 @@ export function getFilteredStats(selection: ActiveSelection): Promise<StatsRespo
 | `ActiveFilterBanner.test.tsx` | Component | отображается при selection, скрыт без; кнопка Clear → `clearSelection()` |
 
 **Итог тестов после merge V2:** 275 + ~12 = **≈287 тестов**.
+
+---
+
+## §15. Post-production: оптимизация производительности `GET /articles/stats`
+
+**Дата анализа:** 2026-06-27  
+**Контекст:** EXPLAIN ANALYZE на production Supabase после merge PR #31 (Cross-filter V2) выявил,  
+что узкое место — не WHERE-фильтрация (функциональные индексы созданы, migration 0014),  
+а `COUNT(DISTINCT ...)` агрегация, спилл которой на диск даёт 280–470 ms на filtered path  
+и ~3000 ms на unfiltered.
+
+### Baseline (production, ~95k статей в каталоге)
+
+| Запрос | Время | Bottleneck |
+|---|---|---|
+| Unfiltered | **~3000 ms** | `COUNT(DISTINCT journal/author/country)` → external sort 6.4 MB |
+| `country='china'` (36% строк) | **~280 ms** | external sort 2.1 MB + Nested Loop по 34k строкам |
+| `doc_type='article'` (72% строк) | **~470 ms** | external sort 4.1 MB + Nested Loop по 69k строкам |
+
+Индексы `ix_articles_lower_affiliation_country` / `ix_articles_lower_document_type` эффективны  
+для редких значений (<5% строк). Для топ-значений (China, Article) bottleneck — агрегация, не scan.
+
+---
+
+### П-1. Кэширование ответа `GET /articles/stats` — Upstash Redis
+
+**Цель:** устранить повторные агрегационные запросы. Один и тот же `?countries[]=China`  
+от разных пользователей должен возвращаться из кэша, а не пересчитываться (~0 ms vs 280 ms).
+
+**Почему Upstash, а не стандартный Redis:**  
+Railway (GCP) блокирует исходящий TCP 6379/6380 — стандартный `redis-py` не работает.  
+Upstash Redis использует HTTPS REST API (порт 443) → совместим с Railway.  
+Free tier: 10 000 req/day, 256 MB — достаточно для текущей нагрузки.
+
+**Реализация (4 шага):**
+
+1. **Зависимость:** `uv add upstash-redis` → `pyproject.toml`
+2. **Клиент:** `app/infrastructure/redis_client.py` — синглтон `Redis(url=..., token=...)`;  
+   config-поля `UPSTASH_REDIS_REST_URL: str | None` и `UPSTASH_REDIS_REST_TOKEN: str | None`  
+   в `app/config.py`; если не заданы → кэш отключён, запрос идёт напрямую в БД (graceful degradation).
+3. **Cache-aside в сервисе:** `CatalogService.get_stats()` — до вызова `catalog_repo.get_stats()`  
+   проверить Redis по ключу `stats:{sha256(sorted_params_json)}`, TTL=60 s;  
+   промах → вычислить → записать в Redis → вернуть.
+4. **Env vars:** `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` — добавить в Railway и `.env`.
+
+**Cache key пример:** `stats:a3f1c8...` где `a3f1c8` = `sha256('{"countries":["china"]}')`.  
+**Инвалидация:** TTL=60 s автоматически; после seeder-прогона — явный `DEL stats:*`.
+
+**Тестовое покрытие (П-1-Т, pending):**
+
+| Тест | Файл | Что проверяется |
+|------|------|-----------------|
+| `test_get_stats_uses_cache_on_hit` | `tests/unit/test_catalog_service.py` | Redis GET → cache hit → `catalog_repo.get_stats()` не вызывается |
+| `test_get_stats_writes_cache_on_miss` | `tests/unit/test_catalog_service.py` | Redis GET miss → DB → Redis SETEX с правильным ключом и TTL |
+| `test_get_stats_degrades_on_redis_error` | `tests/unit/test_catalog_service.py` | Redis GET бросает исключение → fallback к DB, результат корректен |
+| `test_make_stats_cache_key_deterministic` | `tests/unit/test_redis_client.py` | Одни параметры → один ключ; разные параметры → разные ключи; порядок списков не важен |
+
+Моки: `FakeRedis` с управляемым состоянием (hit/miss/error) через `vi.hoisted`-аналог (`AsyncMock`).  
+Реальный Upstash в тестах **не используется** — только в-памяти fake-объект.  
+CI: тесты SQLite (`not requires_pg`), блокер PR при открытии.
+
+---
+
+### П-2. Увеличение `work_mem` в Supabase
+
+**Цель:** устранить disk spill при `COUNT(DISTINCT ...)` sort. Сейчас 2–6 MB уходит на диск  
+при каждом stats-запросе — именно это даёт основную latency.
+
+**Подводные камни:**
+
+1. **Supabase не предоставляет UI для `work_mem`** — только SQL или запрос в поддержку.
+2. **Глобальный `work_mem` опасен при конкурентных запросах.** Пример: 10 сессий × 3  
+   sort-операции × 32 MB = **960 MB пиковой RAM**. На Free (Micro, 1 GB) — риск OOM.
+3. **Free / Pro Starter Micro (1 GB RAM):** не рекомендуется поднимать выше 16 MB глобально.
+4. **Compute Add-on Small (2 GB) / Medium (4 GB):** безопасно 32–64 MB.
+
+**Безопасная реализация — per-query `SET LOCAL` (без ограничений по тиру):**
+
+```python
+# app/infrastructure/postgres_catalog_repo.py → get_stats()
+async with session.begin():
+    await session.execute(text("SET LOCAL work_mem = '32MB'"))
+    # ... агрегационные запросы (только эта транзакция получает 32 MB)
+```
+
+`SET LOCAL` действует только внутри текущей транзакции, не влияет на параллельные сессии,  
+OOM исключён. Изменений в конфигурации Supabase не требует.
+
+**Альтернатива — глобально (только при Compute Add-on Medium+):**
+```sql
+ALTER DATABASE postgres SET work_mem = '32MB';
+```
+
+**Ожидаемый эффект после `SET LOCAL work_mem = '32MB'`:**  
+sort → in-memory вместо disk spill → unfiltered ~3000 ms → ~500 ms; country ~280 ms → ~80 ms.
+
+---
+
+### Итоговые рекомендации и очерёдность (реализовано)
+
+| Приоритет | Решение | Трудозатраты | Эффект | Статус |
+|---|---|---|---|---|
+| 🔴 1 | **П-2** — `SET LOCAL work_mem='32MB'` в `get_stats()` | ~1 ч | Disk spill → in-memory; unfiltered 3s → ~500 ms | ✅ Готово |
+| 🟡 2 | **П-1** — Upstash Redis кэш (TTL 60 s) | ~1 день | Повторные запросы 0 ms; нет нагрузки на БД | ✅ Готово |
+
+---
+
+### П-3. Опции для будущего масштабирования (не реализовано)
+
+> **Почему отложено:** П-1 + П-2 покрывают потребности учебного проекта.
+> Повторные запросы обслуживаются из Redis (~0 ms), первый запрос — ~500 ms после work_mem.
+> П-3A и П-3B актуальны при каталоге >500k статей или высокой конкурентной нагрузке,
+> которой в учебном контексте нет. Сложность реализации не оправдана эффектом.
+
+#### П-3A — PostgreSQL Materialized View + pg_cron (unfiltered stats → 1–5 ms)
+
+MV хранит предвычисленные агрегаты; `pg_cron` обновляет каждые 6 часов через
+`REFRESH MATERIALIZED VIEW CONCURRENTLY`. Не блокирует читателей. Требует ручного
+включения расширения `pg_cron` в Supabase Dashboard. **Не решает filtered stats.**
+
+#### П-3B — Pre-aggregated summary tables (filtered single-dim stats → 1 ms)
+
+Таблицы `agg_stats_by_country`, `agg_stats_by_doc_type`, `agg_stats_by_year`;
+refresh в конце каждого seeder-прогона через `INSERT ON CONFLICT UPDATE`.
+Жёсткий coupling к сидеру; не поддерживает комбинированные фильтры
+(`country AND doc_type`). Альтернатива — JSON cache-table в PG вместо внешнего Redis.

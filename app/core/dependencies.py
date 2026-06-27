@@ -18,6 +18,7 @@ from app.infrastructure.postgres_catalog_repo import PostgresCatalogRepository
 from app.infrastructure.postgres_search_history_repo import PostgresSearchHistoryRepository
 from app.infrastructure.postgres_search_result_repo import PostgresSearchResultRepository
 from app.infrastructure.postgres_user_repo import PostgresUserRepository
+from app.infrastructure.redis_client import redis_client as _redis_client
 from app.infrastructure.scopus_client import ScopusHTTPClient
 from app.interfaces.email_service import IEmailService
 from app.models.user import User
@@ -126,6 +127,7 @@ def get_catalog_service(
         article_repo=PostgresArticleRepository(session),
         catalog_repo=PostgresCatalogRepository(session),
         session=session,
+        redis=_redis_client,
     )
 
 

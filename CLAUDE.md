@@ -43,7 +43,7 @@ Frontend: `cd frontend && npm run test / lint / build`
 - RT cleanup piggyback: `cleanup_stale_tokens()` вызывается при каждой ротации в `/auth/refresh`
 - Password reset: `POST /auth/password-reset` + `POST /auth/password-reset/confirm`; токены в таблице `password_reset_tokens` (migration 0011); после confirm — `revoke_all_user_tokens()`
 - Email: `IEmailService` ABC → `BrevoEmailService` (httpx, `api.brevo.com/v3/smtp/email`). **Railway блокирует SMTP порты 587/465 — никогда не использовать aiosmtplib/SMTP на Railway.** Env var: `BREVO_API_KEY` + `FROM_EMAIL`.
-- Alembic head: `0013_fix_schema_drift`
+- Alembic head: `0014_functional_indices_lower`
 
 ## Do NOT
 - Sync SQLAlchemy calls in async routes. Hardcoded secrets. CommonJS in frontend.
@@ -58,6 +58,12 @@ DATABASE_URL (e2e CI env)     → staging Supabase     (из секрета DATA
 DATABASE_TEST_URL             → throwaway PG container — NEVER point at Supabase (tests do drop_all)
 ```
 GitHub Secret `DATABASE_URL` удалён. `e2e.yml` задаёт `DATABASE_URL` из `${{ secrets.DATABASE_SUPABASE_STAGING_URL }}`.
+
+## Redis (Upstash) — кэш stats (planned, П-1 из §15 spec)
+`UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` — Upstash Redis (HTTPS REST, порт 443).
+Хранятся в: локальный `.env`, Railway Variables (prod + staging), GitHub Secrets.
+Graceful degradation: если не заданы → кэш отключён, `get_stats()` работает напрямую с БД.
+Тесты Redis не требуют. Реализация: `app/infrastructure/redis_client.py` (ещё не создан).
 
 ## Test layers & CI
 ```
@@ -88,5 +94,6 @@ Advisory lock в DI-фабрике → новые тесты `GET /articles/find
 ## Migration chain note
 `seeder_keywords` NOT в `Base.metadata` в рантайме (seeder_router не импортирует SeederKeyword) → drop_all её не трогает. В alembic/env.py SeederKeyword импортируется явно для автогенерации.
 Migration `f9a3c1e2b7d4`: `ALTER TABLE ... DROP COLUMN IF EXISTS` — идемпотентна на fresh DB.
-Chain: `f9a3c1e2b7d4` → `0010` → `0011` → `0012` → `0013_fix_schema_drift` (head).
+Chain: `f9a3c1e2b7d4` → `0010` → `0011` → `0012` → `0013_fix_schema_drift` → `0014_functional_indices_lower` (head).
 Миграция 0013: NOT NULL для `created_at` в refresh_tokens/password_reset_tokens; пересоздаёт ix_search_history_user_created без DESC (SQLite-совместимость).
+Миграция 0014: функциональные индексы `lower(affiliation_country)` и `lower(document_type)` — для Cross-filter V2 WHERE lower(col) IN (...). Применена на prod + staging Supabase 2026-06-27.

@@ -40,6 +40,20 @@ target_metadata = Base.metadata
 alembic_url = settings.database_url_str.replace("%", "%%")
 config.set_main_option("sqlalchemy.url", alembic_url)
 
+# Функциональные индексы (expression-based) не отражаются в ORM-модели —
+# SQLAlchemy возвращает их как _textual_index_element, alembic check считает
+# их «лишними» и хочет удалить. Исключаем явно по имени.
+_FUNCTIONAL_INDICES = {
+    "ix_articles_lower_affiliation_country",
+    "ix_articles_lower_document_type",
+}
+
+
+def _include_object(obj, name, type_, reflected, compare_to):  # type: ignore[no-untyped-def]
+    if type_ == "index" and name in _FUNCTIONAL_INDICES:
+        return False
+    return True
+
 
 def run_migrations_offline() -> None:
     """Запуск миграций в offline-режиме (без реального соединения с БД)."""
@@ -49,6 +63,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=_include_object,
     )
 
     with context.begin_transaction():
@@ -56,7 +71,11 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        include_object=_include_object,
+    )
 
     with context.begin_transaction():
         context.run_migrations()
