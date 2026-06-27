@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     SESSION_SECRET_KEY: str = ''
     BREVO_API_KEY: str = ''
     FROM_EMAIL: str = ''
+    UPSTASH_REDIS_REST_URL: str | None = None
+    UPSTASH_REDIS_REST_TOKEN: str | None = None
     FRONTEND_URL: str = 'http://localhost:5173'
     ALLOWED_ORIGINS: str = ''
 
@@ -71,6 +73,7 @@ from app.infrastructure.postgres_catalog_repo import PostgresCatalogRepository
 from app.infrastructure.postgres_search_history_repo import PostgresSearchHistoryRepository
 from app.infrastructure.postgres_search_result_repo import PostgresSearchResultRepository
 from app.infrastructure.postgres_user_repo import PostgresUserRepository
+from app.infrastructure.redis_client import redis_client as _redis_client
 from app.infrastructure.scopus_client import ScopusHTTPClient
 from app.interfaces.email_service import IEmailService
 from app.models.user import User
@@ -395,6 +398,39 @@ class PostgresUserRepository(IUserRepository):
 
     async def get_by_email(self, email: str) -> User | None:
         pass
+
+============================================================
+FILE: app/infrastructure/redis_client.py
+============================================================
+import hashlib
+import json
+import logging
+import httpx
+logger = logging.getLogger(__name__)
+STATS_CACHE_TTL = 60
+
+class UpstashRedisClient:
+    """Клиент Upstash Redis REST API (HTTPS, порт 443).
+
+    Railway блокирует TCP 6379/6380 — redis-py не работает.
+    Upstash REST — единственный совместимый вариант для Railway (GCP).
+    """
+
+    def __init__(self, url: str, token: str) -> None:
+        pass
+
+    async def get(self, key: str) -> str | None:
+        """Возвращает значение ключа или None если ключ отсутствует."""
+
+    async def setex(self, key: str, seconds: int, value: str) -> None:
+        """Сохраняет значение с TTL через pipeline API (надежнее для JSON-значений)."""
+
+def make_stats_cache_key(countries: list[str] | None, doc_types: list[str] | None, open_access: bool | None, year_from: int | None, year_to: int | None) -> str:
+    """Детерминированный ключ кэша: stats:{sha256[:16](sorted_params_json)}."""
+
+def _build_client() -> 'UpstashRedisClient | None':
+    pass
+redis_client: UpstashRedisClient | None = _build_client()
 
 ============================================================
 FILE: app/infrastructure/scopus_client.py
@@ -1220,16 +1256,22 @@ user_id=None — без проверки владения (для admin/seeder �
 ============================================================
 FILE: app/services/catalog_service.py
 ============================================================
-from typing import List
+from __future__ import annotations
+import logging
+from typing import TYPE_CHECKING, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.interfaces.article_repository import IArticleRepository
 from app.interfaces.catalog_repository import ICatalogRepository
 from app.models.article import Article
 from app.schemas.article_schemas import ArticleResponse, CountByField, PaginatedArticleResponse, StatsResponse
+if TYPE_CHECKING:
+    from app.infrastructure.redis_client import UpstashRedisClient
+from app.infrastructure.redis_client import STATS_CACHE_TTL, make_stats_cache_key
+logger = logging.getLogger(__name__)
 
 class CatalogService:
 
-    def __init__(self, article_repo: IArticleRepository, catalog_repo: ICatalogRepository, session: AsyncSession):
+    def __init__(self, article_repo: IArticleRepository, catalog_repo: ICatalogRepository, session: AsyncSession, redis: UpstashRedisClient | None=None):
         pass
 
     async def get_catalog_paginated(self, page: int, size: int, keyword: str | None=None, search: str | None=None, year_from: int | None=None, year_to: int | None=None, doc_types: list[str] | None=None, open_access: bool | None=None, countries: list[str] | None=None) -> PaginatedArticleResponse:
@@ -1244,7 +1286,13 @@ open_access: True — только OA; False — только не-OA; None — 
 countries:   фильтр по странам аффилиации (список)."""
 
     async def get_stats(self, countries: list[str] | None=None, doc_types: list[str] | None=None, open_access: bool | None=None, year_from: int | None=None, year_to: int | None=None) -> StatsResponse:
-        """Агрегированная статистика по каталогу с опциональными фильтрами."""
+        """Агрегированная статистика по каталогу с опциональными фильтрами.
+
+Cache-aside: Redis TTL=60s → при промахе запрос к БД → запись в кэш.
+Graceful degradation: если redis=None или Redis недоступен → прямой запрос к БД."""
+
+    async def _fetch_stats_from_db(self, countries: list[str] | None, doc_types: list[str] | None, open_access: bool | None, year_from: int | None, year_to: int | None) -> StatsResponse:
+        pass
 
     async def seed(self, articles: List[Article], keyword: str) -> List[Article]:
         """Сохраняет статьи сидера: upsert в articles → запись в catalog_articles.

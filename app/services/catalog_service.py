@@ -1,5 +1,8 @@
 # Сервис каталога сидера — управляет статьями, добавленными автоматическим сидером
-from typing import List
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +11,13 @@ from app.interfaces.catalog_repository import ICatalogRepository
 from app.models.article import Article
 from app.schemas.article_schemas import ArticleResponse, CountByField, PaginatedArticleResponse, StatsResponse
 
+if TYPE_CHECKING:
+    from app.infrastructure.redis_client import UpstashRedisClient
+
+from app.infrastructure.redis_client import STATS_CACHE_TTL, make_stats_cache_key
+
+logger = logging.getLogger(__name__)
+
 
 class CatalogService:
     def __init__(
@@ -15,10 +25,12 @@ class CatalogService:
         article_repo: IArticleRepository,
         catalog_repo: ICatalogRepository,
         session: AsyncSession,
+        redis: UpstashRedisClient | None = None,
     ):
         self.article_repo = article_repo
         self.catalog_repo = catalog_repo
         self.session = session
+        self.redis = redis
 
     # ------------------------------------------------------------------ #
     #  get_catalog_paginated                                               #
@@ -93,7 +105,40 @@ class CatalogService:
         year_from: int | None = None,
         year_to: int | None = None,
     ) -> StatsResponse:
-        """Агрегированная статистика по каталогу с опциональными фильтрами."""
+        """Агрегированная статистика по каталогу с опциональными фильтрами.
+
+        Cache-aside: Redis TTL=60s → при промахе запрос к БД → запись в кэш.
+        Graceful degradation: если redis=None или Redis недоступен → прямой запрос к БД.
+        """
+        if self.redis is None:
+            return await self._fetch_stats_from_db(countries, doc_types, open_access, year_from, year_to)
+
+        cache_key = make_stats_cache_key(countries, doc_types, open_access, year_from, year_to)
+
+        try:
+            cached = await self.redis.get(cache_key)
+            if cached is not None:
+                return StatsResponse.model_validate_json(cached)
+        except Exception:
+            logger.warning("Redis GET failed, falling back to DB", exc_info=True)
+
+        result = await self._fetch_stats_from_db(countries, doc_types, open_access, year_from, year_to)
+
+        try:
+            await self.redis.setex(cache_key, STATS_CACHE_TTL, result.model_dump_json())
+        except Exception:
+            logger.warning("Redis SETEX failed, cache skipped", exc_info=True)
+
+        return result
+
+    async def _fetch_stats_from_db(
+        self,
+        countries: list[str] | None,
+        doc_types: list[str] | None,
+        open_access: bool | None,
+        year_from: int | None,
+        year_to: int | None,
+    ) -> StatsResponse:
         raw = await self.catalog_repo.get_stats(
             countries=countries,
             doc_types=doc_types,

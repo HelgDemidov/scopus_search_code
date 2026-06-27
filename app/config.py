@@ -37,7 +37,12 @@ class Settings(BaseSettings):
     BREVO_API_KEY: str = ""
     FROM_EMAIL: str = ""
 
-    # 7. URLs фронтенда
+    # 7. Upstash Redis (кэш GET /articles/stats) — опционально, graceful degradation
+    # Railway блокирует TCP 6379 — Upstash REST API (HTTPS 443) единственный вариант
+    UPSTASH_REDIS_REST_URL: str | None = None
+    UPSTASH_REDIS_REST_TOKEN: str | None = None
+
+    # 8. URLs фронтенда
     FRONTEND_URL: str = "http://localhost:5173"
     # Список разрешенных CORS-origins через запятую
     # Пример Railway: https://scopus-search-code.vercel.app
