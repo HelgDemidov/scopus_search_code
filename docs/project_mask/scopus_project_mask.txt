@@ -2501,10 +2501,11 @@ from datetime import date
 from typing import List, cast
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.infrastructure.redis_client import STATS_CACHE_TTL, make_stats_cache_key
 from app.interfaces.article_repository import IArticleRepository
 from app.interfaces.catalog_repository import ICatalogRepository
 from app.models.article import Article
-from app.schemas.article_schemas import PaginatedArticleResponse, StatsResponse
+from app.schemas.article_schemas import CountByField, PaginatedArticleResponse, StatsResponse
 from app.services.catalog_service import CatalogService
 
 class FakeArticleRepository(IArticleRepository):
@@ -2543,10 +2544,25 @@ class FakeSession:
     async def commit(self) -> None:
         pass
 
+class FakeRedis:
+    """Тестовый дублёр UpstashRedisClient с управляемым состоянием."""
+
+    def __init__(self, cached_value: str | None=None, raise_on_get: bool=False, raise_on_setex: bool=False) -> None:
+        pass
+
+    async def get(self, key: str) -> str | None:
+        pass
+
+    async def setex(self, key: str, seconds: int, value: str) -> None:
+        pass
+
+def _minimal_stats_response() -> StatsResponse:
+    """Минимальный корректный StatsResponse для тестов кэша."""
+
 def _mk_article(article_id: int) -> Article:
     pass
 
-def _mk_service(articles: List[Article] | None=None, total: int=0) -> tuple[CatalogService, FakeArticleRepository, FakeCatalogRepository, FakeSession]:
+def _mk_service(articles: List[Article] | None=None, total: int=0, redis: FakeRedis | None=None) -> tuple[CatalogService, FakeArticleRepository, FakeCatalogRepository, FakeSession]:
     pass
 
 @pytest.mark.asyncio
@@ -2616,6 +2632,26 @@ async def test_seed_passes_keyword_to_save_seeded():
 @pytest.mark.asyncio
 async def test_seed_upsert_failure_skips_save_seeded_and_commit():
     """Если upsert_many бросил — save_seeded и commit не вызываются."""
+
+@pytest.mark.asyncio
+async def test_get_stats_uses_cache_on_hit():
+    """Cache hit: Redis возвращает значение → DB не вызывается."""
+
+@pytest.mark.asyncio
+async def test_get_stats_writes_cache_on_miss():
+    """Cache miss: DB вызывается, результат записывается в Redis с правильным ключом и TTL."""
+
+@pytest.mark.asyncio
+async def test_get_stats_degrades_on_redis_error():
+    """Redis GET бросает исключение → graceful degradation: DB вызывается, результат корректен."""
+
+@pytest.mark.asyncio
+async def test_get_stats_skips_setex_on_redis_error():
+    """Redis SETEX бросает исключение → результат всё равно возвращается корректно."""
+
+@pytest.mark.asyncio
+async def test_get_stats_no_redis_goes_directly_to_db():
+    """redis=None → прямой вызов DB без попыток Redis."""
 
 ============================================================
 FILE: tests/unit/test_interface_contract.py
@@ -2697,6 +2733,37 @@ def test_cannot_instantiate_without_search():
 
 def test_full_implementation_instantiates_without_errors():
     pass
+
+============================================================
+FILE: tests/unit/test_redis_client.py
+============================================================
+import pytest
+from app.infrastructure.redis_client import make_stats_cache_key
+
+def test_make_stats_cache_key_starts_with_stats_prefix():
+    pass
+
+def test_make_stats_cache_key_deterministic():
+    """Одни параметры всегда дают один и тот же ключ."""
+
+def test_make_stats_cache_key_list_order_insensitive():
+    """Порядок элементов в списке countries/doc_types не влияет на ключ."""
+
+def test_make_stats_cache_key_different_countries():
+    """Разные страны → разные ключи."""
+
+def test_make_stats_cache_key_different_year_ranges():
+    """Разные диапазоны лет → разные ключи."""
+
+def test_make_stats_cache_key_none_vs_value():
+    """None-параметр и заполненный параметр → разные ключи."""
+
+def test_make_stats_cache_key_digest_length():
+    """Суффикс после 'stats:' — ровно 16 символов hex-дайджеста."""
+
+@pytest.mark.parametrize('countries,doc_types,oa,yf,yt', [(None, None, None, None, None), (['USA'], None, True, 2020, 2024), (['Russia', 'Germany'], ['Article', 'Review'], False, 2015, 2023)])
+def test_make_stats_cache_key_parametrized_stability(countries, doc_types, oa, yf, yt):
+    """Проверяем стабильность ключа для нескольких наборов параметров."""
 
 ============================================================
 FILE: tests/unit/test_scopus_client.py

@@ -5,10 +5,11 @@ from typing import List, cast
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.infrastructure.redis_client import STATS_CACHE_TTL, make_stats_cache_key
 from app.interfaces.article_repository import IArticleRepository
 from app.interfaces.catalog_repository import ICatalogRepository
 from app.models.article import Article
-from app.schemas.article_schemas import PaginatedArticleResponse, StatsResponse
+from app.schemas.article_schemas import CountByField, PaginatedArticleResponse, StatsResponse
 from app.services.catalog_service import CatalogService
 
 # ================================================================ #
@@ -129,6 +130,50 @@ class FakeSession:
         self.commit_call_count += 1
 
 
+class FakeRedis:
+    """Тестовый дублёр UpstashRedisClient с управляемым состоянием."""
+
+    def __init__(
+        self,
+        cached_value: str | None = None,
+        raise_on_get: bool = False,
+        raise_on_setex: bool = False,
+    ) -> None:
+        self._cached_value = cached_value
+        self._raise_on_get = raise_on_get
+        self._raise_on_setex = raise_on_setex
+        self.get_call_count = 0
+        self.setex_calls: list[tuple[str, int, str]] = []
+
+    async def get(self, key: str) -> str | None:
+        self.get_call_count += 1
+        if self._raise_on_get:
+            raise ConnectionError("Redis unavailable")
+        return self._cached_value
+
+    async def setex(self, key: str, seconds: int, value: str) -> None:
+        if self._raise_on_setex:
+            raise ConnectionError("Redis unavailable")
+        self.setex_calls.append((key, seconds, value))
+
+
+def _minimal_stats_response() -> StatsResponse:
+    """Минимальный корректный StatsResponse для тестов кэша."""
+    return StatsResponse(
+        total_articles=42,
+        total_journals=10,
+        total_countries=5,
+        total_authors=8,
+        open_access_count=7,
+        by_year=[CountByField(label="2025", count=20)],
+        by_journal=[CountByField(label="Nature", count=15)],
+        by_country=[CountByField(label="USA", count=30)],
+        by_doc_type=[CountByField(label="Article", count=40)],
+        top_keywords=[CountByField(label="deep learning", count=12)],
+        top_authors=[CountByField(label="J. Smith", count=5)],
+    )
+
+
 # ================================================================ #
 #  Хелперы                                                         #
 # ================================================================ #
@@ -147,11 +192,12 @@ def _mk_article(article_id: int) -> Article:
 def _mk_service(
     articles: List[Article] | None = None,
     total: int = 0,
+    redis: FakeRedis | None = None,
 ) -> tuple[CatalogService, FakeArticleRepository, FakeCatalogRepository, FakeSession]:
     ar = FakeArticleRepository()
     cr = FakeCatalogRepository(articles=articles, total=total)
     sess = FakeSession()
-    svc = CatalogService(article_repo=ar, catalog_repo=cr, session=cast(AsyncSession, sess))
+    svc = CatalogService(article_repo=ar, catalog_repo=cr, session=cast(AsyncSession, sess), redis=redis)
     return svc, ar, cr, sess
 
 
@@ -410,3 +456,77 @@ async def test_seed_upsert_failure_skips_save_seeded_and_commit():
 
     assert cr.save_seeded_calls == []
     assert sess.commit_call_count == 0
+
+
+# ================================================================ #
+#  Тесты get_stats — кэш Redis (П-1-Т)                            #
+# ================================================================ #
+
+
+@pytest.mark.asyncio
+async def test_get_stats_uses_cache_on_hit():
+    """Cache hit: Redis возвращает значение → DB не вызывается."""
+    cached = _minimal_stats_response().model_dump_json()
+    redis = FakeRedis(cached_value=cached)
+    svc, _, cr, _ = _mk_service(redis=redis)
+
+    result = await svc.get_stats()
+
+    assert cr.stats_call_count == 0, "DB не должна вызываться при cache hit"
+    assert redis.get_call_count == 1
+    assert result.total_articles == 42
+
+
+@pytest.mark.asyncio
+async def test_get_stats_writes_cache_on_miss():
+    """Cache miss: DB вызывается, результат записывается в Redis с правильным ключом и TTL."""
+    redis = FakeRedis(cached_value=None)
+    svc, _, cr, _ = _mk_service(redis=redis)
+
+    result = await svc.get_stats(countries=["USA"])
+
+    assert cr.stats_call_count == 1, "При cache miss DB должна вызываться"
+    assert len(redis.setex_calls) == 1, "После DB должна быть запись в Redis"
+
+    key, ttl, value = redis.setex_calls[0]
+    expected_key = make_stats_cache_key(["USA"], None, None, None, None)
+    assert key == expected_key
+    assert ttl == STATS_CACHE_TTL
+    assert result.total_articles == 42
+
+
+@pytest.mark.asyncio
+async def test_get_stats_degrades_on_redis_error():
+    """Redis GET бросает исключение → graceful degradation: DB вызывается, результат корректен."""
+    redis = FakeRedis(raise_on_get=True)
+    svc, _, cr, _ = _mk_service(redis=redis)
+
+    result = await svc.get_stats()
+
+    assert cr.stats_call_count == 1, "При ошибке Redis должен быть fallback на DB"
+    assert isinstance(result, StatsResponse)
+    assert result.total_articles == 42
+
+
+@pytest.mark.asyncio
+async def test_get_stats_skips_setex_on_redis_error():
+    """Redis SETEX бросает исключение → результат всё равно возвращается корректно."""
+    redis = FakeRedis(cached_value=None, raise_on_setex=True)
+    svc, _, cr, _ = _mk_service(redis=redis)
+
+    result = await svc.get_stats()
+
+    assert cr.stats_call_count == 1
+    assert len(redis.setex_calls) == 0
+    assert result.total_articles == 42
+
+
+@pytest.mark.asyncio
+async def test_get_stats_no_redis_goes_directly_to_db():
+    """redis=None → прямой вызов DB без попыток Redis."""
+    svc, _, cr, _ = _mk_service(redis=None)
+
+    result = await svc.get_stats()
+
+    assert cr.stats_call_count == 1
+    assert isinstance(result, StatsResponse)
