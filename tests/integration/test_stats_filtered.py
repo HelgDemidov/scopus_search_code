@@ -17,6 +17,7 @@ from app.models.catalog_article import CatalogArticle
 # Хелпер: вставить статьи в БД и зарегистрировать в catalog_articles
 # ---------------------------------------------------------------------------
 
+
 async def _seed(session: AsyncSession, articles: list[dict]) -> None:
     """Вставить статьи + catalog_articles. flush без commit — транзакция теста."""
     for i, data in enumerate(articles):
@@ -38,6 +39,7 @@ async def _seed(session: AsyncSession, articles: list[dict]) -> None:
     from sqlalchemy import select
 
     from app.models.article import Article as A
+
     result = await session.execute(select(A).order_by(A.id.desc()).limit(len(articles)))
     inserted = result.scalars().all()
 
@@ -51,15 +53,19 @@ async def _seed(session: AsyncSession, articles: list[dict]) -> None:
 # Тесты
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 @pytest.mark.requires_pg
 async def test_stats_unfiltered_returns_all(pg_client: AsyncClient, pg_session: AsyncSession):
     """Без фильтров /stats возвращает total_articles == общему числу статей в каталоге."""
-    await _seed(pg_session, [
-        {"doi": "10.u/1", "affiliation_country": "China", "document_type": "Article"},
-        {"doi": "10.u/2", "affiliation_country": "USA", "document_type": "Review"},
-        {"doi": "10.u/3", "affiliation_country": "Germany", "document_type": "Article"},
-    ])
+    await _seed(
+        pg_session,
+        [
+            {"doi": "10.u/1", "affiliation_country": "China", "document_type": "Article"},
+            {"doi": "10.u/2", "affiliation_country": "USA", "document_type": "Review"},
+            {"doi": "10.u/3", "affiliation_country": "Germany", "document_type": "Article"},
+        ],
+    )
 
     resp = await pg_client.get("/articles/stats")
     assert resp.status_code == 200, resp.text
@@ -72,11 +78,14 @@ async def test_stats_unfiltered_returns_all(pg_client: AsyncClient, pg_session: 
 @pytest.mark.requires_pg
 async def test_stats_filtered_by_country(pg_client: AsyncClient, pg_session: AsyncSession):
     """Фильтр countries[] уменьшает total_articles и by_country."""
-    await _seed(pg_session, [
-        {"doi": "10.c/1", "affiliation_country": "China"},
-        {"doi": "10.c/2", "affiliation_country": "China"},
-        {"doi": "10.c/3", "affiliation_country": "USA"},
-    ])
+    await _seed(
+        pg_session,
+        [
+            {"doi": "10.c/1", "affiliation_country": "China"},
+            {"doi": "10.c/2", "affiliation_country": "China"},
+            {"doi": "10.c/3", "affiliation_country": "USA"},
+        ],
+    )
 
     resp = await pg_client.get("/articles/stats", params={"countries": ["China"]})
     assert resp.status_code == 200, resp.text
@@ -94,11 +103,14 @@ async def test_stats_filtered_by_country(pg_client: AsyncClient, pg_session: Asy
 @pytest.mark.requires_pg
 async def test_stats_filtered_by_doc_type(pg_client: AsyncClient, pg_session: AsyncSession):
     """Фильтр doc_types[] уменьшает total_articles и by_doc_type."""
-    await _seed(pg_session, [
-        {"doi": "10.d/1", "document_type": "Article"},
-        {"doi": "10.d/2", "document_type": "Article"},
-        {"doi": "10.d/3", "document_type": "Review"},
-    ])
+    await _seed(
+        pg_session,
+        [
+            {"doi": "10.d/1", "document_type": "Article"},
+            {"doi": "10.d/2", "document_type": "Article"},
+            {"doi": "10.d/3", "document_type": "Review"},
+        ],
+    )
 
     resp = await pg_client.get("/articles/stats", params={"doc_types": ["Review"]})
     assert resp.status_code == 200, resp.text
