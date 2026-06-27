@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { getFilteredStats, selectionToParams } from '../api/stats';
 import type { Dimension, ChartType } from '../components/charts/chartColors';
+import type { StatsResponse } from '../types/api';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -32,7 +34,20 @@ interface DashboardStore {
   builderCards: BuilderCard[];
   addBuilderCard: (card: Omit<BuilderCard, 'id'>) => void;
   removeBuilderCard: (id: string) => void;
+
+  // Cross-filter V2: серверная фильтрация статистики
+  filteredStats: StatsResponse | null;
+  filteredStatsLoading: boolean;
+  fetchFilteredStats: (selection: ActiveSelection) => Promise<void>;
+  clearFilteredStats: () => void;
 }
+
+// ---------------------------------------------------------------------------
+// AbortController для in-flight запроса filtered stats
+// Хранится вне Zustand state — не сериализуется, не триггерит ре-рендер
+// ---------------------------------------------------------------------------
+
+let _statsController: AbortController | null = null;
 
 // ---------------------------------------------------------------------------
 // Store
@@ -64,15 +79,54 @@ export const useDashboardStore = create<DashboardStore>()(
         set((s) => ({ builderCards: [...s.builderCards, { ...card, id: crypto.randomUUID() }] })),
       removeBuilderCard: (id) =>
         set((s) => ({ builderCards: s.builderCards.filter((c) => c.id !== id) })),
+
+      // ---- Cross-filter V2 ------------------------------------------------
+
+      filteredStats: null,
+      filteredStatsLoading: false,
+
+      fetchFilteredStats: async (selection) => {
+        // Неподдерживаемые измерения (journal, author) — сервер не фильтрует;
+        // сбрасываем V2-state и оставляем V1 visual dimming.
+        if (!selectionToParams(selection)) {
+          _statsController?.abort();
+          _statsController = null;
+          set({ filteredStats: null, filteredStatsLoading: false });
+          return;
+        }
+
+        // Отменяем предыдущий in-flight запрос (race condition при быстрых кликах)
+        _statsController?.abort();
+        const controller = new AbortController();
+        _statsController = controller;
+
+        set({ filteredStatsLoading: true });
+        try {
+          const data = await getFilteredStats(selection, controller.signal);
+          // Игнорируем ответ если этот запрос уже был отменён
+          if (!controller.signal.aborted) {
+            set({ filteredStats: data, filteredStatsLoading: false });
+          }
+        } catch {
+          if (!controller.signal.aborted) {
+            set({ filteredStatsLoading: false });
+          }
+        }
+      },
+
+      clearFilteredStats: () => {
+        _statsController?.abort();
+        _statsController = null;
+        set({ filteredStats: null, filteredStatsLoading: false });
+      },
     }),
     {
       name: 'scopus-dashboard-v1',
       storage: createJSONStorage(() => localStorage),
-      // Только builderCards персистируются — selection и drawer сессионные
+      // Только builderCards персистируются — всё остальное сессионное
       partialize: (state) => ({ builderCards: state.builderCards }),
       version: 1,
       migrate: (_persisted, version) => {
-        // При изменении BuilderCard-схемы — инкрементировать version здесь
         if (version < 1) return { builderCards: [] };
         return _persisted as { builderCards: BuilderCard[] };
       },

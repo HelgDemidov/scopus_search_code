@@ -24,7 +24,7 @@ const colors = DIMENSION_COLORS[DIM];
 const TOP_N = 15;
 
 export function TopAuthorsChart({ data, isLoading }: TopAuthorsChartProps) {
-  const { activeSelection, setSelection, openDrawer } = useDashboardStore();
+  const { activeSelection, filteredStats, setSelection, openDrawer } = useDashboardStore();
 
   const chartData = [...data]
     .sort((a, b) => b.count - a.count)
@@ -32,6 +32,7 @@ export function TopAuthorsChart({ data, isLoading }: TopAuthorsChartProps) {
     .map((d) => ({ ...d, label: truncateLabel(d.label, 28) }));
 
   function getCellFill(label: string): string {
+    if (filteredStats !== null) return colors.base;
     if (!activeSelection || activeSelection.dimension !== DIM) return colors.base;
     return activeSelection.value === label ? colors.selected : colors.dimmed;
   }

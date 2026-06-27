@@ -106,6 +106,16 @@ export const CHART_COLORS_MULTI = [
 
 export type TremorColor = typeof CHART_COLORS_MULTI[number];
 
+// Человекочитаемые названия измерений для ActiveFilterBanner и других UI
+export const DIMENSION_LABELS: Record<Dimension, string> = {
+  year:        'Year',
+  country:     'Country',
+  doc_type:    'Document Type',
+  journal:     'Journal',
+  open_access: 'Open Access',
+  author:      'Author',
+};
+
 export const CHART_TYPE_LABELS: Record<ChartType, string> = {
   bar_h:  'Horizontal Bar',
   bar_v:  'Vertical Bar',

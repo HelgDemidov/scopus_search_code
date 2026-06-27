@@ -25,7 +25,7 @@ const TOP_N = 10;
 const YAXIS_WIDTH = 180;
 
 export function TopJournalsChart({ data, isLoading }: TopJournalsChartProps) {
-  const { activeSelection, setSelection, openDrawer } = useDashboardStore();
+  const { activeSelection, filteredStats, setSelection, openDrawer } = useDashboardStore();
 
   const chartData = [...data]
     .sort((a, b) => b.count - a.count)
@@ -33,6 +33,7 @@ export function TopJournalsChart({ data, isLoading }: TopJournalsChartProps) {
     .map((d) => ({ ...d, label: truncateLabel(d.label, 28) }));
 
   function getCellFill(label: string): string {
+    if (filteredStats !== null) return colors.base;
     if (!activeSelection || activeSelection.dimension !== DIM) return colors.base;
     return activeSelection.value === label ? colors.selected : colors.dimmed;
   }
