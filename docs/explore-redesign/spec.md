@@ -410,3 +410,249 @@ dashboardStore: обновлены 2 теста под новую сигнату
 - Cross-filter V2: серверная фильтрация `GET /articles/stats?countries[]=...`
 - Сохранение `builderCards` в localStorage между сессиями
 - Bottom-sheet для DimensionDrawer на мобильных (`< md`)
+
+---
+
+## 13. Post-production: `feat/explore-polish`
+
+**Ветка:** `feat/explore-polish` · создана от `main` 2026-06-27  
+**Scope:** UX-полировка + замена нерабочего графика + persistence  
+**CI:** `tests.yml`, `frontend-tests.yml`, `e2e.yml` — триггер `push → feat/explore-polish` (заменяет устаревший `interactive-charts`)
+
+---
+
+### П-1. Замена ThematicAreasChart → TopAuthorsChart
+
+**Проблема.** Поле `top_keywords` в `StatsResponse` содержит категории сидера (`seeder_migration` и т.п.) — искусственный артефакт этапов разработки, не имеющий аналитической ценности. Отображение этих данных вводит пользователя в заблуждение.
+
+**Решение — полное замещение новым измерением `author`:**
+
+*Бэкенд (`app/`):*
+- `StatsResponse` (`app/schemas/article_schemas.py`): добавить `top_authors: List[CountByField]` и `total_authors: int`
+- `PostgresCatalogRepository.get_stats()`: добавить `total_authors` в итоговый `SELECT` (одна строка: `func.count(catalog_articles_q.c.author.distinct())`); добавить запрос `top_authors` по `catalog_articles_q.c.author` (TOP-20, аналогично `by_country`)
+- `CatalogService.get_stats()`: проксировать новые поля в `StatsResponse(...)`
+- `ICatalogRepository.get_stats()`: синхронизировать возвращаемый тип (аннотация `-> dict`)
+
+*Фронтенд (`frontend/src/`):*
+- `types/api.ts`: добавить `top_authors: LabelCount[]` и `total_authors: number` в `StatsResponse`
+- `components/charts/chartColors.ts`: тип `Dimension` → убрать `'thematic'`, добавить `'author'`; убрать `thematic` из `DIMENSION_COLORS`, добавить `author` (цвет: `sky-600` = `#0284c7`, hover `#0369a1`, selected `#0369a1`, dimmed `#bae6fd`)
+- `components/explore/KpiRow.tsx`: 6-й тайл «Thematic Areas» → «Top Authors» (использует `stats.total_authors`)
+- `components/explore/DimensionDrawer.tsx`: убрать `case 'thematic'`, добавить `case 'author'` (HorizontalBar + таблица; `labelMaxLen=24`, `yAxisWidth=140`)
+- `components/charts/ThematicAreasChart.tsx`: **удалить**
+- `components/charts/TopAuthorsChart.tsx`: **новый компонент** (HorizontalBar, `top-15`, sky-цвет, click→`setSelection('author', value)`, title click→`openDrawer('author')`) — идентичный паттерн с `TopCountriesChart.tsx`
+- `pages/ExplorePage.tsx`: убрать `ThematicAreasChart`, добавить `TopAuthorsChart` (та же позиция — full-width под 2×2 grid)
+
+*Аналитическая ценность:* для Scopus (инструмент академической аналитики) распределение по авторам — ключевая метрика; Dimensions.ai и Lens.org аналогично показывают Top Authors.
+
+---
+
+### П-2. Сохранение `builderCards` в localStorage
+
+**Решение:** Zustand `persist` middleware (уже в зависимостях, не новая зависимость).
+
+```typescript
+// dashboardStore.ts — обернуть create() в persist()
+import { persist, createJSONStorage } from 'zustand/middleware';
+
+export const useDashboardStore = create<DashboardStore>()(
+  persist(
+    (set, get) => ({ /* impl без изменений */ }),
+    {
+      name: 'scopus-dashboard-v1',
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({ builderCards: state.builderCards }),
+      version: 1,
+      migrate: (_persisted, version) => {
+        if (version < 1) return { builderCards: [] };
+        return _persisted as DashboardStore;
+      },
+    }
+  )
+);
+```
+
+`activeSelection` и `drawerDimension` **не персистируются** — сессионное состояние; drawer не должен открываться сам при загрузке страницы.
+
+При изменении структуры `BuilderCard` в будущем: инкрементировать `version: 2`, `migrate` возвращает `{ builderCards: [] }`.
+
+---
+
+### П-3. Bottom-sheet для DimensionDrawer на мобильных (`< md`)
+
+**Решение:** новый хук + условный `side` у shadcn `SheetContent`.
+
+*Новый файл `frontend/src/hooks/useMediaQuery.ts`:*
+```typescript
+export function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(query).matches
+  );
+  useEffect(() => {
+    const mql = window.matchMedia(query);
+    const handler = (e: MediaQueryListEvent) => setMatches(e.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, [query]);
+  return matches;
+}
+```
+
+*`DimensionDrawer.tsx`:*
+```tsx
+const isMobile = useMediaQuery('(max-width: 767px)');
+// SheetContent:
+side={isMobile ? 'bottom' : 'right'}
+className={isMobile
+  ? 'h-[85dvh] w-full flex flex-col p-0 gap-0 rounded-t-xl overflow-hidden'
+  : 'sm:max-w-2xl w-full flex flex-col overflow-y-auto p-0 gap-0'
+}
+```
+
+Drag-handle indicator (мобильный вид):
+```tsx
+{isMobile && (
+  <div className="flex-shrink-0 w-10 h-1 rounded-full bg-slate-300 mx-auto mt-3 mb-0" />
+)}
+```
+
+Chart height cap на мобильных: `height={isMobile ? Math.min(config.chartHeight, 280) : config.chartHeight}` — предотвращает overflow в `85dvh`.  
+`dvh` (dynamic viewport height) корректно учитывает browser UI на мобильных Chrome/Safari (поддержка с 2022).
+
+---
+
+### П-4. Тестовое покрытие
+
+Минимально необходимое — только для поведения, которое молча сломается без теста:
+
+| Файл | Новых тестов | Что проверяется |
+|---|---|---|
+| `dashboardStore.test.ts` | +2 | persist инициализирует из localStorage; `partialize` не сохраняет `activeSelection` |
+| `hooks/useMediaQuery.test.ts` | +3 | matches при query=true; no-match при query=false; listener cleanup при unmount |
+| `TopAuthorsChart.test.tsx` | +6 | skeleton, top-15 slice, bar click → `setSelection('author', val)`, title click → `openDrawer('author')` |
+| `ThematicAreasChart.test.tsx` | −6 | файл **удаляется** вместе с компонентом |
+
+**Итог тестов после merge:** 270 − 6 (удалено) + 11 (добавлено) = **275 тестов**.
+
+---
+
+## 14. Post-production: Cross-filter V2 — стратегия реализации
+
+**Ветка:** `feat/stats-crossfilter-v2` · создавать после merge `feat/explore-polish`  
+**Scope:** backend query params + frontend filtered fetch + active filter UI  
+**CI-маркер:** бэкенд-тесты для filtered stats — `requires_pg` (SQLite не поддерживает `func.lower().in_()` корректно при кросс-платформенной коллации)
+
+---
+
+### V2-А. Backend
+
+**Принцип:** переиспользовать существующий `_apply_filters()` в `get_stats()` — логика уже написана.
+
+*`ICatalogRepository.get_stats()`:* расширить сигнатуру:
+```python
+async def get_stats(
+    self,
+    countries: list[str] | None = None,
+    doc_types: list[str] | None = None,
+    open_access: bool | None = None,
+    year_from: int | None = None,
+    year_to: int | None = None,
+) -> dict: ...
+```
+
+*`PostgresCatalogRepository.get_stats()`:* вместо CTE → JOIN + `_apply_filters`:
+```python
+stmt = select(Article).join(CatalogArticle, CatalogArticle.article_id == Article.id)
+stmt = self._apply_filters(stmt, keyword=None, search=None,
+                           year_from=year_from, year_to=year_to,
+                           doc_types=doc_types, open_access=open_access,
+                           countries=countries)
+catalog_articles_q = stmt.subquery()
+# top_authors по filtered subquery — аналогично by_country
+```
+
+*FastAPI route `GET /articles/stats`:*
+```python
+countries: list[str] | None = Query(None)
+doc_types: list[str] | None = Query(None)
+open_access: bool | None = Query(None)
+year_from: int | None = Query(None)
+year_to: int | None = Query(None)
+```
+
+`StatsResponse` схема **не меняется** — формат ответа одинаков. Глобальный запрос = запрос с пустыми фильтрами.
+
+*Тесты (все `requires_pg`):* `test_stats_filtered_country`, `test_stats_filtered_doc_type`, `test_stats_unfiltered_unchanged`.
+
+---
+
+### V2-Б. Frontend
+
+**Архитектура:** расширить `dashboardStore`, не `statsStore` — сохраняем SRP.
+
+```typescript
+// Новые поля в DashboardStore
+filteredStats: StatsResponse | null;
+filteredStatsLoading: boolean;
+fetchFilteredStats: (selection: ActiveSelection) => Promise<void>;
+clearFilteredStats: () => void;
+```
+
+*`ExplorePage.tsx`:*
+```typescript
+useEffect(() => {
+  if (!activeSelection) clearFilteredStats();
+  else fetchFilteredStats(activeSelection);    // AbortController внутри
+}, [activeSelection]);
+```
+
+*Chart-компоненты:* принимают `stats = filteredStats ?? globalStats` — fallback при загрузке.
+
+*`fetchFilteredStats` (`api/stats.ts`):*
+```typescript
+export function getFilteredStats(selection: ActiveSelection): Promise<StatsResponse> {
+  const params = selectionToParams(selection);  // { countries: [val] } | { doc_types: [val] } | ...
+  return client.get('/articles/stats', { params }).then(r => r.data);
+}
+```
+
+---
+
+### V2-В. Active filter indicator (обязательный UX-элемент)
+
+Полоса между `KpiRow` и `PublicationsByYearChart` — появляется только при активном `activeSelection`:
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ ⬤ Filtered by: Countries → China    [× Clear filter]     │
+│   Showing 4,821 of 39,850 articles                       │
+└──────────────────────────────────────────────────────────┘
+```
+
+Цвет точки `⬤` = `DIMENSION_COLORS[activeSelection.dimension].base`.  
+`[× Clear filter]` → `clearSelection()` + `clearFilteredStats()`.
+
+Без этого индикатора пользователь не поймёт, почему все графики изменились.
+
+---
+
+### V2-Г. Риски и митигации
+
+| Риск | Оценка | Митигация |
+|---|---|---|
+| Filtered `get_stats()` — 5 SQL-запросов на каждый клик | Средний | Проверить `EXPLAIN ANALYZE` на production Supabase; индексы по `affiliation_country`, `document_type` |
+| Race condition при быстрых кликах | Низкий | `AbortController` в `fetchFilteredStats`; хранить ref на предыдущий контроллер |
+| `top_authors` при фильтрации по стране → пустой список | Низкий | Fallback: если filtered `top_authors = []` → показывать global |
+| V1 visual dimming (Cell fill) + V2 filtered data — коллизия смыслов | Средний | При активном `filteredStats`: отключить dimming, все bars = `colors.base`; dimming актуален только без фильтра |
+| SQLite-тесты для filtered path | Да | Все тесты filtered `get_stats()` → `requires_pg`; unit-тест `test_stats_unfiltered` остаётся на SQLite |
+
+---
+
+### V2-Д. Тестовое покрытие
+
+| Файл | Тип | Тест-кейсы |
+|---|---|---|
+| `tests/integration/test_stats_filtered.py` | `requires_pg` | filtered by country, by doc_type, unfiltered = baseline |
+| `dashboardStore.test.ts` | Unit | `fetchFilteredStats` → sets `filteredStats`; `clearFilteredStats` → null; `activeSelection = null` → auto-clear |
+| `ActiveFilterBanner.test.tsx` | Component | отображается при selection, скрыт без; кнопка Clear → `clearSelection()` |
+
+**Итог тестов после merge V2:** 275 + ~12 = **≈287 тестов**.
