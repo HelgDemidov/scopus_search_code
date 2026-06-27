@@ -11,7 +11,7 @@ const DURATION_REPEAT = 400;
 function readInitialTheme(): Theme {
   const saved = localStorage.getItem(LS_THEME);
   if (saved === 'dark' || saved === 'light') return saved;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  return 'dark';
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {

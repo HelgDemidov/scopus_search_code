@@ -37,10 +37,10 @@ describe('ThemeProvider', () => {
     vi.unstubAllGlobals();
   });
 
-  it('defaults to light theme when no localStorage and no system preference', () => {
+  it('defaults to dark theme when no localStorage entry', () => {
     mockMedia(false, false);
     render(<ThemeProvider><Consumer /></ThemeProvider>);
-    expect(screen.getByTestId('theme')).toHaveTextContent('light');
+    expect(screen.getByTestId('theme')).toHaveTextContent('dark');
   });
 
   it('initialises from localStorage value', () => {
@@ -50,10 +50,11 @@ describe('ThemeProvider', () => {
     expect(screen.getByTestId('theme')).toHaveTextContent('dark');
   });
 
-  it('falls back to system preference when no localStorage', () => {
-    mockMedia(true, false); // система предпочитает dark
+  it('prefers saved localStorage value over default', () => {
+    mockMedia(false, false);
+    localStorage.setItem('theme', 'light');
     render(<ThemeProvider><Consumer /></ThemeProvider>);
-    expect(screen.getByTestId('theme')).toHaveTextContent('dark');
+    expect(screen.getByTestId('theme')).toHaveTextContent('light');
   });
 
   it('applies dark class to <html> when theme is dark', async () => {
@@ -67,6 +68,7 @@ describe('ThemeProvider', () => {
 
   it('toggle light→dark switches theme, persists to localStorage (reduced-motion)', async () => {
     mockMedia(false, true); // prefers-reduced-motion → мгновенно, без setTimeout
+    localStorage.setItem('theme', 'light');
     render(<ThemeProvider><Consumer /></ThemeProvider>);
     await userEvent.click(screen.getByRole('button', { name: 'toggle' }));
     expect(screen.getByTestId('theme')).toHaveTextContent('dark');
@@ -87,6 +89,7 @@ describe('ThemeProvider', () => {
 
   it('first dark activation sets nightSkyActivated flag (reduced-motion)', async () => {
     mockMedia(false, true);
+    localStorage.setItem('theme', 'light');
     render(<ThemeProvider><Consumer /></ThemeProvider>);
     await userEvent.click(screen.getByRole('button', { name: 'toggle' }));
     expect(localStorage.getItem('nightSkyActivated')).toBe('1');

@@ -32,6 +32,7 @@ describe('ThemeToggle', () => {
   });
 
   it('shows "Switch to dark mode" aria-label in light theme', () => {
+    localStorage.setItem('theme', 'light');
     renderToggle();
     expect(screen.getByRole('button')).toHaveAttribute('aria-label', 'Switch to dark mode');
   });
@@ -43,6 +44,7 @@ describe('ThemeToggle', () => {
   });
 
   it('clicking in light mode switches to dark (reduced-motion)', async () => {
+    localStorage.setItem('theme', 'light');
     mockMedia(true);
     renderToggle();
     await userEvent.click(screen.getByRole('button'));
