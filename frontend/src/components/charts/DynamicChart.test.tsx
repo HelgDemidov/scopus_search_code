@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { DynamicChart, CHART_TYPE_LABELS } from './DynamicChart';
-import { useDashboardStore } from '../../stores/dashboardStore';
+import { DynamicChart } from './DynamicChart';
+import { CHART_TYPE_LABELS } from './chartColors';
 import type { BuilderCard } from '../../stores/dashboardStore';
 import type { StatsResponse } from '../../types/api';
 
@@ -30,6 +30,8 @@ vi.mock('recharts', () => ({
 const MOCK_STATS: StatsResponse = {
   total_articles: 1000,
   open_access_count: 350,
+  total_journals: 42,
+  total_countries: 58,
   by_year:    [{ label: '2022', count: 200 }, { label: '2023', count: 300 }],
   by_country: [{ label: 'China', count: 500 }, { label: 'USA', count: 300 }],
   by_doc_type: [{ label: 'Article', count: 800 }, { label: 'Review', count: 200 }],

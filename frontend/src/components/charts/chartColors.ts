@@ -105,3 +105,11 @@ export const CHART_COLORS_MULTI = [
 ] as const;
 
 export type TremorColor = typeof CHART_COLORS_MULTI[number];
+
+export const CHART_TYPE_LABELS: Record<ChartType, string> = {
+  bar_h:  'Horizontal Bar',
+  bar_v:  'Vertical Bar',
+  pie:    'Pie',
+  line:   'Line',
+  table:  'Table',
+};

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useDashboardStore } from '../../stores/dashboardStore';
-import { DIMENSION_COLORS } from '../charts/chartColors';
-import { CHART_TYPE_LABELS } from '../charts/DynamicChart';
+import { DIMENSION_COLORS, CHART_TYPE_LABELS } from '../charts/chartColors';
 import type { Dimension, ChartType } from '../charts/chartColors';
 
 // ---------------------------------------------------------------------------

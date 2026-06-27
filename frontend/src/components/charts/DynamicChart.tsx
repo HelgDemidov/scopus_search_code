@@ -15,7 +15,7 @@ import {
 } from 'recharts';
 import { ChartCard } from './ChartCard';
 import { ChartTooltip } from './ChartTooltip';
-import { DIMENSION_COLORS, formatCount, truncateLabel } from './chartColors';
+import { DIMENSION_COLORS, CHART_TYPE_LABELS, formatCount, truncateLabel } from './chartColors';
 import type { Dimension, ChartType } from './chartColors';
 import type { BuilderCard } from '../../stores/dashboardStore';
 import { useStatsStore } from '../../stores/statsStore';
@@ -24,14 +24,6 @@ import type { LabelCount, StatsResponse } from '../../types/api';
 // ---------------------------------------------------------------------------
 // Константы
 // ---------------------------------------------------------------------------
-
-export const CHART_TYPE_LABELS: Record<ChartType, string> = {
-  bar_h:  'Horizontal Bar',
-  bar_v:  'Vertical Bar',
-  pie:    'Pie',
-  line:   'Line',
-  table:  'Table',
-};
 
 // Многоцветная палитра для pie-чартов (сегменты разных цветов)
 const PIE_PALETTE = [
