@@ -754,73 +754,31 @@ sort → in-memory вместо disk spill → unfiltered ~3000 ms → ~500 ms; 
 
 ---
 
-### П-3. Материализованные агрегаты (pre-aggregation)
+### Итоговые рекомендации и очерёдность (реализовано)
 
-**Что это:** вместо вычисления агрегатов при каждом запросе — хранить уже посчитанные  
-результаты в отдельной таблице или materialized view. Чтение = простой `SELECT` без агрегации → 1–5 ms.
+| Приоритет | Решение | Трудозатраты | Эффект | Статус |
+|---|---|---|---|---|
+| 🔴 1 | **П-2** — `SET LOCAL work_mem='32MB'` в `get_stats()` | ~1 ч | Disk spill → in-memory; unfiltered 3s → ~500 ms | ✅ Готово |
+| 🟡 2 | **П-1** — Upstash Redis кэш (TTL 60 s) | ~1 день | Повторные запросы 0 ms; нет нагрузки на БД | ✅ Готово |
 
-**Зачем:** радикально устраняет bottleneck, независимо от work_mem и индексов. Актуально  
-при росте каталога >500k статей или высокой конкурентной нагрузке.
+---
 
-**Сложность:** высокая — нужен механизм обновления (refresh) и изменения во всех слоях  
-(`interface → service → router`, новые миграции, логика инвалидации при сидинге).
+### П-3. Опции для будущего масштабирования (не реализовано)
 
-#### Вариант A — PostgreSQL Materialized View + pg_cron (для unfiltered stats)
+> **Почему отложено:** П-1 + П-2 покрывают потребности учебного проекта.
+> Повторные запросы обслуживаются из Redis (~0 ms), первый запрос — ~500 ms после work_mem.
+> П-3A и П-3B актуальны при каталоге >500k статей или высокой конкурентной нагрузке,
+> которой в учебном контексте нет. Сложность реализации не оправдана эффектом.
 
-```sql
--- Однократно:
-CREATE MATERIALIZED VIEW mv_global_stats AS
-SELECT count(*), count(DISTINCT journal), count(DISTINCT affiliation_country), ...
-FROM articles a JOIN catalog_articles ca ON ca.article_id = a.id;
+#### П-3A — PostgreSQL Materialized View + pg_cron (unfiltered stats → 1–5 ms)
 
-CREATE UNIQUE INDEX ON mv_global_stats (total_articles);  -- для CONCURRENTLY
+MV хранит предвычисленные агрегаты; `pg_cron` обновляет каждые 6 часов через
+`REFRESH MATERIALIZED VIEW CONCURRENTLY`. Не блокирует читателей. Требует ручного
+включения расширения `pg_cron` в Supabase Dashboard. **Не решает filtered stats.**
 
--- pg_cron (встроен в Supabase, Supabase Dashboard → Database → Extensions):
-SELECT cron.schedule('refresh-global-stats', '0 */6 * * *',
-  'REFRESH MATERIALIZED VIEW CONCURRENTLY mv_global_stats');
-```
+#### П-3B — Pre-aggregated summary tables (filtered single-dim stats → 1 ms)
 
-`CONCURRENTLY` не блокирует читателей во время refresh. Данные свежие с задержкой ≤6 ч —  
-приемлемо для аналитического дашборда. **Не решает filtered stats** (нельзя создать MV на  
-каждую комбинацию фильтров).
-
-#### Вариант B — Pre-aggregated summary tables + seeder trigger (для filtered stats)
-
-```sql
-CREATE TABLE agg_stats_by_country (
-  affiliation_country  TEXT PRIMARY KEY,
-  article_count        INT NOT NULL,
-  journal_count        INT NOT NULL,
-  open_access_count    INT NOT NULL,
-  computed_at          TIMESTAMPTZ DEFAULT now()
-);
--- Аналогично: agg_stats_by_doc_type, agg_stats_by_year
-```
-
-Refresh запускается в конце каждого seeder-прогона (Block B завершён) — один пересчёт,  
-INSERT ON CONFLICT UPDATE по всем значениям. Backend: `get_stats(countries=['china'])` →  
-`SELECT * FROM agg_stats_by_country WHERE lower(affiliation_country)='china'` → **1 ms**.  
-**Ограничение:** не поддерживает комбинированные фильтры (`country AND doc_type`).
-
-#### Вариант C — JSON cache-table в PostgreSQL (гибридный)
-
-```sql
-CREATE TABLE stats_cache (
-  cache_key   TEXT PRIMARY KEY,   -- sha256(sorted params)
-  stats_json  JSONB NOT NULL,
-  computed_at TIMESTAMPTZ DEFAULT now()
-);
-```
-
-Redis внутри PostgreSQL: нет внешнего сервиса, нет нового деплоя. TTL — через  
-pg_cron (`DELETE FROM stats_cache WHERE computed_at < now() - interval '1 hour'`).  
-Хуже масштабируется Redis при высокой нагрузке, но проще операционно.
-
-### Итоговые рекомендации и очерёдность
-
-| Приоритет | Решение | Трудозатраты | Эффект |
-|---|---|---|---|
-| 🔴 1 | **П-2** — `SET LOCAL work_mem='32MB'` в `get_stats()` | ~1 ч (1 файл, 1 строка) | Снимает disk spill; unfiltered 3s → ~500 ms |
-| 🟡 2 | **П-1** — Upstash Redis кэш (TTL 60 s) | ~1 день | Повторные запросы 0 ms; нет нагрузки на БД |
-| 🟢 3 | **П-3A** — MV mv_global_stats + pg_cron | ~0.5 дня | Unfiltered stats постоянно 1–5 ms |
-| 🟢 4 | **П-3B** — Pre-agg tables по стране/типу | ~2 дня | Filtered stats по dimension 1 ms |
+Таблицы `agg_stats_by_country`, `agg_stats_by_doc_type`, `agg_stats_by_year`;
+refresh в конце каждого seeder-прогона через `INSERT ON CONFLICT UPDATE`.
+Жёсткий coupling к сидеру; не поддерживает комбинированные фильтры
+(`country AND doc_type`). Альтернатива — JSON cache-table в PG вместо внешнего Redis.
