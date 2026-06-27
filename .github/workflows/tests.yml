@@ -5,7 +5,7 @@ on:
   push:
     branches:
       - main
-      - feat/explore-polish
+      - feat/stats-crossfilter-v2
 
   pull_request:
     branches:

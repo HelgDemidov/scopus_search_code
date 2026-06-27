@@ -5,7 +5,7 @@ on:
   push:
     branches:
       - main
-      - feat/explore-polish
+      - feat/stats-crossfilter-v2
     # Запускаем только когда меняется frontend или сам воркфлоу
     paths:
       - 'frontend/**'

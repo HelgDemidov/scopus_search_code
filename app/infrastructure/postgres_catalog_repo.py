@@ -172,17 +172,34 @@ class PostgresCatalogRepository(ICatalogRepository):
     #  get_stats                                                           #
     # ------------------------------------------------------------------ #
 
-    async def get_stats(self) -> dict:
-        """Агрегированная статистика по каталогу сидера.
+    async def get_stats(
+        self,
+        countries: list[str] | None = None,
+        doc_types: list[str] | None = None,
+        open_access: bool | None = None,
+        year_from: int | None = None,
+        year_to: int | None = None,
+    ) -> dict:
+        """Агрегированная статистика по каталогу с опциональными фильтрами.
 
-        Один round-trip: CTE + несколько подзапросов-агрегатов.
-        Агрегирует только статьи из catalog_articles (не весь реестр articles).
+        Переиспользует _apply_filters() — единственный источник WHERE-логики.
+        Без фильтров поведение идентично V1 (полная статистика каталога).
         """
-        # CTE: только id статей, которые входят в каталог
-        catalog_ids_cte = select(CatalogArticle.article_id).distinct().cte("catalog_ids")
+        # Базовый запрос: только статьи из catalog_articles (JOIN вместо CTE)
+        stmt = select(Article).join(CatalogArticle, CatalogArticle.article_id == Article.id)
+        stmt = self._apply_filters(
+            stmt,
+            keyword=None,
+            search=None,
+            year_from=year_from,
+            year_to=year_to,
+            doc_types=doc_types,
+            open_access=open_access,
+            countries=countries,
+        )
 
-        # Базовый подзапрос каталожных статей — переиспользуем в агрегатах
-        catalog_articles_q = select(Article).where(Article.id.in_(select(catalog_ids_cte.c.article_id))).subquery()
+        # Базовый подзапрос — переиспользуем во всех агрегатах ниже
+        catalog_articles_q = stmt.subquery()
 
         # Итоговые счётчики
         totals = await self.session.execute(

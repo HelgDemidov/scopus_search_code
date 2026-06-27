@@ -96,7 +96,14 @@ class FakeCatalogRepository(ICatalogRepository):
         self.save_seeded_calls.append({"articles": list(articles), "keyword": keyword})
         return list(articles)
 
-    async def get_stats(self) -> dict:
+    async def get_stats(
+        self,
+        countries: list[str] | None = None,
+        doc_types: list[str] | None = None,
+        open_access: bool | None = None,
+        year_from: int | None = None,
+        year_to: int | None = None,
+    ) -> dict:
         self.stats_call_count += 1
         # Минимальный корректный словарь, совпадающий с тем, что ожидает CatalogService.get_stats()
         return {
