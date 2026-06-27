@@ -1,7 +1,7 @@
 from typing import List
 
 import sqlalchemy as sa
-from sqlalchemy import extract, func, select
+from sqlalchemy import extract, func, select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -185,6 +185,10 @@ class PostgresCatalogRepository(ICatalogRepository):
         Переиспользует _apply_filters() — единственный источник WHERE-логики.
         Без фильтров поведение идентично V1 (полная статистика каталога).
         """
+        # SET LOCAL действует в рамках текущей транзакции (autobegin), устраняет disk spill
+        # при COUNT(DISTINCT ...) sort-операциях без риска OOM при конкурентных запросах
+        await self.session.execute(text("SET LOCAL work_mem = '32MB'"))
+
         # Базовый запрос: только статьи из catalog_articles (JOIN вместо CTE)
         stmt = select(Article).join(CatalogArticle, CatalogArticle.article_id == Article.id)
         stmt = self._apply_filters(

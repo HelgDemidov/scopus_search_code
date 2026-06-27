@@ -269,7 +269,7 @@ FILE: app/infrastructure/postgres_catalog_repo.py
 ============================================================
 from typing import List
 import sqlalchemy as sa
-from sqlalchemy import extract, func, select
+from sqlalchemy import extract, func, select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.interfaces.catalog_repository import ICatalogRepository
