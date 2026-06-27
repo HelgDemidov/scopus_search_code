@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 
+const MIN_QUERY_LENGTH = 2;
+
 interface SearchBarProps {
   onSearch: (query: string) => void;
   placeholder?: string;
@@ -16,43 +18,55 @@ export function SearchBar({
   inputId = 'article-search',
 }: SearchBarProps) {
   const [value, setValue] = useState('');
+  const [error, setError] = useState('');
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = value.trim();
-    if (trimmed) onSearch(trimmed);
+    if (trimmed.length < MIN_QUERY_LENGTH) {
+      setError(`Enter at least ${MIN_QUERY_LENGTH} characters`);
+      return;
+    }
+    setError('');
+    onSearch(trimmed);
   }
 
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setValue(e.target.value);
+    if (error) setError('');
+  }
+
+  const errorId = `${inputId}-error`;
+
   return (
-    <form onSubmit={handleSubmit} className="flex gap-2 w-full">
-      {/* Hidden label linked to the input via htmlFor — accessibility for screen readers */}
-      <label htmlFor={inputId} className="sr-only">
-        Search articles
-      </label>
-      <Input
-        id={inputId}
-        name={inputId}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder={placeholder}
-        className="flex-1"
-        // autoComplete="off" — отключает браузерный кэш подсказок поисковых слов
-        // (браузер не сохраняет введенные запросы и не предлагает их повторно).
-        // Это улучшает конфиденциальность: история поиска одного пользователя
-        // не просачивается другому пользователю того же браузерного профиля.
-        //
-        // Чтобы вернуть браузерные подсказки обратно — удали атрибут autoComplete
-        // (или замени значение "off" на "on" / "search").
-        // Важно: это исключительно клиентский механизм браузера, не связанный
-        // с серверной историей поиска в таблице search_history.
-        autoComplete="off"
-      />
-      <Button
-        type="submit"
-        className="bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400 text-white shrink-0"
-      >
-        Search
-      </Button>
-    </form>
+    <div className="flex flex-col gap-1 w-full">
+      <form onSubmit={handleSubmit} className="flex gap-2 w-full">
+        <label htmlFor={inputId} className="sr-only">
+          Search articles
+        </label>
+        <Input
+          id={inputId}
+          name={inputId}
+          value={value}
+          onChange={handleChange}
+          placeholder={placeholder}
+          className={['flex-1', error ? 'border-red-500 focus-visible:ring-red-400' : ''].join(' ')}
+          autoComplete="off"
+          aria-describedby={error ? errorId : undefined}
+          aria-invalid={error ? true : undefined}
+        />
+        <Button
+          type="submit"
+          className="bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400 text-white shrink-0"
+        >
+          Search
+        </Button>
+      </form>
+      {error && (
+        <p id={errorId} role="alert" className="text-xs text-red-500 pl-1">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
