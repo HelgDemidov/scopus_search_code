@@ -1,4 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
+import { ThemeToggle } from '../theme/ThemeToggle';
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -39,7 +40,7 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-700 dark:bg-slate-900/95">
+    <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-700 dark:bg-[#0d1b2a]/95">
       <div className="mx-auto flex h-14 max-w-screen-xl items-center justify-between px-4">
         {/* Logo — aria-label kept in English per spec §1.6 */}
         <Link
@@ -62,6 +63,7 @@ export function Header() {
 
         {/* Navigation + right-side controls */}
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           <NavigationMenu>
             <NavigationMenuList>
               {/* "Explore" link — always visible */}

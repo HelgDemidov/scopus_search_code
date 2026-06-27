@@ -9,6 +9,7 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Toaster } from './components/ui/sonner';
 import { Header } from './components/layout/Header';
 import { PrivateRoute } from './components/layout/PrivateRoute';
+import { ThemeProvider } from './components/theme/ThemeProvider';
 import { useAuthStore } from './stores/authStore';
 import { useStatsStore } from './stores/statsStore';
 
@@ -59,7 +60,7 @@ function lazyPage(factory: () => Promise<{ default: React.ComponentType }>) {
 // Общий шаблон страницы: Header сверху + содержимое через Outlet
 function RootLayout() {
   return (
-    <div className="min-h-screen bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100">
+    <div className="min-h-screen bg-background text-foreground">
       <Header />
       <main>
         <RouterOutlet />
@@ -194,12 +195,12 @@ export default function App() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <>
+    <ThemeProvider>
       <RouterProvider router={router} />
       {/* Глобальный контейнер для toast-уведомлений через shadcn Sonner */}
       <Toaster richColors position="top-right" />
       <Analytics />
       <SpeedInsights />
-    </>
+    </ThemeProvider>
   );
 }

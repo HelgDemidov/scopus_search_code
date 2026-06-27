@@ -92,7 +92,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
           display: 'none',
           opacity: 0,
           pointerEvents: 'none',
-          zIndex: 9999,
+          zIndex: 99999,
         }}
       />
     </ThemeContext.Provider>
