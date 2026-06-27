@@ -325,6 +325,16 @@ Tests:     252 passed  (181 → 252, +71 новый тест)
 
 Новые тесты: 18 (dashboardStore) + 14 (chartColors) + 7 (ChartCard) + 7 (KpiTile) + 15 (KpiRow integration) + 9 (TopCountriesChart) + 6 (ThematicAreasChart) = **71 тест**.
 
+### Результат (после Phase 3, 5, 6)
+
+```
+Test Files: 23 passed
+Tests:     270 passed  (252 → 270, +18 новых тестов)
+```
+
+Новые тесты: 9 (DynamicChart) + 9 (ChartBuilderPanel) = **18 тестов**.
+dashboardStore: обновлены 2 теста под новую сигнатуру `addBuilderCard(Omit<BuilderCard, 'id'>)`.
+
 ---
 
 ## 10. Backend: изменения для V1
@@ -358,20 +368,24 @@ Tests:     252 passed  (181 → 252, +71 новый тест)
 - [x] Recharts добавлен как прямая зависимость (`^2.15.4`)
 - [x] Тесты: TopCountriesChart (9), ThematicAreasChart (6)
 
-### Фаза 3 — Drawer (приоритет 2)
-- [ ] `DimensionDrawer.tsx` — Sheet + детальный вид (таблица + крупный чарт)
-- [ ] Интеграция с KpiTile onClick
+### Фаза 3 — Drawer (приоритет 2) ✅ ВЫПОЛНЕНА
+- [x] `DimensionDrawer.tsx` — Sheet + детальный вид (DrawerBarChart / DrawerAreaChart / DrawerOAChart + DrawerTable)
+- [x] Интеграция с KpiTile onClick (через dashboardStore.openDrawer)
 
-### Фаза 4 — V1 Cross-filter (приоритет 2)
-- [ ] Все grid-чарты читают `activeSelection` и диммируют неактивные элементы
-- [ ] Клик по элементу чарта → setSelection / clearSelection
+### Фаза 4 — V1 Cross-filter (приоритет 2) ✅ ВЫПОЛНЕНА
+- [x] Все grid-чарты читают `activeSelection` и диммируют/подсвечивают элементы через Cell fill
+- [x] Клик по элементу чарта → setSelection / clearSelection
 
-### Фаза 5 — Chart Builder (приоритет 3)
-- [ ] `ChartBuilderPanel.tsx` + `DynamicChart.tsx`
-- [ ] Интеграция в `ExplorePage.tsx`
+### Фаза 5 — Chart Builder (приоритет 3) ✅ ВЫПОЛНЕНА
+- [x] `ChartBuilderPanel.tsx` — accordion, 6 измерений × разрешённые типы, авто-выбор типа при смене измерения
+- [x] `DynamicChart.tsx` — bar_h / bar_v / pie / line / table; данные из statsStore; кнопка удаления ×
+- [x] ChartCard: добавлен `headerAction` prop
+- [x] dashboardStore: `addBuilderCard` принимает `Omit<BuilderCard, 'id'>`, id = `crypto.randomUUID()`
+- [x] Интеграция в `ExplorePage.tsx` (после ThematicAreasChart)
+- [x] Тесты: DynamicChart (9), ChartBuilderPanel (9)
 
-### Фаза 6 — ExplorePage rewrite (сквозная)
-- [ ] Переписать `ExplorePage.tsx` под новую компоновку
+### Фаза 6 — ExplorePage rewrite (сквозная) ✅ ВЫПОЛНЕНА
+- [x] Переписать `ExplorePage.tsx` под новую компоновку (KpiRow → Drawer → Year → 2×2 grid → Thematic → Builder)
 - [ ] Убрать Tremor-импорты из chart-компонентов (оставить только shadcn/ui)
 - [ ] Обновить тесты: заменить Tremor-компоненты на Recharts в моках
 
