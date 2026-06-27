@@ -94,12 +94,14 @@ class CatalogService:
             total_articles=raw["total_articles"],
             total_journals=raw["total_journals"],
             total_countries=raw["total_countries"],
+            total_authors=raw["total_authors"],
             open_access_count=raw["open_access_count"],
             by_year=[CountByField(label=str(r["year"]), count=r["count"]) for r in raw["by_year"]],
             by_journal=[CountByField(label=r["journal"], count=r["count"]) for r in raw["by_journal"]],
             by_country=[CountByField(label=r["country"], count=r["count"]) for r in raw["by_country"]],
             by_doc_type=[CountByField(label=r["doc_type"], count=r["count"]) for r in raw["by_doc_type"]],
             top_keywords=[CountByField(label=r["keyword"], count=r["count"]) for r in raw["top_keywords"]],
+            top_authors=[CountByField(label=r["author"], count=r["count"]) for r in raw["top_authors"]],
         )
 
     # ------------------------------------------------------------------ #

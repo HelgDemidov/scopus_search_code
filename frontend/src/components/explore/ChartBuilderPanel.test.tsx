@@ -31,7 +31,7 @@ describe('ChartBuilderPanel', () => {
   it('показывает 6 вариантов измерений', () => {
     render(<ChartBuilderPanel />);
     fireEvent.click(screen.getByRole('button', { name: /add chart/i }));
-    const labels = ['Publications by Year', 'Countries', 'Document Types', 'Top Journals', 'Open Access', 'Thematic Areas'];
+    const labels = ['Publications by Year', 'Countries', 'Document Types', 'Top Journals', 'Open Access', 'Top Authors'];
     for (const label of labels) {
       expect(screen.getByRole('button', { name: new RegExp(label, 'i') })).toBeTruthy();
     }

@@ -1084,12 +1084,14 @@ class StatsResponse(BaseModel):
     total_articles: int
     total_journals: int
     total_countries: int
+    total_authors: int
     open_access_count: int
     by_year: List[CountByField]
     by_journal: List[CountByField]
     by_country: List[CountByField]
     by_doc_type: List[CountByField]
     top_keywords: List[CountByField]
+    top_authors: List[CountByField]
 
 class SearchStatsResponse(BaseModel):
     total: int

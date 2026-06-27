@@ -13,6 +13,7 @@ const MOCK_STATS: StatsResponse = {
   total_articles: 39800,
   total_journals: 22,
   total_countries: 146,
+  total_authors: 8541,
   open_access_count: 43213,
   by_year: [],
   by_journal: [],
@@ -25,6 +26,10 @@ const MOCK_STATS: StatsResponse = {
     { label: 'machine learning', count: 500 },
     { label: 'deep learning', count: 400 },
     { label: 'neural network', count: 300 },
+  ],
+  top_authors: [
+    { label: 'J. Smith', count: 42 },
+    { label: 'L. Wang', count: 38 },
   ],
 };
 
@@ -59,10 +64,9 @@ describe('KpiRow', () => {
     expect(screen.getByText('22')).toBeInTheDocument();
   });
 
-  it('отображает число тематических направлений = top_keywords.length', () => {
+  it('отображает total_authors в тайле Authors', () => {
     render(<KpiRow />);
-    // top_keywords.length = 3
-    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByText('8,541')).toBeInTheDocument();
   });
 
   it('ни один тайл не активен при drawerDimension=null', () => {

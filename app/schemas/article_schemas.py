@@ -39,12 +39,14 @@ class StatsResponse(BaseModel):
     total_articles: int
     total_journals: int
     total_countries: int
+    total_authors: int
     open_access_count: int
     by_year: List[CountByField]  # Распределение публикаций по годам
     by_journal: List[CountByField]  # Топ-20 журналов по числу статей
     by_country: List[CountByField]  # Топ-20 стран по числу статей
     by_doc_type: List[CountByField]  # Распределение по типу документа
-    top_keywords: List[CountByField]  # Топ ключевых слов сидера
+    top_keywords: List[CountByField]  # Топ ключевых слов сидера (legacy)
+    top_authors: List[CountByField]  # Топ-20 авторов по числу статей
 
 
 class SearchStatsResponse(BaseModel):

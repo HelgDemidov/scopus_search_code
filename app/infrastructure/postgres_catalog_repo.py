@@ -190,6 +190,7 @@ class PostgresCatalogRepository(ICatalogRepository):
                 func.count().label("total_articles"),
                 func.count(catalog_articles_q.c.journal.distinct()).label("total_journals"),
                 func.count(catalog_articles_q.c.affiliation_country.distinct()).label("total_countries"),
+                func.count(catalog_articles_q.c.author.distinct()).label("total_authors"),
                 func.sum(
                     sa.cast(
                         sa.case((catalog_articles_q.c.open_access.is_(True), 1), else_=0),
@@ -249,7 +250,7 @@ class PostgresCatalogRepository(ICatalogRepository):
             .order_by(sa.text("count DESC"))
         )
 
-        # Топ ключевых слов из catalog_articles.keyword
+        # Топ ключевых слов из catalog_articles.keyword (legacy — не отображается в UI)
         top_keywords_rows = await self.session.execute(
             select(
                 CatalogArticle.keyword,
@@ -260,14 +261,29 @@ class PostgresCatalogRepository(ICatalogRepository):
             .limit(20)
         )
 
+        # Топ-20 авторов по числу статей в каталоге
+        top_authors_rows = await self.session.execute(
+            select(
+                catalog_articles_q.c.author,
+                func.count().label("count"),
+            )
+            .select_from(catalog_articles_q)
+            .where(catalog_articles_q.c.author.isnot(None))
+            .group_by(catalog_articles_q.c.author)
+            .order_by(sa.text("count DESC"))
+            .limit(20)
+        )
+
         return {
             "total_articles": row.total_articles,
             "total_journals": row.total_journals,
             "total_countries": row.total_countries,
+            "total_authors": row.total_authors or 0,
             "open_access_count": row.open_access_count or 0,
             "by_year": [{"year": int(r.year), "count": r.count} for r in by_year_rows],
             "by_journal": [{"journal": r.journal, "count": r.count} for r in by_journal_rows],
             "by_country": [{"country": r.affiliation_country, "count": r.count} for r in by_country_rows],
             "by_doc_type": [{"doc_type": r.document_type, "count": r.count} for r in by_doc_type_rows],
             "top_keywords": [{"keyword": r.keyword, "count": r.count} for r in top_keywords_rows],
+            "top_authors": [{"author": r.author, "count": r.count} for r in top_authors_rows],
         }

@@ -58,7 +58,7 @@ describe('formatCount', () => {
 // ---------------------------------------------------------------------------
 
 const EXPECTED_DIMENSIONS: Dimension[] = [
-  'year', 'country', 'doc_type', 'journal', 'open_access', 'thematic',
+  'year', 'country', 'doc_type', 'journal', 'open_access', 'author',
 ];
 
 describe('DIMENSION_COLORS', () => {

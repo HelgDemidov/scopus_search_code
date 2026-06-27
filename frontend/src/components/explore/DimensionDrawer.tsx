@@ -23,6 +23,7 @@ import {
 } from '../ui/sheet';
 import { ChartTooltip } from '../charts/ChartTooltip';
 import { DIMENSION_COLORS, formatCount, truncateLabel } from '../charts/chartColors';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import type { Dimension } from '../charts/chartColors';
 import type { LabelCount, StatsResponse } from '../../types/api';
 
@@ -82,13 +83,13 @@ function getConfig(dim: Dimension, stats: StatsResponse | null): DrawerConfig | 
         chartHeight: 260,
         isSpecial: 'open_access',
       };
-    case 'thematic':
+    case 'author':
       return {
-        title: 'Thematic Areas',
-        data: [...stats.top_keywords].sort((a, b) => b.count - a.count),
-        chartHeight: Math.max(480, stats.top_keywords.length * 28),
-        yAxisWidth: 220,
-        labelMaxLen: 36,
+        title: 'Top Authors',
+        data: [...stats.top_authors].sort((a, b) => b.count - a.count),
+        chartHeight: Math.max(360, stats.top_authors.length * 30),
+        yAxisWidth: 140,
+        labelMaxLen: 24,
       };
   }
 }
@@ -241,20 +242,37 @@ function DrawerTable({ data, totalArticles }: { data: LabelCount[]; totalArticle
 export function DimensionDrawer() {
   const { drawerDimension, closeDrawer } = useDashboardStore();
   const { stats } = useStatsStore();
+  const isMobile = useMediaQuery('(max-width: 767px)');
 
   const isOpen = drawerDimension !== null;
   const config = drawerDimension ? getConfig(drawerDimension, stats) : null;
   const colors = drawerDimension ? DIMENSION_COLORS[drawerDimension] : null;
 
+  // На мобильных chart height ограничен чтобы не выходить за 85dvh
+  const chartHeight = config
+    ? (isMobile ? Math.min(config.chartHeight, 280) : config.chartHeight)
+    : 0;
+
   return (
     <Sheet open={isOpen} onOpenChange={(open) => { if (!open) closeDrawer(); }}>
       <SheetContent
-        side="right"
-        className="sm:max-w-2xl w-full flex flex-col overflow-y-auto p-0 gap-0"
+        side={isMobile ? 'bottom' : 'right'}
+        className={
+          isMobile
+            ? 'h-[85dvh] w-full flex flex-col p-0 gap-0 rounded-t-xl overflow-hidden'
+            : 'sm:max-w-2xl w-full flex flex-col overflow-y-auto p-0 gap-0'
+        }
       >
         {config && colors && drawerDimension && (
           <>
-            <SheetHeader className="px-6 pt-6 pb-4 border-b border-slate-200 dark:border-slate-700">
+            {/* Drag handle — только на мобильных */}
+            {isMobile && (
+              <div className="flex-shrink-0 flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full bg-slate-300 dark:bg-slate-600" />
+              </div>
+            )}
+
+            <SheetHeader className="px-6 pt-4 pb-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
               <SheetTitle className="flex items-center gap-2 text-base font-semibold">
                 <span
                   className="w-3 h-3 rounded-full flex-shrink-0"
@@ -267,18 +285,18 @@ export function DimensionDrawer() {
               </SheetTitle>
             </SheetHeader>
 
-            <div className="flex flex-col gap-6 px-6 py-6 overflow-y-auto">
+            <div className="flex flex-col gap-6 px-6 py-6 overflow-y-auto flex-1">
               {/* Chart */}
               <div>
                 {config.isSpecial === 'open_access' ? (
-                  <DrawerOAChart data={config.data} height={config.chartHeight} />
+                  <DrawerOAChart data={config.data} height={chartHeight} />
                 ) : drawerDimension === 'year' ? (
-                  <DrawerAreaChart data={config.data} height={config.chartHeight} />
+                  <DrawerAreaChart data={config.data} height={chartHeight} />
                 ) : (
                   <DrawerBarChart
                     dim={drawerDimension}
                     data={config.data}
-                    height={config.chartHeight}
+                    height={chartHeight}
                     yAxisWidth={config.yAxisWidth}
                     labelMaxLen={config.labelMaxLen}
                   />

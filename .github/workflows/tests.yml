@@ -5,7 +5,7 @@ on:
   push:
     branches:
       - main
-      - interactive-charts
+      - feat/explore-polish
 
   pull_request:
     branches:

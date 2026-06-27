@@ -145,6 +145,7 @@ const MOCK_STATS: StatsResponse = {
   total_articles: 100,
   total_journals: 20,
   total_countries: 10,
+  total_authors: 75,
   open_access_count: 30,
   by_year: [
     { label: '2018', count: 3 },
@@ -160,6 +161,7 @@ const MOCK_STATS: StatsResponse = {
   ],
   by_journal: [],
   top_keywords: [],
+  top_authors: [],
 };
 
 function makeArticle(id: number): ArticleResponse {
