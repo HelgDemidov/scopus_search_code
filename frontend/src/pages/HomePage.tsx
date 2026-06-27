@@ -103,6 +103,7 @@ export default function HomePage() {
 
   // Сброс hasSearched при resetSearch() — currentKeyword становится null
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (currentKeyword === null) setHasSearched(false);
   }, [currentKeyword]);
 
