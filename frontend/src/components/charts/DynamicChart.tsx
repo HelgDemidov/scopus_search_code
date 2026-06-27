@@ -19,6 +19,7 @@ import { DIMENSION_COLORS, CHART_TYPE_LABELS, formatCount, truncateLabel } from 
 import type { Dimension, ChartType } from './chartColors';
 import type { BuilderCard } from '../../stores/dashboardStore';
 import { useStatsStore } from '../../stores/statsStore';
+import { useDashboardStore } from '../../stores/dashboardStore';
 import type { LabelCount, StatsResponse } from '../../types/api';
 
 // ---------------------------------------------------------------------------
@@ -233,8 +234,11 @@ interface DynamicChartProps {
 }
 
 export function DynamicChart({ card, onRemove }: DynamicChartProps) {
-  const stats = useStatsStore((s) => s.stats);
+  const globalStats = useStatsStore((s) => s.stats);
   const isLoading = useStatsStore((s) => s.isLoading);
+  const filteredStats = useDashboardStore((s) => s.filteredStats);
+
+  const stats = filteredStats ?? globalStats;
 
   const dim = card.dimension;
   const chartType = card.chartType;

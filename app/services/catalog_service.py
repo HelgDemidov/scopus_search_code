@@ -85,9 +85,22 @@ class CatalogService:
     #  get_stats                                                           #
     # ------------------------------------------------------------------ #
 
-    async def get_stats(self) -> StatsResponse:
-        """Агрегированная статистика по каталогу сидера."""
-        raw = await self.catalog_repo.get_stats()
+    async def get_stats(
+        self,
+        countries: list[str] | None = None,
+        doc_types: list[str] | None = None,
+        open_access: bool | None = None,
+        year_from: int | None = None,
+        year_to: int | None = None,
+    ) -> StatsResponse:
+        """Агрегированная статистика по каталогу с опциональными фильтрами."""
+        raw = await self.catalog_repo.get_stats(
+            countries=countries,
+            doc_types=doc_types,
+            open_access=open_access,
+            year_from=year_from,
+            year_to=year_to,
+        )
 
         # Конвертируем сырые dict-списки в типизированные Pydantic-схемы
         return StatsResponse(

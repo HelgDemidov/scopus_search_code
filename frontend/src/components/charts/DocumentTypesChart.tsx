@@ -23,7 +23,7 @@ const DIM = 'doc_type';
 const colors = DIMENSION_COLORS[DIM];
 
 export function DocumentTypesChart({ data, isLoading }: DocumentTypesChartProps) {
-  const { activeSelection, setSelection, openDrawer } = useDashboardStore();
+  const { activeSelection, filteredStats, setSelection, openDrawer } = useDashboardStore();
 
   const chartData = [...data].sort((a, b) => b.count - a.count);
 
@@ -31,6 +31,7 @@ export function DocumentTypesChart({ data, isLoading }: DocumentTypesChartProps)
   const chartHeight = Math.max(192, chartData.length * 36);
 
   function getCellFill(label: string): string {
+    if (filteredStats !== null) return colors.base;
     if (!activeSelection || activeSelection.dimension !== DIM) return colors.base;
     return activeSelection.value === label ? colors.selected : colors.dimmed;
   }

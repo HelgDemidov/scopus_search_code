@@ -61,10 +61,18 @@ class ICatalogRepository(ABC):
         pass
 
     @abstractmethod
-    async def get_stats(self) -> dict:
+    async def get_stats(
+        self,
+        countries: list[str] | None = None,
+        doc_types: list[str] | None = None,
+        open_access: bool | None = None,
+        year_from: int | None = None,
+        year_to: int | None = None,
+    ) -> dict:
         """
-        Возвращает агрегированную статистику по каталогу:
-        total_articles, total_journals, total_countries, open_access_count,
-        by_year, by_journal, by_country, by_doc_type, top_keywords.
+        Возвращает агрегированную статистику по каталогу с опциональными фильтрами.
+        Без фильтров — полная статистика (эквивалент V1).
+        Поля ответа: total_articles, total_journals, total_countries, total_authors,
+        open_access_count, by_year, by_journal, by_country, by_doc_type, top_keywords, top_authors.
         """
         pass

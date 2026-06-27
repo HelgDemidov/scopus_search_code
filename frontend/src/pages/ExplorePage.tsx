@@ -15,6 +15,7 @@ import { Button } from '../components/ui/button';
 import { ErrorBoundary } from '../components/ui/ErrorBoundary';
 import { KpiRow } from '../components/explore/KpiRow';
 import { DimensionDrawer } from '../components/explore/DimensionDrawer';
+import { ActiveFilterBanner } from '../components/explore/ActiveFilterBanner';
 import { ChartBuilderPanel } from '../components/explore/ChartBuilderPanel';
 import { DynamicChart } from '../components/charts/DynamicChart';
 
@@ -87,8 +88,14 @@ function ChartErrorFallback() {
 export default function ExplorePage() {
   const { stats, isLoading, fetchStats } = useStatsStore();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const builderCards = useDashboardStore((s) => s.builderCards);
-  const removeBuilderCard = useDashboardStore((s) => s.removeBuilderCard);
+  const {
+    activeSelection,
+    builderCards,
+    removeBuilderCard,
+    filteredStats,
+    fetchFilteredStats,
+    clearFilteredStats,
+  } = useDashboardStore();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const historyItems = useHistoryStore((s) => s.items);
@@ -100,6 +107,13 @@ export default function ExplorePage() {
     isAuthenticated && modeParam === 'personal' ? 'personal' : 'collection';
 
   useEffect(() => { fetchStats(); }, [fetchStats]);
+
+  // Cross-filter V2: при изменении выбора — запрашиваем отфильтрованные статистику
+  useEffect(() => {
+    if (!activeSelection) clearFilteredStats();
+    else fetchFilteredStats(activeSelection);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSelection]);
 
   useEffect(() => {
     if (isAuthenticated) fetchHistory();
@@ -173,38 +187,55 @@ export default function ExplorePage() {
           <ErrorBoundary fallback={<ChartErrorFallback />}>
             <Suspense fallback={<CollectionSkeleton />}>
               <div className="flex flex-col gap-6">
-                {/* Pinned: Publications by Year — полная ширина */}
-                <PublicationsByYearChart
-                  data={stats?.by_year ?? []}
-                  isLoading={isLoading}
-                />
+                {/* Активный фильтр — появляется между KpiRow и графиками */}
+                <ActiveFilterBanner />
 
-                {/* 2×2 grid: Countries, Doc Types, Journals, Open Access */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <TopCountriesChart
-                    data={stats?.by_country ?? []}
-                    isLoading={isLoading}
-                  />
-                  <DocumentTypesChart
-                    data={stats?.by_doc_type ?? []}
-                    isLoading={isLoading}
-                  />
-                  <TopJournalsChart
-                    data={stats?.by_journal ?? []}
-                    isLoading={isLoading}
-                  />
-                  <OpenAccessChart
-                    totalArticles={stats?.total_articles ?? 0}
-                    openAccessCount={stats?.open_access_count ?? 0}
-                    isLoading={isLoading}
-                  />
-                </div>
+                {/* Данные графиков: filteredStats при активном фильтре, иначе глобальная stats */}
+                {(() => {
+                  const displayStats = filteredStats ?? stats;
+                  // Fallback по полю: top_authors может быть пустым при фильтрации по стране
+                  // (автор привязан к статье, не к аффилиации) — показываем глобальные данные
+                  const topAuthorsData =
+                    displayStats?.top_authors?.length
+                      ? displayStats.top_authors
+                      : stats?.top_authors ?? [];
+                  return (
+                    <>
+                      {/* Pinned: Publications by Year — полная ширина */}
+                      <PublicationsByYearChart
+                        data={displayStats?.by_year ?? []}
+                        isLoading={isLoading}
+                      />
 
-                {/* Top Authors — полная ширина */}
-                <TopAuthorsChart
-                  data={stats?.top_authors ?? []}
-                  isLoading={isLoading}
-                />
+                      {/* 2×2 grid: Countries, Doc Types, Journals, Open Access */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <TopCountriesChart
+                          data={displayStats?.by_country ?? []}
+                          isLoading={isLoading}
+                        />
+                        <DocumentTypesChart
+                          data={displayStats?.by_doc_type ?? []}
+                          isLoading={isLoading}
+                        />
+                        <TopJournalsChart
+                          data={displayStats?.by_journal ?? []}
+                          isLoading={isLoading}
+                        />
+                        <OpenAccessChart
+                          totalArticles={displayStats?.total_articles ?? 0}
+                          openAccessCount={displayStats?.open_access_count ?? 0}
+                          isLoading={isLoading}
+                        />
+                      </div>
+
+                      {/* Top Authors — fallback на глобальные данные если filtered пустой */}
+                      <TopAuthorsChart
+                        data={topAuthorsData}
+                        isLoading={isLoading}
+                      />
+                    </>
+                  );
+                })()}
 
                 {/* Пользовательские чарты из Chart Builder */}
                 {builderCards.length > 0 && (

@@ -1,13 +1,26 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useDashboardStore } from './dashboardStore';
+
+// Мокируем API-слой — тест стора не должен делать HTTP-запросы
+vi.mock('../api/stats', () => ({
+  selectionToParams: vi.fn((sel) => {
+    if (sel.dimension === 'country') return { countries: [sel.value] };
+    if (sel.dimension === 'journal') return null;
+    return { doc_types: [sel.value] };
+  }),
+  getFilteredStats: vi.fn(),
+}));
 
 // Сброс стора и localStorage между тестами
 beforeEach(() => {
   localStorage.clear();
+  vi.clearAllMocks();
   useDashboardStore.setState({
     activeSelection: null,
     drawerDimension: null,
     builderCards: [],
+    filteredStats: null,
+    filteredStatsLoading: false,
   });
 });
 
@@ -129,6 +142,45 @@ describe('builderCards', () => {
     });
     useDashboardStore.getState().removeBuilderCard('nonexistent');
     expect(useDashboardStore.getState().builderCards).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cross-filter V2: fetchFilteredStats / clearFilteredStats
+// ---------------------------------------------------------------------------
+
+describe('fetchFilteredStats', () => {
+  it('устанавливает filteredStats после успешного запроса', async () => {
+    const { getFilteredStats } = await import('../api/stats');
+    const mockStats = { total_articles: 42, by_country: [], by_year: [], by_doc_type: [], by_journal: [], top_keywords: [], top_authors: [], total_journals: 1, total_countries: 1, total_authors: 5, open_access_count: 10 };
+    vi.mocked(getFilteredStats).mockResolvedValueOnce(mockStats as never);
+
+    await useDashboardStore.getState().fetchFilteredStats({ dimension: 'country', value: 'China' });
+
+    expect(useDashboardStore.getState().filteredStats).toEqual(mockStats);
+    expect(useDashboardStore.getState().filteredStatsLoading).toBe(false);
+  });
+
+  it('для неподдерживаемого измерения (journal) сбрасывает filteredStats, не вызывает API', async () => {
+    const { getFilteredStats } = await import('../api/stats');
+    // Предустанавливаем ненулевые filteredStats
+    useDashboardStore.setState({ filteredStats: { total_articles: 99 } as never });
+
+    await useDashboardStore.getState().fetchFilteredStats({ dimension: 'journal', value: 'Nature' });
+
+    expect(useDashboardStore.getState().filteredStats).toBeNull();
+    expect(vi.mocked(getFilteredStats)).not.toHaveBeenCalled();
+  });
+});
+
+describe('clearFilteredStats', () => {
+  it('сбрасывает filteredStats и filteredStatsLoading в исходное состояние', () => {
+    useDashboardStore.setState({ filteredStats: { total_articles: 10 } as never, filteredStatsLoading: true });
+
+    useDashboardStore.getState().clearFilteredStats();
+
+    expect(useDashboardStore.getState().filteredStats).toBeNull();
+    expect(useDashboardStore.getState().filteredStatsLoading).toBe(false);
   });
 });
 

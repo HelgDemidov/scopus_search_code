@@ -24,7 +24,7 @@ const colors = DIMENSION_COLORS[DIM];
 const TOP_N = 10;
 
 export function TopCountriesChart({ data, isLoading }: TopCountriesChartProps) {
-  const { activeSelection, setSelection, openDrawer } = useDashboardStore();
+  const { activeSelection, filteredStats, setSelection, openDrawer } = useDashboardStore();
 
   const chartData = [...data]
     .sort((a, b) => b.count - a.count)
@@ -32,6 +32,8 @@ export function TopCountriesChart({ data, isLoading }: TopCountriesChartProps) {
     .map((d) => ({ ...d, label: truncateLabel(d.label, 24) }));
 
   function getCellFill(label: string): string {
+    // V2 active: filtered data already shows subset → no dimming needed
+    if (filteredStats !== null) return colors.base;
     if (!activeSelection || activeSelection.dimension !== DIM) return colors.base;
     return activeSelection.value === label ? colors.selected : colors.dimmed;
   }
