@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - interactive-charts
     # Запускаем только когда меняется frontend или сам воркфлоу
     paths:
       - 'frontend/**'
