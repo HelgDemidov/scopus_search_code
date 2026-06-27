@@ -10,6 +10,7 @@ import { Toaster } from './components/ui/sonner';
 import { Header } from './components/layout/Header';
 import { PrivateRoute } from './components/layout/PrivateRoute';
 import { ThemeProvider } from './components/theme/ThemeProvider';
+import { StarFieldCanvas } from './components/theme/StarFieldCanvas';
 import { useAuthStore } from './stores/authStore';
 import { useStatsStore } from './stores/statsStore';
 
@@ -196,6 +197,7 @@ export default function App() {
 
   return (
     <ThemeProvider>
+      <StarFieldCanvas />
       <RouterProvider router={router} />
       {/* Глобальный контейнер для toast-уведомлений через shadcn Sonner */}
       <Toaster richColors position="top-right" />
