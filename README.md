@@ -13,7 +13,7 @@ Russian version: [README.ru.md](README.ru.md)
 
 | Mode | Functionality |
 |---|---|
-| **Without authentication** | Browse and search the "AI & Neural Network Technologies" thematic collection (~39,500 publications); multi-criteria filtering by year, country, document type, and open-access status; article detail pages; collection analytics (publication trends by year, geography, document type, top journals and keywords) |
+| **Without authentication** | Browse and search the "AI & Neural Network Technologies" thematic collection (~95,900 publications); multi-criteria filtering by year, country, document type, and open-access status; article detail pages; interactive analytics dashboard (/explore) with cross-filter charts, Chart Builder, and statistics on publication trends, geography, document types, top journals, authors, and keywords |
 | **With authentication** | All unauthenticated features, plus: live search across the full Scopus database (up to 25 results per query); personal search history with filtering; weekly API quota counter; account management (email/password · Google OAuth · password reset via email) |
 
 ---
@@ -37,9 +37,10 @@ GitHub Actions ──► db_seeder (cron, every 2 h)
 
 | Layer | Technology | Hosting |
 |---|---|---|
-| **Frontend** | React 18, TypeScript, Vite, Zustand, Axios, Tremor, shadcn/ui, Tailwind CSS | Vercel |
+| **Frontend** | React 18, TypeScript, Vite, Zustand, Axios, Recharts, shadcn/ui, Tailwind CSS | Vercel |
 | **Backend** | Python 3.12, FastAPI, SQLAlchemy 2.0 async, Alembic, Pydantic v2, httpx, Authlib | Railway |
 | **Database** | PostgreSQL 17 (Supabase), Session Pooler | Supabase (eu-west-1) |
+| **Cache** | Upstash Redis (HTTPS REST, TTL 60 s) — `GET /articles/stats` response cache | Upstash |
 | **CI/CD** | GitHub Actions — backend (`tests.yml`: pytest · ruff · mypy · alembic check · 80% coverage), frontend (`frontend-tests.yml`: Vitest · ESLint · tsc · 70% coverage · build), staging E2E (`e2e.yml`) | GitHub |
 | **Seeder** | Python + httpx + asyncpg + OpenRouter LLM | GitHub Actions (cron, every 2 h) |
 
@@ -56,7 +57,7 @@ app/
 ├── routers/          # HTTP endpoints: articles, auth, users, health, seeder
 ├── services/         # Business logic: SearchService, CatalogService,
 │                     #   ArticleService, SearchHistoryService, UserService
-├── infrastructure/   # PostgreSQL repositories + ScopusHTTPClient
+├── infrastructure/   # PostgreSQL repositories + ScopusHTTPClient + UpstashRedisClient
 ├── interfaces/       # ABC interfaces for repositories, clients, IEmailService
 ├── models/           # SQLAlchemy ORM models (5 tables)
 ├── schemas/          # Pydantic v2 request/response schemas
@@ -73,7 +74,7 @@ React SPA with routing via React Router and global state via Zustand:
 frontend/src/
 ├── api/              # Axios client (client.ts) + articles, auth, stats, users modules
 ├── stores/           # articleStore, authStore, historyStore, quotaStore,
-│                     #   statsStore, tokenStore (AT in-memory, no localStorage)
+│                     #   statsStore, dashboardStore, tokenStore (AT in-memory, no localStorage)
 ├── pages/            # HomePage, ExplorePage, ProfilePage, AuthPage, ArticlePage,
 │                     #   OAuthCallback, ForgotPasswordPage, ResetPasswordPage
 ├── components/       # articles/, charts/, layout/, profile/, search/, ui/
@@ -132,17 +133,17 @@ Scopus rate limit headers (`X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-Rate
 
 ## Database
 
-Current migration version: `0013_fix_schema_drift`.
+Current migration version: `0014_functional_indices_lower`.
 
 | Table | Purpose | Records (prod) |
 |---|---|---|
-| `articles` | Normalized Scopus publication registry | ~39,800 |
-| `catalog_articles` | Thematic collection membership (seeder keyword) | ~39,500 |
-| `search_history` | User live-search history (JSONB `filters`) | ~14 |
-| `search_result_articles` | Junction table: search → articles with `rank` | ~350 |
-| `seeder_keywords` | Used seeder phrases with clusters and timestamps | ~4,750 |
+| `articles` | Normalized Scopus publication registry | ~96,700 |
+| `catalog_articles` | Thematic collection membership (seeder keyword) | ~95,900 |
+| `search_history` | User live-search history (JSONB `filters`) | ~100 |
+| `search_result_articles` | Junction table: search → articles with `rank` | ~2,300 |
+| `seeder_keywords` | Used seeder phrases with clusters and timestamps | ~19,100 |
 | `users` | Service users | ~9 |
-| `refresh_tokens` | Active refresh tokens with rotation support | ~133 |
+| `refresh_tokens` | Active refresh tokens with rotation support | ~77 |
 | `password_reset_tokens` | One-time password reset tokens (short-lived) | — |
 
 ---
@@ -188,16 +189,16 @@ Supabase connection via `asyncpg` with `statement_cache_size=0` (required for Pg
 
 ## Testing
 
-**Backend:** 154 tests (`pytest` + `pytest-asyncio`), all green, across three layers:
+**Backend:** 172 tests (`pytest` + `pytest-asyncio`), all green, across three layers:
 
 | Layer | Tests | What it covers |
 |---|---|---|
-| Unit (SQLite, mocked) | ~40 | Services (article, catalog, search, user), Scopus client, interface contracts, seeder router |
-| Integration (SQLite) | ~96 | Full HTTP stack: auth, articles, search history, password reset, RT lifecycle, seeder endpoint |
-| Integration (PG) | 18 | `pg_advisory_xact_lock` concurrency; requires `DATABASE_TEST_URL` (throwaway PG, never Supabase) |
+| Unit (SQLite, mocked) | ~54 | Services (article, catalog, search, user), Scopus client, interface contracts, seeder router, Redis cache |
+| Integration (SQLite) | ~97 | Full HTTP stack: auth, articles, search history, password reset, RT lifecycle, seeder endpoint |
+| Integration (PG) | 21 | `pg_advisory_xact_lock` concurrency; requires `DATABASE_TEST_URL` (throwaway PG, never Supabase) |
 | E2E (Staging) | — | Real Railway + Supabase staging; auto-skipped without `E2E_BASE_URL` |
 
-**Frontend:** 181 tests (`Vitest` + Testing Library), all green; statements coverage 76.5% (threshold: 70%).
+**Frontend:** 298 tests (`Vitest` + Testing Library), all green; statements coverage 76.5% (threshold: 70%).
 
 <details>
 <summary>Running the tests</summary>
@@ -282,6 +283,8 @@ VITE_API_BASE_URL=http://localhost:8000
 | `OPENROUTER_API_KEY` | OpenRouter API key (seeder phrase generation) |
 | `BREVO_API_KEY` | Brevo API key for transactional email (password reset) |
 | `FROM_EMAIL` | Sender address used by Brevo |
+| `UPSTASH_REDIS_REST_URL` | Upstash Redis HTTPS endpoint (stats response cache; optional) |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST API token (optional) |
 
 > **Before publishing:** scan the README and `.env.example` for real domains, email addresses, tokens, and any secret-like strings — replace all such values with neutral placeholders.
 
