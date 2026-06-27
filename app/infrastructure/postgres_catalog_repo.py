@@ -185,9 +185,11 @@ class PostgresCatalogRepository(ICatalogRepository):
         Переиспользует _apply_filters() — единственный источник WHERE-логики.
         Без фильтров поведение идентично V1 (полная статистика каталога).
         """
-        # SET LOCAL действует в рамках текущей транзакции (autobegin), устраняет disk spill
-        # при COUNT(DISTINCT ...) sort-операциях без риска OOM при конкурентных запросах
-        await self.session.execute(text("SET LOCAL work_mem = '32MB'"))
+        # SET LOCAL устраняет disk spill при COUNT(DISTINCT ...) sort — только PG
+        # SQLite в тестах не поддерживает SET LOCAL, поэтому проверяем диалект
+        conn = await self.session.connection()
+        if conn.dialect.name == "postgresql":
+            await self.session.execute(text("SET LOCAL work_mem = '32MB'"))
 
         # Базовый запрос: только статьи из catalog_articles (JOIN вместо CTE)
         stmt = select(Article).join(CatalogArticle, CatalogArticle.article_id == Article.id)
