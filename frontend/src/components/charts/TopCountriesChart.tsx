@@ -1,39 +1,95 @@
-import { BarChart } from '@tremor/react';
-import { Skeleton } from '../ui/skeleton';
-import { CHART_COLOR_PRIMARY } from './chartColors';
-import type { StatsItem } from '../../types/api';
+import {
+  BarChart,
+  Bar,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
+import { ChartCard } from './ChartCard';
+import { ChartTooltip } from './ChartTooltip';
+import { DIMENSION_COLORS, truncateLabel } from './chartColors';
+import { useDashboardStore } from '../../stores/dashboardStore';
+import type { LabelCount } from '../../types/api';
 
 interface TopCountriesChartProps {
-  data: StatsItem[];
+  data: LabelCount[];
   isLoading: boolean;
 }
 
+const DIM = 'country';
+const colors = DIMENSION_COLORS[DIM];
+const TOP_N = 10;
+
 export function TopCountriesChart({ data, isLoading }: TopCountriesChartProps) {
-  // Top-10 countries by article count
-  const top10 = [...data]
+  const { activeSelection, setSelection, openDrawer } = useDashboardStore();
+
+  const chartData = [...data]
     .sort((a, b) => b.count - a.count)
-    .slice(0, 10);
+    .slice(0, TOP_N)
+    .map((d) => ({ ...d, label: truncateLabel(d.label, 24) }));
+
+  function getCellFill(label: string): string {
+    if (!activeSelection || activeSelection.dimension !== DIM) return colors.base;
+    return activeSelection.value === label ? colors.selected : colors.dimmed;
+  }
+
+  function handleBarClick(entry: LabelCount) {
+    setSelection({ dimension: DIM, value: entry.label });
+  }
 
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 flex flex-col gap-3">
-      <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-        Top Countries
-      </h3>
-
-      {isLoading ? (
-        <Skeleton className="h-48 w-full rounded-lg" />
-      ) : (
+    <ChartCard
+      title="Top Countries"
+      dimension={DIM}
+      isLoading={isLoading}
+      skeletonHeight="h-72"
+      onTitleClick={() => openDrawer(DIM)}
+    >
+      <ResponsiveContainer width="100%" height={288}>
         <BarChart
-          data={top10}
-          index="label"
-          categories={['count']}
-          colors={[CHART_COLOR_PRIMARY]}
+          data={chartData}
           layout="vertical"
-          showLegend={false}
-          showGridLines
-          className="h-48"
-        />
-      )}
-    </div>
+          margin={{ top: 0, right: 16, bottom: 0, left: 0 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
+
+          <XAxis
+            type="number"
+            tick={{ fontSize: 11, fill: '#94a3b8' }}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
+          />
+
+          <YAxis
+            type="category"
+            dataKey="label"
+            width={96}
+            tick={{ fontSize: 11, fill: '#64748b' }}
+            tickLine={false}
+            axisLine={false}
+          />
+
+          <Tooltip
+            content={(p) => <ChartTooltip {...p} dimension={DIM} />}
+            cursor={{ fill: '#f1f5f9' }}
+          />
+
+          <Bar
+            dataKey="count"
+            radius={[0, 4, 4, 0]}
+            cursor="pointer"
+            onClick={handleBarClick}
+          >
+            {chartData.map((entry) => (
+              <Cell key={entry.label} fill={getCellFill(entry.label)} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartCard>
   );
 }

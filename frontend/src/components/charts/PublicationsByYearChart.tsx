@@ -1,36 +1,80 @@
-import { LineChart } from '@tremor/react';
-import { Skeleton } from '../ui/skeleton';
-import { CHART_COLOR_PRIMARY } from './chartColors';
-import type { StatsItem } from '../../types/api';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
+import { ChartCard } from './ChartCard';
+import { ChartTooltip } from './ChartTooltip';
+import { DIMENSION_COLORS } from './chartColors';
+import type { LabelCount } from '../../types/api';
 
 interface PublicationsByYearChartProps {
-  data: StatsItem[];
+  data: LabelCount[];
   isLoading: boolean;
 }
 
-export function PublicationsByYearChart({ data, isLoading }: PublicationsByYearChartProps) {
-  return (
-    // Обёртка чарта с заголовком
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 flex flex-col gap-3">
-      <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-        Publications by Year
-      </h3>
+const colors = DIMENSION_COLORS.year;
 
-      {/* Skeleton заглушка по §4.2 */}
-      {isLoading ? (
-        <Skeleton className="h-48 w-full rounded-lg" />
-      ) : (
-        <LineChart
-          data={data}
-          index="label"
-          categories={['count']}
-          colors={[CHART_COLOR_PRIMARY]}
-          showLegend={false}
-          showGridLines
-          curveType="monotone"
-          className="h-48"
-        />
-      )}
-    </div>
+export function PublicationsByYearChart({ data, isLoading }: PublicationsByYearChartProps) {
+  // Сортируем по возрастанию года (бэкенд может отдавать в произвольном порядке)
+  const sorted = [...data].sort((a, b) => Number(a.label) - Number(b.label));
+
+  return (
+    <ChartCard
+      title="Publications by Year"
+      dimension="year"
+      isLoading={isLoading}
+      skeletonHeight="h-56"
+    >
+      <ResponsiveContainer width="100%" height={224}>
+        <AreaChart data={sorted} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}>
+          <defs>
+            <linearGradient id="yearGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%"  stopColor={colors.base} stopOpacity={0.25} />
+              <stop offset="95%" stopColor={colors.base} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+
+          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+
+          <XAxis
+            dataKey="label"
+            tick={{ fontSize: 11, fill: '#94a3b8' }}
+            tickLine={false}
+            axisLine={false}
+            interval="preserveStartEnd"
+          />
+
+          <YAxis
+            tick={{ fontSize: 11, fill: '#94a3b8' }}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
+            width={36}
+          />
+
+          <Tooltip
+            content={(p) => (
+              <ChartTooltip {...p} dimension="year" valueLabel="Publications" />
+            )}
+            cursor={{ stroke: colors.base, strokeWidth: 1, strokeDasharray: '4 4' }}
+          />
+
+          <Area
+            type="monotone"
+            dataKey="count"
+            stroke={colors.base}
+            strokeWidth={2}
+            fill="url(#yearGradient)"
+            dot={false}
+            activeDot={{ r: 4, fill: colors.base }}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </ChartCard>
   );
 }
