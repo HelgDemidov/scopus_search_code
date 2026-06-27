@@ -14,38 +14,47 @@ import { DIMENSION_COLORS, truncateLabel } from './chartColors';
 import { useDashboardStore } from '../../stores/dashboardStore';
 import type { LabelCount } from '../../types/api';
 
-interface TopJournalsChartProps {
+interface ThematicAreasChartProps {
   data: LabelCount[];
   isLoading: boolean;
 }
 
-const DIM = 'journal';
+const DIM = 'thematic';
 const colors = DIMENSION_COLORS[DIM];
-const TOP_N = 10;
-const YAXIS_WIDTH = 180;
+const TOP_N = 15;
 
-export function TopJournalsChart({ data, isLoading }: TopJournalsChartProps) {
+export function ThematicAreasChart({ data, isLoading }: ThematicAreasChartProps) {
   const { activeSelection, setSelection, openDrawer } = useDashboardStore();
 
   const chartData = [...data]
     .sort((a, b) => b.count - a.count)
     .slice(0, TOP_N)
-    .map((d) => ({ ...d, label: truncateLabel(d.label, 28) }));
+    .map((d) => ({ ...d, label: truncateLabel(d.label, 32) }));
 
   function getCellFill(label: string): string {
     if (!activeSelection || activeSelection.dimension !== DIM) return colors.base;
     return activeSelection.value === label ? colors.selected : colors.dimmed;
   }
 
+  if (data.length === 0 && !isLoading) {
+    return (
+      <ChartCard title="Thematic Areas" dimension={DIM} isLoading={false}>
+        <div className="flex h-48 items-center justify-center">
+          <p className="text-xs text-slate-400 dark:text-slate-500">No thematic data available</p>
+        </div>
+      </ChartCard>
+    );
+  }
+
   return (
     <ChartCard
-      title="Top Journals"
+      title="Thematic Areas"
       dimension={DIM}
       isLoading={isLoading}
-      skeletonHeight="h-80"
+      skeletonHeight="h-[360px]"
       onTitleClick={() => openDrawer(DIM)}
     >
-      <ResponsiveContainer width="100%" height={320}>
+      <ResponsiveContainer width="100%" height={360}>
         <BarChart
           data={chartData}
           layout="vertical"
@@ -64,14 +73,16 @@ export function TopJournalsChart({ data, isLoading }: TopJournalsChartProps) {
           <YAxis
             type="category"
             dataKey="label"
-            width={YAXIS_WIDTH}
-            tick={{ fontSize: 11, fill: '#64748b' }}
+            width={200}
+            tick={{ fontSize: 10, fill: '#64748b' }}
             tickLine={false}
             axisLine={false}
           />
 
           <Tooltip
-            content={(p) => <ChartTooltip {...p} dimension={DIM} />}
+            content={(p) => (
+              <ChartTooltip {...p} dimension={DIM} valueLabel="Articles" />
+            )}
             cursor={{ fill: '#f1f5f9' }}
           />
 

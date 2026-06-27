@@ -283,7 +283,61 @@ interface BuilderCard {
 
 ---
 
-## 9. Backend: изменения для V1
+## 9. Тестовое покрытие
+
+### Принципы
+
+Тесты не ради галочки: каждый тест-кейс защищает конкретное поведение, которое **молча сломается** при рефакторинге без теста.
+
+- **Unit-тесты**: логика хранилища и утилиты — чистые функции, нет DOM, нет side-effects.
+- **Component-тесты**: UI-контракты компонентов (skeleton при loading, aria-states, обработчики).
+- **Integration-тесты**: взаимодействие нескольких сторов через UI — KpiRow как smart component.
+- **Cross-filter тесты**: цвета Cell при разных состояниях selection — через `data-fill` атрибут в мок-компонентах. Recharts мокируется целиком; тестируем поведение нашего кода, не SVG-рендеринг библиотеки.
+
+### Матрица покрытия (Phase 1–2)
+
+| Файл | Тип | Тест-файл | Что тестируется |
+|---|---|---|---|
+| `dashboardStore.ts` | Unit | `dashboardStore.test.ts` | toggle selection, drawer open/close, builderCards CRUD |
+| `chartColors.ts` | Unit | `chartColors.test.ts` | truncateLabel (граничные случаи), formatCount, структура 6 цветовых профилей |
+| `ChartCard.tsx` | Component | `ChartCard.test.tsx` | skeleton/children switch, dot-маркер, onTitleClick |
+| `KpiTile.tsx` | Component | `KpiTile.test.tsx` | formatCount value, label, onClick, aria-pressed, skeleton, цветная полоса |
+| `KpiRow.tsx` | Integration | `KpiRow.integration.test.tsx` | 6 тайлов из store, toggle drawer, aria-pressed sync, spy на openDrawer/closeDrawer |
+| `TopCountriesChart.tsx` | Component + Cross-filter | `TopCountriesChart.test.tsx` | skeleton, bar click → setSelection, title click → openDrawer, Cell fills при 3 состояниях selection |
+| `ThematicAreasChart.tsx` | Component | `ThematicAreasChart.test.tsx` | empty state, top-15 slice, label truncation, skeleton |
+
+### Что сознательно НЕ тестируется и почему
+
+| Исключение | Причина |
+|---|---|
+| SVG-рендеринг Recharts (оси, gridlines, анимации) | Ответственность библиотеки; jsdom не имеет layout engine |
+| `OpenAccessChart.tsx` (PieChart) | Donut-рендер полностью делегирован Recharts; OA/Closed split — тривиальная арифметика, не требует отдельного теста |
+| `PublicationsByYearChart.tsx` | Нет cross-filter (pinned chart); AreaChart/Area — Recharts internals |
+| `DocumentTypesChart.tsx` | Паттерн идентичен TopCountriesChart, уже покрытому тестом |
+| Hover-анимации, transition-styles | CSS; не выражены в ARIA/DOM |
+
+### Результат (после Phase 1–2)
+
+```
+Test Files: 21 passed
+Tests:     252 passed  (181 → 252, +71 новый тест)
+```
+
+Новые тесты: 18 (dashboardStore) + 14 (chartColors) + 7 (ChartCard) + 7 (KpiTile) + 15 (KpiRow integration) + 9 (TopCountriesChart) + 6 (ThematicAreasChart) = **71 тест**.
+
+### Результат (после Phase 3, 5, 6)
+
+```
+Test Files: 23 passed
+Tests:     270 passed  (252 → 270, +18 новых тестов)
+```
+
+Новые тесты: 9 (DynamicChart) + 9 (ChartBuilderPanel) = **18 тестов**.
+dashboardStore: обновлены 2 теста под новую сигнатуру `addBuilderCard(Omit<BuilderCard, 'id'>)`.
+
+---
+
+## 10. Backend: изменения для V1
 
 **Не требуются.** Все данные уже доступны в `GET /articles/stats`.
 
@@ -296,35 +350,42 @@ interface BuilderCard {
 
 ## 10. Фазированная реализация
 
-### Фаза 1 — Foundation (приоритет 1)
-- [ ] `dashboardStore.ts` — activeSelection, drawer, builderCards
-- [ ] `chartColors.ts` — расширить 6 цветовых профилей + truncateLabel
-- [ ] `ChartCard.tsx` — единая оболочка карточки
-- [ ] `ChartTooltip.tsx` — единый tooltip
-- [ ] `KpiTile.tsx` + `KpiRow.tsx` — 6 кликабельных тайлов
+### Фаза 1 — Foundation (приоритет 1) ✅ ВЫПОЛНЕНА
+- [x] `dashboardStore.ts` — activeSelection, drawer, builderCards
+- [x] `chartColors.ts` — расширить 6 цветовых профилей + truncateLabel
+- [x] `ChartCard.tsx` — единая оболочка карточки
+- [x] `ChartTooltip.tsx` — единый tooltip
+- [x] `KpiTile.tsx` + `KpiRow.tsx` — 6 кликабельных тайлов
+- [x] Тесты: dashboardStore (18), chartColors (14), ChartCard (7), KpiTile (7), KpiRow (15)
 
-### Фаза 2 — Core charts (приоритет 1)
-- [ ] `PublicationsByYearChart.tsx` — Recharts AreaChart
-- [ ] `TopCountriesChart.tsx` — Recharts BarChart horizontal
-- [ ] `DocTypesChart.tsx` — Recharts BarChart horizontal  
-- [ ] `TopJournalsChart.tsx` — Recharts BarChart horizontal (заменяет Tremor)
-- [ ] `OpenAccessChart.tsx` — Recharts PieChart donut
-- [ ] `ThematicAreasChart.tsx` — Recharts BarChart horizontal
+### Фаза 2 — Core charts (приоритет 1) ✅ ВЫПОЛНЕНА
+- [x] `PublicationsByYearChart.tsx` — Recharts AreaChart с gradient fill
+- [x] `TopCountriesChart.tsx` — Recharts BarChart horizontal + cross-filter
+- [x] `DocumentTypesChart.tsx` — Recharts BarChart horizontal + cross-filter
+- [x] `TopJournalsChart.tsx` — Recharts BarChart horizontal + cross-filter (заменяет Tremor)
+- [x] `OpenAccessChart.tsx` — Recharts PieChart donut (новый компонент)
+- [x] `ThematicAreasChart.tsx` — Recharts BarChart horizontal (новый компонент)
+- [x] Recharts добавлен как прямая зависимость (`^2.15.4`)
+- [x] Тесты: TopCountriesChart (9), ThematicAreasChart (6)
 
-### Фаза 3 — Drawer (приоритет 2)
-- [ ] `DimensionDrawer.tsx` — Sheet + детальный вид (таблица + крупный чарт)
-- [ ] Интеграция с KpiTile onClick
+### Фаза 3 — Drawer (приоритет 2) ✅ ВЫПОЛНЕНА
+- [x] `DimensionDrawer.tsx` — Sheet + детальный вид (DrawerBarChart / DrawerAreaChart / DrawerOAChart + DrawerTable)
+- [x] Интеграция с KpiTile onClick (через dashboardStore.openDrawer)
 
-### Фаза 4 — V1 Cross-filter (приоритет 2)
-- [ ] Все grid-чарты читают `activeSelection` и диммируют неактивные элементы
-- [ ] Клик по элементу чарта → setSelection / clearSelection
+### Фаза 4 — V1 Cross-filter (приоритет 2) ✅ ВЫПОЛНЕНА
+- [x] Все grid-чарты читают `activeSelection` и диммируют/подсвечивают элементы через Cell fill
+- [x] Клик по элементу чарта → setSelection / clearSelection
 
-### Фаза 5 — Chart Builder (приоритет 3)
-- [ ] `ChartBuilderPanel.tsx` + `DynamicChart.tsx`
-- [ ] Интеграция в `ExplorePage.tsx`
+### Фаза 5 — Chart Builder (приоритет 3) ✅ ВЫПОЛНЕНА
+- [x] `ChartBuilderPanel.tsx` — accordion, 6 измерений × разрешённые типы, авто-выбор типа при смене измерения
+- [x] `DynamicChart.tsx` — bar_h / bar_v / pie / line / table; данные из statsStore; кнопка удаления ×
+- [x] ChartCard: добавлен `headerAction` prop
+- [x] dashboardStore: `addBuilderCard` принимает `Omit<BuilderCard, 'id'>`, id = `crypto.randomUUID()`
+- [x] Интеграция в `ExplorePage.tsx` (после ThematicAreasChart)
+- [x] Тесты: DynamicChart (9), ChartBuilderPanel (9)
 
-### Фаза 6 — ExplorePage rewrite (сквозная)
-- [ ] Переписать `ExplorePage.tsx` под новую компоновку
+### Фаза 6 — ExplorePage rewrite (сквозная) ✅ ВЫПОЛНЕНА
+- [x] Переписать `ExplorePage.tsx` под новую компоновку (KpiRow → Drawer → Year → 2×2 grid → Thematic → Builder)
 - [ ] Убрать Tremor-импорты из chart-компонентов (оставить только shadcn/ui)
 - [ ] Обновить тесты: заменить Tremor-компоненты на Recharts в моках
 
