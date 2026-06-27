@@ -7,12 +7,11 @@ Backend deploys to Railway (Docker); frontend to Vercel. DB — PostgreSQL (Supa
 App config: `app/config.py` (Pydantic Settings).
 
 ## Backend layers & key files
-`app/interfaces/` — ABCs (dependency inversion): article/catalog/search_history/search_result/user repositories + search_client
+`app/interfaces/` — ABCs: article/catalog/search_history/search_result/user repositories + search_client + `email_service.py` (IEmailService)
 `app/services/`   — business logic: search, search_history, catalog, article, user
-`app/infrastructure/` — Postgres repos, scopus_client (CQL-builder), database
+`app/infrastructure/` — Postgres repos, scopus_client (CQL-builder), database, `redis_client.py` (Upstash REST)
 `app/routers/`    — FastAPI handlers: articles, auth, users, health, seeder_router
 `app/core/`       — dependencies.py (DI + advisory lock factory + `get_email_service`), security.py (JWT/hashing), refresh_token_utils.py, cookie_constants.py, password_reset_utils.py
-`app/interfaces/` — ABCs: article/catalog/search_history/search_result/user repositories + search_client + `email_service.py` (IEmailService)
 `app/models/`     — SQLAlchemy ORM; `app/schemas/` — Pydantic v2; `app/utils/db_utils.py`
 `tests/conftest.py` — shared fixtures (SQLite in-memory); `tests/unit/` mocked; `tests/integration/` SQLite or PG
 `frontend/`       — React SPA; see frontend/CLAUDE.md for details
@@ -59,11 +58,13 @@ DATABASE_TEST_URL             → throwaway PG container — NEVER point at Supa
 ```
 GitHub Secret `DATABASE_URL` удалён. `e2e.yml` задаёт `DATABASE_URL` из `${{ secrets.DATABASE_SUPABASE_STAGING_URL }}`.
 
-## Redis (Upstash) — кэш stats (planned, П-1 из §15 spec)
+## Redis (Upstash) — кэш stats (PR #32, merged 2026-06-27)
 `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` — Upstash Redis (HTTPS REST, порт 443).
 Хранятся в: локальный `.env`, Railway Variables (prod + staging), GitHub Secrets.
-Graceful degradation: если не заданы → кэш отключён, `get_stats()` работает напрямую с БД.
-Тесты Redis не требуют. Реализация: `app/infrastructure/redis_client.py` (ещё не создан).
+Cache-aside в `CatalogService.get_stats()` (TTL=60s); `app/infrastructure/redis_client.py` — синглтон.
+Graceful degradation: переменные не заданы → `redis_client=None` → прямой запрос к БД.
+`SET LOCAL work_mem='32MB'` в `postgres_catalog_repo.get_stats()` — только при `dialect=="postgresql"`.
+Тесты: `FakeRedis` in-memory дублёр, реальный Upstash в CI не используется.
 
 ## Test layers & CI
 ```
@@ -92,8 +93,7 @@ Advisory lock в DI-фабрике → новые тесты `GET /articles/find
 **Dependabot:** `.github/dependabot.yml` — pip + npm + github-actions, еженедельно по понедельникам, limit=3 PR на экосистему.
 
 ## Migration chain note
-`seeder_keywords` NOT в `Base.metadata` в рантайме (seeder_router не импортирует SeederKeyword) → drop_all её не трогает. В alembic/env.py SeederKeyword импортируется явно для автогенерации.
-Migration `f9a3c1e2b7d4`: `ALTER TABLE ... DROP COLUMN IF EXISTS` — идемпотентна на fresh DB.
+`seeder_keywords` NOT в `Base.metadata` в рантайме → drop_all её не трогает. В alembic/env.py SeederKeyword импортируется явно для автогенерации.
 Chain: `f9a3c1e2b7d4` → `0010` → `0011` → `0012` → `0013_fix_schema_drift` → `0014_functional_indices_lower` (head).
-Миграция 0013: NOT NULL для `created_at` в refresh_tokens/password_reset_tokens; пересоздаёт ix_search_history_user_created без DESC (SQLite-совместимость).
-Миграция 0014: функциональные индексы `lower(affiliation_country)` и `lower(document_type)` — для Cross-filter V2 WHERE lower(col) IN (...). Применена на prod + staging Supabase 2026-06-27.
+Миграция 0014: функциональные индексы `lower(affiliation_country)` и `lower(document_type)` — применена на prod + staging 2026-06-27.
+`alembic/env.py`: `include_object` хук исключает expression-индексы из autogenerate — без него `alembic check` видит их как "лишние" и хочет удалить (SQLAlchemy рефлектит как `_textual_index_element`).
