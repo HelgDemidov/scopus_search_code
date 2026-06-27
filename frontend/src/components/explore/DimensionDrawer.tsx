@@ -82,13 +82,13 @@ function getConfig(dim: Dimension, stats: StatsResponse | null): DrawerConfig | 
         chartHeight: 260,
         isSpecial: 'open_access',
       };
-    case 'thematic':
+    case 'author':
       return {
-        title: 'Thematic Areas',
-        data: [...stats.top_keywords].sort((a, b) => b.count - a.count),
-        chartHeight: Math.max(480, stats.top_keywords.length * 28),
-        yAxisWidth: 220,
-        labelMaxLen: 36,
+        title: 'Top Authors',
+        data: [...stats.top_authors].sort((a, b) => b.count - a.count),
+        chartHeight: Math.max(360, stats.top_authors.length * 30),
+        yAxisWidth: 140,
+        labelMaxLen: 24,
       };
   }
 }

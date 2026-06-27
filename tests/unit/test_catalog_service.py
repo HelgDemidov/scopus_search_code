@@ -103,12 +103,14 @@ class FakeCatalogRepository(ICatalogRepository):
             "total_articles": 42,
             "total_journals": 10,
             "total_countries": 5,
+            "total_authors": 8,
             "open_access_count": 7,
             "by_year": [{"year": 2025, "count": 20}, {"year": 2024, "count": 22}],
             "by_journal": [{"journal": "Nature", "count": 15}],
             "by_country": [{"country": "USA", "count": 30}],
             "by_doc_type": [{"doc_type": "Article", "count": 40}],
             "top_keywords": [{"keyword": "deep learning", "count": 12}],
+            "top_authors": [{"author": "J. Smith", "count": 5}],
         }
 
 

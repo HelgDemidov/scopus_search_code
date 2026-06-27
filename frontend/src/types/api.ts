@@ -40,12 +40,14 @@ export interface StatsResponse {
   total_articles: number;
   total_journals: number;
   total_countries: number;
+  total_authors: number;
   open_access_count: number;
   by_year: LabelCount[];
   by_journal: LabelCount[];
   by_country: LabelCount[];
   by_doc_type: LabelCount[];
   top_keywords: LabelCount[];
+  top_authors: LabelCount[];
 }
 
 // ---------------------------------------------------------------------------

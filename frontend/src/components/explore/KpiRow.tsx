@@ -37,10 +37,9 @@ const KPI_TILES: KpiConfig[] = [
     getValue: (s) => s.total_journals,
   },
   {
-    dimension: 'thematic',
-    label: 'Thematic areas',
-    // top_keywords.length — число тематических направлений в топ-выборке
-    getValue: (s) => s.top_keywords.length,
+    dimension: 'author',
+    label: 'Authors',
+    getValue: (s) => s.total_authors,
   },
 ];
 

@@ -18,7 +18,7 @@ const DIMENSION_OPTIONS: DimensionOption[] = [
   { dimension: 'doc_type',    chartTypes: ['bar_h', 'bar_v', 'pie', 'table'] },
   { dimension: 'journal',     chartTypes: ['bar_h', 'table'] },
   { dimension: 'open_access', chartTypes: ['pie', 'bar_v', 'table'] },
-  { dimension: 'thematic',    chartTypes: ['bar_h', 'table'] },
+  { dimension: 'author',      chartTypes: ['bar_h', 'table'] },
 ];
 
 // ---------------------------------------------------------------------------

@@ -32,11 +32,13 @@ const MOCK_STATS: StatsResponse = {
   open_access_count: 350,
   total_journals: 42,
   total_countries: 58,
+  total_authors: 820,
   by_year:    [{ label: '2022', count: 200 }, { label: '2023', count: 300 }],
   by_country: [{ label: 'China', count: 500 }, { label: 'USA', count: 300 }],
   by_doc_type: [{ label: 'Article', count: 800 }, { label: 'Review', count: 200 }],
   by_journal:  [{ label: 'Nature', count: 100 }],
   top_keywords: [{ label: 'Neural Networks', count: 400 }],
+  top_authors: [{ label: 'J. Smith', count: 15 }, { label: 'L. Wang', count: 12 }],
 };
 
 vi.mock('../../stores/statsStore', () => ({

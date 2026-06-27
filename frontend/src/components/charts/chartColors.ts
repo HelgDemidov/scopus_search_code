@@ -12,7 +12,7 @@ export type Dimension =
   | 'doc_type'
   | 'journal'
   | 'open_access'
-  | 'thematic';
+  | 'author';
 
 export type ChartType = 'bar_h' | 'bar_v' | 'pie' | 'line' | 'table';
 
@@ -64,12 +64,12 @@ export const DIMENSION_COLORS: Record<Dimension, DimensionColors> = {
     dimmed:   '#99f6e4', // teal-200
     label: 'Open Access',
   },
-  thematic: {
-    base:     '#e11d48', // rose-600
-    hover:    '#be123c', // rose-700
-    selected: '#be123c',
-    dimmed:   '#fecdd3', // rose-200
-    label: 'Thematic Areas',
+  author: {
+    base:     '#0284c7', // sky-600
+    hover:    '#0369a1', // sky-700
+    selected: '#0369a1',
+    dimmed:   '#bae6fd', // sky-200
+    label: 'Top Authors',
   },
 };
 

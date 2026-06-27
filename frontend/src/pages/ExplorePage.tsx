@@ -34,8 +34,8 @@ const TopJournalsChart = lazy(() =>
 const OpenAccessChart = lazy(() =>
   import('../components/charts/OpenAccessChart').then(m => ({ default: m.OpenAccessChart }))
 );
-const ThematicAreasChart = lazy(() =>
-  import('../components/charts/ThematicAreasChart').then(m => ({ default: m.ThematicAreasChart }))
+const TopAuthorsChart = lazy(() =>
+  import('../components/charts/TopAuthorsChart').then(m => ({ default: m.TopAuthorsChart }))
 );
 
 // ---------------------------------------------------------------------------
@@ -200,9 +200,9 @@ export default function ExplorePage() {
                   />
                 </div>
 
-                {/* Thematic Areas — полная ширина */}
-                <ThematicAreasChart
-                  data={stats?.top_keywords ?? []}
+                {/* Top Authors — полная ширина */}
+                <TopAuthorsChart
+                  data={stats?.top_authors ?? []}
                   isLoading={isLoading}
                 />
 

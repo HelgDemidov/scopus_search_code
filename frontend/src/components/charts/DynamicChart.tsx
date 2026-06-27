@@ -50,8 +50,8 @@ function getDataForDimension(dim: Dimension, stats: StatsResponse): LabelCount[]
         { label: 'Open Access',   count: stats.open_access_count },
         { label: 'Closed Access', count: stats.total_articles - stats.open_access_count },
       ];
-    case 'thematic':
-      return [...stats.top_keywords].sort((a, b) => b.count - a.count);
+    case 'author':
+      return [...stats.top_authors].sort((a, b) => b.count - a.count);
   }
 }
 

@@ -14,22 +14,22 @@ import { DIMENSION_COLORS, truncateLabel } from './chartColors';
 import { useDashboardStore } from '../../stores/dashboardStore';
 import type { LabelCount } from '../../types/api';
 
-interface ThematicAreasChartProps {
+interface TopAuthorsChartProps {
   data: LabelCount[];
   isLoading: boolean;
 }
 
-const DIM = 'thematic';
+const DIM = 'author';
 const colors = DIMENSION_COLORS[DIM];
 const TOP_N = 15;
 
-export function ThematicAreasChart({ data, isLoading }: ThematicAreasChartProps) {
+export function TopAuthorsChart({ data, isLoading }: TopAuthorsChartProps) {
   const { activeSelection, setSelection, openDrawer } = useDashboardStore();
 
   const chartData = [...data]
     .sort((a, b) => b.count - a.count)
     .slice(0, TOP_N)
-    .map((d) => ({ ...d, label: truncateLabel(d.label, 32) }));
+    .map((d) => ({ ...d, label: truncateLabel(d.label, 28) }));
 
   function getCellFill(label: string): string {
     if (!activeSelection || activeSelection.dimension !== DIM) return colors.base;
@@ -38,9 +38,9 @@ export function ThematicAreasChart({ data, isLoading }: ThematicAreasChartProps)
 
   if (data.length === 0 && !isLoading) {
     return (
-      <ChartCard title="Thematic Areas" dimension={DIM} isLoading={false}>
+      <ChartCard title="Top Authors" dimension={DIM} isLoading={false}>
         <div className="flex h-48 items-center justify-center">
-          <p className="text-xs text-slate-400 dark:text-slate-500">No thematic data available</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500">No author data available</p>
         </div>
       </ChartCard>
     );
@@ -48,7 +48,7 @@ export function ThematicAreasChart({ data, isLoading }: ThematicAreasChartProps)
 
   return (
     <ChartCard
-      title="Thematic Areas"
+      title="Top Authors"
       dimension={DIM}
       isLoading={isLoading}
       skeletonHeight="h-[360px]"
@@ -73,7 +73,7 @@ export function ThematicAreasChart({ data, isLoading }: ThematicAreasChartProps)
           <YAxis
             type="category"
             dataKey="label"
-            width={200}
+            width={180}
             tick={{ fontSize: 10, fill: '#64748b' }}
             tickLine={false}
             axisLine={false}
