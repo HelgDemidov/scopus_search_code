@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - feat/stats-crossfilter-v2
+      - feat/functional-indices-lower
 
   pull_request:
     branches:
