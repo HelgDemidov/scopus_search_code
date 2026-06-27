@@ -35,7 +35,7 @@ export const DIMENSION_COLORS: Record<Dimension, DimensionColors> = {
     hover:      '#1d4ed8', // blue-700
     selected:   '#1d4ed8',
     dimmed:     '#bfdbfe', // blue-200
-    darkDimmed: '#1e40af', // blue-800
+    darkDimmed: '#1e3a8a', // blue-900
     label: 'Publications by Year',
   },
   country: {
@@ -43,7 +43,7 @@ export const DIMENSION_COLORS: Record<Dimension, DimensionColors> = {
     hover:      '#15803d', // green-700
     selected:   '#15803d',
     dimmed:     '#bbf7d0', // green-200
-    darkDimmed: '#166534', // green-800
+    darkDimmed: '#14532d', // green-900
     label: 'Countries',
   },
   doc_type: {
@@ -51,7 +51,7 @@ export const DIMENSION_COLORS: Record<Dimension, DimensionColors> = {
     hover:      '#6d28d9', // violet-700
     selected:   '#6d28d9',
     dimmed:     '#ddd6fe', // violet-200
-    darkDimmed: '#5b21b6', // violet-800
+    darkDimmed: '#4c1d95', // violet-900
     label: 'Document Types',
   },
   journal: {
@@ -59,7 +59,7 @@ export const DIMENSION_COLORS: Record<Dimension, DimensionColors> = {
     hover:      '#b45309', // amber-700
     selected:   '#b45309',
     dimmed:     '#fde68a', // amber-200
-    darkDimmed: '#92400e', // amber-800
+    darkDimmed: '#78350f', // amber-900
     label: 'Top Journals',
   },
   open_access: {
@@ -67,7 +67,7 @@ export const DIMENSION_COLORS: Record<Dimension, DimensionColors> = {
     hover:      '#0f766e', // teal-700
     selected:   '#0f766e',
     dimmed:     '#99f6e4', // teal-200
-    darkDimmed: '#115e59', // teal-800
+    darkDimmed: '#134e4a', // teal-900
     label: 'Open Access',
   },
   author: {
@@ -75,7 +75,7 @@ export const DIMENSION_COLORS: Record<Dimension, DimensionColors> = {
     hover:      '#0369a1', // sky-700
     selected:   '#0369a1',
     dimmed:     '#bae6fd', // sky-200
-    darkDimmed: '#075985', // sky-800
+    darkDimmed: '#0c4a6e', // sky-900
     label: 'Top Authors',
   },
 };
