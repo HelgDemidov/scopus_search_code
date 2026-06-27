@@ -273,7 +273,57 @@ length  = rand(width * 0.10, width * 0.50)
 
 ---
 
-## 10. CI и ветка
+## 10. Порядок реализации
+
+Оптимальная последовательность строится по трём критериям:
+**функциональные зависимости** (нельзя использовать хук до его создания) →
+**риск регрессии** (чистые добавления раньше правок существующего кода) →
+**ранняя проверяемость** (каждая фаза оставляет систему в рабочем состоянии).
+
+### Фаза 1 — CSS-фундамент (нулевой риск)
+`src/index.css` — обновить `.dark {}`: `--background #0d1b2a`, `--card #152236`.
+Класс `.dark` не применён ни к чему — светлый режим не затронут вообще.
+
+### Фаза 2 — Новые файлы темизации (нулевой риск, чистые добавления)
+1. `src/components/theme/ThemeProvider.tsx` — контекст + overlay-менеджер
+2. `src/hooks/useTheme.ts` — читает ThemeContext
+3. `src/components/theme/ThemeToggle.tsx` — кнопка Moon/Sun
+
+### Фаза 3 — Подключение темы в оболочку приложения (низкий риск)
+4. `src/App.tsx` — обернуть в `<ThemeProvider>`, `bg-background` в RootLayout
+5. `src/components/layout/Header.tsx` — добавить ThemeToggle, исправить `dark:bg-slate-900/95`
+6. `src/pages/HomePage.tsx` — исправить `dark:bg-slate-900` в кнопках режима поиска
+
+→ **Контрольная точка A:** переключатель тема работает end-to-end. Запустить `npm test`.
+
+### Фаза 4 — Canvas-эффекты (нулевой риск регрессии существующих тестов)
+7. `src/components/theme/StarFieldCanvas.tsx` — звёзды + shooting stars + scheduler
+8. `src/App.tsx` (дополнение) — монтировать `<StarFieldCanvas>` внутри ThemeProvider
+
+→ **Контрольная точка B:** визуальные эффекты работают в браузере. Ручное тестирование.
+
+### Фаза 5 — Адаптация инфографики (наибольший риск — здесь тесты)
+9. `src/components/charts/chartColors.ts` — добавить `darkDimmed` в каждый DIMENSION_COLORS
+10. `src/hooks/useDimensionColors.ts` — новый хук; **ключевой инвариант:** без ThemeProvider (т.е. в тестах) возвращает светлые цвета — нулевая регрессия
+11. `src/components/charts/ChartCard.tsx` — bg + useDimensionColors
+12. `src/components/charts/ChartTooltip.tsx` — bg
+13. `src/components/explore/KpiTile.tsx` — bg + useDimensionColors
+14. `src/components/charts/PublicationsByYearChart.tsx` — CartesianGrid theme-aware + useDimensionColors
+
+→ **Контрольная точка C:** полный прогон 270 тестов.
+
+### Коммит-стратегия
+| Коммит | Фазы | Тип |
+|---|---|---|
+| `feat: theme CSS variables and dark background` | 1 | feat |
+| `feat: ThemeProvider, useTheme, ThemeToggle` | 2 | feat |
+| `feat: wire theme into app shell and header` | 3 | feat |
+| `feat: StarFieldCanvas — stars and shooting stars` | 4 | feat |
+| `feat: chart dark mode — dimmed colors and CartesianGrid` | 5 | feat |
+
+---
+
+## 11. CI и ветка
 
 - Ветка: `feat/dark-mode`
 - Триггеры добавлены в: `frontend-tests.yml`, `tests.yml`, `e2e.yml`
