@@ -193,6 +193,12 @@ export default function ExplorePage() {
                 {/* Данные графиков: filteredStats при активном фильтре, иначе глобальная stats */}
                 {(() => {
                   const displayStats = filteredStats ?? stats;
+                  // Fallback по полю: top_authors может быть пустым при фильтрации по стране
+                  // (автор привязан к статье, не к аффилиации) — показываем глобальные данные
+                  const topAuthorsData =
+                    displayStats?.top_authors?.length
+                      ? displayStats.top_authors
+                      : stats?.top_authors ?? [];
                   return (
                     <>
                       {/* Pinned: Publications by Year — полная ширина */}
@@ -222,9 +228,9 @@ export default function ExplorePage() {
                         />
                       </div>
 
-                      {/* Top Authors — полная ширина */}
+                      {/* Top Authors — fallback на глобальные данные если filtered пустой */}
                       <TopAuthorsChart
-                        data={displayStats?.top_authors ?? []}
+                        data={topAuthorsData}
                         isLoading={isLoading}
                       />
                     </>
