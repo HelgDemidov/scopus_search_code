@@ -12,6 +12,7 @@ interface Star {
   baseBrightness: number;
   cluster: number;
   twinkles: boolean;
+  twinkleSpeedMult: number; // множитель скорости мерцания (Tier 3: 2.5x)
 }
 
 interface Cluster {
@@ -43,7 +44,7 @@ interface ShowerSpec {
 const TWINKLE_AMP   = 0.20;
 const STAR_FRAME_MS = 1000 / 15;    // 15 fps для звёзд
 const MTR_FRAME_MS  = 1000 / 60;    // 60 fps пока активен метеор
-const MAX_METEORS   = 60;
+const MAX_METEORS   = 50;
 const MAX_DPR       = 2;
 
 // ---------------------------------------------------------------------------
@@ -58,17 +59,21 @@ function generateStars(w: number, h: number): Star[] {
     let twinkles: boolean;
     let radius: number;
 
+    let twinkleSpeedMult: number;
     if (r < 0.6) {
       baseBrightness = 0.10 + Math.random() * 0.12; // 0.10–0.22
       twinkles = false;
+      twinkleSpeedMult = 1.0;
       radius = 0.7;
     } else if (r < 0.9) {
       baseBrightness = 0.28 + Math.random() * 0.22; // 0.28–0.50
       twinkles = true;
+      twinkleSpeedMult = 1.0;
       radius = 0.9;
     } else {
-      baseBrightness = 0.55 + Math.random() * 0.25; // 0.55–0.80
+      baseBrightness = 0.55 + Math.random() * 0.13; // 0.55–0.68 (максимум снижен на 15%)
       twinkles = true;
+      twinkleSpeedMult = 2.5;                        // цикл мерцания в 2.5x быстрее Tier 2
       radius = 1.2;
     }
 
@@ -79,6 +84,7 @@ function generateStars(w: number, h: number): Star[] {
       baseBrightness,
       cluster: Math.floor(Math.random() * 5),
       twinkles,
+      twinkleSpeedMult,
     };
   });
 }
@@ -101,7 +107,7 @@ function drawStars(
     let a = s.baseBrightness;
     if (animate && s.twinkles) {
       const c = clusters[s.cluster];
-      a = Math.max(0, Math.min(1, a * (1 + TWINKLE_AMP * Math.sin(2 * Math.PI * now / c.period + c.phase))));
+      a = Math.max(0, Math.min(1, a * (1 + TWINKLE_AMP * Math.sin(2 * Math.PI * now * s.twinkleSpeedMult / c.period + c.phase))));
     }
     ctx.beginPath();
     ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
@@ -130,7 +136,9 @@ function spawnMeteor(
     y0:       Math.random() * h * 0.65,
     dx,
     dy,
-    length:   w * (0.10 + Math.random() * 0.40),   // 10–50% ширины
+    length:   Math.random() < 0.95
+      ? w * (0.10 + Math.random() * 0.40)           // 95%: 10–50% ширины
+      : w * (0.50 + Math.random() * 0.20),           // 5%: 50–70% ширины
     duration: (200 + Math.random() * 500) * 0.80,   // 160–560 ms (на 20% быстрее)
     startTime: now,
     maxAlpha: 0.60 + Math.random() * 0.25,          // 0.60–0.85
