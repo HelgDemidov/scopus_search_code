@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../stores/authStore';
 import { useQuotaStore } from '../stores/quotaStore';
 import { useHistoryStore } from '../stores/historyStore';
@@ -9,9 +10,9 @@ import { LiveSearchQuotaCounter } from '../components/profile/LiveSearchQuotaCou
 import { SearchHistoryList } from '../components/profile/SearchHistoryList';
 
 // Format registration date: DD MMM YYYY
-function formatDate(iso: string | null): string {
+function formatDate(iso: string | null, locale: string): string {
   if (!iso) return '—';
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(locale, {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -49,6 +50,7 @@ function ProfilePageSkeleton() {
 }
 
 export default function ProfilePage() {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuthStore();
   const fetchQuota = useQuotaStore((s) => s.fetchQuota);
@@ -84,7 +86,7 @@ export default function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-screen-sm px-4 py-10">
-      <h1 className="mb-6 text-xl font-semibold text-slate-900 dark:text-slate-100">Profile</h1>
+      <h1 className="mb-6 text-xl font-semibold text-slate-900 dark:text-slate-100">{t('profile.title')}</h1>
 
       {/* Identity block */}
       <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6">
@@ -101,19 +103,19 @@ export default function ProfilePage() {
         </div>
 
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-          <dt className="text-slate-500 dark:text-slate-400">Username</dt>
+          <dt className="text-slate-500 dark:text-slate-400">{t('profile.username')}</dt>
           <dd className="font-medium text-slate-900 dark:text-slate-100">
             {user.username ?? '—'}
           </dd>
 
-          <dt className="text-slate-500 dark:text-slate-400">Email</dt>
+          <dt className="text-slate-500 dark:text-slate-400">{t('profile.email')}</dt>
           <dd className="font-medium text-slate-900 dark:text-slate-100 break-all">
             {user.email}
           </dd>
 
-          <dt className="text-slate-500 dark:text-slate-400">Member since</dt>
+          <dt className="text-slate-500 dark:text-slate-400">{t('profile.memberSince')}</dt>
           <dd className="font-medium text-slate-900 dark:text-slate-100">
-            {formatDate(user.created_at)}
+            {formatDate(user.created_at, i18n.language)}
           </dd>
         </dl>
       </div>
@@ -135,7 +137,7 @@ export default function ProfilePage() {
           onClick={handleSignOut}
           className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-900/30"
         >
-          Sign out
+          {t('profile.signOut')}
         </Button>
       </div>
     </div>

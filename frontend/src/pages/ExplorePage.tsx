@@ -1,5 +1,6 @@
 import { useEffect, useMemo, lazy, Suspense } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { Trans, useTranslation } from 'react-i18next';
 import { useStatsStore } from '../stores/statsStore';
 import { useAuthStore } from '../stores/authStore';
 import {
@@ -68,14 +69,15 @@ function PersonalSkeleton() {
 }
 
 function ChartErrorFallback() {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-8 text-center">
-      <p className="text-sm text-slate-500 dark:text-slate-400">Charts failed to load.</p>
+      <p className="text-sm text-slate-500 dark:text-slate-400">{t('explore.chartsError')}</p>
       <button
         onClick={() => window.location.reload()}
         className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
       >
-        Reload page
+        {t('explore.reloadPage')}
       </button>
     </div>
   );
@@ -86,6 +88,7 @@ function ChartErrorFallback() {
 // ---------------------------------------------------------------------------
 
 export default function ExplorePage() {
+  const { t } = useTranslation();
   const { stats, isLoading, fetchStats } = useStatsStore();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const {
@@ -142,25 +145,25 @@ export default function ExplorePage() {
       {/* Заголовок раздела */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-          Collection Analytics
+          {t('explore.title')}
         </h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           {mode === 'personal'
-            ? 'Statistics from your own live searches.'
-            : 'AI & Neural Network Technologies — DOI-indexed articles only.'}
+            ? t('explore.subtitlePersonal')
+            : t('explore.subtitleCollection')}
         </p>
       </div>
 
       {/* Переключатель режимов — только для авторизованных */}
       {isAuthenticated && (
-        <div className="flex gap-2" role="group" aria-label="Analytics mode">
+        <div className="flex gap-2" role="group" aria-label={t('explore.modeLabel')}>
           <Button
             variant={mode === 'collection' ? 'default' : 'outline'}
             size="sm"
             onClick={() => switchMode('collection')}
             aria-pressed={mode === 'collection'}
           >
-            Collection
+            {t('explore.modeCollection')}
           </Button>
           <Button
             variant={mode === 'personal' ? 'default' : 'outline'}
@@ -168,7 +171,7 @@ export default function ExplorePage() {
             onClick={() => switchMode('personal')}
             aria-pressed={mode === 'personal'}
           >
-            My searches
+            {t('explore.modePersonal')}
           </Button>
         </div>
       )}
@@ -276,11 +279,10 @@ export default function ExplorePage() {
             </Suspense>
           ) : (
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              No search history yet.{' '}
-              <Link to="/" className="underline underline-offset-2 hover:text-slate-700 dark:hover:text-slate-300">
-                Start searching
-              </Link>{' '}
-              to see your personal analytics.
+              <Trans
+                i18nKey="explore.emptyPersonal"
+                components={{ lnk: <Link to="/" className="underline underline-offset-2 hover:text-slate-700 dark:hover:text-slate-300" /> }}
+              />
             </p>
           )}
         </ErrorBoundary>
@@ -290,13 +292,13 @@ export default function ExplorePage() {
       {!isAuthenticated && (
         <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <p className="text-sm text-blue-900 dark:text-blue-200">
-            Sign in to search Scopus live and see analytics based on your own queries.
+            {t('explore.anonCta')}
           </p>
           <Link
             to="/auth"
             className="flex-shrink-0 rounded-md bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400 text-white text-sm font-medium px-4 py-2 transition-colors"
           >
-            Sign in
+            {t('nav.signIn')}
           </Link>
         </div>
       )}

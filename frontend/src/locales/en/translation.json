@@ -1,0 +1,228 @@
+{
+  "nav": {
+    "explore": "Explore",
+    "profile": "Profile",
+    "signIn": "Sign in",
+    "signOut": "Sign out"
+  },
+  "search": {
+    "placeholder": "Search articles…",
+    "label": "Search articles",
+    "button": "Search",
+    "minLength": "Enter at least {{min}} characters"
+  },
+  "home": {
+    "anonTitle": "Search Scopus Publications",
+    "anonSubtitle": "Preview results below. <lnk>Sign in</lnk> for full search access.",
+    "anonNote": "Unauthenticated search is scoped to the thematic collection \"Artificial Intelligence and Neural Network Technologies\". To search the global Scopus database, please <lnk>sign in</lnk>.",
+    "modeScopus": "Search Scopus Database",
+    "modeCatalog": "Search AI & Neural Network Technologies Collection",
+    "errorQuota": "Weekly search quota exceeded",
+    "errorGeneric": "Search error: {{error}}"
+  },
+  "articles": {
+    "openAccess": "Open Access",
+    "cited": "Cited: {{count}}",
+    "resultsCount_one": "{{count}} result",
+    "resultsCount_other": "{{count}} results",
+    "noResults": "No articles found. Try a different search query.",
+    "sortByDate": "By date",
+    "sortByCit": "By citations",
+    "selectedCount_one": "{{count}} selected",
+    "selectedCount_other": "{{count}} selected"
+  },
+  "filters": {
+    "allTypes": "All types",
+    "searchType": "Search type…",
+    "docTypeLabel": "Document type filter",
+    "openAccessOnly": "Open Access only",
+    "allCountries": "All countries",
+    "searchCountry": "Search country…",
+    "countryLabel": "Country filter",
+    "yearFrom": "Year from",
+    "yearTo": "Year to",
+    "filtersButton": "Filters",
+    "noResults": "No results found",
+    "apply": "Apply",
+    "clear": "Clear",
+    "filtersChanged": "Filters changed — search again to apply",
+    "sectionYear": "Year",
+    "sectionDocType": "Document type",
+    "sectionCountry": "Country",
+    "clearFilters": "Clear filters"
+  },
+  "pagination": {
+    "prev": "← Prev",
+    "next": "Next →",
+    "prevPage": "Previous page",
+    "nextPage": "Next page",
+    "perPage": "Per page:",
+    "showing": "Showing {{from}}–{{to}} of {{total}}",
+    "show": "Show:",
+    "perPageN": "{{n}} per page",
+    "all": "All ({{total}})",
+    "pageNav": "Page navigation",
+    "pages": "Pages",
+    "rowsPerPage": "Rows per page",
+    "displayMode": "Display mode"
+  },
+  "auth": {
+    "pageTitle": "Welcome to Scopus Search",
+    "pageSubtitle": "Sign in to access live Scopus search",
+    "googleFailed": "Google sign-in failed. Please try again.",
+    "continueGoogle": "Continue with Google",
+    "tabSignIn": "Sign in",
+    "tabRegister": "Register",
+    "labelEmail": "Email",
+    "labelPassword": "Password",
+    "labelUsername": "Username",
+    "labelConfirm": "Confirm password",
+    "forgotPassword": "Forgot password?",
+    "btnSignIn": "Sign in",
+    "btnSigningIn": "Signing in…",
+    "btnCreate": "Create account",
+    "btnCreating": "Creating account…",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "errors": {
+      "invalidEmail": "Invalid email address",
+      "passwordRequired": "Password is required",
+      "usernameMin": "Username must be at least 2 characters",
+      "passwordMin": "Minimum 8 characters",
+      "passwordUpper": "At least one uppercase letter required",
+      "passwordLower": "At least one lowercase letter required",
+      "passwordDigit": "At least one digit required",
+      "passwordSpecial": "At least one special character required (!@#$%^&* etc.)",
+      "confirmRequired": "Please confirm your password",
+      "passwordsMismatch": "Passwords do not match",
+      "invalidCredentials": "Invalid email or password",
+      "serverError": "Server error. Please try again.",
+      "emailExists": "An account with this email already exists",
+      "checkFields": "Please check that all fields are filled in correctly"
+    }
+  },
+  "forgotPassword": {
+    "checkEmailTitle": "Check your email",
+    "checkEmailBody": "If this address is registered, you'll receive a reset link shortly.",
+    "backToSignIn": "Back to sign in",
+    "title": "Reset your password",
+    "subtitle": "Enter your email and we'll send you a reset link.",
+    "btnSend": "Send reset link",
+    "btnSending": "Sending…"
+  },
+  "resetPassword": {
+    "invalidLink": "Invalid or missing reset link.",
+    "requestNew": "Request a new reset link",
+    "title": "Set new password",
+    "subtitle": "Choose a strong password for your account.",
+    "labelNew": "New password",
+    "labelConfirm": "Confirm new password",
+    "btnUpdate": "Update password",
+    "btnUpdating": "Updating…",
+    "successToast": "Password updated. Please sign in.",
+    "linkExpired": "This reset link is invalid or has expired.",
+    "requestNewLink": "Request a new link"
+  },
+  "profile": {
+    "title": "Profile",
+    "username": "Username",
+    "email": "Email",
+    "memberSince": "Member since",
+    "signOut": "Sign out",
+    "quota": {
+      "title": "Scopus Live Search — Weekly Quota",
+      "used": "Used",
+      "resetsOn": "Resets on {{date}}",
+      "badge": "Scopus quota: {{remaining}} / {{limit}}",
+      "badgeTitle": "Scopus API quota: {{remaining}} of {{limit}}"
+    },
+    "history": {
+      "title": "Search History",
+      "refresh": "Refresh",
+      "empty": "No search history yet",
+      "available": "Available",
+      "noResults": "No results",
+      "resultCount_one": "{{count}} result",
+      "resultCount_other": "{{count}} results",
+      "prevPage": "Previous page",
+      "nextPage": "Next page"
+    }
+  },
+  "explore": {
+    "title": "Collection Analytics",
+    "subtitlePersonal": "Statistics from your own live searches.",
+    "subtitleCollection": "AI & Neural Network Technologies — DOI-indexed articles only.",
+    "modeCollection": "Collection",
+    "modePersonal": "My searches",
+    "modeLabel": "Analytics mode",
+    "emptyPersonal": "No search history yet. <lnk>Start searching</lnk> to see your personal analytics.",
+    "anonCta": "Sign in to search Scopus live and see analytics based on your own queries.",
+    "chartsError": "Charts failed to load.",
+    "reloadPage": "Reload page",
+    "filterBannerArticles": "— {{filtered}} of {{total}} articles",
+    "clearFilter": "Clear filter",
+    "kpi": {
+      "articlesIndexed": "Articles indexed",
+      "countries": "Countries",
+      "openAccess": "Open Access",
+      "docTypes": "Document types",
+      "journals": "Journals",
+      "authors": "Authors"
+    },
+    "chartBuilder": {
+      "addChart": "Add chart",
+      "cancel": "Cancel",
+      "addToPage": "Add to page",
+      "chooseDim": "Choose dimension",
+      "chooseType": "Choose chart type",
+      "builderLabel": "Chart builder"
+    },
+    "dimensions": {
+      "year": "Publications by Year",
+      "country": "Countries",
+      "doc_type": "Document Types",
+      "journal": "Top Journals",
+      "open_access": "Open Access",
+      "author": "Top Authors"
+    },
+    "dimensionLabels": {
+      "year": "Year",
+      "country": "Country",
+      "doc_type": "Document Type",
+      "journal": "Journal",
+      "open_access": "Open Access",
+      "author": "Author"
+    },
+    "chartTypes": {
+      "bar_h": "Horizontal Bar",
+      "bar_v": "Vertical Bar",
+      "pie": "Pie",
+      "line": "Line",
+      "table": "Table"
+    },
+    "tableColLabel": "Label",
+    "tableColArticles": "Articles",
+    "tableColCount": "Count",
+    "tableColShare": "Share",
+    "removeChart": "Remove chart"
+  },
+  "article": {
+    "backHome": "← Back to home",
+    "notFound": "Article not found",
+    "notFoundSub": "The article may have been removed or the URL is incorrect.",
+    "metaAuthor": "Author",
+    "metaJournal": "Journal",
+    "metaDate": "Date",
+    "metaCountry": "Country",
+    "metaCitations": "Citations",
+    "metaDoi": "DOI"
+  },
+  "a11y": {
+    "switchLanguage": "Switch language",
+    "userMenu": "User menu for {{name}}",
+    "searchMode": "Search mode",
+    "refreshHistory": "Refresh search history",
+    "clearFilter": "Clear filter",
+    "loadingStats": "Loading filtered stats"
+  }
+}

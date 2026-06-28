@@ -1,5 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ThemeToggle } from '../theme/ThemeToggle';
+import { LanguageSwitcher } from './LanguageSwitcher';
 import { useArticleStore } from '../../stores/articleStore';
 import {
   NavigationMenu,
@@ -29,6 +31,7 @@ export function Header() {
   const { user, isAuthenticated, logout } = useAuthStore();
   const navigate = useNavigate();
   const resetSearch = useArticleStore((s) => s.resetSearch);
+  const { t } = useTranslation();
 
   // Display name: username ?? part of email before @
   const displayName = user
@@ -67,12 +70,13 @@ export function Header() {
         {/* Navigation + right-side controls */}
         <div className="flex items-center gap-2">
           <ThemeToggle />
+          <LanguageSwitcher />
           <NavigationMenu>
             <NavigationMenuList>
               {/* "Explore" link — always visible */}
               <NavigationMenuItem>
                 <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
-                  <Link to="/explore">Explore</Link>
+                  <Link to="/explore">{t('nav.explore')}</Link>
                 </NavigationMenuLink>
               </NavigationMenuItem>
 
@@ -80,7 +84,7 @@ export function Header() {
               {isAuthenticated && (
                 <NavigationMenuItem>
                   <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
-                    <Link to="/profile">Profile</Link>
+                    <Link to="/profile">{t('nav.profile')}</Link>
                   </NavigationMenuLink>
                 </NavigationMenuItem>
               )}
@@ -95,7 +99,7 @@ export function Header() {
               size="sm"
               className="bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400"
             >
-              <Link to="/auth">Sign in</Link>
+              <Link to="/auth">{t('nav.signIn')}</Link>
             </Button>
           )}
 
@@ -104,7 +108,7 @@ export function Header() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  aria-label={`User menu for ${displayName}`}
+                  aria-label={t('a11y.userMenu', { name: displayName })}
                   className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-800 text-xs font-semibold text-white hover:bg-blue-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-800 dark:bg-blue-500 dark:hover:bg-blue-400"
                 >
                   {getInitials(displayName)}
@@ -122,14 +126,14 @@ export function Header() {
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link to="/profile">Profile</Link>
+                  <Link to="/profile">{t('nav.profile')}</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={handleLogout}
                   className="text-rose-600 focus:text-rose-600 dark:text-rose-400"
                 >
-                  Sign out
+                  {t('nav.signOut')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

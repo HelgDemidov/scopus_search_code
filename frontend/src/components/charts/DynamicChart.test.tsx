@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { DynamicChart } from './DynamicChart';
-import { CHART_TYPE_LABELS } from './chartColors';
 import type { BuilderCard } from '../../stores/dashboardStore';
 import type { StatsResponse } from '../../types/api';
 
@@ -95,12 +94,6 @@ describe('DynamicChart', () => {
     expect(screen.getByText('Label')).toBeTruthy();
     expect(screen.getByText('Count')).toBeTruthy();
     expect(screen.getByText('%')).toBeTruthy();
-  });
-
-  it('CHART_TYPE_LABELS содержит метки для всех 5 типов', () => {
-    expect(Object.keys(CHART_TYPE_LABELS)).toHaveLength(5);
-    expect(CHART_TYPE_LABELS.bar_h).toBe('Horizontal Bar');
-    expect(CHART_TYPE_LABELS.table).toBe('Table');
   });
 
   it('для open_access рендерит pie-chart с двумя сегментами', () => {

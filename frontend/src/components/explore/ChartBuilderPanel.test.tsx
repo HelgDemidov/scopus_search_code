@@ -31,41 +31,41 @@ describe('ChartBuilderPanel', () => {
   it('показывает 6 вариантов измерений', () => {
     render(<ChartBuilderPanel />);
     fireEvent.click(screen.getByRole('button', { name: /add chart/i }));
-    const labels = ['Publications by Year', 'Countries', 'Document Types', 'Top Journals', 'Open Access', 'Top Authors'];
+    const labels = ['Year', 'Country', 'Document Type', 'Journal', 'Open Access', 'Author'];
     for (const label of labels) {
-      expect(screen.getByRole('button', { name: new RegExp(label, 'i') })).toBeTruthy();
+      expect(screen.getByRole('button', { name: new RegExp(`^${label}$`, 'i') })).toBeTruthy();
     }
   });
 
-  it('по умолчанию выбрана dimension "Countries" (aria-pressed=true)', () => {
+  it('по умолчанию выбрана dimension "Country" (aria-pressed=true)', () => {
     render(<ChartBuilderPanel />);
     fireEvent.click(screen.getByRole('button', { name: /add chart/i }));
-    const countriesBtn = screen.getByRole('button', { name: /^countries$/i });
-    expect(countriesBtn.getAttribute('aria-pressed')).toBe('true');
+    const countryBtn = screen.getByRole('button', { name: /^country$/i });
+    expect(countryBtn.getAttribute('aria-pressed')).toBe('true');
   });
 
   it('смена измерения обновляет aria-pressed', () => {
     render(<ChartBuilderPanel />);
     fireEvent.click(screen.getByRole('button', { name: /add chart/i }));
-    fireEvent.click(screen.getByRole('button', { name: /^top journals$/i }));
-    expect(screen.getByRole('button', { name: /^top journals$/i }).getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByRole('button', { name: /^countries$/i }).getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(screen.getByRole('button', { name: /^journal$/i }));
+    expect(screen.getByRole('button', { name: /^journal$/i }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: /^country$/i }).getAttribute('aria-pressed')).toBe('false');
   });
 
   it('при смене измерения авто-выбирается первый допустимый тип чарта', () => {
     render(<ChartBuilderPanel />);
     fireEvent.click(screen.getByRole('button', { name: /add chart/i }));
-    // Countries → bar_h (первый по умолчанию)
+    // Country → bar_h (первый по умолчанию)
     expect(screen.getByRole('button', { name: /^horizontal bar$/i }).getAttribute('aria-pressed')).toBe('true');
     // Переключаемся на Year → первый допустимый = line
-    fireEvent.click(screen.getByRole('button', { name: /^publications by year$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^year$/i }));
     expect(screen.getByRole('button', { name: /^line$/i }).getAttribute('aria-pressed')).toBe('true');
   });
 
   it('для year показывает только line/bar_v/table, не показывает bar_h или pie', () => {
     render(<ChartBuilderPanel />);
     fireEvent.click(screen.getByRole('button', { name: /add chart/i }));
-    fireEvent.click(screen.getByRole('button', { name: /^publications by year$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^year$/i }));
     expect(screen.getByRole('button', { name: /^line$/i })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^pie$/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /^horizontal bar$/i })).toBeNull();

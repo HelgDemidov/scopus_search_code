@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useQuotaStore } from '../../stores/quotaStore';
 import { Skeleton } from '../ui/skeleton';
 
@@ -18,12 +19,13 @@ const severityClasses: Record<Severity, string> = {
 };
 
 export function LiveSearchQuotaCounter() {
+  const { t, i18n } = useTranslation();
   const { quota, isLoading } = useQuotaStore();
 
   return (
     <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
       <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">
-        Scopus Live Search — Weekly Quota
+        {t('profile.quota.title')}
       </p>
 
       {isLoading || !quota ? (
@@ -38,7 +40,7 @@ export function LiveSearchQuotaCounter() {
           return (
             <div className="flex flex-col gap-2">
               <div className="flex justify-between text-sm">
-                <span className="text-slate-500 dark:text-slate-400">Used</span>
+                <span className="text-slate-500 dark:text-slate-400">{t('profile.quota.used')}</span>
                 <span className={`font-semibold tabular-nums ${severityClasses[severity]}`}>
                   {quota.used} / {quota.limit}
                 </span>
@@ -63,12 +65,13 @@ export function LiveSearchQuotaCounter() {
               </div>
               {quota.reset_at && (
                 <p className="text-xs text-slate-400">
-                  Resets on{' '}
-                  {new Intl.DateTimeFormat('en-US', {
-                    day: '2-digit',
-                    month: 'long',
-                    year: 'numeric',
-                  }).format(new Date(quota.reset_at))}
+                  {t('profile.quota.resetsOn', {
+                    date: new Intl.DateTimeFormat(i18n.language, {
+                      day: '2-digit',
+                      month: 'long',
+                      year: 'numeric',
+                    }).format(new Date(quota.reset_at)),
+                  })}
                 </p>
               )}
             </div>

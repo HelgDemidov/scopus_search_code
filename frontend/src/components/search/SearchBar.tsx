@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 
@@ -14,9 +15,11 @@ interface SearchBarProps {
 
 export function SearchBar({
   onSearch,
-  placeholder = 'Search articles…',
+  placeholder,
   inputId = 'article-search',
 }: SearchBarProps) {
+  const { t } = useTranslation();
+  const resolvedPlaceholder = placeholder ?? t('search.placeholder');
   const [value, setValue] = useState('');
   const [error, setError] = useState('');
 
@@ -24,7 +27,7 @@ export function SearchBar({
     e.preventDefault();
     const trimmed = value.trim();
     if (trimmed.length < MIN_QUERY_LENGTH) {
-      setError(`Enter at least ${MIN_QUERY_LENGTH} characters`);
+      setError(t('search.minLength', { min: MIN_QUERY_LENGTH }));
       return;
     }
     setError('');
@@ -42,14 +45,14 @@ export function SearchBar({
     <div className="flex flex-col gap-1 w-full">
       <form onSubmit={handleSubmit} className="flex gap-2 w-full">
         <label htmlFor={inputId} className="sr-only">
-          Search articles
+          {t('search.label')}
         </label>
         <Input
           id={inputId}
           name={inputId}
           value={value}
           onChange={handleChange}
-          placeholder={placeholder}
+          placeholder={resolvedPlaceholder}
           className={['flex-1', error ? 'border-red-500 focus-visible:ring-red-400' : ''].join(' ')}
           autoComplete="off"
           aria-describedby={error ? errorId : undefined}
@@ -59,7 +62,7 @@ export function SearchBar({
           type="submit"
           className="bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400 text-white shrink-0"
         >
-          Search
+          {t('search.button')}
         </Button>
       </form>
       {error && (

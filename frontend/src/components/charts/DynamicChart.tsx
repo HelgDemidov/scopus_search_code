@@ -15,7 +15,8 @@ import {
 } from 'recharts';
 import { ChartCard } from './ChartCard';
 import { ChartTooltip } from './ChartTooltip';
-import { DIMENSION_COLORS, CHART_TYPE_LABELS, formatCount, truncateLabel } from './chartColors';
+import { useTranslation } from 'react-i18next';
+import { DIMENSION_COLORS, formatCount, truncateLabel } from './chartColors';
 import type { Dimension, ChartType } from './chartColors';
 import type { BuilderCard } from '../../stores/dashboardStore';
 import { useStatsStore } from '../../stores/statsStore';
@@ -192,14 +193,15 @@ function LineArea({ data, dim }: { data: LabelCount[]; dim: Dimension }) {
 }
 
 function DataTable({ data, totalArticles }: { data: LabelCount[]; totalArticles: number }) {
+  const { t } = useTranslation();
   return (
     <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
             <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-8">#</th>
-            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Label</th>
-            <th className="px-3 py-2 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Count</th>
+            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('explore.tableColLabel')}</th>
+            <th className="px-3 py-2 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('explore.tableColCount')}</th>
             <th className="px-3 py-2 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">%</th>
           </tr>
         </thead>
@@ -234,6 +236,7 @@ interface DynamicChartProps {
 }
 
 export function DynamicChart({ card, onRemove }: DynamicChartProps) {
+  const { t } = useTranslation();
   const globalStats = useStatsStore((s) => s.stats);
   const isLoading = useStatsStore((s) => s.isLoading);
   const filteredStats = useDashboardStore((s) => s.filteredStats);
@@ -242,17 +245,31 @@ export function DynamicChart({ card, onRemove }: DynamicChartProps) {
 
   const dim = card.dimension;
   const chartType = card.chartType;
-  const colors = DIMENSION_COLORS[dim];
 
   const allData = stats ? getDataForDimension(dim, stats) : [];
   const data = sliceForType(allData, chartType);
 
-  const title = `${colors.label} — ${CHART_TYPE_LABELS[chartType]}`;
+  const dimensionTitles: Record<typeof dim, string> = {
+    year:        t('explore.dimensions.year'),
+    country:     t('explore.dimensions.country'),
+    doc_type:    t('explore.dimensions.doc_type'),
+    journal:     t('explore.dimensions.journal'),
+    open_access: t('explore.dimensions.open_access'),
+    author:      t('explore.dimensions.author'),
+  };
+  const chartTypeLabels: Record<typeof chartType, string> = {
+    bar_h: t('explore.chartTypes.bar_h'),
+    bar_v: t('explore.chartTypes.bar_v'),
+    pie:   t('explore.chartTypes.pie'),
+    line:  t('explore.chartTypes.line'),
+    table: t('explore.chartTypes.table'),
+  };
+  const title = `${dimensionTitles[dim]} — ${chartTypeLabels[chartType]}`;
 
   const removeButton = (
     <button
       onClick={onRemove}
-      aria-label="Remove chart"
+      aria-label={t('explore.removeChart')}
       className="w-6 h-6 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-lg leading-none"
     >
       ×

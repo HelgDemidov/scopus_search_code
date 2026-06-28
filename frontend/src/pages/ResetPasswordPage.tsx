@@ -1,33 +1,38 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm, type UseFormRegisterReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { confirmPasswordReset } from '../api/auth';
 
-const schema = z
-  .object({
-    new_password: z
-      .string()
-      .min(8, 'Minimum 8 characters')
-      .regex(/[A-Z]/, 'At least one uppercase letter required')
-      .regex(/[a-z]/, 'At least one lowercase letter required')
-      .regex(/[0-9]/, 'At least one digit required')
-      .regex(/[^A-Za-z0-9]/, 'At least one special character required (!@#$%^&* etc.)'),
-    confirm_password: z.string(),
-  })
-  .refine((d) => d.new_password === d.confirm_password, {
-    message: 'Passwords do not match',
-    path: ['confirm_password'],
-  });
+function makeSchema(t: TFunction) {
+  return z
+    .object({
+      new_password: z
+        .string()
+        .min(8, t('auth.errors.passwordMin'))
+        .regex(/[A-Z]/, t('auth.errors.passwordUpper'))
+        .regex(/[a-z]/, t('auth.errors.passwordLower'))
+        .regex(/[0-9]/, t('auth.errors.passwordDigit'))
+        .regex(/[^A-Za-z0-9]/, t('auth.errors.passwordSpecial')),
+      confirm_password: z.string(),
+    })
+    .refine((d) => d.new_password === d.confirm_password, {
+      message: t('auth.errors.passwordsMismatch'),
+      path: ['confirm_password'],
+    });
+}
 
-type FormData = z.infer<typeof schema>;
+type FormData = z.infer<ReturnType<typeof makeSchema>>;
 
 // Локальный show/hide компонент — не выносим в shared (YAGNI, используется только здесь)
 function PasswordInput({ id, register }: { id: string; register: UseFormRegisterReturn }) {
+  const { t } = useTranslation();
   const [show, setShow] = useState(false);
   return (
     <div className="relative">
@@ -41,7 +46,7 @@ function PasswordInput({ id, register }: { id: string; register: UseFormRegister
       <button
         type="button"
         onClick={() => setShow((v) => !v)}
-        aria-label={show ? 'Hide password' : 'Show password'}
+        aria-label={show ? t('auth.hidePassword') : t('auth.showPassword')}
         className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
       >
         {show ? (
@@ -61,10 +66,12 @@ function PasswordInput({ id, register }: { id: string; register: UseFormRegister
 }
 
 export default function ResetPasswordPage() {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const token = searchParams.get('token');
   const [serverError, setServerError] = useState<string | null>(null);
+  const schema = useMemo(() => makeSchema(t), [t]);
 
   const {
     register,
@@ -77,13 +84,13 @@ export default function ResetPasswordPage() {
       <div className="flex min-h-[60vh] items-center justify-center px-4">
         <div className="w-full max-w-sm text-center">
           <p className="text-slate-600 dark:text-slate-400 mb-4">
-            Invalid or missing reset link.
+            {t('resetPassword.invalidLink')}
           </p>
           <Link
             to="/forgot-password"
             className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
           >
-            Request a new reset link
+            {t('resetPassword.requestNew')}
           </Link>
         </div>
       </div>
@@ -95,14 +102,14 @@ export default function ResetPasswordPage() {
     setServerError(null);
     try {
       await confirmPasswordReset(token, data.new_password);
-      toast.success('Password updated. Please sign in.');
+      toast.success(t('resetPassword.successToast'));
       navigate('/auth', { replace: true });
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 422) {
-        setServerError('This reset link is invalid or has expired.');
+        setServerError(t('resetPassword.linkExpired'));
       } else {
-        setServerError('Server error. Please try again.');
+        setServerError(t('auth.errors.serverError'));
       }
     }
   }
@@ -111,10 +118,10 @@ export default function ResetPasswordPage() {
     <div className="flex min-h-[60vh] items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <h1 className="text-2xl font-semibold mb-2 text-slate-900 dark:text-slate-100">
-          Set new password
+          {t('resetPassword.title')}
         </h1>
         <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
-          Choose a strong password for your account.
+          {t('resetPassword.subtitle')}
         </p>
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
@@ -123,7 +130,7 @@ export default function ResetPasswordPage() {
               htmlFor="new-password"
               className="text-sm font-medium text-slate-700 dark:text-slate-300"
             >
-              New password
+              {t('resetPassword.labelNew')}
             </label>
             <PasswordInput id="new-password" register={register('new_password')} />
             {errors.new_password && (
@@ -136,7 +143,7 @@ export default function ResetPasswordPage() {
               htmlFor="confirm-password"
               className="text-sm font-medium text-slate-700 dark:text-slate-300"
             >
-              Confirm new password
+              {t('resetPassword.labelConfirm')}
             </label>
             <PasswordInput id="confirm-password" register={register('confirm_password')} />
             {errors.confirm_password && (
@@ -148,7 +155,7 @@ export default function ResetPasswordPage() {
             <p className="text-xs text-rose-600 dark:text-rose-400">
               {serverError}{' '}
               <Link to="/forgot-password" className="underline">
-                Request a new link
+                {t('resetPassword.requestNewLink')}
               </Link>
             </p>
           )}
@@ -158,7 +165,7 @@ export default function ResetPasswordPage() {
             disabled={isSubmitting}
             className="w-full bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400"
           >
-            {isSubmitting ? 'Updating…' : 'Update password'}
+            {isSubmitting ? t('resetPassword.btnUpdating') : t('resetPassword.btnUpdate')}
           </Button>
         </form>
       </div>

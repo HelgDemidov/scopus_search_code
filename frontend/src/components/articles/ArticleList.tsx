@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { ArticleCard } from './ArticleCard';
 import { ArticleFiltersSidebar, ArticleFiltersMobile } from './ArticleFilters';
 import { PaginationBar } from './PaginationBar';
@@ -44,6 +45,7 @@ export function ArticleList({
   onSizeChange,
   onToggleMode,
 }: ArticleListProps) {
+  const { t } = useTranslation();
 
   // Loading skeleton: 5 cards
   if (isLoading && articles.length === 0) {
@@ -67,7 +69,7 @@ export function ArticleList({
         <div className="flex-1 min-w-0">
           <ArticleFiltersMobile />
           <p className="py-16 text-center text-sm text-slate-400">
-            No articles found. Try a different search query.
+            {t('articles.noResults')}
           </p>
         </div>
       </div>
@@ -87,7 +89,7 @@ export function ArticleList({
           <ArticleFiltersMobile />
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-500 dark:text-slate-400">
-              {total.toLocaleString('en-US')} results
+              {t('articles.resultsCount', { count: total })}
             </span>
             {/* Sort by */}
             <div role="group" aria-label="Sort" className="flex rounded-md border border-slate-200 dark:border-slate-700 overflow-hidden">
@@ -101,7 +103,7 @@ export function ArticleList({
                     : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800')
                 }
               >
-                By date
+                {t('articles.sortByDate')}
               </button>
               <button
                 aria-pressed={sortBy === 'citations'}
@@ -113,7 +115,7 @@ export function ArticleList({
                     : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800')
                 }
               >
-                By citations
+                {t('articles.sortByCit')}
               </button>
             </div>
           </div>

@@ -6,6 +6,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { RouterProvider, createBrowserRouter, Outlet as RouterOutlet } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
+import { useTranslation } from 'react-i18next';
 import { Toaster } from './components/ui/sonner';
 import { Header } from './components/layout/Header';
 import { PrivateRoute } from './components/layout/PrivateRoute';
@@ -127,6 +128,12 @@ let _hydrationStarted = false;
 export default function App() {
   const { setToken, fetchUser, logout, setHydrating } = useAuthStore();
   const fetchStats = useStatsStore((state) => state.fetchStats);
+  const { i18n } = useTranslation();
+
+  // Синхронизируем атрибут lang на <html> при смене языка — важно для скринридеров
+  useEffect(() => {
+    document.documentElement.lang = i18n.language;
+  }, [i18n.language]);
 
   useEffect(() => {
     // Guard против двойного вызова useEffect (StrictMode, hot-reload)

@@ -84,6 +84,26 @@ jobs:
       - name: Audit npm dependencies
         run: npm audit --audit-level=high
 
+      - name: Check translation key parity (EN ↔ RU)
+        run: |
+          node -e "
+          const en = require('./src/locales/en/translation.json');
+          const ru = require('./src/locales/ru/translation.json');
+          function keys(obj, p='') {
+            return Object.entries(obj).flatMap(([k,v]) =>
+              typeof v==='object'&&!Array.isArray(v) ? keys(v, p?p+'.'+k:k) : [p?p+'.'+k:k]
+            );
+          }
+          const enK = new Set(keys(en));
+          const ruK = new Set(keys(ru));
+          const pluralOnly = ['_few','_many'];
+          const missingInRu = [...enK].filter(k=>!ruK.has(k));
+          const missingInEn = [...ruK].filter(k=>!enK.has(k)&&!pluralOnly.some(s=>k.endsWith(s)));
+          if (missingInRu.length) { console.error('Missing in RU:', missingInRu); process.exit(1); }
+          if (missingInEn.length) { console.error('Missing in EN:', missingInEn); process.exit(1); }
+          console.log('Translation key parity OK —', enK.size, 'keys');
+          "
+
   # ---------------------------------------------------------------------------
   # Job 3: unit-тесты
   # Запускает все *.test.{ts,tsx} кроме интеграционных файлов

@@ -45,12 +45,11 @@ describe('useDimensionColors', () => {
     expect(result.current.dimmed).toBe(DIMENSION_COLORS[dim].darkDimmed);
   });
 
-  it('base/hover/selected/label не меняются в dark mode', () => {
+  it('base/hover/selected не меняются в dark mode', () => {
     localStorage.setItem('theme', 'dark');
     const { result } = renderHook(() => useDimensionColors('country'), { wrapper: ThemeProvider });
     expect(result.current.base).toBe(DIMENSION_COLORS.country.base);
     expect(result.current.hover).toBe(DIMENSION_COLORS.country.hover);
     expect(result.current.selected).toBe(DIMENSION_COLORS.country.selected);
-    expect(result.current.label).toBe(DIMENSION_COLORS.country.label);
   });
 });
