@@ -95,7 +95,7 @@ export const DOC_TYPE_TRANSLATIONS_RU: Record<string, string> = {
   'Short Survey': 'Краткий обзор',
   'Data Paper': 'Статья о данных',
   'Retracted': 'Отозвана',
-  'Erratum': 'Опечатка',
+  'Erratum': 'Исправление',
   'Book': 'Книга',
   'Conference Review': 'Обзор конференции',
   'Business Article': 'Деловая статья',
