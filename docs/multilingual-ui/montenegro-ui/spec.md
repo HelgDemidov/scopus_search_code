@@ -130,3 +130,25 @@ npx tsc --noEmit                     # TypeScript без ошибок
 - Черновик перевода и карт: `docs/multilingual-ui/montenegro-ui/script - sr-Latn with cn flavour.md`
 - Инфраструктура i18n: `docs/multilingual-ui/russian-ui/spec.md`
 - Текущий i18n.test.ts: `frontend/src/i18n.test.ts`
+
+## Статус выполнения
+
+**PR #35 merged в main 2026-06-28.** Все 8 шагов ТЗ выполнены.
+
+| Коммит | Что сделано |
+|---|---|
+| `2385816` | Реорганизация docs/multilingual-ui + создание ТЗ |
+| `a06840a` | Полная реализация sr-Latn UI (13 файлов, 368 тестов) |
+| `1ee3e9f` / `5beff5a` | Erratum RU: «Опечатка» → «Исправление» → «Эрратум» |
+| `65c1d5a` | Post-prod: `VJ` → `Vještačka inteligencija`; `<select>` → DropdownMenu |
+| `7cbc9ff` | LanguageSwitcher → Radix `DropdownMenu` (dark mode fix) |
+| `e90fe18` | TypeScript fix: `aria-current` тип в тестовом моке (TS2322) |
+
+**Итоговый счёт тестов: 370 (было 357 до начала задачи).**
+
+**Вне охвата:** серверная локализация API-ответов, форматирование дат по локали (не требовалось).
+
+**Ключевое архитектурное решение:** `getLabelMaps(lang): LangMaps | null` заменяет все
+хардкоды `lang === 'ru'`; добавление 4-го языка — только `LANG_MAPS` + JSON-файл.
+`LanguageSwitcher` на Radix UI `DropdownMenu` (не нативный `<select>`) — единственный способ
+корректно стилизовать выпадающий список в dark mode.

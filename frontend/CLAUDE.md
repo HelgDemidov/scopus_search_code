@@ -12,7 +12,7 @@ i18n: react-i18next 17 + i18next 26 + i18next-browser-languagedetector 8.
 - `components/` — UI; `components/ui/` — shadcn/ui (inline, кастомизированы — не npm)
 - `pages/`      — роутные компоненты; `stores/` — Zustand (глобальное состояние)
 - `hooks/`      — custom hooks; `types/` — TypeScript types; `constants/` — scopusFilters.ts + labelTranslations.ts (переводы меток графиков)
-- `locales/`    — `en/translation.json` + `ru/translation.json`; `i18n.ts` — инициализация; `i18next.d.ts` — строгие типы
+- `locales/`    — `en/translation.json` + `ru/translation.json` + `sr-Latn/translation.json` (203 ключа); `i18n.ts` — инициализация; `i18next.d.ts` — строгие типы
 - `test/setup.ts` — jest-dom matchers (setupFiles в vite.config.ts)
 
 ## Key stores
@@ -32,7 +32,7 @@ i18n: react-i18next 17 + i18next 26 + i18next-browser-languagedetector 8.
 
 ## Tests (co-location pattern: тест рядом с источником)
 Unit: `src/**/*.test.{ts,tsx}` | Integration: `*.integration.test.*`
-Total (main, 2026-06-28): **357** тестов, все зелёные.
+Total (main, 2026-06-28): **370** тестов, все зелёные.
 Vitest patterns (Checkbox mock, fake timers, vi.hoisted) — см. память [[feedback-vitest-testing-patterns]].
 jsdom browser API mocks — см. память [[feedback-jsdom-browser-api-mocks]].
 
@@ -43,7 +43,7 @@ components/articles/ArticleFilters|ArticleList|PaginationBar|ScopusPaginationBar
 Threshold: `statements: 70` (фактическое: **76.54%** statements).
 Исключены: `components/ui/` (vendor-код), `components/charts/` (Recharts passthrough),
 `App.tsx` (v8 показывает 0% через vi.mock в интеграционном тесте — ложный ноль), `main.tsx`.
-CI: шаг `Collect coverage (all tests)` в job `integration` запускает все 357 тестов с `--coverage`.
+CI: шаг `Collect coverage (all tests)` в job `integration` запускает все 370 тестов с `--coverage`.
 `frontend/coverage/` добавлен в `.gitignore`.
 
 ## CI: frontend-tests.yml (triggers: push main, paths: frontend/**)
@@ -84,14 +84,15 @@ Cross-filter V1 — визуальный: Cell fill из dashboardStore.activeSe
 - **`noValidate` на `<form>` — обязателен** когда используется `<input type="email">` с react-hook-form + Zod: без него jsdom's HTML5 validation перехватывает `submit`, Zod-валидатор никогда не вызывается
 - AT больше не в localStorage; `client.ts` читает через `getToken()` из `tokenStore.ts`
 
-## i18n (PR #34, merged 2026-06-28)
-EN/RU переключатель в Header (`LanguageSwitcher.tsx`), выбор сохраняется в `localStorage` (ключ `i18n_lang`).
-Инициализация — `src/i18n.ts`, импортируется в `main.tsx` и `test/setup.ts`; строгая типизация через `i18next.d.ts`.
-Русские плюральные формы: `_one/_few/_many/_other` (CLDR). EN: `_one/_other`. CI lint job проверяет паритет ключей EN ↔ RU (inline скрипт в `frontend-tests.yml`).
-Переводы меток графиков (страны, типы документов, OA) — `constants/labelTranslations.ts` (карты + `translateDataLabel`). Tooltip-заголовки переводятся в `ChartTooltip` по `dimension`.
+## i18n (PR #34 EN/RU + PR #35 sr-Latn, merged 2026-06-28)
+EN / РУ / CG (sr-Latn) переключатель в Header (`LanguageSwitcher.tsx` — Radix UI `DropdownMenu`, dark mode совместим), выбор сохраняется в `localStorage` (ключ `i18n_lang`).
+Локали: `locales/en`, `locales/ru`, `locales/sr-Latn` (203 ключа, черногорский ijekavist flavour). Инициализация — `src/i18n.ts`; строгая типизация через `i18next.d.ts`.
+Плюральные формы: RU `_one/_few/_many/_other`; sr-Latn `_one/_few/_other`; EN `_one/_other` (CLDR).
+Переводы меток графиков — `constants/labelTranslations.ts`: `getLabelMaps(lang): LangMaps | null` возвращает `{country, doc_type, oa}` для RU и sr-Latn, `null` для EN. Все 6 компонентов (ChartTooltip, DimensionDrawer, OpenAccessChart, DocumentTypesChart, TopCountriesChart, ArticleFilters) используют `getLabelMaps`.
+CI lint job проверяет паритет ключей EN ↔ RU ↔ SR-LATN (inline Node.js скрипт в `frontend-tests.yml`, исключает `_few/_many`).
 KPI плюральные формы: `getKpiLabel(dim, count, t)` switch-функция в `KpiRow.tsx`.
-Фильтры: `MultiSelectCombobox` принимает `getDisplayLabel?: (opt: string) => string` — значения хранятся в EN, отображаются по-русски.
-**"Open Access"** не переводится (международный стандарт). **"Closed Access"** → "Закрытый доступ".
+Фильтры: `MultiSelectCombobox` принимает `getDisplayLabel?: (opt: string) => string` — значения хранятся в EN, отображаются по-русски/черногорски.
+**"Open Access"** не переводится. **"Closed Access"** → "Закрытый доступ" / "Zatvoreni pristup".
 
 ## Build & conventions
 - Tailwind v3 via PostCSS (NOT @tailwindcss/vite — это v4). vendor-charts chunk ~432 kB gzip ~115 kB — ожидаемо (Recharts).
