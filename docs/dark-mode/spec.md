@@ -323,6 +323,12 @@ length  = rand(width * 0.10, width * 0.50)
 
 ---
 
+## 11. CI и ветка
+
+- Ветка: `feat/dark-mode`
+- Триггеры добавлены в: `frontend-tests.yml`, `tests.yml`, `e2e.yml`
+- Бэкенд не затрагивается; backend CI запустится через `pull_request → main` при открытии PR
+
 ---
 
 ## 12. Статус выполнения
@@ -347,8 +353,3 @@ length  = rand(width * 0.10, width * 0.50)
 
 **Вне scope (не запрашивалось):** DynamicChart dimmed в dark mode (cross-filter); per-page shooting star density tuning.
 
-## 11. CI и ветка
-
-- Ветка: `feat/dark-mode`
-- Триггеры добавлены в: `frontend-tests.yml`, `tests.yml`, `e2e.yml`
-- Бэкенд не затрагивается; backend CI запустится через `pull_request → main` при открытии PR
