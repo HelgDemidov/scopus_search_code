@@ -96,7 +96,7 @@ function HorizontalBar({ data, dim }: { data: LabelCount[]; dim: Dimension }) {
           tickLine={false}
           axisLine={false}
         />
-        <Tooltip content={(p) => <ChartTooltip {...p} dimension={dim} />} cursor={{ fill: '#f1f5f9' }} />
+        <Tooltip content={(p) => <ChartTooltip {...p} dimension={dim} />} cursor={{ fill: 'rgba(148,163,184,0.1)' }} />
         <Bar dataKey="count" fill={colors.base} radius={[0, 4, 4, 0]} />
       </BarChart>
     </ResponsiveContainer>
@@ -127,7 +127,7 @@ function VerticalBar({ data, dim }: { data: LabelCount[]; dim: Dimension }) {
           tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
           width={36}
         />
-        <Tooltip content={(p) => <ChartTooltip {...p} dimension={dim} />} cursor={{ fill: '#f1f5f9' }} />
+        <Tooltip content={(p) => <ChartTooltip {...p} dimension={dim} />} cursor={{ fill: 'rgba(148,163,184,0.1)' }} />
         <Bar dataKey="count" fill={colors.base} radius={[4, 4, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>

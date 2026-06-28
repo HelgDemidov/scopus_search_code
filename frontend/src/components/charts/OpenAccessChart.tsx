@@ -4,6 +4,7 @@ import { ChartCard } from './ChartCard';
 import { ChartTooltip } from './ChartTooltip';
 import { DIMENSION_COLORS, formatCount } from './chartColors';
 import { OA_LABELS_RU } from '../../constants/labelTranslations';
+import { useTheme } from '../../hooks/useTheme';
 
 interface OpenAccessChartProps {
   totalArticles: number;
@@ -20,17 +21,21 @@ function DonutLabel({
   cx,
   cy,
   oaPercent,
+  isDark,
 }: {
   cx: number;
   cy: number;
   oaPercent: number;
+  isDark: boolean;
 }) {
+  const valueFill = isDark ? '#f1f5f9' : '#0f172a';
+  const labelFill = isDark ? '#94a3b8' : '#64748b';
   return (
     <g>
-      <text x={cx} y={cy - 6} textAnchor="middle" fill="#0f172a" fontSize={22} fontWeight={700}>
+      <text x={cx} y={cy - 6} textAnchor="middle" fill={valueFill} fontSize={22} fontWeight={700}>
         {oaPercent.toFixed(0)}%
       </text>
-      <text x={cx} y={cy + 14} textAnchor="middle" fill="#64748b" fontSize={11}>
+      <text x={cx} y={cy + 14} textAnchor="middle" fill={labelFill} fontSize={11}>
         Open Access
       </text>
     </g>
@@ -39,6 +44,7 @@ function DonutLabel({
 
 export function OpenAccessChart({ totalArticles, openAccessCount, isLoading }: OpenAccessChartProps) {
   const { t, i18n } = useTranslation();
+  const { theme } = useTheme();
   const closedCount = totalArticles - openAccessCount;
   const oaLabel = (key: string) => i18n.language === 'ru' ? (OA_LABELS_RU[key] ?? key) : key;
   const oaPercent = totalArticles > 0 ? (openAccessCount / totalArticles) * 100 : 0;
@@ -74,7 +80,7 @@ export function OpenAccessChart({ totalArticles, openAccessCount, isLoading }: O
               <Cell key={i} fill={segmentColors[i]} />
             ))}
             {/* Центральная подпись: процент OA */}
-            <DonutLabel cx={0} cy={0} oaPercent={oaPercent} />
+            <DonutLabel cx={0} cy={0} oaPercent={oaPercent} isDark={theme === 'dark'} />
           </Pie>
 
           <Tooltip

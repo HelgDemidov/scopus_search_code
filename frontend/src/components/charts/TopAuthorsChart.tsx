@@ -86,7 +86,7 @@ export function TopAuthorsChart({ data, isLoading }: TopAuthorsChartProps) {
             content={(p) => (
               <ChartTooltip {...p} dimension={DIM} />
             )}
-            cursor={{ fill: '#f1f5f9' }}
+            cursor={{ fill: 'rgba(148,163,184,0.1)' }}
           />
 
           <Bar

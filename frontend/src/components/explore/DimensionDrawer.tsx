@@ -151,7 +151,7 @@ function DrawerBarChart({ dim, data, height, yAxisWidth = 120, labelMaxLen = 24 
           tickLine={false}
           axisLine={false}
         />
-        <Tooltip content={(p) => <ChartTooltip {...p} dimension={dim} />} cursor={{ fill: '#f1f5f9' }} />
+        <Tooltip content={(p) => <ChartTooltip {...p} dimension={dim} />} cursor={{ fill: 'rgba(148,163,184,0.1)' }} />
         <Bar dataKey="count" radius={[0, 4, 4, 0]} fill={colors.base} />
       </BarChart>
     </ResponsiveContainer>

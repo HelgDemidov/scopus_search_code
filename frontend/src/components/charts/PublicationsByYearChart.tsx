@@ -59,7 +59,7 @@ export function PublicationsByYearChart({ data, isLoading }: PublicationsByYearC
             tickLine={false}
             axisLine={false}
             tickFormatter={(v: number) => formatAxisTick(v, i18n.language)}
-            width={36}
+            width={i18n.language === 'ru' ? 54 : 36}
           />
 
           <Tooltip
