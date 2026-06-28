@@ -8,60 +8,69 @@ afterEach(async () => {
 });
 
 describe('LanguageSwitcher', () => {
-  it('показывает три кнопки: EN, РУ, CG', async () => {
+  it('рендерит select с тремя опциями: EN, РУ, CG', async () => {
     await i18n.changeLanguage('en');
     render(<LanguageSwitcher />);
-    expect(screen.getByText('EN')).toBeTruthy();
-    expect(screen.getByText('РУ')).toBeTruthy();
-    expect(screen.getByText('CG')).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Switch language' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'EN' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'РУ' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'CG' })).toBeTruthy();
   });
 
-  it('EN кнопка aria-pressed=true когда язык — английский', async () => {
+  it('EN выбран по умолчанию', async () => {
     await i18n.changeLanguage('en');
     render(<LanguageSwitcher />);
-    expect(screen.getByText('EN').closest('button')?.getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByText('РУ').closest('button')?.getAttribute('aria-pressed')).toBe('false');
-    expect(screen.getByText('CG').closest('button')?.getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByDisplayValue('EN')).toBeTruthy();
   });
 
-  it('РУ кнопка aria-pressed=true когда язык — русский', async () => {
+  it('показывает текущий язык как выбранный — русский', async () => {
     await i18n.changeLanguage('ru');
     render(<LanguageSwitcher />);
-    expect(screen.getByText('РУ').closest('button')?.getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByText('EN').closest('button')?.getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByDisplayValue('РУ')).toBeTruthy();
   });
 
-  it('CG кнопка aria-pressed=true когда язык — sr-Latn', async () => {
+  it('показывает текущий язык как выбранный — sr-Latn', async () => {
     await i18n.changeLanguage('sr-Latn');
     render(<LanguageSwitcher />);
-    expect(screen.getByText('CG').closest('button')?.getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByText('EN').closest('button')?.getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByDisplayValue('CG')).toBeTruthy();
   });
 
-  it('контейнер имеет aria-label из t("a11y.switchLanguage")', async () => {
+  it('aria-label — "Switch language" на английском', async () => {
     await i18n.changeLanguage('en');
     render(<LanguageSwitcher />);
-    expect(screen.getByRole('group', { name: 'Switch language' })).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Switch language' })).toBeTruthy();
   });
 
-  it('клик на РУ переключает на русский', async () => {
+  it('aria-label — "Сменить язык" на русском', async () => {
+    await i18n.changeLanguage('ru');
+    render(<LanguageSwitcher />);
+    expect(screen.getByRole('combobox', { name: 'Сменить язык' })).toBeTruthy();
+  });
+
+  it('переключает на русский при выборе РУ', async () => {
     await i18n.changeLanguage('en');
     render(<LanguageSwitcher />);
-    await act(async () => { fireEvent.click(screen.getByText('РУ')); });
+    await act(async () => {
+      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'ru' } });
+    });
     await waitFor(() => expect(i18n.language).toBe('ru'));
   });
 
-  it('клик на CG переключает на sr-Latn', async () => {
+  it('переключает на sr-Latn при выборе CG', async () => {
     await i18n.changeLanguage('en');
     render(<LanguageSwitcher />);
-    await act(async () => { fireEvent.click(screen.getByText('CG')); });
+    await act(async () => {
+      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'sr-Latn' } });
+    });
     await waitFor(() => expect(i18n.language).toBe('sr-Latn'));
   });
 
-  it('клик на EN переключает на английский с sr-Latn', async () => {
+  it('переключает на английский с sr-Latn', async () => {
     await i18n.changeLanguage('sr-Latn');
     render(<LanguageSwitcher />);
-    await act(async () => { fireEvent.click(screen.getByText('EN')); });
+    await act(async () => {
+      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'en' } });
+    });
     await waitFor(() => expect(i18n.language).toBe('en'));
   });
 });
