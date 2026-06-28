@@ -10,14 +10,9 @@ interface Star {
   y: number;
   radius: number;
   baseBrightness: number;
-  cluster: number;
   twinkles: boolean;
-  twinkleSpeedMult: number; // множитель скорости мерцания (Tier 3: 2.5x)
-}
-
-interface Cluster {
-  period: number; // ms
-  phase: number;  // radians
+  twinklePeriod: number; // ms, индивидуальный для каждой звезды
+  twinklePhase: number;  // radians [0, 2π], индивидуальный
 }
 
 interface Meteor {
@@ -59,21 +54,25 @@ function generateStars(w: number, h: number): Star[] {
     let twinkles: boolean;
     let radius: number;
 
-    let twinkleSpeedMult: number;
+    let twinklePeriod: number;
+    let twinklePhase: number;
     if (r < 0.6) {
       baseBrightness = 0.085 + Math.random() * 0.102; // 0.085–0.187 (−15% от 0.10–0.22)
       twinkles = false;
-      twinkleSpeedMult = 1.0;
+      twinklePeriod = 0;
+      twinklePhase  = 0;
       radius = 0.7;
     } else if (r < 0.9) {
       baseBrightness = 0.238 + Math.random() * 0.187; // 0.238–0.425 (−15% от 0.28–0.50)
       twinkles = true;
-      twinkleSpeedMult = 1.0;
+      twinklePeriod = 2000 + Math.random() * 7000;    // 2–9 s, индивидуальный
+      twinklePhase  = Math.random() * Math.PI * 2;
       radius = 0.9;
     } else {
       baseBrightness = 0.398 + Math.random() * 0.093; // 0.398–0.491 (−15% от 0.468–0.578)
       twinkles = true;
-      twinkleSpeedMult = 2.5;                          // цикл мерцания в 2.5x быстрее Tier 2
+      twinklePeriod = (2000 + Math.random() * 7000) / 2.5; // 0.8–3.6 s (2.5x быстрее Tier 2)
+      twinklePhase  = Math.random() * Math.PI * 2;
       radius = 1.2;
     }
 
@@ -82,32 +81,23 @@ function generateStars(w: number, h: number): Star[] {
       y: Math.random() * h,
       radius,
       baseBrightness,
-      cluster: Math.floor(Math.random() * 5),
       twinkles,
-      twinkleSpeedMult,
+      twinklePeriod,
+      twinklePhase,
     };
   });
-}
-
-function generateClusters(): Cluster[] {
-  return Array.from({ length: 5 }, () => ({
-    period: 3000 + Math.random() * 4000, // 3–7 s
-    phase:  Math.random() * Math.PI * 2,
-  }));
 }
 
 function drawStars(
   ctx: CanvasRenderingContext2D,
   stars: Star[],
-  clusters: Cluster[],
   now: number,
   animate: boolean,
 ): void {
   for (const s of stars) {
     let a = s.baseBrightness;
     if (animate && s.twinkles) {
-      const c = clusters[s.cluster];
-      a = Math.max(0, Math.min(1, a * (1 + TWINKLE_AMP * Math.sin(2 * Math.PI * now * s.twinkleSpeedMult / c.period + c.phase))));
+      a = Math.max(0, Math.min(1, a * (1 + TWINKLE_AMP * Math.sin(2 * Math.PI * now / s.twinklePeriod + s.twinklePhase))));
     }
     ctx.beginPath();
     ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
@@ -234,7 +224,6 @@ export function StarFieldCanvas() {
 function StarFieldCanvasInner() {
   const canvasRef    = useRef<HTMLCanvasElement>(null);
   const starsRef     = useRef<Star[]>([]);
-  const clustersRef  = useRef<Cluster[]>([]);
   const meteorsRef   = useRef<Meteor[]>([]);
   const specsRef     = useRef<ShowerSpec[]>([]);
   const rafRef       = useRef<number>(0);
@@ -264,9 +253,8 @@ function StarFieldCanvasInner() {
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       ctx.scale(dpr, dpr);
-      // Пересоздаём звёзды для новых размеров
-      starsRef.current   = generateStars(w, h);
-      clustersRef.current = generateClusters();
+      // Пересоздаём звёзды для новых размеров (периоды и фазы хранятся в каждой Star)
+      starsRef.current = generateStars(w, h);
     }
 
     resize();
@@ -286,7 +274,7 @@ function StarFieldCanvasInner() {
       if (ctx) {
         const { w, h } = sizeRef.current;
         ctx.clearRect(0, 0, w, h);
-        drawStars(ctx, starsRef.current, clustersRef.current, 0, false);
+        drawStars(ctx, starsRef.current, 0, false);
       }
       return;
     }
@@ -305,7 +293,7 @@ function StarFieldCanvasInner() {
 
       const { w, h } = sizeRef.current;
       ctx.clearRect(0, 0, w, h);
-      drawStars(ctx, starsRef.current, clustersRef.current, now, true);
+      drawStars(ctx, starsRef.current, now, true);
 
       // Solo meteor
       if (now >= nextSoloRef.current && meteorsRef.current.length < MAX_METEORS) {
