@@ -13,6 +13,18 @@
       "destination": "/assets/:path*"
     },
     {
+      "source": "/sitemap.xml",
+      "destination": "/sitemap.xml"
+    },
+    {
+      "source": "/robots.txt",
+      "destination": "/robots.txt"
+    },
+    {
+      "source": "/google:path*",
+      "destination": "/google:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
