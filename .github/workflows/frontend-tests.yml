@@ -9,6 +9,7 @@ on:
       - feat/functional-indices-lower
       - feat/dark-mode
       - russian-UI
+      - montenegro-ui
     # Запускаем только когда меняется frontend или сам воркфлоу
     paths:
       - 'frontend/**'
