@@ -71,6 +71,7 @@
     "pageSubtitle": "Sign in to access live Scopus search",
     "googleFailed": "Google sign-in failed. Please try again.",
     "continueGoogle": "Continue with Google",
+    "divider": "or",
     "tabSignIn": "Sign in",
     "tabRegister": "Register",
     "labelEmail": "Email",

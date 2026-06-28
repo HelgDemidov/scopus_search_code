@@ -325,7 +325,7 @@ export default function AuthPage() {
         {/* Divider */}
         <div className="relative my-4 flex items-center gap-2">
           <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
-          <span className="text-xs text-slate-400">&mdash; or &mdash;</span>
+          <span className="text-xs text-slate-400">&mdash; {t('auth.divider')} &mdash;</span>
           <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
         </div>
 

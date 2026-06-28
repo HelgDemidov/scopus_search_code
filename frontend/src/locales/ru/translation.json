@@ -75,6 +75,7 @@
     "pageSubtitle": "Войдите для доступа к живому поиску Scopus",
     "googleFailed": "Вход через Google не удался. Попробуйте ещё раз.",
     "continueGoogle": "Войти через Google",
+    "divider": "или",
     "tabSignIn": "Войти",
     "tabRegister": "Регистрация",
     "labelEmail": "Email",

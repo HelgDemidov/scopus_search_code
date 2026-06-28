@@ -73,6 +73,7 @@
     "pageSubtitle": "Prijavite se za pristup live Scopus pretrazi",
     "googleFailed": "Prijava putem Google-a nije uspjela. Pokušajte ponovo.",
     "continueGoogle": "Nastavi s Google-om",
+    "divider": "ili",
     "tabSignIn": "Prijava",
     "tabRegister": "Registracija",
     "labelEmail": "E-pošta",
