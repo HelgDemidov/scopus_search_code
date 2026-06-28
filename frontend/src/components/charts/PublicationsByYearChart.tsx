@@ -12,6 +12,7 @@ import { ChartCard } from './ChartCard';
 import { ChartTooltip } from './ChartTooltip';
 import { useDimensionColors } from '../../hooks/useDimensionColors';
 import { useTheme } from '../../hooks/useTheme';
+import { formatAxisTick } from './chartColors';
 import type { LabelCount } from '../../types/api';
 
 interface PublicationsByYearChartProps {
@@ -20,7 +21,7 @@ interface PublicationsByYearChartProps {
 }
 
 export function PublicationsByYearChart({ data, isLoading }: PublicationsByYearChartProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const colors = useDimensionColors('year');
   const { theme } = useTheme();
   const gridStroke = theme === 'dark' ? '#1e293b' : '#e2e8f0'; // slate-800 / slate-200
@@ -57,13 +58,13 @@ export function PublicationsByYearChart({ data, isLoading }: PublicationsByYearC
             tick={{ fontSize: 11, fill: '#94a3b8' }}
             tickLine={false}
             axisLine={false}
-            tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
+            tickFormatter={(v: number) => formatAxisTick(v, i18n.language)}
             width={36}
           />
 
           <Tooltip
             content={(p) => (
-              <ChartTooltip {...p} dimension="year" valueLabel="Publications" />
+              <ChartTooltip {...p} dimension="year" />
             )}
             cursor={{ stroke: colors.base, strokeWidth: 1, strokeDasharray: '4 4' }}
           />

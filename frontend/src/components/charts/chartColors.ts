@@ -87,6 +87,16 @@ export function formatCount(n: number): string {
   return n.toLocaleString('en-US');
 }
 
+// Локале-зависимое форматирование подписей осей: 1000 → "1k" / "1 тыс."
+export function formatAxisTick(v: number, lang: string): string {
+  if (v >= 1000) {
+    return lang === 'ru'
+      ? `${(v / 1000).toFixed(0)} тыс.`
+      : `${(v / 1000).toFixed(0)}k`;
+  }
+  return String(v);
+}
+
 // ---------------------------------------------------------------------------
 // Обратная совместимость — старые Tremor-компоненты (удалить после Phase 2)
 // ---------------------------------------------------------------------------

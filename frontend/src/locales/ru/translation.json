@@ -169,11 +169,31 @@
     "clearFilter": "Сбросить фильтр",
     "kpi": {
       "articlesIndexed": "Статей в индексе",
+      "articlesIndexed_one": "статья в индексе",
+      "articlesIndexed_few": "статьи в индексе",
+      "articlesIndexed_many": "статей в индексе",
+      "articlesIndexed_other": "статей в индексе",
       "countries": "Стран",
+      "countries_one": "страна",
+      "countries_few": "страны",
+      "countries_many": "стран",
+      "countries_other": "стран",
       "openAccess": "Open Access",
       "docTypes": "Типов документов",
+      "docTypes_one": "тип документа",
+      "docTypes_few": "типа документов",
+      "docTypes_many": "типов документов",
+      "docTypes_other": "типов документов",
       "journals": "Журналов",
-      "authors": "Авторов"
+      "journals_one": "журнал",
+      "journals_few": "журнала",
+      "journals_many": "журналов",
+      "journals_other": "журналов",
+      "authors": "Авторов",
+      "authors_one": "автор",
+      "authors_few": "автора",
+      "authors_many": "авторов",
+      "authors_other": "авторов"
     },
     "chartBuilder": {
       "addChart": "Добавить график",
@@ -210,7 +230,8 @@
     "tableColArticles": "Статей",
     "tableColCount": "Кол-во",
     "tableColShare": "Доля",
-    "removeChart": "Удалить график"
+    "removeChart": "Удалить график",
+    "closedAccess": "Закрытый доступ"
   },
   "article": {
     "backHome": "← На главную",

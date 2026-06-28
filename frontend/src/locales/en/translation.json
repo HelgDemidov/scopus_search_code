@@ -163,11 +163,21 @@
     "clearFilter": "Clear filter",
     "kpi": {
       "articlesIndexed": "Articles indexed",
+      "articlesIndexed_one": "Article Indexed",
+      "articlesIndexed_other": "Articles Indexed",
       "countries": "Countries",
+      "countries_one": "Country",
+      "countries_other": "Countries",
       "openAccess": "Open Access",
       "docTypes": "Document types",
+      "docTypes_one": "Document Type",
+      "docTypes_other": "Document Types",
       "journals": "Journals",
-      "authors": "Authors"
+      "journals_one": "Journal",
+      "journals_other": "Journals",
+      "authors": "Authors",
+      "authors_one": "Author",
+      "authors_other": "Authors"
     },
     "chartBuilder": {
       "addChart": "Add chart",
@@ -204,7 +214,8 @@
     "tableColArticles": "Articles",
     "tableColCount": "Count",
     "tableColShare": "Share",
-    "removeChart": "Remove chart"
+    "removeChart": "Remove chart",
+    "closedAccess": "Closed Access"
   },
   "article": {
     "backHome": "← Back to home",

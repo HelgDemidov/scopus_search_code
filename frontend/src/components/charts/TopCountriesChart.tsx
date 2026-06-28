@@ -11,7 +11,8 @@ import {
 import { useTranslation } from 'react-i18next';
 import { ChartCard } from './ChartCard';
 import { ChartTooltip } from './ChartTooltip';
-import { DIMENSION_COLORS, truncateLabel } from './chartColors';
+import { DIMENSION_COLORS, truncateLabel, formatAxisTick } from './chartColors';
+import { COUNTRY_TRANSLATIONS_RU } from '../../constants/labelTranslations';
 import { useDashboardStore } from '../../stores/dashboardStore';
 import type { LabelCount } from '../../types/api';
 
@@ -25,7 +26,7 @@ const colors = DIMENSION_COLORS[DIM];
 const TOP_N = 10;
 
 export function TopCountriesChart({ data, isLoading }: TopCountriesChartProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { activeSelection, filteredStats, setSelection, openDrawer } = useDashboardStore();
 
   const chartData = [...data]
@@ -65,16 +66,17 @@ export function TopCountriesChart({ data, isLoading }: TopCountriesChartProps) {
             tick={{ fontSize: 11, fill: '#94a3b8' }}
             tickLine={false}
             axisLine={false}
-            tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
+            tickFormatter={(v: number) => formatAxisTick(v, i18n.language)}
           />
 
           <YAxis
             type="category"
             dataKey="label"
-            width={96}
+            width={i18n.language === 'ru' ? 120 : 96}
             tick={{ fontSize: 11, fill: '#64748b' }}
             tickLine={false}
             axisLine={false}
+            tickFormatter={(v: string) => i18n.language === 'ru' ? (COUNTRY_TRANSLATIONS_RU[v] ?? v) : v}
           />
 
           <Tooltip

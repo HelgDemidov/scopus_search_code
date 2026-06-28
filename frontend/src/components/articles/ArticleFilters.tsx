@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Checkbox } from '../ui/checkbox';
+import { COUNTRY_TRANSLATIONS_RU, DOC_TYPE_TRANSLATIONS_RU } from '../../constants/labelTranslations';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
@@ -35,6 +36,7 @@ interface MultiSelectProps {
   placeholder: string;
   searchPlaceholder: string;
   'aria-label'?: string;
+  getDisplayLabel?: (opt: string) => string;
 }
 
 function MultiSelectCombobox({
@@ -44,9 +46,11 @@ function MultiSelectCombobox({
   placeholder,
   searchPlaceholder,
   'aria-label': ariaLabel,
+  getDisplayLabel,
 }: MultiSelectProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const display = (opt: string) => getDisplayLabel ? getDisplayLabel(opt) : opt;
 
   return (
     <div>
@@ -71,16 +75,21 @@ function MultiSelectCombobox({
             <CommandList>
               <CommandEmpty>{t('filters.noResults')}</CommandEmpty>
               <CommandGroup>
-                {options.map((opt) => (
-                  <CommandItem
-                    key={opt}
-                    value={opt}
-                    onSelect={() => onToggle(opt)}
-                    data-checked={selected.includes(opt) ? 'true' : undefined}
-                  >
-                    {opt}
-                  </CommandItem>
-                ))}
+                {options.map((opt) => {
+                  const label = display(opt);
+                  // value включает оригинал + перевод для двуязычного поиска
+                  const searchValue = label !== opt ? `${opt} ${label}` : opt;
+                  return (
+                    <CommandItem
+                      key={opt}
+                      value={searchValue}
+                      onSelect={() => onToggle(opt)}
+                      data-checked={selected.includes(opt) ? 'true' : undefined}
+                    >
+                      {label}
+                    </CommandItem>
+                  );
+                })}
               </CommandGroup>
             </CommandList>
           </Command>
@@ -96,7 +105,7 @@ function MultiSelectCombobox({
               className="cursor-pointer text-xs"
               onClick={() => onToggle(val)}
             >
-              {val} ×
+              {display(val)} ×
             </Badge>
           ))}
         </div>
@@ -110,7 +119,7 @@ function MultiSelectCombobox({
 // ---------------------------------------------------------------------------
 
 function FiltersContent() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const stats      = useStatsStore((s) => s.stats);
   const { historyFilters: filters, setHistoryFilters: setFilters, resetFilters } = useHistoryStore();
   const searchMode    = useArticleStore((s) => s.searchMode);
@@ -265,6 +274,7 @@ function FiltersContent() {
           placeholder={t('filters.allTypes')}
           searchPlaceholder={t('filters.searchType')}
           aria-label={t('filters.docTypeLabel')}
+          getDisplayLabel={i18n.language === 'ru' ? (opt) => DOC_TYPE_TRANSLATIONS_RU[opt] ?? opt : undefined}
         />
       </section>
 
@@ -291,6 +301,7 @@ function FiltersContent() {
           placeholder={t('filters.allCountries')}
           searchPlaceholder={t('filters.searchCountry')}
           aria-label={t('filters.countryLabel')}
+          getDisplayLabel={i18n.language === 'ru' ? (opt) => COUNTRY_TRANSLATIONS_RU[opt] ?? opt : undefined}
         />
       </section>
 

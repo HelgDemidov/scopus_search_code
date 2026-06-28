@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ChartCard } from './ChartCard';
 import { ChartTooltip } from './ChartTooltip';
 import { DIMENSION_COLORS, formatCount } from './chartColors';
+import { OA_LABELS_RU } from '../../constants/labelTranslations';
 
 interface OpenAccessChartProps {
   totalArticles: number;
@@ -37,13 +38,14 @@ function DonutLabel({
 }
 
 export function OpenAccessChart({ totalArticles, openAccessCount, isLoading }: OpenAccessChartProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const closedCount = totalArticles - openAccessCount;
+  const oaLabel = (key: string) => i18n.language === 'ru' ? (OA_LABELS_RU[key] ?? key) : key;
   const oaPercent = totalArticles > 0 ? (openAccessCount / totalArticles) * 100 : 0;
 
   const chartData = [
-    { label: 'Open Access', count: openAccessCount },
-    { label: 'Closed Access', count: closedCount },
+    { label: oaLabel('Open Access'), count: openAccessCount },
+    { label: oaLabel('Closed Access'), count: closedCount },
   ];
 
   const segmentColors = [colors.base, CLOSED_COLOR];

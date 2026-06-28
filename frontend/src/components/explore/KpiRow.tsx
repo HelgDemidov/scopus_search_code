@@ -3,11 +3,25 @@ import { useStatsStore } from '../../stores/statsStore';
 import { useDashboardStore } from '../../stores/dashboardStore';
 import { KpiTile } from './KpiTile';
 import type { Dimension } from '../charts/chartColors';
+import type { TFunction } from 'i18next';
+
+type Stats = NonNullable<ReturnType<typeof useStatsStore.getState>['stats']>;
 
 interface KpiConfig {
   dimension: Dimension;
-  label: string;
-  getValue: (stats: NonNullable<ReturnType<typeof useStatsStore.getState>['stats']>) => number;
+  getLabel: (count: number) => string;
+  getValue: (stats: Stats) => number;
+}
+
+function getKpiLabel(dim: Dimension, count: number, t: TFunction): string {
+  switch (dim) {
+    case 'year':        return t('explore.kpi.articlesIndexed', { count });
+    case 'country':     return t('explore.kpi.countries', { count });
+    case 'open_access': return t('explore.kpi.openAccess');
+    case 'doc_type':    return t('explore.kpi.docTypes', { count });
+    case 'journal':     return t('explore.kpi.journals', { count });
+    case 'author':      return t('explore.kpi.authors', { count });
+  }
 }
 
 // Ряд из 6 кликабельных KPI-тайлов над дашбордом.
@@ -18,16 +32,15 @@ export function KpiRow() {
   const { drawerDimension, openDrawer, closeDrawer } = useDashboardStore();
 
   const KPI_TILES: KpiConfig[] = [
-    { dimension: 'year',        label: t('explore.kpi.articlesIndexed'), getValue: (s) => s.total_articles },
-    { dimension: 'country',     label: t('explore.kpi.countries'),       getValue: (s) => s.total_countries },
-    { dimension: 'open_access', label: t('explore.kpi.openAccess'),      getValue: (s) => s.open_access_count },
-    { dimension: 'doc_type',    label: t('explore.kpi.docTypes'),        getValue: (s) => s.by_doc_type.length },
-    { dimension: 'journal',     label: t('explore.kpi.journals'),        getValue: (s) => s.total_journals },
-    { dimension: 'author',      label: t('explore.kpi.authors'),         getValue: (s) => s.total_authors },
+    { dimension: 'year',        getLabel: (n) => getKpiLabel('year',        n, t), getValue: (s) => s.total_articles },
+    { dimension: 'country',     getLabel: (n) => getKpiLabel('country',     n, t), getValue: (s) => s.total_countries },
+    { dimension: 'open_access', getLabel: (n) => getKpiLabel('open_access', n, t), getValue: (s) => s.open_access_count },
+    { dimension: 'doc_type',    getLabel: (n) => getKpiLabel('doc_type',    n, t), getValue: (s) => s.by_doc_type.length },
+    { dimension: 'journal',     getLabel: (n) => getKpiLabel('journal',     n, t), getValue: (s) => s.total_journals },
+    { dimension: 'author',      getLabel: (n) => getKpiLabel('author',      n, t), getValue: (s) => s.total_authors },
   ];
 
   function handleTileClick(dimension: Dimension) {
-    // Повторный клик по открытому → закрыть
     if (drawerDimension === dimension) {
       closeDrawer();
     } else {
@@ -37,17 +50,20 @@ export function KpiRow() {
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-      {KPI_TILES.map(({ dimension, label, getValue }) => (
-        <KpiTile
-          key={dimension}
-          label={label}
-          value={stats ? getValue(stats) : 0}
-          dimension={dimension}
-          isActive={drawerDimension === dimension}
-          isLoading={isLoading}
-          onClick={() => handleTileClick(dimension)}
-        />
-      ))}
+      {KPI_TILES.map(({ dimension, getLabel, getValue }) => {
+        const count = stats ? getValue(stats) : 0;
+        return (
+          <KpiTile
+            key={dimension}
+            label={getLabel(count)}
+            value={count}
+            dimension={dimension}
+            isActive={drawerDimension === dimension}
+            isLoading={isLoading}
+            onClick={() => handleTileClick(dimension)}
+          />
+        );
+      })}
     </div>
   );
 }

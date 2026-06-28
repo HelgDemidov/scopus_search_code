@@ -11,7 +11,8 @@ import {
 import { useTranslation } from 'react-i18next';
 import { ChartCard } from './ChartCard';
 import { ChartTooltip } from './ChartTooltip';
-import { DIMENSION_COLORS } from './chartColors';
+import { DIMENSION_COLORS, formatAxisTick } from './chartColors';
+import { DOC_TYPE_TRANSLATIONS_RU } from '../../constants/labelTranslations';
 import { useDashboardStore } from '../../stores/dashboardStore';
 import type { LabelCount } from '../../types/api';
 
@@ -24,7 +25,7 @@ const DIM = 'doc_type';
 const colors = DIMENSION_COLORS[DIM];
 
 export function DocumentTypesChart({ data, isLoading }: DocumentTypesChartProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { activeSelection, filteredStats, setSelection, openDrawer } = useDashboardStore();
 
   const chartData = [...data].sort((a, b) => b.count - a.count);
@@ -59,7 +60,7 @@ export function DocumentTypesChart({ data, isLoading }: DocumentTypesChartProps)
             tick={{ fontSize: 11, fill: '#94a3b8' }}
             tickLine={false}
             axisLine={false}
-            tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
+            tickFormatter={(v: number) => formatAxisTick(v, i18n.language)}
           />
 
           <YAxis
@@ -69,6 +70,7 @@ export function DocumentTypesChart({ data, isLoading }: DocumentTypesChartProps)
             tick={{ fontSize: 11, fill: '#64748b' }}
             tickLine={false}
             axisLine={false}
+            tickFormatter={(v: string) => i18n.language === 'ru' ? (DOC_TYPE_TRANSLATIONS_RU[v] ?? v) : v}
           />
 
           <Tooltip

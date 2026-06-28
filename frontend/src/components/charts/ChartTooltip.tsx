@@ -1,5 +1,6 @@
 import type { TooltipProps } from 'recharts';
 import type { ValueType, NameType } from 'recharts/types/component/DefaultTooltipContent';
+import { useTranslation } from 'react-i18next';
 import { DIMENSION_COLORS, formatCount } from './chartColors';
 import type { Dimension } from './chartColors';
 
@@ -17,8 +18,10 @@ export function ChartTooltip({
   payload,
   label,
   dimension,
-  valueLabel = 'Articles',
+  valueLabel,
 }: ChartTooltipProps) {
+  const { t } = useTranslation();
+  const effectiveLabel = valueLabel ?? t('explore.tableColArticles');
   if (!active || !payload?.length) return null;
 
   const accentColor = dimension ? DIMENSION_COLORS[dimension].base : payload[0]?.color;
@@ -37,7 +40,7 @@ export function ChartTooltip({
           className="w-2.5 h-2.5 rounded-full flex-shrink-0"
           style={{ backgroundColor: accentColor }}
         />
-        <span className="text-slate-500 dark:text-slate-400">{valueLabel}:</span>
+        <span className="text-slate-500 dark:text-slate-400">{effectiveLabel}:</span>
         <span className="font-semibold text-slate-900 dark:text-slate-100">
           {!isNaN(value) ? formatCount(value) : '—'}
         </span>

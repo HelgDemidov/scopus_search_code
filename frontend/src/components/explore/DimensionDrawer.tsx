@@ -23,7 +23,13 @@ import {
   SheetTitle,
 } from '../ui/sheet';
 import { ChartTooltip } from '../charts/ChartTooltip';
-import { DIMENSION_COLORS, formatCount, truncateLabel } from '../charts/chartColors';
+import { DIMENSION_COLORS, formatCount, formatAxisTick, truncateLabel } from '../charts/chartColors';
+import {
+  COUNTRY_TRANSLATIONS_RU,
+  DOC_TYPE_TRANSLATIONS_RU,
+  OA_LABELS_RU,
+  translateDataLabel,
+} from '../../constants/labelTranslations';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import type { Dimension } from '../charts/chartColors';
 import type { LabelCount, StatsResponse } from '../../types/api';
@@ -39,11 +45,20 @@ interface DrawerConfig {
   chartHeight: number;
   yAxisWidth?: number;
   labelMaxLen?: number;
-  isSpecial?: 'open_access'; // особый рендер
+  isSpecial?: 'open_access';
 }
 
-function getConfig(dim: Dimension, stats: StatsResponse | null, t: TFunction): DrawerConfig | null {
+function getConfig(
+  dim: Dimension,
+  stats: StatsResponse | null,
+  t: TFunction,
+  lang: string,
+): DrawerConfig | null {
   if (!stats) return null;
+
+  const tr = (label: string, map: Record<string, string>) =>
+    translateDataLabel(label, lang, map);
+
   switch (dim) {
     case 'year':
       return {
@@ -54,18 +69,22 @@ function getConfig(dim: Dimension, stats: StatsResponse | null, t: TFunction): D
     case 'country':
       return {
         title: t('explore.dimensions.country'),
-        data: [...stats.by_country].sort((a, b) => b.count - a.count),
+        data: [...stats.by_country]
+          .sort((a, b) => b.count - a.count)
+          .map((d) => ({ ...d, label: tr(d.label, COUNTRY_TRANSLATIONS_RU) })),
         chartHeight: Math.max(360, stats.by_country.length * 30),
-        yAxisWidth: 120,
-        labelMaxLen: 22,
+        yAxisWidth: lang === 'ru' ? 140 : 120,
+        labelMaxLen: lang === 'ru' ? 22 : 22,
       };
     case 'doc_type':
       return {
         title: t('explore.dimensions.doc_type'),
-        data: [...stats.by_doc_type].sort((a, b) => b.count - a.count),
+        data: [...stats.by_doc_type]
+          .sort((a, b) => b.count - a.count)
+          .map((d) => ({ ...d, label: tr(d.label, DOC_TYPE_TRANSLATIONS_RU) })),
         chartHeight: Math.max(240, stats.by_doc_type.length * 36),
-        yAxisWidth: 100,
-        labelMaxLen: 18,
+        yAxisWidth: 120,
+        labelMaxLen: 20,
       };
     case 'journal':
       return {
@@ -79,8 +98,8 @@ function getConfig(dim: Dimension, stats: StatsResponse | null, t: TFunction): D
       return {
         title: t('explore.dimensions.open_access'),
         data: [
-          { label: 'Open Access', count: stats.open_access_count },
-          { label: 'Closed Access', count: stats.total_articles - stats.open_access_count },
+          { label: tr('Open Access', OA_LABELS_RU), count: stats.open_access_count },
+          { label: tr('Closed Access', OA_LABELS_RU), count: stats.total_articles - stats.open_access_count },
         ],
         chartHeight: 260,
         isSpecial: 'open_access',
@@ -109,6 +128,7 @@ function DrawerBarChart({ dim, data, height, yAxisWidth = 120, labelMaxLen = 24 
   yAxisWidth?: number;
   labelMaxLen?: number;
 }) {
+  const { i18n } = useTranslation();
   const colors = DIMENSION_COLORS[dim];
   const truncated = data.map((d) => ({ ...d, label: truncateLabel(d.label, labelMaxLen) }));
 
@@ -121,7 +141,7 @@ function DrawerBarChart({ dim, data, height, yAxisWidth = 120, labelMaxLen = 24 
           tick={{ fontSize: 11, fill: '#94a3b8' }}
           tickLine={false}
           axisLine={false}
-          tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
+          tickFormatter={(v: number) => formatAxisTick(v, i18n.language)}
         />
         <YAxis
           type="category"
@@ -139,6 +159,7 @@ function DrawerBarChart({ dim, data, height, yAxisWidth = 120, labelMaxLen = 24 
 }
 
 function DrawerAreaChart({ data, height }: { data: LabelCount[]; height: number }) {
+  const { i18n } = useTranslation();
   const colors = DIMENSION_COLORS.year;
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -156,9 +177,9 @@ function DrawerAreaChart({ data, height }: { data: LabelCount[]; height: number 
           tickLine={false}
           axisLine={false}
           width={40}
-          tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
+          tickFormatter={(v: number) => formatAxisTick(v, i18n.language)}
         />
-        <Tooltip content={(p) => <ChartTooltip {...p} dimension="year" valueLabel="Publications" />} cursor={{ stroke: colors.base, strokeWidth: 1, strokeDasharray: '4 4' }} />
+        <Tooltip content={(p) => <ChartTooltip {...p} dimension="year" />} cursor={{ stroke: colors.base, strokeWidth: 1, strokeDasharray: '4 4' }} />
         <Area type="monotone" dataKey="count" stroke={colors.base} strokeWidth={2} fill="url(#drawerYearGrad)" dot={false} activeDot={{ r: 4 }} />
       </AreaChart>
     </ResponsiveContainer>
@@ -180,6 +201,7 @@ function DrawerOAChart({ data, height }: { data: LabelCount[]; height: number })
           innerRadius="50%"
           outerRadius="72%"
           dataKey="count"
+          nameKey="label"
           startAngle={90}
           endAngle={-270}
           paddingAngle={2}
@@ -243,13 +265,13 @@ function DrawerTable({ data, totalArticles }: { data: LabelCount[]; totalArticle
 // ---------------------------------------------------------------------------
 
 export function DimensionDrawer() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { drawerDimension, closeDrawer } = useDashboardStore();
   const { stats } = useStatsStore();
   const isMobile = useMediaQuery('(max-width: 767px)');
 
   const isOpen = drawerDimension !== null;
-  const config = drawerDimension ? getConfig(drawerDimension, stats, t) : null;
+  const config = drawerDimension ? getConfig(drawerDimension, stats, t, i18n.language) : null;
   const colors = drawerDimension ? DIMENSION_COLORS[drawerDimension] : null;
 
   // На мобильных chart height ограничен чтобы не выходить за 85dvh
@@ -283,9 +305,6 @@ export function DimensionDrawer() {
                   style={{ backgroundColor: colors.base }}
                 />
                 {config.title}
-                <span className="ml-auto text-xs font-normal text-slate-400">
-                  {config.data.length} {config.data.length === 1 ? 'entry' : 'entries'}
-                </span>
               </SheetTitle>
             </SheetHeader>
 
