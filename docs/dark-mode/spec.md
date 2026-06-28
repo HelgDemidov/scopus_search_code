@@ -323,6 +323,30 @@ length  = rand(width * 0.10, width * 0.50)
 
 ---
 
+---
+
+## 12. Статус выполнения
+
+**Смерджен:** 2026-06-28, PR #33 (`feat/dark-mode` → `main`).
+
+| Фаза | Статус | Ключевые коммиты |
+|---|---|---|
+| 1 — CSS-фундамент | ✓ | `9306623` |
+| 2 — ThemeProvider, useTheme, ThemeToggle | ✓ | `3762575` |
+| 3 — App shell, Header, HomePage | ✓ | `059730c` |
+| 4 — StarFieldCanvas | ✓ | `5498064` |
+| 5 — Chart adaptation (useDimensionColors) | ✓ | `ee920a7`, `3d9ce77` |
+| Тесты (20 новых) | ✓ | `b3414af`, `f6805b5` |
+| useDimensionColors тесты (14) | ✓ | `ee920a7` |
+
+**После мерджа (прямо в main):**
+- Тёмный режим по умолчанию для новых пользователей (`bf38159`)
+- Клик по логотипу сбрасывает поиск и очищает SearchBar (`bcc3150`, `0c9345a`)
+
+**Итог:** 270 → 332 тестов. Все CI зелёные. Spec выполнен полностью; отклонений нет.
+
+**Вне scope (не запрашивалось):** DynamicChart dimmed в dark mode (cross-filter); per-page shooting star density tuning.
+
 ## 11. CI и ветка
 
 - Ветка: `feat/dark-mode`

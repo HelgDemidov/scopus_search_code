@@ -14,7 +14,7 @@ Charts: recharts ^2.15.4. Forms: react-hook-form + zod. Toasts: sonner. Icons: l
 - `test/setup.ts` — jest-dom matchers (setupFiles в vite.config.ts)
 
 ## Key stores
-- `articleStore`  — articles, pagination, `searchMode` ('catalog'|'scopus'), `currentKeyword`; `setSearchMode()` → автоматически вызывает `historyStore.resetFilters()`
+- `articleStore`  — articles, pagination, `searchMode` ('catalog'|'scopus'), `currentKeyword`, `resetKey`; `setSearchMode()` → автоматически вызывает `historyStore.resetFilters()`; `resetSearch()` → очищает results/filters/currentKeyword, инкрементирует `resetKey` (используется для ремаунта SearchBar)
 - `historyStore`  — search history + `historyFilters` (shared фильтры) + `resetFilters()` → `{}`
 - `statsStore`    — catalog stats (by_year, by_country, by_doc_type, top_keywords, totals); загружается в `App.tsx` на старте
 - `dashboardStore` — состояние /explore: `activeSelection` (cross-filter), `drawerDimension` (Sheet), `builderCards` (Chart Builder)
@@ -30,8 +30,9 @@ Charts: recharts ^2.15.4. Forms: react-hook-form + zod. Toasts: sonner. Icons: l
 
 ## Tests (co-location pattern: тест рядом с источником)
 Unit: `src/**/*.test.{ts,tsx}` | Integration: `*.integration.test.*`
-Total (main, 2026-06-27): **270** тестов, все зелёные.
+Total (main, 2026-06-28): **332** тестов, все зелёные.
 Vitest patterns (Checkbox mock, fake timers, vi.hoisted) — см. память [[feedback-vitest-testing-patterns]].
+jsdom browser API mocks — см. память [[feedback-jsdom-browser-api-mocks]].
 
 ### Coverage (2026-06-26)
 `vite.config.ts` → `coverage.include`: 12 файлов бизнес-логики (stores/articleStore|authStore|historyStore,
@@ -59,6 +60,14 @@ Node.js: 22. `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` — для actions runner
 ```bash
 npm run test / test:watch / test:coverage / lint / build
 ```
+
+## Dark mode (feat/dark-mode, merged PR #33, 2026-06-28)
+`ThemeContext.ts` → `ThemeProvider.tsx` (context + overlay fade 3500ms/400ms) → `useTheme.ts` → `ThemeToggle.tsx` (Moon/Sun, aria-label).
+`StarFieldCanvas.tsx` — Canvas: 3-tier stars (400 desktop/150 mobile), кластерное мерцание, одиночные метеоры + метеорные дожди, 15/60fps, HiDPI, prefers-reduced-motion.
+Фон страницы `#0d1b2a`; поверхности (ChartCard/KpiTile/ChartTooltip) `#152236` (`dark:bg-[#152236]`).
+`useDimensionColors(dimension)` — theme-aware hook: в dark возвращает `darkDimmed` (900-shades) вместо `dimmed` (200-shades); без ThemeProvider → всегда light (нулевая регрессия тестов).
+По умолчанию тёмный режим (первое посещение без localStorage → dark). Логотип в Header вызывает `articleStore.resetSearch()`.
+`react-hooks/set-state-in-effect` — disable comment **внутри** тела useEffect перед setState (ESLint flat config это требует).
 
 ## /explore analytics dashboard (interactive-charts, merged 2026-06-27)
 `ExplorePage` — collection mode: KpiRow (6 тайлов) → DimensionDrawer (Sheet) → PublicationsByYear → 2×2 grid → ThematicAreas → ChartBuilderPanel.

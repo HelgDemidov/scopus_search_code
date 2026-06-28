@@ -85,7 +85,7 @@ Advisory lock в DI-фабрике → новые тесты `GET /articles/find
 | `frontend-tests.yml` | `typecheck` | tsc --noEmit | push main (paths: frontend/**) |
 | `frontend-tests.yml` | `lint` | ESLint --max-warnings 0; npm audit --audit-level=high | push main |
 | `frontend-tests.yml` | `unit` | vitest unit-тесты | push main |
-| `frontend-tests.yml` | `integration` | vitest integration + coverage (все 270 тест; threshold statements=70%) | push main |
+| `frontend-tests.yml` | `integration` | vitest integration + coverage (все 332 теста; threshold statements=70%) | push main |
 | `frontend-tests.yml` | `build` | npm run build (Vite production) | push main |
 | `e2e.yml` | `e2e` | smoke-тесты против Railway staging | push main |
 
