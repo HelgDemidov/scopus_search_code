@@ -202,26 +202,24 @@ function CreateAccountForm({ redirectTo }: { redirectTo: string }) {
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="reg-password" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-            {t('auth.labelPassword')}
-          </label>
-          <PasswordInput id="reg-password" register={register('password')} />
-          {errors.password && (
-            <p className="text-xs text-rose-600 dark:text-rose-400">{errors.password.message}</p>
-          )}
-        </div>
+      <div className="flex flex-col gap-1">
+        <label htmlFor="reg-password" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          {t('auth.labelPassword')}
+        </label>
+        <PasswordInput id="reg-password" register={register('password')} />
+        {errors.password && (
+          <p className="text-xs text-rose-600 dark:text-rose-400">{errors.password.message}</p>
+        )}
+      </div>
 
-        <div className="flex flex-col gap-1">
-          <label htmlFor="reg-confirm" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-            {t('auth.labelConfirm')}
-          </label>
-          <PasswordInput id="reg-confirm" register={register('password_confirm')} />
-          {errors.password_confirm && (
-            <p className="text-xs text-rose-600 dark:text-rose-400">{errors.password_confirm.message}</p>
-          )}
-        </div>
+      <div className="flex flex-col gap-1">
+        <label htmlFor="reg-confirm" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          {t('auth.labelConfirm')}
+        </label>
+        <PasswordInput id="reg-confirm" register={register('password_confirm')} />
+        {errors.password_confirm && (
+          <p className="text-xs text-rose-600 dark:text-rose-400">{errors.password_confirm.message}</p>
+        )}
       </div>
 
       {serverError && (
@@ -329,17 +327,21 @@ export default function AuthPage() {
           <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
         </div>
 
-        {/* Sign In / Create Account tabs */}
-        <Tabs defaultValue="signin">
-          <TabsList className="w-full mb-4">
-            <TabsTrigger value="signin" className="flex-1">{t('auth.tabSignIn')}</TabsTrigger>
-            <TabsTrigger value="register" className="flex-1">{t('auth.tabRegister')}</TabsTrigger>
+        {/* Sign In / Create Account tabs — вертикальный нав слева, форма справа */}
+        <Tabs defaultValue="register" className="flex flex-row gap-5 items-start">
+          <TabsList className="flex-col h-auto w-28 shrink-0">
+            <TabsTrigger value="register" className="w-full justify-start px-3 py-2.5">
+              {t('auth.tabRegister')}
+            </TabsTrigger>
+            <TabsTrigger value="signin" className="w-full justify-start px-3 py-2.5">
+              {t('auth.tabSignIn')}
+            </TabsTrigger>
           </TabsList>
-          <TabsContent value="signin">
-            <SignInForm redirectTo={from} />
-          </TabsContent>
-          <TabsContent value="register">
+          <TabsContent value="register" className="mt-0">
             <CreateAccountForm redirectTo={from} />
+          </TabsContent>
+          <TabsContent value="signin" className="mt-0">
+            <SignInForm redirectTo={from} />
           </TabsContent>
         </Tabs>
         </div>
