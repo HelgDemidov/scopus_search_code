@@ -7,6 +7,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { useTranslation } from 'react-i18next';
 import { ChartCard } from './ChartCard';
 import { ChartTooltip } from './ChartTooltip';
 import { useDimensionColors } from '../../hooks/useDimensionColors';
@@ -19,6 +20,7 @@ interface PublicationsByYearChartProps {
 }
 
 export function PublicationsByYearChart({ data, isLoading }: PublicationsByYearChartProps) {
+  const { t } = useTranslation();
   const colors = useDimensionColors('year');
   const { theme } = useTheme();
   const gridStroke = theme === 'dark' ? '#1e293b' : '#e2e8f0'; // slate-800 / slate-200
@@ -27,7 +29,7 @@ export function PublicationsByYearChart({ data, isLoading }: PublicationsByYearC
 
   return (
     <ChartCard
-      title="Publications by Year"
+      title={t('explore.dimensions.year')}
       dimension="year"
       isLoading={isLoading}
       skeletonHeight="h-56"

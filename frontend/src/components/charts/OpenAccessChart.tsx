@@ -1,4 +1,5 @@
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useTranslation } from 'react-i18next';
 import { ChartCard } from './ChartCard';
 import { ChartTooltip } from './ChartTooltip';
 import { DIMENSION_COLORS, formatCount } from './chartColors';
@@ -36,6 +37,7 @@ function DonutLabel({
 }
 
 export function OpenAccessChart({ totalArticles, openAccessCount, isLoading }: OpenAccessChartProps) {
+  const { t } = useTranslation();
   const closedCount = totalArticles - openAccessCount;
   const oaPercent = totalArticles > 0 ? (openAccessCount / totalArticles) * 100 : 0;
 
@@ -48,7 +50,7 @@ export function OpenAccessChart({ totalArticles, openAccessCount, isLoading }: O
 
   return (
     <ChartCard
-      title="Open Access"
+      title={t('explore.dimensions.open_access')}
       dimension={DIM}
       isLoading={isLoading}
       skeletonHeight="h-56"

@@ -8,6 +8,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { useTranslation } from 'react-i18next';
 import { ChartCard } from './ChartCard';
 import { ChartTooltip } from './ChartTooltip';
 import { DIMENSION_COLORS, truncateLabel } from './chartColors';
@@ -24,6 +25,7 @@ const colors = DIMENSION_COLORS[DIM];
 const TOP_N = 15;
 
 export function TopAuthorsChart({ data, isLoading }: TopAuthorsChartProps) {
+  const { t } = useTranslation();
   const { activeSelection, filteredStats, setSelection, openDrawer } = useDashboardStore();
 
   const chartData = [...data]
@@ -49,7 +51,7 @@ export function TopAuthorsChart({ data, isLoading }: TopAuthorsChartProps) {
 
   return (
     <ChartCard
-      title="Top Authors"
+      title={t('explore.dimensions.author')}
       dimension={DIM}
       isLoading={isLoading}
       skeletonHeight="h-[360px]"

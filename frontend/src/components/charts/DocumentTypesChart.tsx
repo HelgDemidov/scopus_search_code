@@ -8,6 +8,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { useTranslation } from 'react-i18next';
 import { ChartCard } from './ChartCard';
 import { ChartTooltip } from './ChartTooltip';
 import { DIMENSION_COLORS } from './chartColors';
@@ -23,6 +24,7 @@ const DIM = 'doc_type';
 const colors = DIMENSION_COLORS[DIM];
 
 export function DocumentTypesChart({ data, isLoading }: DocumentTypesChartProps) {
+  const { t } = useTranslation();
   const { activeSelection, filteredStats, setSelection, openDrawer } = useDashboardStore();
 
   const chartData = [...data].sort((a, b) => b.count - a.count);
@@ -38,7 +40,7 @@ export function DocumentTypesChart({ data, isLoading }: DocumentTypesChartProps)
 
   return (
     <ChartCard
-      title="Document Types"
+      title={t('explore.dimensions.doc_type')}
       dimension={DIM}
       isLoading={isLoading}
       skeletonHeight="h-48"

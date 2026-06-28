@@ -8,6 +8,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { useTranslation } from 'react-i18next';
 import { ChartCard } from './ChartCard';
 import { ChartTooltip } from './ChartTooltip';
 import { DIMENSION_COLORS, truncateLabel } from './chartColors';
@@ -24,6 +25,7 @@ const colors = DIMENSION_COLORS[DIM];
 const TOP_N = 10;
 
 export function TopCountriesChart({ data, isLoading }: TopCountriesChartProps) {
+  const { t } = useTranslation();
   const { activeSelection, filteredStats, setSelection, openDrawer } = useDashboardStore();
 
   const chartData = [...data]
@@ -44,7 +46,7 @@ export function TopCountriesChart({ data, isLoading }: TopCountriesChartProps) {
 
   return (
     <ChartCard
-      title="Top Countries"
+      title={t('explore.dimensions.country')}
       dimension={DIM}
       isLoading={isLoading}
       skeletonHeight="h-72"

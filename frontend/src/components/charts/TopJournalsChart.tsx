@@ -8,6 +8,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { useTranslation } from 'react-i18next';
 import { ChartCard } from './ChartCard';
 import { ChartTooltip } from './ChartTooltip';
 import { DIMENSION_COLORS, truncateLabel } from './chartColors';
@@ -25,6 +26,7 @@ const TOP_N = 10;
 const YAXIS_WIDTH = 180;
 
 export function TopJournalsChart({ data, isLoading }: TopJournalsChartProps) {
+  const { t } = useTranslation();
   const { activeSelection, filteredStats, setSelection, openDrawer } = useDashboardStore();
 
   const chartData = [...data]
@@ -40,7 +42,7 @@ export function TopJournalsChart({ data, isLoading }: TopJournalsChartProps) {
 
   return (
     <ChartCard
-      title="Top Journals"
+      title={t('explore.dimensions.journal')}
       dimension={DIM}
       isLoading={isLoading}
       skeletonHeight="h-80"
