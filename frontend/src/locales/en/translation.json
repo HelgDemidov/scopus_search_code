@@ -14,7 +14,7 @@
   "home": {
     "anonTitle": "Search Scopus Publications",
     "anonSubtitle": "Preview results below. <lnk>Sign in</lnk> for full search access.",
-    "anonNote": "Unauthenticated search is scoped to the thematic collection \"Artificial Intelligence and Neural Network Technologies\". To search the global Scopus database, please <lnk>sign in</lnk>.",
+    "anonNote": "Results are limited to the AI & Neural Network Technologies collection. <lnk>Sign in</lnk> for full Scopus access",
     "modeScopus": "Search Scopus Database",
     "modeCatalog": "Search AI & Neural Network Technologies Collection",
     "errorQuota": "Weekly search quota exceeded",

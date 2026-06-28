@@ -181,7 +181,7 @@ function CreateAccountForm({ redirectTo }: { redirectTo: string }) {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
         <label htmlFor="reg-username" className="text-sm font-medium text-slate-700 dark:text-slate-300">
           {t('auth.labelUsername')}
@@ -202,24 +202,26 @@ function CreateAccountForm({ redirectTo }: { redirectTo: string }) {
         )}
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="reg-password" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-          {t('auth.labelPassword')}
-        </label>
-        <PasswordInput id="reg-password" register={register('password')} />
-        {errors.password && (
-          <p className="text-xs text-rose-600 dark:text-rose-400">{errors.password.message}</p>
-        )}
-      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-1">
+          <label htmlFor="reg-password" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            {t('auth.labelPassword')}
+          </label>
+          <PasswordInput id="reg-password" register={register('password')} />
+          {errors.password && (
+            <p className="text-xs text-rose-600 dark:text-rose-400">{errors.password.message}</p>
+          )}
+        </div>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="reg-confirm" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-          {t('auth.labelConfirm')}
-        </label>
-        <PasswordInput id="reg-confirm" register={register('password_confirm')} />
-        {errors.password_confirm && (
-          <p className="text-xs text-rose-600 dark:text-rose-400">{errors.password_confirm.message}</p>
-        )}
+        <div className="flex flex-col gap-1">
+          <label htmlFor="reg-confirm" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            {t('auth.labelConfirm')}
+          </label>
+          <PasswordInput id="reg-confirm" register={register('password_confirm')} />
+          {errors.password_confirm && (
+            <p className="text-xs text-rose-600 dark:text-rose-400">{errors.password_confirm.message}</p>
+          )}
+        </div>
       </div>
 
       {serverError && (
@@ -287,7 +289,8 @@ export default function AuthPage() {
 
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4 py-12">
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-md">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#152236] px-6 py-8 shadow-sm">
         {/* Page heading */}
         <div className="mb-6 text-center">
           <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
@@ -339,6 +342,7 @@ export default function AuthPage() {
             <CreateAccountForm redirectTo={from} />
           </TabsContent>
         </Tabs>
+        </div>
       </div>
     </div>
   );

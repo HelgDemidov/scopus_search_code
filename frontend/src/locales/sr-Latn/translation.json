@@ -14,7 +14,7 @@
   "home": {
     "anonTitle": "Pretraži Scopus publikacije",
     "anonSubtitle": "Pregledajte rezultate ispod. <lnk>Prijavite se</lnk> za puni pristup pretrazi.",
-    "anonNote": "Pretraga bez prijave ograničena je na tematsku kolekciju \"Vještačka inteligencija i neuronske mreže\". Za pretragu globalne Scopus baze <lnk>prijavite se</lnk>.",
+    "anonNote": "Rezultati su ograničeni na kolekciju \"VJ i neuronske mreže\". <lnk>Prijavite se</lnk> za puni pristup Scopusu",
     "modeScopus": "Pretraži Scopus bazu",
     "modeCatalog": "Kolekcija «Vještačka inteligencija i neuronske mreže»",
     "errorQuota": "Sedmični limit pretrage je iscrpljen",

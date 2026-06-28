@@ -43,7 +43,7 @@ function AnonHero({ onSearch }: { onSearch: (q: string) => void }) {
       <div className="w-full max-w-md">
         <SearchBar onSearch={onSearch} />
       </div>
-      <p className="text-xs text-slate-500 dark:text-slate-400 text-center max-w-md">
+      <p className="text-sm text-slate-500 dark:text-slate-400 text-center max-w-md">
         <Trans
           i18nKey="home.anonNote"
           components={{ lnk: <Link to="/auth" className="text-blue-800 dark:text-blue-400 hover:underline" /> }}

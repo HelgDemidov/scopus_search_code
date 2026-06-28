@@ -66,11 +66,13 @@ export function ArticleList({
     return (
       <div className="flex gap-6">
         <ArticleFiltersSidebar />
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 flex flex-col">
           <ArticleFiltersMobile />
-          <p className="py-16 text-center text-sm text-slate-400">
-            {t('articles.noResults')}
-          </p>
+          <div className="flex flex-1 items-center justify-center min-h-52 py-8">
+            <p className="text-center text-sm text-slate-400">
+              {t('articles.noResults')}
+            </p>
+          </div>
         </div>
       </div>
     );
