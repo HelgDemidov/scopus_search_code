@@ -692,3 +692,27 @@ Zod-схемы рефакторятся в фабричные функции, п
 7. Тесты: `i18n.test.ts` + `LanguageSwitcher.test.tsx` + обновление существующих тестов
 8. CI: ключ-чек в `lint` job
 9. Финальный smoke: ручная проверка на `localhost:5173` двух маршрутов на двух языках
+
+---
+
+## Статус выполнения
+
+**Дата мерджа:** 2026-06-28  
+**PR:** #34  
+**Ветка:** `russian-UI` → `main`
+
+### Выполнено
+
+- `54df930` — базовая инфраструктура i18n: `i18n.ts`, `i18next.d.ts`, `locales/en/`, `locales/ru/`, `LanguageSwitcher.tsx`; перевод всех страниц и компонентов (184 ключа); 357 тестов
+- `81ba251` — post-merge фикс: заголовки 6 статических графиков (`t('explore.dimensions.*')`); название коллекции в кавычках «…»
+- `c8eb952` — полный перевод меток в графиках: `COUNTRY_TRANSLATIONS_RU`, `DOC_TYPE_TRANSLATIONS_RU`, `OA_LABELS_RU` в `labelTranslations.ts`; `getKpiLabel` плюральные формы; `formatAxisTick` (2k → 2 тыс.); рефактор `DimensionDrawer` с `lang`-параметром; убран badge "N entries"; `MultiSelectCombobox.getDisplayLabel` для фильтров
+- `ad2da95` — lint фикс: U+00A0 → пробел в `formatAxisTick`
+- `41d270f` — dark mode фиксы: `DonutLabel` с тема-зависимыми цветами; YAxis `width=54` для RU; `cursor fill rgba(148,163,184,0.1)` во всех bar-чартах
+- `8372715` — `translateTooltipLabel()` в `ChartTooltip` — перевод заголовка tooltip по dimension; `DrawerOAChart` dark mode
+
+### Вне скоупа
+
+- Перевод email-писем Brevo (отдельная фича)
+- `aria-label` внутри shadcn/ui компонентов в `components/ui/`
+- SEO / hreflang (SPA без SSR)
+- Серверные сообщения об ошибках (FastAPI detail остаётся EN)

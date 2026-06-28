@@ -5,12 +5,14 @@
 React 18 + TypeScript ~5.7 + Vite ^6.0 + Tailwind CSS 3 + shadcn/ui (Radix UI).
 State: Zustand 5. HTTP: axios. Router: react-router-dom 7. Tests: Vitest 4 + Testing Library (jsdom).
 Charts: recharts ^2.15.4. Forms: react-hook-form + zod. Toasts: sonner. Icons: lucide-react.
+i18n: react-i18next 17 + i18next 26 + i18next-browser-languagedetector 8.
 
 ## src/ structure
 - `api/`        — HTTP clients; все вызовы сюда, не в компоненты
 - `components/` — UI; `components/ui/` — shadcn/ui (inline, кастомизированы — не npm)
 - `pages/`      — роутные компоненты; `stores/` — Zustand (глобальное состояние)
-- `hooks/`      — custom hooks; `types/` — TypeScript types; `constants/` — константы (scopusFilters.ts)
+- `hooks/`      — custom hooks; `types/` — TypeScript types; `constants/` — scopusFilters.ts + labelTranslations.ts (переводы меток графиков)
+- `locales/`    — `en/translation.json` + `ru/translation.json`; `i18n.ts` — инициализация; `i18next.d.ts` — строгие типы
 - `test/setup.ts` — jest-dom matchers (setupFiles в vite.config.ts)
 
 ## Key stores
@@ -30,7 +32,7 @@ Charts: recharts ^2.15.4. Forms: react-hook-form + zod. Toasts: sonner. Icons: l
 
 ## Tests (co-location pattern: тест рядом с источником)
 Unit: `src/**/*.test.{ts,tsx}` | Integration: `*.integration.test.*`
-Total (main, 2026-06-28): **332** тестов, все зелёные.
+Total (main, 2026-06-28): **357** тестов, все зелёные.
 Vitest patterns (Checkbox mock, fake timers, vi.hoisted) — см. память [[feedback-vitest-testing-patterns]].
 jsdom browser API mocks — см. память [[feedback-jsdom-browser-api-mocks]].
 
@@ -41,7 +43,7 @@ components/articles/ArticleFilters|ArticleList|PaginationBar|ScopusPaginationBar
 Threshold: `statements: 70` (фактическое: **76.54%** statements).
 Исключены: `components/ui/` (vendor-код), `components/charts/` (Recharts passthrough),
 `App.tsx` (v8 показывает 0% через vi.mock в интеграционном тесте — ложный ноль), `main.tsx`.
-CI: шаг `Collect coverage (all tests)` в job `integration` запускает все 181 тест с `--coverage`.
+CI: шаг `Collect coverage (all tests)` в job `integration` запускает все 357 тестов с `--coverage`.
 `frontend/coverage/` добавлен в `.gitignore`.
 
 ## CI: frontend-tests.yml (triggers: push main, paths: frontend/**)
@@ -81,6 +83,15 @@ Cross-filter V1 — визуальный: Cell fill из dashboardStore.activeSe
 - `ResetPasswordPage` (`/reset-password?token=...`) — `confirmPasswordReset(token, newPassword)` → `POST /auth/password-reset/confirm`; 422 → inline error + ссылка "Request a new link"; success → `toast.success` + navigate `/auth`
 - **`noValidate` на `<form>` — обязателен** когда используется `<input type="email">` с react-hook-form + Zod: без него jsdom's HTML5 validation перехватывает `submit`, Zod-валидатор никогда не вызывается
 - AT больше не в localStorage; `client.ts` читает через `getToken()` из `tokenStore.ts`
+
+## i18n (PR #34, merged 2026-06-28)
+EN/RU переключатель в Header (`LanguageSwitcher.tsx`), выбор сохраняется в `localStorage` (ключ `i18n_lang`).
+Инициализация — `src/i18n.ts`, импортируется в `main.tsx` и `test/setup.ts`; строгая типизация через `i18next.d.ts`.
+Русские плюральные формы: `_one/_few/_many/_other` (CLDR). EN: `_one/_other`. CI lint job проверяет паритет ключей EN ↔ RU (inline скрипт в `frontend-tests.yml`).
+Переводы меток графиков (страны, типы документов, OA) — `constants/labelTranslations.ts` (карты + `translateDataLabel`). Tooltip-заголовки переводятся в `ChartTooltip` по `dimension`.
+KPI плюральные формы: `getKpiLabel(dim, count, t)` switch-функция в `KpiRow.tsx`.
+Фильтры: `MultiSelectCombobox` принимает `getDisplayLabel?: (opt: string) => string` — значения хранятся в EN, отображаются по-русски.
+**"Open Access"** не переводится (международный стандарт). **"Closed Access"** → "Закрытый доступ".
 
 ## Build & conventions
 - Tailwind v3 via PostCSS (NOT @tailwindcss/vite — это v4). vendor-charts chunk ~432 kB gzip ~115 kB — ожидаемо (Recharts).
