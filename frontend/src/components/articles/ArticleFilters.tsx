@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Checkbox } from '../ui/checkbox';
-import { COUNTRY_TRANSLATIONS_RU, DOC_TYPE_TRANSLATIONS_RU } from '../../constants/labelTranslations';
+import { getLabelMaps } from '../../constants/labelTranslations';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
@@ -120,6 +120,7 @@ function MultiSelectCombobox({
 
 function FiltersContent() {
   const { t, i18n } = useTranslation();
+  const labelMaps = getLabelMaps(i18n.language);
   const stats      = useStatsStore((s) => s.stats);
   const { historyFilters: filters, setHistoryFilters: setFilters, resetFilters } = useHistoryStore();
   const searchMode    = useArticleStore((s) => s.searchMode);
@@ -274,7 +275,7 @@ function FiltersContent() {
           placeholder={t('filters.allTypes')}
           searchPlaceholder={t('filters.searchType')}
           aria-label={t('filters.docTypeLabel')}
-          getDisplayLabel={i18n.language === 'ru' ? (opt) => DOC_TYPE_TRANSLATIONS_RU[opt] ?? opt : undefined}
+          getDisplayLabel={labelMaps ? (opt) => labelMaps.doc_type[opt] ?? opt : undefined}
         />
       </section>
 
@@ -301,7 +302,7 @@ function FiltersContent() {
           placeholder={t('filters.allCountries')}
           searchPlaceholder={t('filters.searchCountry')}
           aria-label={t('filters.countryLabel')}
-          getDisplayLabel={i18n.language === 'ru' ? (opt) => COUNTRY_TRANSLATIONS_RU[opt] ?? opt : undefined}
+          getDisplayLabel={labelMaps ? (opt) => labelMaps.country[opt] ?? opt : undefined}
         />
       </section>
 

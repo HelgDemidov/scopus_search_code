@@ -4,6 +4,7 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 
 import en from './locales/en/translation.json';
 import ru from './locales/ru/translation.json';
+import srLatn from './locales/sr-Latn/translation.json';
 
 i18n
   .use(LanguageDetector)
@@ -12,9 +13,10 @@ i18n
     resources: {
       en: { translation: en },
       ru: { translation: ru },
+      'sr-Latn': { translation: srLatn },
     },
     fallbackLng: 'en',
-    supportedLngs: ['en', 'ru'],
+    supportedLngs: ['en', 'ru', 'sr-Latn'],
     detection: {
       order: ['localStorage', 'navigator'],
       caches: ['localStorage'],

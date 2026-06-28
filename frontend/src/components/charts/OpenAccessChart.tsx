@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ChartCard } from './ChartCard';
 import { ChartTooltip } from './ChartTooltip';
 import { DIMENSION_COLORS, formatCount } from './chartColors';
-import { OA_LABELS_RU } from '../../constants/labelTranslations';
+import { getLabelMaps } from '../../constants/labelTranslations';
 import { useTheme } from '../../hooks/useTheme';
 
 interface OpenAccessChartProps {
@@ -46,7 +46,7 @@ export function OpenAccessChart({ totalArticles, openAccessCount, isLoading }: O
   const { t, i18n } = useTranslation();
   const { theme } = useTheme();
   const closedCount = totalArticles - openAccessCount;
-  const oaLabel = (key: string) => i18n.language === 'ru' ? (OA_LABELS_RU[key] ?? key) : key;
+  const oaLabel = (key: string) => getLabelMaps(i18n.language)?.oa[key] ?? key;
   const oaPercent = totalArticles > 0 ? (openAccessCount / totalArticles) * 100 : 0;
 
   const chartData = [

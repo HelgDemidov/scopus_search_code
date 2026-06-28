@@ -2,11 +2,7 @@ import type { TooltipProps } from 'recharts';
 import type { ValueType, NameType } from 'recharts/types/component/DefaultTooltipContent';
 import { useTranslation } from 'react-i18next';
 import { DIMENSION_COLORS, formatCount } from './chartColors';
-import {
-  COUNTRY_TRANSLATIONS_RU,
-  DOC_TYPE_TRANSLATIONS_RU,
-  OA_LABELS_RU,
-} from '../../constants/labelTranslations';
+import { getLabelMaps } from '../../constants/labelTranslations';
 import type { Dimension } from './chartColors';
 
 interface ChartTooltipProps extends TooltipProps<ValueType, NameType> {
@@ -19,11 +15,13 @@ interface ChartTooltipProps extends TooltipProps<ValueType, NameType> {
 // Единый кастомный tooltip для всех Recharts-чартов.
 // Использование: <Tooltip content={(p) => <ChartTooltip {...p} dimension="country" />} />
 function translateTooltipLabel(label: string | undefined, dimension: Dimension | undefined, lang: string): string | undefined {
-  if (!label || lang !== 'ru') return label;
+  if (!label) return label;
+  const maps = getLabelMaps(lang);
+  if (!maps) return label;
   switch (dimension) {
-    case 'country':     return COUNTRY_TRANSLATIONS_RU[label] ?? label;
-    case 'doc_type':    return DOC_TYPE_TRANSLATIONS_RU[label] ?? label;
-    case 'open_access': return OA_LABELS_RU[label] ?? label;
+    case 'country':     return maps.country[label] ?? label;
+    case 'doc_type':    return maps.doc_type[label] ?? label;
+    case 'open_access': return maps.oa[label] ?? label;
     default:            return label;
   }
 }
