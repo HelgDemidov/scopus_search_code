@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { ChartCard } from './ChartCard';
 import { ChartTooltip } from './ChartTooltip';
 import { DIMENSION_COLORS, truncateLabel, formatAxisTick } from './chartColors';
-import { COUNTRY_TRANSLATIONS_RU } from '../../constants/labelTranslations';
+import { getLabelMaps } from '../../constants/labelTranslations';
 import { useDashboardStore } from '../../stores/dashboardStore';
 import type { LabelCount } from '../../types/api';
 
@@ -72,11 +72,11 @@ export function TopCountriesChart({ data, isLoading }: TopCountriesChartProps) {
           <YAxis
             type="category"
             dataKey="label"
-            width={i18n.language === 'ru' ? 120 : 96}
+            width={getLabelMaps(i18n.language) ? 120 : 96}
             tick={{ fontSize: 11, fill: '#64748b' }}
             tickLine={false}
             axisLine={false}
-            tickFormatter={(v: string) => i18n.language === 'ru' ? (COUNTRY_TRANSLATIONS_RU[v] ?? v) : v}
+            tickFormatter={(v: string) => getLabelMaps(i18n.language)?.country[v] ?? v}
           />
 
           <Tooltip

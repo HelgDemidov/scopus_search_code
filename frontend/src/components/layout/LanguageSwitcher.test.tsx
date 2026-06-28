@@ -8,41 +8,60 @@ afterEach(async () => {
 });
 
 describe('LanguageSwitcher', () => {
-  it('показывает "РУ" когда текущий язык — английский', async () => {
+  it('показывает три кнопки: EN, РУ, CG', async () => {
     await i18n.changeLanguage('en');
     render(<LanguageSwitcher />);
-    expect(screen.getByRole('button').textContent).toBe('РУ');
+    expect(screen.getByText('EN')).toBeTruthy();
+    expect(screen.getByText('РУ')).toBeTruthy();
+    expect(screen.getByText('CG')).toBeTruthy();
   });
 
-  it('показывает "EN" когда текущий язык — русский', async () => {
-    await i18n.changeLanguage('ru');
-    render(<LanguageSwitcher />);
-    expect(screen.getByRole('button').textContent).toBe('EN');
-  });
-
-  it('aria-label — "Switch language" на английском', async () => {
+  it('EN кнопка aria-pressed=true когда язык — английский', async () => {
     await i18n.changeLanguage('en');
     render(<LanguageSwitcher />);
-    expect(screen.getByRole('button', { name: 'Switch language' })).toBeTruthy();
+    expect(screen.getByText('EN').closest('button')?.getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByText('РУ').closest('button')?.getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByText('CG').closest('button')?.getAttribute('aria-pressed')).toBe('false');
   });
 
-  it('aria-label — "Сменить язык" на русском', async () => {
+  it('РУ кнопка aria-pressed=true когда язык — русский', async () => {
     await i18n.changeLanguage('ru');
     render(<LanguageSwitcher />);
-    expect(screen.getByRole('button', { name: 'Сменить язык' })).toBeTruthy();
+    expect(screen.getByText('РУ').closest('button')?.getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByText('EN').closest('button')?.getAttribute('aria-pressed')).toBe('false');
   });
 
-  it('переключает en → ru при клике', async () => {
+  it('CG кнопка aria-pressed=true когда язык — sr-Latn', async () => {
+    await i18n.changeLanguage('sr-Latn');
+    render(<LanguageSwitcher />);
+    expect(screen.getByText('CG').closest('button')?.getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByText('EN').closest('button')?.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('контейнер имеет aria-label из t("a11y.switchLanguage")', async () => {
     await i18n.changeLanguage('en');
     render(<LanguageSwitcher />);
-    await act(async () => { fireEvent.click(screen.getByRole('button')); });
-    await waitFor(() => expect(screen.getByRole('button').textContent).toBe('EN'));
+    expect(screen.getByRole('group', { name: 'Switch language' })).toBeTruthy();
   });
 
-  it('переключает ru → en при клике', async () => {
-    await i18n.changeLanguage('ru');
+  it('клик на РУ переключает на русский', async () => {
+    await i18n.changeLanguage('en');
     render(<LanguageSwitcher />);
-    await act(async () => { fireEvent.click(screen.getByRole('button')); });
-    await waitFor(() => expect(screen.getByRole('button').textContent).toBe('РУ'));
+    await act(async () => { fireEvent.click(screen.getByText('РУ')); });
+    await waitFor(() => expect(i18n.language).toBe('ru'));
+  });
+
+  it('клик на CG переключает на sr-Latn', async () => {
+    await i18n.changeLanguage('en');
+    render(<LanguageSwitcher />);
+    await act(async () => { fireEvent.click(screen.getByText('CG')); });
+    await waitFor(() => expect(i18n.language).toBe('sr-Latn'));
+  });
+
+  it('клик на EN переключает на английский с sr-Latn', async () => {
+    await i18n.changeLanguage('sr-Latn');
+    render(<LanguageSwitcher />);
+    await act(async () => { fireEvent.click(screen.getByText('EN')); });
+    await waitFor(() => expect(i18n.language).toBe('en'));
   });
 });

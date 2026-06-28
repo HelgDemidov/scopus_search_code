@@ -9,6 +9,7 @@ on:
       - feat/functional-indices-lower
       - feat/dark-mode
       - russian-UI
+      - montenegro-ui
     # Запускаем только когда меняется frontend или сам воркфлоу
     paths:
       - 'frontend/**'
@@ -84,11 +85,12 @@ jobs:
       - name: Audit npm dependencies
         run: npm audit --audit-level=high
 
-      - name: Check translation key parity (EN ↔ RU)
+      - name: Check translation key parity (EN ↔ RU ↔ SR-LATN)
         run: |
           node -e "
           const en = require('./src/locales/en/translation.json');
           const ru = require('./src/locales/ru/translation.json');
+          const srLatn = require('./src/locales/sr-Latn/translation.json');
           function keys(obj, p='') {
             return Object.entries(obj).flatMap(([k,v]) =>
               typeof v==='object'&&!Array.isArray(v) ? keys(v, p?p+'.'+k:k) : [p?p+'.'+k:k]
@@ -96,12 +98,17 @@ jobs:
           }
           const enK = new Set(keys(en));
           const ruK = new Set(keys(ru));
+          const srK = new Set(keys(srLatn));
           const pluralOnly = ['_few','_many'];
-          const missingInRu = [...enK].filter(k=>!ruK.has(k));
-          const missingInEn = [...ruK].filter(k=>!enK.has(k)&&!pluralOnly.some(s=>k.endsWith(s)));
-          if (missingInRu.length) { console.error('Missing in RU:', missingInRu); process.exit(1); }
-          if (missingInEn.length) { console.error('Missing in EN:', missingInEn); process.exit(1); }
-          console.log('Translation key parity OK —', enK.size, 'keys');
+          const missingRuInEn = [...ruK].filter(k=>!enK.has(k)&&!pluralOnly.some(s=>k.endsWith(s)));
+          const missingSrInEn = [...srK].filter(k=>!enK.has(k)&&!pluralOnly.some(s=>k.endsWith(s)));
+          let ok = true;
+          if ([...enK].some(k=>!ruK.has(k))) { console.error('Missing in RU:', [...enK].filter(k=>!ruK.has(k))); ok=false; }
+          if (missingRuInEn.length) { console.error('Missing in EN (from RU):', missingRuInEn); ok=false; }
+          if ([...enK].some(k=>!srK.has(k))) { console.error('Missing in SR-LATN:', [...enK].filter(k=>!srK.has(k))); ok=false; }
+          if (missingSrInEn.length) { console.error('Missing in EN (from SR-LATN):', missingSrInEn); ok=false; }
+          if (!ok) process.exit(1);
+          console.log('Translation key parity OK — EN:', enK.size, 'RU:', ruK.size, 'SR-LATN:', srK.size);
           "
 
   # ---------------------------------------------------------------------------

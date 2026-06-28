@@ -24,12 +24,7 @@ import {
 } from '../ui/sheet';
 import { ChartTooltip } from '../charts/ChartTooltip';
 import { DIMENSION_COLORS, formatCount, formatAxisTick, truncateLabel } from '../charts/chartColors';
-import {
-  COUNTRY_TRANSLATIONS_RU,
-  DOC_TYPE_TRANSLATIONS_RU,
-  OA_LABELS_RU,
-  translateDataLabel,
-} from '../../constants/labelTranslations';
+import { getLabelMaps } from '../../constants/labelTranslations';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useTheme } from '../../hooks/useTheme';
 import type { Dimension } from '../charts/chartColors';
@@ -57,8 +52,9 @@ function getConfig(
 ): DrawerConfig | null {
   if (!stats) return null;
 
-  const tr = (label: string, map: Record<string, string>) =>
-    translateDataLabel(label, lang, map);
+  const maps = getLabelMaps(lang);
+  const tr = (label: string, mapKey: 'country' | 'doc_type' | 'oa') =>
+    maps ? (maps[mapKey][label] ?? label) : label;
 
   switch (dim) {
     case 'year':
@@ -72,17 +68,17 @@ function getConfig(
         title: t('explore.dimensions.country'),
         data: [...stats.by_country]
           .sort((a, b) => b.count - a.count)
-          .map((d) => ({ ...d, label: tr(d.label, COUNTRY_TRANSLATIONS_RU) })),
+          .map((d) => ({ ...d, label: tr(d.label, 'country') })),
         chartHeight: Math.max(360, stats.by_country.length * 30),
-        yAxisWidth: lang === 'ru' ? 140 : 120,
-        labelMaxLen: lang === 'ru' ? 22 : 22,
+        yAxisWidth: maps ? 140 : 120,
+        labelMaxLen: 22,
       };
     case 'doc_type':
       return {
         title: t('explore.dimensions.doc_type'),
         data: [...stats.by_doc_type]
           .sort((a, b) => b.count - a.count)
-          .map((d) => ({ ...d, label: tr(d.label, DOC_TYPE_TRANSLATIONS_RU) })),
+          .map((d) => ({ ...d, label: tr(d.label, 'doc_type') })),
         chartHeight: Math.max(240, stats.by_doc_type.length * 36),
         yAxisWidth: 120,
         labelMaxLen: 20,
@@ -99,8 +95,8 @@ function getConfig(
       return {
         title: t('explore.dimensions.open_access'),
         data: [
-          { label: tr('Open Access', OA_LABELS_RU), count: stats.open_access_count },
-          { label: tr('Closed Access', OA_LABELS_RU), count: stats.total_articles - stats.open_access_count },
+          { label: tr('Open Access', 'oa'), count: stats.open_access_count },
+          { label: tr('Closed Access', 'oa'), count: stats.total_articles - stats.open_access_count },
         ],
         chartHeight: 260,
         isSpecial: 'open_access',

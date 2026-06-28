@@ -9,6 +9,7 @@ on:
       - feat/functional-indices-lower
       - feat/dark-mode
       - russian-UI
+      - montenegro-ui
 
   pull_request:
     branches:
