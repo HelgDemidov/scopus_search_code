@@ -101,7 +101,7 @@ function drawStars(
     let a = s.baseBrightness;
     if (animate && s.twinkles) {
       const c = clusters[s.cluster];
-      a = Math.max(0, Math.min(1, a * (1 + TWINKLE_AMP * Math.sin(now / c.period + c.phase))));
+      a = Math.max(0, Math.min(1, a * (1 + TWINKLE_AMP * Math.sin(2 * Math.PI * now / c.period + c.phase))));
     }
     ctx.beginPath();
     ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
@@ -124,13 +124,14 @@ function spawnMeteor(
   // angle from vertical → dx ≈ ±1, dy small positive (downward)
   const dx = Math.sin(angle) * direction;
   const dy = Math.cos(angle);
+  const edgeOffset = Math.random() * w * 0.20;
   return {
-    x0:       direction > 0 ? 0 : w,
+    x0:       direction > 0 ? edgeOffset : w - edgeOffset,
     y0:       Math.random() * h * 0.65,
     dx,
     dy,
     length:   w * (0.10 + Math.random() * 0.40),   // 10–50% ширины
-    duration: 200 + Math.random() * 500,             // 200–700 ms
+    duration: (200 + Math.random() * 500) * 0.80,   // 160–560 ms (на 20% быстрее)
     startTime: now,
     maxAlpha: 0.60 + Math.random() * 0.25,          // 0.60–0.85
   };
