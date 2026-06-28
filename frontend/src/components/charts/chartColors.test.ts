@@ -69,8 +69,6 @@ describe('DIMENSION_COLORS', () => {
     expect(profile.hover).toMatch(/^#[0-9a-f]{6}$/i);
     expect(profile.selected).toMatch(/^#[0-9a-f]{6}$/i);
     expect(profile.dimmed).toMatch(/^#[0-9a-f]{6}$/i);
-    expect(typeof profile.label).toBe('string');
-    expect(profile.label.length).toBeGreaterThan(0);
   });
 
   it('base и dimmed — разные цвета (dimmed светлее)', () => {

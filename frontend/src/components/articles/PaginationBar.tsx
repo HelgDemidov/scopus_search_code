@@ -10,6 +10,7 @@
  * do NOT duplicate this reset in onSizeChange at the parent level.
  */
 
+import { useTranslation } from 'react-i18next';
 import { usePagination } from '../../hooks/usePagination';
 import { Button } from '../ui/button';
 
@@ -37,6 +38,8 @@ export function PaginationBar({
   onPageChange,
   onSizeChange,
 }: PaginationBarProps) {
+  const { t } = useTranslation();
+
   // Guard against transient page:0 on rapid filter changes in articleStore
   const safePage = Math.max(1, page);
 
@@ -46,19 +49,19 @@ export function PaginationBar({
   if (totalPages <= 1) return null;
 
   return (
-    <nav aria-label="Page navigation" className="mt-4">
+    <nav aria-label={t('pagination.pageNav')} className="mt-4">
       <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-4">
 
         {/* Page buttons: Prev + numbers + Next */}
-        <div className="flex items-center gap-1" role="group" aria-label="Pages">
+        <div className="flex items-center gap-1" role="group" aria-label={t('pagination.pages')}>
           <Button
             size="sm"
             variant="outline"
             disabled={!hasPrev}
             onClick={() => onPageChange(safePage - 1)}
-            aria-label="Previous page"
+            aria-label={t('pagination.prevPage')}
           >
-            ← Prev
+            {t('pagination.prev')}
           </Button>
 
           {pages.map((p, i) =>
@@ -89,16 +92,16 @@ export function PaginationBar({
             variant="outline"
             disabled={!hasNext}
             onClick={() => onPageChange(safePage + 1)}
-            aria-label="Next page"
+            aria-label={t('pagination.nextPage')}
           >
-            Next →
+            {t('pagination.next')}
           </Button>
         </div>
 
         {/* Page size selector */}
-        <div className="flex items-center gap-1.5" role="group" aria-label="Rows per page">
+        <div className="flex items-center gap-1.5" role="group" aria-label={t('pagination.rowsPerPage')}>
           <span className="text-xs text-slate-500 dark:text-slate-400 mr-1 select-none">
-            Per page:
+            {t('pagination.perPage')}
           </span>
           {SIZE_OPTIONS.map((s) => (
             <Button

@@ -14,6 +14,7 @@
  * analogous to how PaginationBar is mounted alongside ArticleList.
  */
 
+import { useTranslation } from 'react-i18next';
 import { Button } from '../ui/button';
 
 // Display mode options for live results — mirrors articleStore.liveSize
@@ -34,13 +35,15 @@ export function ScopusPaginationBar({
   onPageChange,
   onSizeChange,
 }: ScopusPaginationBarProps) {
+  const { t } = useTranslation();
+
   // If total <= 10 everything fits without pagination — neither pages nor toggle needed
   if (total <= 10) return null;
 
   // Guard against transient livePage:0 on reset
   const safePage = Math.max(1, livePage);
 
-  // Scopus API returns max 25 results → max ceil(25/10) = 3 pages
+  // Scopus API returns max 25 results => max ceil(25/10) = 3 pages
   // In 'all' mode — one virtual page, navigation is hidden
   const totalPages = liveSize === 'all' ? 1 : Math.ceil(total / 10);
   const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
@@ -56,22 +59,22 @@ export function ScopusPaginationBar({
     <nav aria-label="Scopus results navigation" className="mt-4">
       <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-4">
 
-        {/* Status line: “Showing X–Y of Z” */}
+        {/* Status line: "Showing X-Y of Z" */}
         <span className="text-xs text-slate-500 dark:text-slate-400 select-none">
-          Showing {from}–{to} of {total}
+          {t('pagination.showing', { from, to, total })}
         </span>
 
         {/* Page buttons — shown only in 10-per-page mode */}
         {liveSize === 10 && (
-          <div className="flex items-center gap-1" role="group" aria-label="Pages">
+          <div className="flex items-center gap-1" role="group" aria-label={t('pagination.pages')}>
             <Button
               size="sm"
               variant="outline"
               disabled={!hasPrev}
               onClick={() => onPageChange(safePage - 1)}
-              aria-label="Previous page"
+              aria-label={t('pagination.prevPage')}
             >
-              ← Prev
+              {t('pagination.prev')}
             </Button>
 
             {pageNumbers.map((p) => (
@@ -91,31 +94,31 @@ export function ScopusPaginationBar({
               variant="outline"
               disabled={!hasNext}
               onClick={() => onPageChange(safePage + 1)}
-              aria-label="Next page"
+              aria-label={t('pagination.nextPage')}
             >
-              Next →
+              {t('pagination.next')}
             </Button>
           </div>
         )}
 
-        {/* Toggle “10 per page / All” */}
-        <div className="flex items-center gap-1.5" role="group" aria-label="Display mode">
+        {/* Toggle "10 per page / All" */}
+        <div className="flex items-center gap-1.5" role="group" aria-label={t('pagination.displayMode')}>
           <span className="text-xs text-slate-500 dark:text-slate-400 mr-1 select-none">
-            Show:
+            {t('pagination.show')}
           </span>
           <Button
             size="sm"
             variant={liveSize === 10 ? 'default' : 'outline'}
             onClick={() => onSizeChange(10)}
           >
-            10 per page
+            {t('pagination.perPageN', { n: 10 })}
           </Button>
           <Button
             size="sm"
             variant={liveSize === 'all' ? 'default' : 'outline'}
             onClick={() => onSizeChange('all')}
           >
-            All ({total})
+            {t('pagination.all', { total })}
           </Button>
         </div>
 

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Badge } from '../ui/badge';
 import type { ArticleResponse } from '../../types/api';
 
@@ -7,16 +8,17 @@ interface ArticleCardProps {
 }
 
 // Format date: accepts YYYY-MM-DD or full ISO string, returns "Month YYYY"
-function formatDate(dateStr: string): string {
+function formatDate(dateStr: string, locale: string): string {
   try {
     const d = new Date(dateStr);
-    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+    return d.toLocaleDateString(locale, { year: 'numeric', month: 'long' });
   } catch {
     return dateStr;
   }
 }
 
 export function ArticleCard({ article }: ArticleCardProps) {
+  const { t, i18n } = useTranslation();
   const {
     id,
     title,
@@ -47,7 +49,7 @@ export function ArticleCard({ article }: ArticleCardProps) {
       <div className="text-sm text-slate-500 dark:text-slate-400 flex flex-wrap gap-x-3 gap-y-0.5">
         {author && <span>{author}</span>}
         {journal && <span className="italic">{journal}</span>}
-        {publication_date && <span>{formatDate(publication_date)}</span>}
+        {publication_date && <span>{formatDate(publication_date, i18n.language)}</span>}
         {affiliation_country && <span>{affiliation_country}</span>}
       </div>
 
@@ -58,7 +60,7 @@ export function ArticleCard({ article }: ArticleCardProps) {
         )}
         {open_access === true && (
           <Badge className="bg-emerald-700 text-white hover:bg-emerald-700 dark:bg-emerald-400 dark:text-slate-900">
-            Open Access
+            {t('articles.openAccess')}
           </Badge>
         )}
       </div>
@@ -66,7 +68,7 @@ export function ArticleCard({ article }: ArticleCardProps) {
       {/* Footer: citations + DOI */}
       <div className="flex items-center justify-between text-xs text-slate-400 dark:text-slate-500 pt-1 border-t border-slate-100 dark:border-slate-700">
         <span>
-          {cited_by_count != null ? `Cited: ${cited_by_count}` : ''}
+          {cited_by_count != null ? t('articles.cited', { count: cited_by_count }) : ''}
         </span>
         {doi && (
           <a

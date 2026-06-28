@@ -26,7 +26,6 @@ export interface DimensionColors {
   selected: string   // активный элемент selection
   dimmed: string     // диммирование неактивных (light mode)
   darkDimmed: string // диммирование неактивных (dark mode)
-  label: string      // человекочитаемое название
 }
 
 export const DIMENSION_COLORS: Record<Dimension, DimensionColors> = {
@@ -36,7 +35,6 @@ export const DIMENSION_COLORS: Record<Dimension, DimensionColors> = {
     selected:   '#1d4ed8',
     dimmed:     '#bfdbfe', // blue-200
     darkDimmed: '#1e3a8a', // blue-900
-    label: 'Publications by Year',
   },
   country: {
     base:       '#16a34a', // green-600
@@ -44,7 +42,6 @@ export const DIMENSION_COLORS: Record<Dimension, DimensionColors> = {
     selected:   '#15803d',
     dimmed:     '#bbf7d0', // green-200
     darkDimmed: '#14532d', // green-900
-    label: 'Countries',
   },
   doc_type: {
     base:       '#7c3aed', // violet-600
@@ -52,7 +49,6 @@ export const DIMENSION_COLORS: Record<Dimension, DimensionColors> = {
     selected:   '#6d28d9',
     dimmed:     '#ddd6fe', // violet-200
     darkDimmed: '#4c1d95', // violet-900
-    label: 'Document Types',
   },
   journal: {
     base:       '#d97706', // amber-600
@@ -60,7 +56,6 @@ export const DIMENSION_COLORS: Record<Dimension, DimensionColors> = {
     selected:   '#b45309',
     dimmed:     '#fde68a', // amber-200
     darkDimmed: '#78350f', // amber-900
-    label: 'Top Journals',
   },
   open_access: {
     base:       '#0d9488', // teal-600
@@ -68,7 +63,6 @@ export const DIMENSION_COLORS: Record<Dimension, DimensionColors> = {
     selected:   '#0f766e',
     dimmed:     '#99f6e4', // teal-200
     darkDimmed: '#134e4a', // teal-900
-    label: 'Open Access',
   },
   author: {
     base:       '#0284c7', // sky-600
@@ -76,7 +70,6 @@ export const DIMENSION_COLORS: Record<Dimension, DimensionColors> = {
     selected:   '#0369a1',
     dimmed:     '#bae6fd', // sky-200
     darkDimmed: '#0c4a6e', // sky-900
-    label: 'Top Authors',
   },
 };
 
@@ -112,21 +105,3 @@ export const CHART_COLORS_MULTI = [
 ] as const;
 
 export type TremorColor = typeof CHART_COLORS_MULTI[number];
-
-// Человекочитаемые названия измерений для ActiveFilterBanner и других UI
-export const DIMENSION_LABELS: Record<Dimension, string> = {
-  year:        'Year',
-  country:     'Country',
-  doc_type:    'Document Type',
-  journal:     'Journal',
-  open_access: 'Open Access',
-  author:      'Author',
-};
-
-export const CHART_TYPE_LABELS: Record<ChartType, string> = {
-  bar_h:  'Horizontal Bar',
-  bar_v:  'Vertical Bar',
-  pie:    'Pie',
-  line:   'Line',
-  table:  'Table',
-};

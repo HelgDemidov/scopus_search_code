@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Checkbox } from '../ui/checkbox';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -44,6 +45,7 @@ function MultiSelectCombobox({
   searchPlaceholder,
   'aria-label': ariaLabel,
 }: MultiSelectProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
   return (
@@ -58,7 +60,7 @@ function MultiSelectCombobox({
             className="w-full justify-between text-left font-normal text-sm truncate"
           >
             <span className="truncate">
-              {selected.length > 0 ? `${selected.length} selected` : placeholder}
+              {selected.length > 0 ? t('articles.selectedCount', { count: selected.length }) : placeholder}
             </span>
             <span className="ml-2 shrink-0 text-slate-400 text-xs">▾</span>
           </Button>
@@ -67,7 +69,7 @@ function MultiSelectCombobox({
           <Command>
             <CommandInput placeholder={searchPlaceholder} />
             <CommandList>
-              <CommandEmpty>No results found</CommandEmpty>
+              <CommandEmpty>{t('filters.noResults')}</CommandEmpty>
               <CommandGroup>
                 {options.map((opt) => (
                   <CommandItem
@@ -108,6 +110,7 @@ function MultiSelectCombobox({
 // ---------------------------------------------------------------------------
 
 function FiltersContent() {
+  const { t } = useTranslation();
   const stats      = useStatsStore((s) => s.stats);
   const { historyFilters: filters, setHistoryFilters: setFilters, resetFilters } = useHistoryStore();
   const searchMode    = useArticleStore((s) => s.searchMode);
@@ -212,14 +215,14 @@ function FiltersContent() {
       {/* Scopus-режим: badge «фильтры изменились» */}
       {searchMode === 'scopus' && filtersChanged && (
         <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-          Filters changed — search again to apply
+          {t('filters.filtersChanged')}
         </div>
       )}
 
       {/* Year range */}
       <section>
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">
-          Year
+          {t('filters.sectionYear')}
         </p>
         <div className="flex gap-2 items-center">
           <input
@@ -232,7 +235,7 @@ function FiltersContent() {
               handleYearChange('yearFrom', e.target.value ? +e.target.value : undefined)
             }
             className="w-20 rounded border border-slate-200 dark:border-slate-600 bg-transparent px-2 py-1 text-sm"
-            aria-label="Year from"
+            aria-label={t('filters.yearFrom')}
           />
           <span className="text-slate-400">–</span>
           <input
@@ -245,7 +248,7 @@ function FiltersContent() {
               handleYearChange('yearTo', e.target.value ? +e.target.value : undefined)
             }
             className="w-20 rounded border border-slate-200 dark:border-slate-600 bg-transparent px-2 py-1 text-sm"
-            aria-label="Year to"
+            aria-label={t('filters.yearTo')}
           />
         </div>
       </section>
@@ -253,15 +256,15 @@ function FiltersContent() {
       {/* Document type — Popover + Command multi-select */}
       <section>
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">
-          Document type
+          {t('filters.sectionDocType')}
         </p>
         <MultiSelectCombobox
           options={docTypes}
           selected={filters.docTypes ?? []}
           onToggle={toggleDocType}
-          placeholder="All types"
-          searchPlaceholder="Search type…"
-          aria-label="Document type filter"
+          placeholder={t('filters.allTypes')}
+          searchPlaceholder={t('filters.searchType')}
+          aria-label={t('filters.docTypeLabel')}
         />
       </section>
 
@@ -272,22 +275,22 @@ function FiltersContent() {
             checked={!!filters.openAccessOnly}
             onCheckedChange={handleOAChange}
           />
-          <span>Open Access only</span>
+          <span>{t('filters.openAccessOnly')}</span>
         </label>
       </section>
 
       {/* Countries — Popover + Command multi-select с поиском */}
       <section>
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">
-          Country
+          {t('filters.sectionCountry')}
         </p>
         <MultiSelectCombobox
           options={countries}
           selected={filters.countries ?? []}
           onToggle={toggleCountry}
-          placeholder="All countries"
-          searchPlaceholder="Search country…"
-          aria-label="Country filter"
+          placeholder={t('filters.allCountries')}
+          searchPlaceholder={t('filters.searchCountry')}
+          aria-label={t('filters.countryLabel')}
         />
       </section>
 
@@ -299,7 +302,7 @@ function FiltersContent() {
           onClick={handleClearFilters}
           className="text-xs text-slate-500 hover:text-rose-500 self-start"
         >
-          Clear filters
+          {t('filters.clearFilters')}
         </Button>
       )}
     </div>
@@ -312,9 +315,10 @@ function FiltersContent() {
 
 // Десктопный сайдбар: всегда виден на lg+
 export function ArticleFiltersSidebar() {
+  const { t } = useTranslation();
   return (
     <aside className="hidden lg:flex flex-col w-56 shrink-0">
-      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">Filters</p>
+      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">{t('filters.filtersButton')}</p>
       <FiltersContent />
     </aside>
   );
@@ -322,17 +326,18 @@ export function ArticleFiltersSidebar() {
 
 // Мобильная версия: Sheet, открываемый кнопкой
 export function ArticleFiltersMobile() {
+  const { t } = useTranslation();
   return (
     <div className="lg:hidden">
       <Sheet>
         <SheetTrigger asChild>
           <Button variant="outline" size="sm">
-            Filters
+            {t('filters.filtersButton')}
           </Button>
         </SheetTrigger>
         <SheetContent side="left" className="w-72 overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>Filters</SheetTitle>
+            <SheetTitle>{t('filters.filtersButton')}</SheetTitle>
           </SheetHeader>
           <FiltersContent />
         </SheetContent>

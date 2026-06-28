@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useArticleStore } from '../../stores/articleStore';
 
 /**
@@ -5,6 +6,7 @@ import { useArticleStore } from '../../stores/articleStore';
  * Hidden until the first live request (scopusQuota === null).
  */
 export function ScopusQuotaBadge() {
+  const { t, i18n } = useTranslation();
   const scopusQuota = useArticleStore((s) => s.scopusQuota);
 
   // Hide until the first live request per §4.1
@@ -19,17 +21,20 @@ export function ScopusQuotaBadge() {
       ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'
       : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400';
 
+  const remaining = scopusQuota.remaining.toLocaleString(i18n.language);
+  const limit = scopusQuota.limit.toLocaleString(i18n.language);
+
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${colorClass}`}
-      title={`Scopus API quota: ${scopusQuota.remaining.toLocaleString('en-US')} of ${scopusQuota.limit.toLocaleString('en-US')}`}
+      title={t('profile.quota.badgeTitle', { remaining, limit })}
     >
       {/* Pulse indicator */}
       <span className="relative flex h-1.5 w-1.5">
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-40" />
         <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-current" />
       </span>
-      Scopus quota: {scopusQuota.remaining.toLocaleString('en-US')} / {scopusQuota.limit.toLocaleString('en-US')}
+      {t('profile.quota.badge', { remaining, limit })}
     </span>
   );
 }

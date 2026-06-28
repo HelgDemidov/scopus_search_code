@@ -1,48 +1,54 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import type { Location } from 'react-router-dom';
 import { useForm, type UseFormRegisterReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { useAuthStore } from '../stores/authStore';
 import { login, register as registerUser } from '../api/auth';
 
-// Zod schema for the sign-in form
-const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(1, 'Password is required'),
-});
-
-// Zod schema for the registration form — mirrors the backend Pydantic validator requirements
-const registerSchema = z
-  .object({
-    username: z.string().min(2, 'Username must be at least 2 characters'),
-    email: z.string().email('Invalid email address'),
-    password: z
-      .string()
-      .min(8, 'Minimum 8 characters')
-      .regex(/[A-Z]/, 'At least one uppercase letter required')
-      .regex(/[a-z]/, 'At least one lowercase letter required')
-      .regex(/[0-9]/, 'At least one digit required')
-      .regex(/[^A-Za-z0-9]/, 'At least one special character required (!@#$%^&* etc.)'),
-    password_confirm: z.string().min(1, 'Please confirm your password'),
-  })
-  .refine((data) => data.password === data.password_confirm, {
-    message: 'Passwords do not match',
-    path: ['password_confirm'],
+function makeLoginSchema(t: TFunction) {
+  return z.object({
+    email: z.string().email(t('auth.errors.invalidEmail')),
+    password: z.string().min(1, t('auth.errors.passwordRequired')),
   });
+}
 
-type LoginFormData = z.infer<typeof loginSchema>;
-type RegisterFormData = z.infer<typeof registerSchema>;
+function makeRegisterSchema(t: TFunction) {
+  return z
+    .object({
+      username: z.string().min(2, t('auth.errors.usernameMin')),
+      email: z.string().email(t('auth.errors.invalidEmail')),
+      password: z
+        .string()
+        .min(8, t('auth.errors.passwordMin'))
+        .regex(/[A-Z]/, t('auth.errors.passwordUpper'))
+        .regex(/[a-z]/, t('auth.errors.passwordLower'))
+        .regex(/[0-9]/, t('auth.errors.passwordDigit'))
+        .regex(/[^A-Za-z0-9]/, t('auth.errors.passwordSpecial')),
+      password_confirm: z.string().min(1, t('auth.errors.confirmRequired')),
+    })
+    .refine((data) => data.password === data.password_confirm, {
+      message: t('auth.errors.passwordsMismatch'),
+      path: ['password_confirm'],
+    });
+}
+
+type LoginFormData = z.infer<ReturnType<typeof makeLoginSchema>>;
+type RegisterFormData = z.infer<ReturnType<typeof makeRegisterSchema>>;
 
 // Sign-in form
 function SignInForm({ redirectTo }: { redirectTo: string }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { setToken, fetchUser } = useAuthStore();
   const [serverError, setServerError] = useState<string | null>(null);
+  const loginSchema = useMemo(() => makeLoginSchema(t), [t]);
 
   const {
     register,
@@ -63,8 +69,8 @@ function SignInForm({ redirectTo }: { redirectTo: string }) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       setServerError(
         status === 401
-          ? 'Invalid email or password'
-          : 'Server error. Please try again.',
+          ? t('auth.errors.invalidCredentials')
+          : t('auth.errors.serverError'),
       );
     }
   }
@@ -73,7 +79,7 @@ function SignInForm({ redirectTo }: { redirectTo: string }) {
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <label htmlFor="login-email" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-          Email
+          {t('auth.labelEmail')}
         </label>
         <Input
           id="login-email"
@@ -89,7 +95,7 @@ function SignInForm({ redirectTo }: { redirectTo: string }) {
 
       <div className="flex flex-col gap-1">
         <label htmlFor="login-password" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-          Password
+          {t('auth.labelPassword')}
         </label>
         <PasswordInput id="login-password" register={register('password')} />
         {errors.password && (
@@ -100,7 +106,7 @@ function SignInForm({ redirectTo }: { redirectTo: string }) {
             to="/forgot-password"
             className="text-xs text-slate-500 hover:text-blue-600 dark:hover:text-blue-400"
           >
-            Forgot password?
+            {t('auth.forgotPassword')}
           </Link>
         </div>
       </div>
@@ -110,7 +116,7 @@ function SignInForm({ redirectTo }: { redirectTo: string }) {
       )}
 
       <Button type="submit" disabled={isSubmitting} className="w-full bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400">
-        {isSubmitting ? 'Signing in…' : 'Sign in'}
+        {isSubmitting ? t('auth.btnSigningIn') : t('auth.btnSignIn')}
       </Button>
     </form>
   );
@@ -118,9 +124,11 @@ function SignInForm({ redirectTo }: { redirectTo: string }) {
 
 // Registration form
 function CreateAccountForm({ redirectTo }: { redirectTo: string }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { setToken, fetchUser } = useAuthStore();
   const [serverError, setServerError] = useState<string | null>(null);
+  const registerSchema = useMemo(() => makeRegisterSchema(t), [t]);
 
   const {
     register,
@@ -154,7 +162,7 @@ function CreateAccountForm({ redirectTo }: { redirectTo: string }) {
       } | undefined;
 
       if (status === 409) {
-        setServerError('An account with this email already exists');
+        setServerError(t('auth.errors.emailExists'));
       } else if (status === 422) {
         // Pydantic returns detail as an array of objects with a msg field
         const detail = data?.detail;
@@ -164,10 +172,10 @@ function CreateAccountForm({ redirectTo }: { redirectTo: string }) {
         } else if (typeof detail === 'string') {
           setServerError(detail);
         } else {
-          setServerError('Please check that all fields are filled in correctly');
+          setServerError(t('auth.errors.checkFields'));
         }
       } else {
-        setServerError('Server error. Please try again.');
+        setServerError(t('auth.errors.serverError'));
       }
     }
   }
@@ -176,7 +184,7 @@ function CreateAccountForm({ redirectTo }: { redirectTo: string }) {
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <label htmlFor="reg-username" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-          Username
+          {t('auth.labelUsername')}
         </label>
         <Input id="reg-username" placeholder="johndoe" {...register('username')} />
         {errors.username && (
@@ -186,7 +194,7 @@ function CreateAccountForm({ redirectTo }: { redirectTo: string }) {
 
       <div className="flex flex-col gap-1">
         <label htmlFor="reg-email" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-          Email
+          {t('auth.labelEmail')}
         </label>
         <Input id="reg-email" type="email" autoComplete="email" placeholder="you@example.com" {...register('email')} />
         {errors.email && (
@@ -196,7 +204,7 @@ function CreateAccountForm({ redirectTo }: { redirectTo: string }) {
 
       <div className="flex flex-col gap-1">
         <label htmlFor="reg-password" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-          Password
+          {t('auth.labelPassword')}
         </label>
         <PasswordInput id="reg-password" register={register('password')} />
         {errors.password && (
@@ -206,7 +214,7 @@ function CreateAccountForm({ redirectTo }: { redirectTo: string }) {
 
       <div className="flex flex-col gap-1">
         <label htmlFor="reg-confirm" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-          Confirm password
+          {t('auth.labelConfirm')}
         </label>
         <PasswordInput id="reg-confirm" register={register('password_confirm')} />
         {errors.password_confirm && (
@@ -219,7 +227,7 @@ function CreateAccountForm({ redirectTo }: { redirectTo: string }) {
       )}
 
       <Button type="submit" disabled={isSubmitting} className="w-full bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400">
-        {isSubmitting ? 'Creating account…' : 'Create account'}
+        {isSubmitting ? t('auth.btnCreating') : t('auth.btnCreate')}
       </Button>
     </form>
   );
@@ -233,6 +241,7 @@ function PasswordInput({
   id: string;
   register: UseFormRegisterReturn;
 }) {
+  const { t } = useTranslation();
   const [show, setShow] = useState(false);
   return (
     <div className="relative">
@@ -246,7 +255,7 @@ function PasswordInput({
       <button
         type="button"
         onClick={() => setShow((v) => !v)}
-        aria-label={show ? 'Hide password' : 'Show password'}
+        aria-label={show ? t('auth.hidePassword') : t('auth.showPassword')}
         className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
       >
         {show ? (
@@ -266,6 +275,7 @@ function PasswordInput({
 }
 
 export default function AuthPage() {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const oauthError = searchParams.get('error') === 'oauth_failed';
@@ -281,17 +291,17 @@ export default function AuthPage() {
         {/* Page heading */}
         <div className="mb-6 text-center">
           <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
-            Welcome to Scopus Search
+            {t('auth.pageTitle')}
           </h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Sign in to access live Scopus search
+            {t('auth.pageSubtitle')}
           </p>
         </div>
 
         {/* OAuth error */}
         {oauthError && (
           <div className="mb-4 rounded-md bg-rose-50 dark:bg-rose-900/30 px-3 py-2 text-xs text-rose-700 dark:text-rose-400">
-            Google sign-in failed. Please try again.
+            {t('auth.googleFailed')}
           </div>
         )}
 
@@ -306,7 +316,7 @@ export default function AuthPage() {
             <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
             <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
           </svg>
-          Continue with Google
+          {t('auth.continueGoogle')}
         </button>
 
         {/* Divider */}
@@ -319,8 +329,8 @@ export default function AuthPage() {
         {/* Sign In / Create Account tabs */}
         <Tabs defaultValue="signin">
           <TabsList className="w-full mb-4">
-            <TabsTrigger value="signin" className="flex-1">Sign in</TabsTrigger>
-            <TabsTrigger value="register" className="flex-1">Register</TabsTrigger>
+            <TabsTrigger value="signin" className="flex-1">{t('auth.tabSignIn')}</TabsTrigger>
+            <TabsTrigger value="register" className="flex-1">{t('auth.tabRegister')}</TabsTrigger>
           </TabsList>
           <TabsContent value="signin">
             <SignInForm redirectTo={from} />

@@ -13,6 +13,7 @@ import {
   Pie,
   Legend,
 } from 'recharts';
+import { useTranslation } from 'react-i18next';
 import { useDashboardStore } from '../../stores/dashboardStore';
 import { useStatsStore } from '../../stores/statsStore';
 import {
@@ -26,6 +27,7 @@ import { DIMENSION_COLORS, formatCount, truncateLabel } from '../charts/chartCol
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import type { Dimension } from '../charts/chartColors';
 import type { LabelCount, StatsResponse } from '../../types/api';
+import type { TFunction } from 'i18next';
 
 // ---------------------------------------------------------------------------
 // Конфигурация контента drawer по измерению
@@ -40,18 +42,18 @@ interface DrawerConfig {
   isSpecial?: 'open_access'; // особый рендер
 }
 
-function getConfig(dim: Dimension, stats: StatsResponse | null): DrawerConfig | null {
+function getConfig(dim: Dimension, stats: StatsResponse | null, t: TFunction): DrawerConfig | null {
   if (!stats) return null;
   switch (dim) {
     case 'year':
       return {
-        title: 'Publications by Year',
+        title: t('explore.dimensions.year'),
         data: [...stats.by_year].sort((a, b) => Number(a.label) - Number(b.label)),
         chartHeight: 280,
       };
     case 'country':
       return {
-        title: 'Countries',
+        title: t('explore.dimensions.country'),
         data: [...stats.by_country].sort((a, b) => b.count - a.count),
         chartHeight: Math.max(360, stats.by_country.length * 30),
         yAxisWidth: 120,
@@ -59,7 +61,7 @@ function getConfig(dim: Dimension, stats: StatsResponse | null): DrawerConfig | 
       };
     case 'doc_type':
       return {
-        title: 'Document Types',
+        title: t('explore.dimensions.doc_type'),
         data: [...stats.by_doc_type].sort((a, b) => b.count - a.count),
         chartHeight: Math.max(240, stats.by_doc_type.length * 36),
         yAxisWidth: 100,
@@ -67,7 +69,7 @@ function getConfig(dim: Dimension, stats: StatsResponse | null): DrawerConfig | 
       };
     case 'journal':
       return {
-        title: 'Top Journals',
+        title: t('explore.dimensions.journal'),
         data: [...stats.by_journal].sort((a, b) => b.count - a.count),
         chartHeight: Math.max(480, stats.by_journal.length * 30),
         yAxisWidth: 200,
@@ -75,7 +77,7 @@ function getConfig(dim: Dimension, stats: StatsResponse | null): DrawerConfig | 
       };
     case 'open_access':
       return {
-        title: 'Open Access',
+        title: t('explore.dimensions.open_access'),
         data: [
           { label: 'Open Access', count: stats.open_access_count },
           { label: 'Closed Access', count: stats.total_articles - stats.open_access_count },
@@ -85,7 +87,7 @@ function getConfig(dim: Dimension, stats: StatsResponse | null): DrawerConfig | 
       };
     case 'author':
       return {
-        title: 'Top Authors',
+        title: t('explore.dimensions.author'),
         data: [...stats.top_authors].sort((a, b) => b.count - a.count),
         chartHeight: Math.max(360, stats.top_authors.length * 30),
         yAxisWidth: 140,
@@ -203,15 +205,16 @@ function DrawerOAChart({ data, height }: { data: LabelCount[]; height: number })
 // ---------------------------------------------------------------------------
 
 function DrawerTable({ data, totalArticles }: { data: LabelCount[]; totalArticles: number }) {
+  const { t } = useTranslation();
   return (
     <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
             <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-10">#</th>
-            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Label</th>
-            <th className="px-3 py-2 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Articles</th>
-            <th className="px-3 py-2 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Share</th>
+            <th className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('explore.tableColLabel')}</th>
+            <th className="px-3 py-2 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('explore.tableColArticles')}</th>
+            <th className="px-3 py-2 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('explore.tableColShare')}</th>
           </tr>
         </thead>
         <tbody>
@@ -240,12 +243,13 @@ function DrawerTable({ data, totalArticles }: { data: LabelCount[]; totalArticle
 // ---------------------------------------------------------------------------
 
 export function DimensionDrawer() {
+  const { t } = useTranslation();
   const { drawerDimension, closeDrawer } = useDashboardStore();
   const { stats } = useStatsStore();
   const isMobile = useMediaQuery('(max-width: 767px)');
 
   const isOpen = drawerDimension !== null;
-  const config = drawerDimension ? getConfig(drawerDimension, stats) : null;
+  const config = drawerDimension ? getConfig(drawerDimension, stats, t) : null;
   const colors = drawerDimension ? DIMENSION_COLORS[drawerDimension] : null;
 
   // На мобильных chart height ограничен чтобы не выходить за 85dvh

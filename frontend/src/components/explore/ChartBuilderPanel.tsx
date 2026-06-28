@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDashboardStore } from '../../stores/dashboardStore';
-import { DIMENSION_COLORS, CHART_TYPE_LABELS } from '../charts/chartColors';
+import { DIMENSION_COLORS } from '../charts/chartColors';
 import type { Dimension, ChartType } from '../charts/chartColors';
 
 // ---------------------------------------------------------------------------
@@ -26,9 +27,27 @@ const DIMENSION_OPTIONS: DimensionOption[] = [
 // ---------------------------------------------------------------------------
 
 export function ChartBuilderPanel() {
+  const { t } = useTranslation();
   const addBuilderCard = useDashboardStore((s) => s.addBuilderCard);
 
   const [isOpen, setIsOpen] = useState(false);
+
+  const dimensionLabels: Record<Dimension, string> = {
+    year:        t('explore.dimensionLabels.year'),
+    country:     t('explore.dimensionLabels.country'),
+    doc_type:    t('explore.dimensionLabels.doc_type'),
+    journal:     t('explore.dimensionLabels.journal'),
+    open_access: t('explore.dimensionLabels.open_access'),
+    author:      t('explore.dimensionLabels.author'),
+  };
+
+  const chartTypeLabels: Record<ChartType, string> = {
+    bar_h: t('explore.chartTypes.bar_h'),
+    bar_v: t('explore.chartTypes.bar_v'),
+    pie:   t('explore.chartTypes.pie'),
+    line:  t('explore.chartTypes.line'),
+    table: t('explore.chartTypes.table'),
+  };
   const [selectedDim, setSelectedDim] = useState<Dimension>('country');
   const [selectedType, setSelectedType] = useState<ChartType>('bar_h');
 
@@ -56,11 +75,11 @@ export function ChartBuilderPanel() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        aria-label="Add chart"
+        aria-label={t('explore.chartBuilder.addChart')}
         className="flex items-center gap-2 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 px-5 py-4 text-sm font-medium text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all w-full"
       >
         <span className="text-lg leading-none" aria-hidden>+</span>
-        Add chart
+        {t('explore.chartBuilder.addChart')}
       </button>
     );
   }
@@ -68,13 +87,13 @@ export function ChartBuilderPanel() {
   return (
     <div
       role="region"
-      aria-label="Chart builder"
+      aria-label={t('explore.chartBuilder.builderLabel')}
       className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 flex flex-col gap-5 shadow-sm"
     >
       {/* Выбор измерения */}
       <div>
         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
-          Choose dimension
+          {t('explore.chartBuilder.chooseDim')}
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {DIMENSION_OPTIONS.map(({ dimension }) => {
@@ -97,7 +116,7 @@ export function ChartBuilderPanel() {
                   style={{ backgroundColor: colors.base }}
                   aria-hidden
                 />
-                {colors.label}
+                {dimensionLabels[dimension]}
               </button>
             );
           })}
@@ -107,7 +126,7 @@ export function ChartBuilderPanel() {
       {/* Выбор типа чарта */}
       <div>
         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
-          Choose chart type
+          {t('explore.chartBuilder.chooseType')}
         </p>
         <div className="flex flex-wrap gap-2">
           {currentOption.chartTypes.map((type) => {
@@ -124,7 +143,7 @@ export function ChartBuilderPanel() {
                     : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800',
                 ].join(' ')}
               >
-                {CHART_TYPE_LABELS[type]}
+                {chartTypeLabels[type]}
               </button>
             );
           })}
@@ -137,13 +156,13 @@ export function ChartBuilderPanel() {
           onClick={handleAdd}
           className="rounded-md bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-medium px-4 py-2 hover:bg-slate-700 dark:hover:bg-slate-200 transition-colors"
         >
-          Add to page
+          {t('explore.chartBuilder.addToPage')}
         </button>
         <button
           onClick={handleCancel}
           className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
         >
-          Cancel
+          {t('explore.chartBuilder.cancel')}
         </button>
       </div>
     </div>

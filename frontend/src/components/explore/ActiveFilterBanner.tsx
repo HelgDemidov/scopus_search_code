@@ -1,8 +1,11 @@
+import { useTranslation } from 'react-i18next';
 import { useDashboardStore } from '../../stores/dashboardStore';
 import { useStatsStore } from '../../stores/statsStore';
-import { DIMENSION_COLORS, DIMENSION_LABELS, formatCount } from '../charts/chartColors';
+import { DIMENSION_COLORS, formatCount } from '../charts/chartColors';
+import type { Dimension } from '../charts/chartColors';
 
 export function ActiveFilterBanner() {
+  const { t } = useTranslation();
   const { activeSelection, filteredStats, filteredStatsLoading, clearSelection, clearFilteredStats } =
     useDashboardStore();
   const globalStats = useStatsStore((s) => s.stats);
@@ -10,7 +13,15 @@ export function ActiveFilterBanner() {
   if (!activeSelection) return null;
 
   const colors = DIMENSION_COLORS[activeSelection.dimension];
-  const dimensionLabel = DIMENSION_LABELS[activeSelection.dimension];
+  const dimensionLabelMap: Record<Dimension, string> = {
+    year:        t('explore.dimensionLabels.year'),
+    country:     t('explore.dimensionLabels.country'),
+    doc_type:    t('explore.dimensionLabels.doc_type'),
+    journal:     t('explore.dimensionLabels.journal'),
+    open_access: t('explore.dimensionLabels.open_access'),
+    author:      t('explore.dimensionLabels.author'),
+  };
+  const dimensionLabel = dimensionLabelMap[activeSelection.dimension];
 
   const filteredCount = filteredStats?.total_articles ?? null;
   const globalCount = globalStats?.total_articles ?? null;
@@ -46,13 +57,16 @@ export function ActiveFilterBanner() {
         {/* Счётчик: X of Y articles */}
         {filteredCount !== null && globalCount !== null && (
           <span className="ml-2 text-slate-500 dark:text-slate-400">
-            — {formatCount(filteredCount)} of {formatCount(globalCount)} articles
+            {t('explore.filterBannerArticles', {
+              filtered: formatCount(filteredCount),
+              total: formatCount(globalCount),
+            })}
           </span>
         )}
 
         {/* Индикатор загрузки */}
         {filteredStatsLoading && (
-          <span className="ml-2 text-slate-400 dark:text-slate-500" aria-label="Loading filtered stats">
+          <span className="ml-2 text-slate-400 dark:text-slate-500" aria-label={t('a11y.loadingStats')}>
             ···
           </span>
         )}
@@ -62,10 +76,10 @@ export function ActiveFilterBanner() {
       <button
         onClick={handleClear}
         className="flex-shrink-0 flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-white/60 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-700/40 transition-colors"
-        aria-label="Clear filter"
+        aria-label={t('a11y.clearFilter')}
       >
         <span aria-hidden="true">×</span>
-        Clear filter
+        {t('explore.clearFilter')}
       </button>
     </div>
   );

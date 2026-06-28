@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistoryStore } from '../../stores/historyStore';
 import { Skeleton } from '../ui/skeleton';
 
@@ -8,13 +9,8 @@ const AVAILABILITY_STYLE: Record<'yes' | 'no', string> = {
   no:  'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400',
 };
 
-const AVAILABILITY_LABEL: Record<'yes' | 'no', string> = {
-  yes: 'Available',
-  no:  'No results',
-};
-
-function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat('en-US', {
+function formatDate(iso: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -24,6 +20,7 @@ function formatDate(iso: string): string {
 }
 
 export function SearchHistoryList() {
+  const { t, i18n } = useTranslation();
   const { items, isLoading, fetchHistory } = useHistoryStore();
 
   // Pagination state: 10 items per page
@@ -46,14 +43,14 @@ export function SearchHistoryList() {
     <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
       <div className="flex items-center justify-between mb-3">
         <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-          Search History
+          {t('profile.history.title')}
         </p>
         <button
           onClick={() => fetchHistory()}
           className="text-xs text-blue-700 dark:text-blue-400 hover:underline"
-          aria-label="Refresh search history"
+          aria-label={t('a11y.refreshHistory')}
         >
-          Refresh
+          {t('profile.history.refresh')}
         </button>
       </div>
 
@@ -65,7 +62,7 @@ export function SearchHistoryList() {
         </div>
       ) : items.length === 0 ? (
         <p className="text-sm text-slate-400 text-center py-6">
-          No search history yet
+          {t('profile.history.empty')}
         </p>
       ) : (
         <>
@@ -80,13 +77,13 @@ export function SearchHistoryList() {
                     {item.query}
                   </span>
                   <span className="text-xs text-slate-400">
-                    {formatDate(item.created_at)}
+                    {formatDate(item.created_at, i18n.language)}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {item.result_count != null && (
                     <span className="text-xs tabular-nums text-slate-500 dark:text-slate-400">
-                      {item.result_count.toLocaleString('en-US')} results
+                      {t('profile.history.resultCount', { count: item.result_count })}
                     </span>
                   )}
                   {/* Бейдж доступности — использует results_available из SearchHistoryItem */}
@@ -98,8 +95,8 @@ export function SearchHistoryList() {
                     }`}
                   >
                     {item.results_available
-                      ? AVAILABILITY_LABEL.yes
-                      : AVAILABILITY_LABEL.no}
+                      ? t('profile.history.available')
+                      : t('profile.history.noResults')}
                   </span>
                 </div>
               </li>
@@ -113,7 +110,7 @@ export function SearchHistoryList() {
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
                 className="text-xs text-slate-500 hover:text-slate-800 disabled:opacity-40 dark:text-slate-400 dark:hover:text-slate-200"
-                aria-label="Previous page"
+                aria-label={t('profile.history.prevPage')}
               >
                 &larr;
               </button>
@@ -124,7 +121,7 @@ export function SearchHistoryList() {
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
                 className="text-xs text-slate-500 hover:text-slate-800 disabled:opacity-40 dark:text-slate-400 dark:hover:text-slate-200"
-                aria-label="Next page"
+                aria-label={t('profile.history.nextPage')}
               >
                 &rarr;
               </button>
