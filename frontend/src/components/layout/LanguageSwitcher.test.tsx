@@ -6,32 +6,12 @@ import i18n from '../../i18n';
 // Stub Radix DropdownMenu — jsdom не поддерживает pointer-events
 vi.mock('../ui/dropdown-menu', () => ({
   DropdownMenu: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  DropdownMenuTrigger: ({
-    children,
-    className,
-    'aria-label': ariaLabel,
-  }: {
-    children: React.ReactNode;
-    className?: string;
-    'aria-label'?: string;
-  }) => (
-    <button className={className} aria-label={ariaLabel}>
-      {children}
-    </button>
+  DropdownMenuTrigger: (props: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button {...props} />
   ),
   DropdownMenuContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  DropdownMenuItem: ({
-    children,
-    onClick,
-    'aria-current': ariaCurrent,
-  }: {
-    children: React.ReactNode;
-    onClick?: () => void;
-    'aria-current'?: string;
-  }) => (
-    <div role="menuitem" onClick={onClick} aria-current={ariaCurrent}>
-      {children}
-    </div>
+  DropdownMenuItem: (props: React.HTMLAttributes<HTMLDivElement>) => (
+    <div {...props} role="menuitem" />
   ),
 }));
 
