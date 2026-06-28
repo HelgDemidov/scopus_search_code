@@ -1,66 +1,107 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import i18n from '../../i18n';
+
+// Stub Radix DropdownMenu — jsdom не поддерживает pointer-events
+vi.mock('../ui/dropdown-menu', () => ({
+  DropdownMenu: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DropdownMenuTrigger: ({
+    children,
+    className,
+    'aria-label': ariaLabel,
+  }: {
+    children: React.ReactNode;
+    className?: string;
+    'aria-label'?: string;
+  }) => (
+    <button className={className} aria-label={ariaLabel}>
+      {children}
+    </button>
+  ),
+  DropdownMenuContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DropdownMenuItem: ({
+    children,
+    onClick,
+    'aria-current': ariaCurrent,
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+    'aria-current'?: string;
+  }) => (
+    <div role="menuitem" onClick={onClick} aria-current={ariaCurrent}>
+      {children}
+    </div>
+  ),
+}));
 
 afterEach(async () => {
   await i18n.changeLanguage('en');
 });
 
 describe('LanguageSwitcher', () => {
-  it('рендерит select с тремя опциями: EN, РУ, CG', async () => {
+  it('рендерит кнопку с текущим языком EN по умолчанию', async () => {
     await i18n.changeLanguage('en');
     render(<LanguageSwitcher />);
-    expect(screen.getByRole('combobox', { name: 'Switch language' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'EN' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'РУ' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'CG' })).toBeTruthy();
+    const btn = screen.getByRole('button', { name: 'Switch language' });
+    expect(btn.textContent).toContain('EN');
   });
 
-  it('EN выбран по умолчанию', async () => {
-    await i18n.changeLanguage('en');
-    render(<LanguageSwitcher />);
-    expect(screen.getByDisplayValue('EN')).toBeTruthy();
-  });
-
-  it('показывает текущий язык как выбранный — русский', async () => {
+  it('показывает текущий язык — русский', async () => {
     await i18n.changeLanguage('ru');
     render(<LanguageSwitcher />);
-    expect(screen.getByDisplayValue('РУ')).toBeTruthy();
+    const btn = screen.getByRole('button', { name: 'Сменить язык' });
+    expect(btn.textContent).toContain('РУ');
   });
 
-  it('показывает текущий язык как выбранный — sr-Latn', async () => {
+  it('показывает текущий язык — sr-Latn', async () => {
     await i18n.changeLanguage('sr-Latn');
     render(<LanguageSwitcher />);
-    expect(screen.getByDisplayValue('CG')).toBeTruthy();
+    const btn = screen.getByRole('button', { name: 'Promijeni jezik' });
+    expect(btn.textContent).toContain('CG');
   });
 
   it('aria-label — "Switch language" на английском', async () => {
     await i18n.changeLanguage('en');
     render(<LanguageSwitcher />);
-    expect(screen.getByRole('combobox', { name: 'Switch language' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Switch language' })).toBeTruthy();
   });
 
   it('aria-label — "Сменить язык" на русском', async () => {
     await i18n.changeLanguage('ru');
     render(<LanguageSwitcher />);
-    expect(screen.getByRole('combobox', { name: 'Сменить язык' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Сменить язык' })).toBeTruthy();
   });
 
-  it('переключает на русский при выборе РУ', async () => {
+  it('показывает все три опции', async () => {
+    await i18n.changeLanguage('en');
+    render(<LanguageSwitcher />);
+    expect(screen.getByRole('menuitem', { name: 'EN' })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: 'РУ' })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: 'CG' })).toBeTruthy();
+  });
+
+  it('активный язык имеет aria-current="true"', async () => {
+    await i18n.changeLanguage('ru');
+    render(<LanguageSwitcher />);
+    expect(screen.getByRole('menuitem', { name: 'РУ' }).getAttribute('aria-current')).toBe('true');
+    expect(screen.getByRole('menuitem', { name: 'EN' }).getAttribute('aria-current')).toBeNull();
+  });
+
+  it('переключает на русский при клике РУ', async () => {
     await i18n.changeLanguage('en');
     render(<LanguageSwitcher />);
     await act(async () => {
-      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'ru' } });
+      fireEvent.click(screen.getByRole('menuitem', { name: 'РУ' }));
     });
     await waitFor(() => expect(i18n.language).toBe('ru'));
   });
 
-  it('переключает на sr-Latn при выборе CG', async () => {
+  it('переключает на sr-Latn при клике CG', async () => {
     await i18n.changeLanguage('en');
     render(<LanguageSwitcher />);
     await act(async () => {
-      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'sr-Latn' } });
+      fireEvent.click(screen.getByRole('menuitem', { name: 'CG' }));
     });
     await waitFor(() => expect(i18n.language).toBe('sr-Latn'));
   });
@@ -69,7 +110,7 @@ describe('LanguageSwitcher', () => {
     await i18n.changeLanguage('sr-Latn');
     render(<LanguageSwitcher />);
     await act(async () => {
-      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'en' } });
+      fireEvent.click(screen.getByRole('menuitem', { name: 'EN' }));
     });
     await waitFor(() => expect(i18n.language).toBe('en'));
   });
