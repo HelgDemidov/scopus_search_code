@@ -47,7 +47,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; connect-src 'self' https://scopus-search-code.up.railway.app https://va.vercel-scripts.com https://vitals.vercel-insights.com; img-src 'self' data:; font-src 'self' data: https://fonts.gstatic.com; frame-ancestors 'none'"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; connect-src 'self' https://scopus-search-code.up.railway.app https://va.vercel-scripts.com https://vitals.vercel-insights.com https://www.google-analytics.com https://www.googletagmanager.com; img-src 'self' data:; font-src 'self' data: https://fonts.gstatic.com; frame-ancestors 'none'"
         }
       ]
     }

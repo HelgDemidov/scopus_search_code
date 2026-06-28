@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { lazy, Suspense, useEffect } from 'react';
-import { RouterProvider, createBrowserRouter, Outlet as RouterOutlet } from 'react-router-dom';
+import { RouterProvider, createBrowserRouter, Outlet as RouterOutlet, useLocation } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { useTranslation } from 'react-i18next';
@@ -59,8 +59,17 @@ function lazyPage(factory: () => Promise<{ default: React.ComponentType }>) {
   );
 }
 
-// Общий шаблон страницы: Header сверху + содержимое через Outlet
+// Общий шаблон страницы: Header сверху + содержимое через Outlet.
+// useLocation доступен здесь, т.к. RootLayout рендерится внутри RouterProvider.
 function RootLayout() {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (typeof window.gtag === 'function') {
+      window.gtag('event', 'page_view', { page_path: location.pathname + location.search });
+    }
+  }, [location]);
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Header />

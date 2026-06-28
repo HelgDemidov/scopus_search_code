@@ -23,6 +23,15 @@
     <meta name="twitter:title" content="Scopus Research Search" />
     <meta name="twitter:description" content="AI research publications from Scopus, curated and searchable" />
 
+    <!-- Google Analytics 4: send_page_view:false — React управляет page views через RootLayout -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=%VITE_GA_MEASUREMENT_ID%"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', '%VITE_GA_MEASUREMENT_ID%', { send_page_view: false });
+    </script>
+
     <!-- Google Fonts: Plus Jakarta Sans (body/UI) + Instrument Serif (display/hero) -->
     <!-- §7.2.3: типографика проекта -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
