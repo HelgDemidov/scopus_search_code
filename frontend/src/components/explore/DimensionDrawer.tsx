@@ -31,6 +31,7 @@ import {
   translateDataLabel,
 } from '../../constants/labelTranslations';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { useTheme } from '../../hooks/useTheme';
 import type { Dimension } from '../charts/chartColors';
 import type { LabelCount, StatsResponse } from '../../types/api';
 import type { TFunction } from 'i18next';
@@ -187,9 +188,12 @@ function DrawerAreaChart({ data, height }: { data: LabelCount[]; height: number 
 }
 
 function DrawerOAChart({ data, height }: { data: LabelCount[]; height: number }) {
+  const { theme } = useTheme();
   const oaColor = DIMENSION_COLORS.open_access.base;
   const total = data.reduce((s, d) => s + d.count, 0);
   const oaPct = total > 0 ? ((data[0]?.count ?? 0) / total * 100).toFixed(1) : '0.0';
+  const valueFill = theme === 'dark' ? '#f1f5f9' : '#0f172a';
+  const labelFill  = theme === 'dark' ? '#94a3b8' : '#64748b';
 
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -209,10 +213,10 @@ function DrawerOAChart({ data, height }: { data: LabelCount[]; height: number })
           <Cell fill={oaColor} />
           <Cell fill={CLOSED_COLOR} />
         </Pie>
-        <text x="50%" y="44%" textAnchor="middle" dominantBaseline="middle" fontSize={24} fontWeight={700} fill="#0f172a">
+        <text x="50%" y="44%" textAnchor="middle" dominantBaseline="middle" fontSize={24} fontWeight={700} fill={valueFill}>
           {oaPct}%
         </text>
-        <text x="50%" y="53%" textAnchor="middle" dominantBaseline="middle" fontSize={11} fill="#64748b">
+        <text x="50%" y="53%" textAnchor="middle" dominantBaseline="middle" fontSize={11} fill={labelFill}>
           Open Access
         </text>
         <Tooltip content={(p) => <ChartTooltip {...p} dimension="open_access" />} />
