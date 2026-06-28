@@ -61,19 +61,19 @@ function generateStars(w: number, h: number): Star[] {
 
     let twinkleSpeedMult: number;
     if (r < 0.6) {
-      baseBrightness = 0.10 + Math.random() * 0.12; // 0.10–0.22
+      baseBrightness = 0.085 + Math.random() * 0.102; // 0.085–0.187 (−15% от 0.10–0.22)
       twinkles = false;
       twinkleSpeedMult = 1.0;
       radius = 0.7;
     } else if (r < 0.9) {
-      baseBrightness = 0.28 + Math.random() * 0.22; // 0.28–0.50
+      baseBrightness = 0.238 + Math.random() * 0.187; // 0.238–0.425 (−15% от 0.28–0.50)
       twinkles = true;
       twinkleSpeedMult = 1.0;
       radius = 0.9;
     } else {
-      baseBrightness = 0.55 + Math.random() * 0.13; // 0.55–0.68 (максимум снижен на 15%)
+      baseBrightness = 0.398 + Math.random() * 0.093; // 0.398–0.491 (−15% от 0.468–0.578)
       twinkles = true;
-      twinkleSpeedMult = 2.5;                        // цикл мерцания в 2.5x быстрее Tier 2
+      twinkleSpeedMult = 2.5;                          // цикл мерцания в 2.5x быстрее Tier 2
       radius = 1.2;
     }
 
