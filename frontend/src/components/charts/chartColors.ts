@@ -91,7 +91,7 @@ export function formatCount(n: number): string {
 export function formatAxisTick(v: number, lang: string): string {
   if (v >= 1000) {
     return lang === 'ru'
-      ? `${(v / 1000).toFixed(0)} тыс.`
+      ? `${(v / 1000).toFixed(0)} тыс.`
       : `${(v / 1000).toFixed(0)}k`;
   }
   return String(v);
