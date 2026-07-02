@@ -10,6 +10,7 @@ on:
       - feat/dark-mode
       - russian-UI
       - montenegro-ui
+      - feat/explore-charts-refactor
 
   pull_request:
     branches:
