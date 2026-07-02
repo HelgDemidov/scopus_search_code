@@ -255,15 +255,26 @@ export function getRankedBarColor(
 
 ## 11. Фазы реализации (чек-лист для последующих итераций в этой ветке)
 
-- [ ] Фаза 1 — скрыть 6 стационарных чартов в collection mode (`ExplorePage.tsx`)
-- [ ] Фаза 2 — `sheet.tsx`: убрать конфликтующие размерные data-side классы (этап 2.2) + эмпирическая проверка `getComputedStyle` в обоих viewport
-- [ ] Фаза 3 — `DimensionDrawer.tsx`: ширина `lg:max-w-3xl`, раздельные scroll-контейнеры chart/table + `min-h-0` (этапы 3–4)
-- [ ] Фаза 4 — theme-aware `AXIS_COLORS` + прогон по всем chart-компонентам (этап 5)
-- [ ] Фаза 5 — снижение TOP_N до 15 для country/journal/author в drawer (этап 6)
-- [ ] Фаза 6 — `doc_type` → donut в drawer (этап 7)
-- [ ] Фаза 7 — `getRankedBarColor` + применение в `DrawerBarChart` (этап 8)
-- [ ] Фаза 8 — визуальное ревью в браузере (light/dark, desktop/mobile) через Chrome DevTools MCP, скриншоты обеих тем
-- [ ] Фаза 9 — полный прогон `npm run test` + `npm run lint` + `npm run build`
+- [x] Фаза 1 — скрыть 6 стационарных чартов в collection mode (`ExplorePage.tsx`)
+- [x] Фаза 2 — `sheet.tsx`: убрать конфликтующие размерные data-side классы (этап 2.2) + эмпирическая проверка `getComputedStyle` в обоих viewport
+- [x] Фаза 3 — `DimensionDrawer.tsx`: ширина `lg:max-w-3xl`, раздельные scroll-контейнеры chart/table + `min-h-0` (этапы 3–4)
+- [x] Фаза 4 — theme-aware `AXIS_COLORS` + прогон по всем chart-компонентам drawer'а (этап 5)
+- [x] Фаза 5 — снижение TOP_N до 15 для country/journal/author в drawer (этап 6)
+- [x] Фаза 6 — `doc_type` → donut в drawer (этап 7)
+- [x] Фаза 7 — цвет сегментов: `getRankedBarColor` в `DrawerBarChart`/`DrawerOAChart`; для `doc_type` — **не** ranked-fade, а качественная палитра `TAXONOMY_PALETTE`/`getTaxonomyColor` (этап 8, см. правку ниже)
+- [x] Фаза 8 — визуальное ревью в браузере (light/dark, desktop/mobile) через Chrome DevTools MCP на реальных production-данных (118,868 статей, 150 стран, 12 типов документов)
+- [x] Фаза 9 — полный прогон `npm run test` (397/397) + `npm run lint` + `npx tsc --noEmit` + `npm run build`
+
+### Правка по итогам визуального ревью (2026-07-02)
+
+Визуальная проверка на живых данных выявила, что ranked-fade (этап 8, как задумано изначально) **не подходит для donut-чарта** `doc_type`: смежные дуги одного круга с близкими по яркости вариациями одного фиолетового визуально сливались в одно пятно — 4 крупных сегмента разного веса (71.6% / 20.2% / 6.0% / 1.3%) читались одинаково фиолетовыми. Для горизонтальных ранжированных списков (country/journal/author) тот же приём работает корректно — там ранги читаются построчно, соседние оттенки различимы.
+
+**Решение:** для `doc_type` введена отдельная качественная палитра `TAXONOMY_PALETTE` (12 цветов Tailwind-600, один и тот же набор для обеих тем — chartColors.ts) вместо затухания одного оттенка. `getRankedBarColor` осталась в силе для country/journal/author.
+
+Заодно исправлены два сопутствующих бага в `ChartTooltip.tsx`, вскрывшихся тем же ревью:
+1. Цветная точка в тултипе была жёстко привязана к `DIMENSION_COLORS[dim].base` — с появлением per-сегмента цветов (ranked-fade и палитра) она перестала совпадать с реально закрашенным элементом под курсором (включая давно существующий, но малозаметный баг в `DrawerOAChart` — точка для "Закрытый доступ" показывала teal вместо серого). Исправлено: каждый компонент кладёт вычисленный `color` прямо в данные, `ChartTooltip` читает `payload[0].payload.color` в приоритете.
+2. Pie/Donut не передаёт Cartesian `label` — имя сегмента терялось. Исправлено: fallback на `payload[0].name`.
+3. Универсальная подпись значения (`explore.tableColArticles`, EN/RU/sr-Latn) переименована "Articles/Статей/Članaka" → "Publications/Публикаций/Publikacija" — старое значение создавало тавтологию для сегмента "Статья" ("Статья: Статей: …") и было неточным для остальных типов документов (конференции, главы книг и т.д.).
 
 ---
 

@@ -33,12 +33,10 @@ const DocumentTypesChart = lazy(() =>
 const TopJournalsChart = lazy(() =>
   import('../components/charts/TopJournalsChart').then(m => ({ default: m.TopJournalsChart }))
 );
-const OpenAccessChart = lazy(() =>
-  import('../components/charts/OpenAccessChart').then(m => ({ default: m.OpenAccessChart }))
-);
-const TopAuthorsChart = lazy(() =>
-  import('../components/charts/TopAuthorsChart').then(m => ({ default: m.TopAuthorsChart }))
-);
+// OpenAccessChart/TopAuthorsChart: стационарные варианты отключены в collection mode
+// (см. docs/explore-charts-refactor/spec.md §1) — компоненты остаются в репозитории,
+// используются только их drawer-эквиваленты (DimensionDrawer). Personal mode их не использует,
+// поэтому здесь больше не импортируются.
 
 // ---------------------------------------------------------------------------
 // Skeleton-заглушки
@@ -89,13 +87,12 @@ function ChartErrorFallback() {
 
 export default function ExplorePage() {
   const { t } = useTranslation();
-  const { stats, isLoading, fetchStats } = useStatsStore();
+  const { fetchStats } = useStatsStore();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const {
     activeSelection,
     builderCards,
     removeBuilderCard,
-    filteredStats,
     fetchFilteredStats,
     clearFilteredStats,
   } = useDashboardStore();
@@ -193,52 +190,9 @@ export default function ExplorePage() {
                 {/* Активный фильтр — появляется между KpiRow и графиками */}
                 <ActiveFilterBanner />
 
-                {/* Данные графиков: filteredStats при активном фильтре, иначе глобальная stats */}
-                {(() => {
-                  const displayStats = filteredStats ?? stats;
-                  // Fallback по полю: top_authors может быть пустым при фильтрации по стране
-                  // (автор привязан к статье, не к аффилиации) — показываем глобальные данные
-                  const topAuthorsData =
-                    displayStats?.top_authors?.length
-                      ? displayStats.top_authors
-                      : stats?.top_authors ?? [];
-                  return (
-                    <>
-                      {/* Pinned: Publications by Year — полная ширина */}
-                      <PublicationsByYearChart
-                        data={displayStats?.by_year ?? []}
-                        isLoading={isLoading}
-                      />
-
-                      {/* 2×2 grid: Countries, Doc Types, Journals, Open Access */}
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <TopCountriesChart
-                          data={displayStats?.by_country ?? []}
-                          isLoading={isLoading}
-                        />
-                        <DocumentTypesChart
-                          data={displayStats?.by_doc_type ?? []}
-                          isLoading={isLoading}
-                        />
-                        <TopJournalsChart
-                          data={displayStats?.by_journal ?? []}
-                          isLoading={isLoading}
-                        />
-                        <OpenAccessChart
-                          totalArticles={displayStats?.total_articles ?? 0}
-                          openAccessCount={displayStats?.open_access_count ?? 0}
-                          isLoading={isLoading}
-                        />
-                      </div>
-
-                      {/* Top Authors — fallback на глобальные данные если filtered пустой */}
-                      <TopAuthorsChart
-                        data={topAuthorsData}
-                        isLoading={isLoading}
-                      />
-                    </>
-                  );
-                })()}
+                {/* 6 стационарных чартов отключены здесь (дублировали KpiRow → DimensionDrawer,
+                    см. docs/explore-charts-refactor/spec.md §0–1). Компоненты не удалены —
+                    только их рендер в collection mode. */}
 
                 {/* Пользовательские чарты из Chart Builder */}
                 {builderCards.length > 0 && (

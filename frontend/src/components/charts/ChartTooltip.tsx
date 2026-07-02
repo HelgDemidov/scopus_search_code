@@ -37,10 +37,21 @@ export function ChartTooltip({
   const effectiveLabel = valueLabel ?? t('explore.tableColArticles');
   if (!active || !payload?.length) return null;
 
-  const accentColor = dimension ? DIMENSION_COLORS[dimension].base : payload[0]?.color;
+  // Приоритет цвета: реальная заливка сегмента (кладём её в сами данные —
+  // см. DrawerBarChart/DrawerDocTypeChart), иначе — статичный base измерения,
+  // иначе — то, что сообщает сам Recharts. Нужен именно этот порядок:
+  // после ranked-затухания (этап 8) и качественной палитры doc_type все
+  // сегменты одного графика перестали быть одного плоского цвета, поэтому
+  // фиксированный dimension.base для точки в тултипе больше не годится —
+  // она обязана совпадать с реально закрашенным сегментом/баром под курсором.
+  const entryColor = (payload[0]?.payload as { color?: string } | undefined)?.color;
+  const accentColor = entryColor ?? (dimension ? DIMENSION_COLORS[dimension].base : payload[0]?.color);
   const rawValue = payload[0]?.value;
   const value = typeof rawValue === 'number' ? rawValue : Number(rawValue);
-  const displayLabel = translateTooltipLabel(String(label ?? ''), dimension, i18n.language) || label;
+  // Pie/Donut не передают Cartesian-label — там имя категории приходит через
+  // nameKey в payload[0].name, а не в аргументе label (тот остаётся пустым).
+  const rawLabel = (label !== undefined && label !== '') ? String(label) : String(payload[0]?.name ?? '');
+  const displayLabel = translateTooltipLabel(rawLabel, dimension, i18n.language) || rawLabel;
 
   return (
     <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#152236] px-3 py-2 shadow-lg text-sm">
