@@ -61,6 +61,18 @@ interface DrawerConfig {
 // docs/explore-charts-refactor/spec.md §6). doc_type — закрытая таксономия, не режем.
 const TOP_N_RANKED = 15;
 
+// Правый край жёстко зафиксирован на 2030 (не от данных): реальный max(year) в БД
+// технически доходит до 2074, но это одиночные мусорные строки (ошибки метаданных
+// Scopus, см. spec.md §14 п.6) — фиксация естественно отсекает их и из таблицы, и из
+// графика (используется ниже и в getConfig, и в DrawerAreaChart).
+const YEAR_HARD_MAX = 2030;
+// Левый край по умолчанию; растягивается пользователем через слайдер вплоть до
+// фактического минимального года в данных (сейчас 1965 — не хардкодим, чтобы не
+// терять актуальность при появлении более ранних статей).
+const YEAR_DEFAULT_MIN = 2010;
+// Минимальное окно выборки (слайдер не даёт сжать диапазон сильнее).
+const YEAR_MIN_WINDOW = 2;
+
 function getConfig(
   dim: Dimension,
   stats: StatsResponse | null,
@@ -75,9 +87,15 @@ function getConfig(
 
   switch (dim) {
     case 'year':
+      // Таблица и график (через zeroFillYears) используют один и тот же массив:
+      // мусорные годы за пределами YEAR_HARD_MAX отфильтрованы здесь один раз,
+      // строки отсортированы по убыванию — 2030 первой строкой (post-prod фикс
+      // 2026-07-02, п.1-2).
       return {
         title: t('explore.dimensions.year'),
-        data: [...stats.by_year].sort((a, b) => Number(a.label) - Number(b.label)),
+        data: [...stats.by_year]
+          .filter((d) => Number(d.label) <= YEAR_HARD_MAX)
+          .sort((a, b) => Number(b.label) - Number(a.label)),
         chartHeight: 280,
       };
     case 'country': {
@@ -250,17 +268,6 @@ function DrawerCountryChart({ data, height }: { data: LabelCount[]; height: numb
   );
 }
 
-// Правый край жёстко зафиксирован на 2030 (не от данных): реальный max(year) в БД
-// технически доходит до 2074, но это одиночные мусорные строки (ошибки метаданных
-// Scopus, см. spec.md §14 п.6) — фиксация естественно отсекает их визуально.
-const YEAR_HARD_MAX = 2030;
-// Левый край по умолчанию; растягивается пользователем через слайдер вплоть до
-// фактического минимального года в данных (сейчас 1965 — не хардкодим, чтобы не
-// терять актуальность при появлении более ранних статей).
-const YEAR_DEFAULT_MIN = 2010;
-// Минимальное окно выборки (слайдер не даёт сжать диапазон сильнее).
-const YEAR_MIN_WINDOW = 2;
-
 function DrawerAreaChart({ data, height }: { data: LabelCount[]; height: number }) {
   const { i18n } = useTranslation();
   const { theme } = useTheme();
@@ -330,7 +337,7 @@ function DrawerAreaChart({ data, height }: { data: LabelCount[]; height: number 
   );
 }
 
-function DrawerOAChart({ data, height }: { data: LabelCount[]; height: number }) {
+function DrawerOAChart({ data }: { data: LabelCount[] }) {
   const { theme } = useTheme();
   const oaColor = DIMENSION_COLORS.open_access.base;
   // color в данных — чтобы ChartTooltip показывал правильную точку для сегмента
@@ -342,7 +349,7 @@ function DrawerOAChart({ data, height }: { data: LabelCount[]; height: number })
   const labelFill  = theme === 'dark' ? '#94a3b8' : '#0f172a';
 
   return (
-    <ResponsiveContainer width="100%" height={height}>
+    <ResponsiveContainer width="100%" height="100%">
       <PieChart>
         <Pie
           data={colored}
@@ -383,7 +390,7 @@ function DrawerOAChart({ data, height }: { data: LabelCount[]; height: number })
 // Легенда намеренно опущена: при 12 категориях многострочная легенда под
 // donut'ом создаёт визуальный шум и отъедает высоту — DrawerTable ниже уже
 // даёт точное сопоставление цвет/label/доля.
-function DrawerDocTypeChart({ data, height }: { data: LabelCount[]; height: number }) {
+function DrawerDocTypeChart({ data }: { data: LabelCount[] }) {
   const { theme } = useTheme();
   // color в данных — ChartTooltip берёт его из payload[0].payload.color, иначе
   // точка в тултипе была бы одного фиксированного dimension.base для всех 12
@@ -395,7 +402,7 @@ function DrawerDocTypeChart({ data, height }: { data: LabelCount[]; height: numb
   const labelFill  = theme === 'dark' ? '#94a3b8' : '#0f172a';
 
   return (
-    <ResponsiveContainer width="100%" height={height}>
+    <ResponsiveContainer width="100%" height="100%">
       <PieChart>
         <Pie
           data={colored}
@@ -481,8 +488,13 @@ export function DimensionDrawer() {
   const isOpen = drawerDimension !== null;
   const config = drawerDimension ? getConfig(drawerDimension, stats, t, i18n.language) : null;
   const colors = drawerDimension ? DIMENSION_COLORS[drawerDimension] : null;
+  // Donut-графики (open_access/doc_type) занимают фиксированную долю высоты вкладки
+  // (60% график+подписи / 40% таблица, post-prod фикс 2026-07-02 п.3) вместо
+  // content-based высоты в пикселях — см. блок рендера ниже.
+  const isDonut = config?.isSpecial === 'open_access' || config?.isSpecial === 'doc_type';
 
-  // На мобильных chart height ограничен чтобы не выходить за 85dvh
+  // На мобильных chart height ограничен чтобы не выходить за 85dvh (не используется
+  // для donut-графиков — там высота задаётся flex-basis, а не пикселями).
   const chartHeight = config
     ? (isMobile ? Math.min(config.chartHeight, 280) : config.chartHeight)
     : 0;
@@ -516,37 +528,59 @@ export function DimensionDrawer() {
               </SheetTitle>
             </SheetHeader>
 
-            {/* Chart закреплён (flex-shrink-0), таблица получает весь остаток высоты
-                и скроллится независимо — min-h-0 обязателен на обоих flex-1 блоках,
-                иначе flex-item не сжимается меньше своего контента и overflow-y-auto
-                ничего не скроллит (см. docs/explore-charts-refactor/spec.md §4). */}
+            {/* Donut-графики (open_access/doc_type): фиксированное соотношение
+                60% график+подписи / 40% таблица (basis-3/5 / basis-2/5 — оба со
+                shrink по умолчанию и min-h-0, чтобы таблица скроллилась, если её
+                контент всё же не влезает в отведённые 40%). Остальные измерения —
+                прежнее поведение: chart закреплён по контенту (flex-shrink-0),
+                таблица получает весь остаток высоты (flex-1). min-h-0 обязателен
+                на растягивающихся блоках — иначе flex-item не сжимается меньше
+                своего контента и overflow-y-auto ничего не скроллит (см.
+                docs/explore-charts-refactor/spec.md §4, §14 п.3). */}
             <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-              <div className="flex-shrink-0 px-6 pt-6">
-                {config.isSpecial === 'open_access' ? (
-                  <DrawerOAChart data={config.data} height={chartHeight} />
-                ) : config.isSpecial === 'doc_type' ? (
-                  <DrawerDocTypeChart data={config.data} height={chartHeight} />
-                ) : drawerDimension === 'year' ? (
-                  <DrawerAreaChart data={config.data} height={chartHeight} />
-                ) : drawerDimension === 'country' ? (
-                  <DrawerCountryChart data={config.data} height={chartHeight} />
-                ) : (
-                  <DrawerBarChart
-                    dim={drawerDimension}
-                    data={config.data}
-                    height={chartHeight}
-                    yAxisWidth={config.yAxisWidth}
-                    labelMaxLen={config.labelMaxLen}
-                  />
-                )}
-              </div>
+              {isDonut ? (
+                <>
+                  <div className="basis-3/5 min-h-0 overflow-hidden px-6 pt-6">
+                    {config.isSpecial === 'open_access' ? (
+                      <DrawerOAChart data={config.data} />
+                    ) : (
+                      <DrawerDocTypeChart data={config.data} />
+                    )}
+                  </div>
 
-              <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 pt-6">
-                <DrawerTable
-                  data={config.data}
-                  totalArticles={stats?.total_articles ?? 0}
-                />
-              </div>
+                  <div className="basis-2/5 min-h-0 overflow-y-auto px-6 pb-6 pt-6">
+                    <DrawerTable
+                      data={config.data}
+                      totalArticles={stats?.total_articles ?? 0}
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex-shrink-0 px-6 pt-6">
+                    {drawerDimension === 'year' ? (
+                      <DrawerAreaChart data={config.data} height={chartHeight} />
+                    ) : drawerDimension === 'country' ? (
+                      <DrawerCountryChart data={config.data} height={chartHeight} />
+                    ) : (
+                      <DrawerBarChart
+                        dim={drawerDimension}
+                        data={config.data}
+                        height={chartHeight}
+                        yAxisWidth={config.yAxisWidth}
+                        labelMaxLen={config.labelMaxLen}
+                      />
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 pt-6">
+                    <DrawerTable
+                      data={config.data}
+                      totalArticles={stats?.total_articles ?? 0}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           </>
         )}
