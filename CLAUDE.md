@@ -25,6 +25,18 @@ rg "pattern" app/                    # ripgrep — не grep; -t py для .py; 
 ```
 Frontend: `cd frontend && npm run test / lint / build`
 
+## MCP-серверы (Claude Code, user-scope, `claude mcp list`)
+Базовые: `github`, `supabase`, `railway`, `claude.ai Vercel`, `sequential-thinking`, `memory`.
+Добавлены 2026-07-02:
+- `context7` (`@upstash/context7-mcp`) — актуальная документация быстро меняющихся зависимостей (SQLAlchemy 2.x async, Pydantic v2, FastAPI, shadcn/ui, Vite) вместо устаревших знаний из обучения
+- `chrome-devtools` (`chrome-devtools-mcp`) — вождение/дебаг настоящего Chrome для фронтенд-QA (performance-трейсы, Core Web Vitals, network/console); по умолчанию поднимает отдельный профиль Chrome, к уже открытому окну можно подключиться через `--browserUrl` (Chrome с `--remote-debugging-port`)
+- `upstash` (`@upstash/mcp-server`, нужен account-level API key, отдельный от `UPSTASH_REDIS_REST_TOKEN`) — управление базой `scopus-cache` напрямую (бэкапы, статистика, raw Redis-команды)
+
+## Permissions allowlist (`.claude/settings.json`, добавлено 2026-07-02)
+Project-scope, коммитится в репо (не путать с личным `.claude/settings.local.json`, который менять этим списком не нужно).
+Read-only allowlist: `uv run ruff check *`, `uv run mypy *`, `uv run pytest -m "not requires_pg"`, `cd frontend && npm run test/lint/build`.
+`rg` и `git status` туда не добавлялись — уже в базовом auto-allow Claude Code. `uv run pytest -m requires_pg` намеренно не в allowlist — делает `drop_all` на PG-контейнере, не read-only.
+
 ## Python conventions
 - Python 3.12; ruff E,F,I; line-length=115; target-version=py312; alembic/ excluded в pyproject.toml
 - Code comments in Russian, use е (not ё); Pydantic v2 validators; SQLAlchemy 2.x async with `session.begin()`
