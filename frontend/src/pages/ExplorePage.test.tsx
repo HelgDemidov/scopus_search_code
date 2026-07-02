@@ -7,7 +7,7 @@
  * только взаимодействие страницы с dashboardStore.
  */
 
-import { render, act } from '@testing-library/react';
+import { render, act, screen } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import ExplorePage from './ExplorePage';
 import type { ActiveSelection } from '../stores/dashboardStore';
@@ -22,6 +22,10 @@ const {
   mockFetchStats,
   mockFetchHistory,
   getDashboardState,
+  getIsAuthenticated,
+  setIsAuthenticated,
+  getUrlMode,
+  setUrlMode,
 } = vi.hoisted(() => {
   const mockClearFilteredStats = vi.fn();
   const mockFetchFilteredStats = vi.fn().mockResolvedValue(undefined);
@@ -29,6 +33,8 @@ const {
   const mockFetchHistory = vi.fn().mockResolvedValue(undefined);
 
   let activeSelection: ActiveSelection | null = null;
+  let isAuthenticated = false;
+  let urlMode: string | null = null;
 
   function getDashboardState() {
     return {
@@ -48,7 +54,17 @@ const {
   (getDashboardState as { setActiveSelection?: (v: ActiveSelection | null) => void }).setActiveSelection =
     (v: ActiveSelection | null) => { activeSelection = v; };
 
-  return { mockClearFilteredStats, mockFetchFilteredStats, mockFetchStats, mockFetchHistory, getDashboardState };
+  return {
+    mockClearFilteredStats,
+    mockFetchFilteredStats,
+    mockFetchStats,
+    mockFetchHistory,
+    getDashboardState,
+    getIsAuthenticated: () => isAuthenticated,
+    setIsAuthenticated: (v: boolean) => { isAuthenticated = v; },
+    getUrlMode: () => urlMode,
+    setUrlMode: (v: string | null) => { urlMode = v; },
+  };
 });
 
 // ---------------------------------------------------------------------------
@@ -71,7 +87,7 @@ vi.mock('../stores/statsStore', () => ({
 
 vi.mock('../stores/authStore', () => ({
   useAuthStore: (selector: (s: { isAuthenticated: boolean }) => unknown) =>
-    selector({ isAuthenticated: false }),
+    selector({ isAuthenticated: getIsAuthenticated() }),
 }));
 
 vi.mock('../stores/historyStore', () => ({
@@ -86,7 +102,12 @@ vi.mock('../stores/historyStore', () => ({
 }));
 
 vi.mock('react-router-dom', () => ({
-  useSearchParams: () => [new URLSearchParams(), vi.fn()],
+  useSearchParams: () => {
+    const params = new URLSearchParams();
+    const mode = getUrlMode();
+    if (mode) params.set('mode', mode);
+    return [params, vi.fn()];
+  },
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => <a href={to}>{children}</a>,
 }));
 
@@ -101,19 +122,23 @@ vi.mock('../components/ui/ErrorBoundary', () => ({
   ErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
-// Заглушки explore-компонентов
+// Заглушки explore-компонентов — рендерят testid-маркер (а не null), чтобы
+// тесты ниже могли утверждать их присутствие/отсутствие в DOM
 vi.mock('../components/explore/KpiRow', () => ({ KpiRow: () => <div data-testid="kpi-row" /> }));
-vi.mock('../components/explore/DimensionDrawer', () => ({ DimensionDrawer: () => null }));
+vi.mock('../components/explore/DimensionDrawer', () => ({ DimensionDrawer: () => <div data-testid="dimension-drawer" /> }));
 vi.mock('../components/explore/ActiveFilterBanner', () => ({ ActiveFilterBanner: () => null }));
 vi.mock('../components/explore/ChartBuilderPanel', () => ({ ChartBuilderPanel: () => null }));
 
-// Заглушки lazy-загружаемых chart-компонентов
-vi.mock('../components/charts/PublicationsByYearChart', () => ({ PublicationsByYearChart: () => null }));
-vi.mock('../components/charts/TopCountriesChart', () => ({ TopCountriesChart: () => null }));
-vi.mock('../components/charts/DocumentTypesChart', () => ({ DocumentTypesChart: () => null }));
-vi.mock('../components/charts/TopJournalsChart', () => ({ TopJournalsChart: () => null }));
-vi.mock('../components/charts/OpenAccessChart', () => ({ OpenAccessChart: () => null }));
-vi.mock('../components/charts/TopAuthorsChart', () => ({ TopAuthorsChart: () => null }));
+// Заглушки lazy-загружаемых chart-компонентов — тоже testid-маркеры:
+// используются, чтобы проверить, что 6 стационарных чартов больше не
+// рендерятся в collection mode (docs/explore-charts-refactor/spec.md §1),
+// но 4 из них по-прежнему рендерятся в personal mode.
+vi.mock('../components/charts/PublicationsByYearChart', () => ({ PublicationsByYearChart: () => <div data-testid="chart-year" /> }));
+vi.mock('../components/charts/TopCountriesChart', () => ({ TopCountriesChart: () => <div data-testid="chart-country" /> }));
+vi.mock('../components/charts/DocumentTypesChart', () => ({ DocumentTypesChart: () => <div data-testid="chart-doctype" /> }));
+vi.mock('../components/charts/TopJournalsChart', () => ({ TopJournalsChart: () => <div data-testid="chart-journal" /> }));
+vi.mock('../components/charts/OpenAccessChart', () => ({ OpenAccessChart: () => <div data-testid="chart-oa" /> }));
+vi.mock('../components/charts/TopAuthorsChart', () => ({ TopAuthorsChart: () => <div data-testid="chart-authors" /> }));
 vi.mock('../components/charts/DynamicChart', () => ({ DynamicChart: () => null }));
 
 // ---------------------------------------------------------------------------
@@ -122,9 +147,11 @@ vi.mock('../components/charts/DynamicChart', () => ({ DynamicChart: () => null }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Сбрасываем activeSelection в null перед каждым тестом
+  // Сбрасываем activeSelection/auth/URL-mode перед каждым тестом
   (getDashboardState as { setActiveSelection?: (v: ActiveSelection | null) => void })
     .setActiveSelection?.(null);
+  setIsAuthenticated(false);
+  setUrlMode(null);
 });
 
 // ---------------------------------------------------------------------------
@@ -154,5 +181,75 @@ describe('ExplorePage — cross-filter V2 useEffect', () => {
     expect(mockFetchFilteredStats).toHaveBeenCalledOnce();
     expect(mockFetchFilteredStats).toHaveBeenCalledWith(sel);
     expect(mockClearFilteredStats).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Отключение 6 стационарных чартов в collection mode (spec.md §1)
+// ---------------------------------------------------------------------------
+
+describe('ExplorePage — collection mode: стационарные чарты отключены', () => {
+  it('ни один из 6 стационарных чартов не рендерится', async () => {
+    await act(async () => {
+      render(<ExplorePage />);
+    });
+
+    expect(screen.queryByTestId('chart-year')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('chart-country')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('chart-doctype')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('chart-journal')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('chart-oa')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('chart-authors')).not.toBeInTheDocument();
+  });
+
+  it('KpiRow и DimensionDrawer по-прежнему рендерятся — они единственный путь к деталям', async () => {
+    await act(async () => {
+      render(<ExplorePage />);
+    });
+
+    expect(screen.getByTestId('kpi-row')).toBeInTheDocument();
+    expect(screen.getByTestId('dimension-drawer')).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Personal mode не затронут рефакторингом (spec.md §1 — "не трогать")
+// ---------------------------------------------------------------------------
+
+describe('ExplorePage — personal mode не затронут', () => {
+  beforeEach(() => {
+    setIsAuthenticated(true);
+    setUrlMode('personal');
+  });
+
+  it('4 личных чарта рендерятся (year/country/doctype/journal)', async () => {
+    await act(async () => {
+      render(<ExplorePage />);
+    });
+
+    expect(await screen.findByTestId('chart-year')).toBeInTheDocument();
+    expect(await screen.findByTestId('chart-country')).toBeInTheDocument();
+    expect(await screen.findByTestId('chart-doctype')).toBeInTheDocument();
+    expect(await screen.findByTestId('chart-journal')).toBeInTheDocument();
+  });
+
+  it('OpenAccess и TopAuthors в personal mode не используются — их там никогда не было', async () => {
+    await act(async () => {
+      render(<ExplorePage />);
+    });
+    await screen.findByTestId('chart-year'); // дожидаемся, что Suspense резолвнулся
+
+    expect(screen.queryByTestId('chart-oa')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('chart-authors')).not.toBeInTheDocument();
+  });
+
+  it('KpiRow/DimensionDrawer не рендерятся в personal mode (нет cross-filter drawer для личной истории)', async () => {
+    await act(async () => {
+      render(<ExplorePage />);
+    });
+    await screen.findByTestId('chart-year');
+
+    expect(screen.queryByTestId('kpi-row')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('dimension-drawer')).not.toBeInTheDocument();
   });
 });

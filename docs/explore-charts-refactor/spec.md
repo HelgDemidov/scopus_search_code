@@ -241,15 +241,17 @@ export function getRankedBarColor(
 
 ## 10. Тестовое покрытие (ориентир для реализации)
 
-| Файл | Что проверить |
-|---|---|
-| `ExplorePage.test.tsx` | Стационарные 6 чартов не рендерятся в collection mode; personal mode — не затронут; KpiRow/DimensionDrawer по-прежнему рендерятся |
-| `sheet.tsx` (новый/расширенный тест или проверка через `DimensionDrawer`/`ArticleFilters` тесты) | computed `max-width`/`height` соответствуют классам, переданным потребителем — не зависят от `data-side` дефолтов |
-| `DimensionDrawer.test.tsx` (создать, если нет) | chart+table рендерятся в раздельных контейнерах; `doc_type` рендерит donut, не bar; ranked-color функция вызывается с правильными `index/total/theme` |
-| `chartColors.test.ts` | `getRankedBarColor` — граничные случаи (`total=1`, `index=0`, `index=total-1`), корректность интерполяции, различие light/dark target |
-| Существующие `TopCountriesChart.test.tsx`, `TopAuthorsChart.test.tsx` | не должны падать от смены статуса «стационарного» рендеринга (они тестируют компонент напрямую, не через `ExplorePage`) — ожидаемо не затронуты |
+| Файл | Что проверить | Статус |
+|---|---|---|
+| `ExplorePage.test.tsx` | Стационарные 6 чартов не рендерятся в collection mode; personal mode — не затронут; KpiRow/DimensionDrawer по-прежнему рендерятся | ✅ добавлено 2026-07-02 (5 новых тестов) |
+| `sheet.tsx` (новый/расширенный тест или проверка через `DimensionDrawer`/`ArticleFilters` тесты) | computed `max-width`/`height` соответствуют классам, переданным потребителем — не зависят от `data-side` дефолтов | ✅ добавлено 2026-07-02, но **не** через `getComputedStyle` (jsdom не подгружает Tailwind CSS, каскад не воспроизводим) — вместо этого `sheet.test.tsx` фиксирует инвариант на уровне className: базовый `SheetContent` не должен содержать конфликтующие size-утилиты (`data-[side=X]:w-*`/`h-full`/`h-auto`/`sm:max-w-*`) ни для одной стороны. Эффективность проверена вручную (временный откат фикса → 8/14 тестов падают) |
+| `DimensionDrawer.test.tsx` (создать, если нет) | chart+table рендерятся в раздельных контейнерах; `doc_type` рендерит donut, не bar; ranked-color функция вызывается с правильными `index/total/theme` | ✅ сделано в исходном PR |
+| `chartColors.test.ts` | `getRankedBarColor` — граничные случаи (`total=1`, `index=0`, `index=total-1`), корректность интерполяции, различие light/dark target | ✅ сделано в исходном PR (+ тесты на `TAXONOMY_PALETTE`/`getTaxonomyColor`, появившиеся по итогам визуального ревью) |
+| Существующие `TopCountriesChart.test.tsx`, `TopAuthorsChart.test.tsx` | не должны падать от смены статуса «стационарного» рендеринга (они тестируют компонент напрямую, не через `ExplorePage`) — ожидаемо не затронуты | ✅ подтверждено, файлы не менялись |
 
 Проверить `npm run test` (370 baseline) после каждого этапа, не одним большим прыжком в конце.
+
+**Итог на 2026-07-02:** 416/416 фронтенд-тестов (было 397 после исходного PR #42, +19: 5 в `ExplorePage.test.tsx`, 14 в новом `sheet.test.tsx`). Оба пробела из этой таблицы закрыты отдельным коммитом напрямую в `main` (без новой ветки, по решению пользователя — PR #42 уже смёрджен).
 
 ---
 
