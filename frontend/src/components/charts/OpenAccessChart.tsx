@@ -29,7 +29,7 @@ function DonutLabel({
   isDark: boolean;
 }) {
   const valueFill = isDark ? '#f1f5f9' : '#0f172a';
-  const labelFill = isDark ? '#94a3b8' : '#64748b';
+  const labelFill = isDark ? '#94a3b8' : '#0f172a';
   return (
     <g>
       <text x={cx} y={cy - 6} textAnchor="middle" fill={valueFill} fontSize={22} fontWeight={700}>

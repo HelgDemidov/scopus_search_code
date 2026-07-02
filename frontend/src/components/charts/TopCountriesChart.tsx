@@ -11,9 +11,10 @@ import {
 import { useTranslation } from 'react-i18next';
 import { ChartCard } from './ChartCard';
 import { ChartTooltip } from './ChartTooltip';
-import { DIMENSION_COLORS, truncateLabel, formatAxisTick } from './chartColors';
+import { DIMENSION_COLORS, AXIS_COLORS, truncateLabel, formatAxisTick } from './chartColors';
 import { getLabelMaps } from '../../constants/labelTranslations';
 import { useDashboardStore } from '../../stores/dashboardStore';
+import { useTheme } from '../../hooks/useTheme';
 import type { LabelCount } from '../../types/api';
 
 interface TopCountriesChartProps {
@@ -28,6 +29,8 @@ const TOP_N = 10;
 export function TopCountriesChart({ data, isLoading }: TopCountriesChartProps) {
   const { t, i18n } = useTranslation();
   const { activeSelection, filteredStats, setSelection, openDrawer } = useDashboardStore();
+  const { theme } = useTheme();
+  const axis = AXIS_COLORS[theme];
 
   const chartData = [...data]
     .sort((a, b) => b.count - a.count)
@@ -59,11 +62,11 @@ export function TopCountriesChart({ data, isLoading }: TopCountriesChartProps) {
           layout="vertical"
           margin={{ top: 0, right: 16, bottom: 0, left: 0 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke={axis.grid} horizontal={false} />
 
           <XAxis
             type="number"
-            tick={{ fontSize: 11, fill: '#94a3b8' }}
+            tick={{ fontSize: 11, fill: axis.tickMuted }}
             tickLine={false}
             axisLine={false}
             tickFormatter={(v: number) => formatAxisTick(v, i18n.language)}
@@ -73,7 +76,7 @@ export function TopCountriesChart({ data, isLoading }: TopCountriesChartProps) {
             type="category"
             dataKey="label"
             width={getLabelMaps(i18n.language) ? 120 : 96}
-            tick={{ fontSize: 11, fill: '#64748b' }}
+            tick={{ fontSize: 11, fill: axis.tick }}
             tickLine={false}
             axisLine={false}
             tickFormatter={(v: string) => getLabelMaps(i18n.language)?.country[v] ?? v}

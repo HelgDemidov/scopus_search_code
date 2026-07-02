@@ -152,7 +152,7 @@
   "explore": {
     "title": "Collection Analytics",
     "subtitlePersonal": "Statistics from your own live searches.",
-    "subtitleCollection": "AI & Neural Network Technologies — DOI-indexed articles only.",
+    "subtitleCollection": "AI & Neural Network Technologies — DOI-indexed articles only",
     "modeCollection": "Collection",
     "modePersonal": "My searches",
     "modeLabel": "Analytics mode",
@@ -190,7 +190,7 @@
     },
     "dimensions": {
       "year": "Publications by Year",
-      "country": "Countries",
+      "country": "Top Countries",
       "doc_type": "Document Types",
       "journal": "Top Journals",
       "open_access": "Open Access",

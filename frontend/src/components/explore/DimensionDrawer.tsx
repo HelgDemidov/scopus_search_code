@@ -1,3 +1,4 @@
+import { useState, useMemo } from 'react';
 import {
   AreaChart,
   Area,
@@ -22,6 +23,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '../ui/sheet';
+import { Slider } from '../ui/slider';
 import { ChartTooltip } from '../charts/ChartTooltip';
 import {
   DIMENSION_COLORS,
@@ -31,6 +33,8 @@ import {
   truncateLabel,
   getRankedBarColor,
   getTaxonomyColor,
+  getYearRangeBounds,
+  zeroFillYears,
 } from '../charts/chartColors';
 import { getLabelMaps } from '../../constants/labelTranslations';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
@@ -77,6 +81,9 @@ function getConfig(
         chartHeight: 280,
       };
     case 'country': {
+      // Таблица показывает топ-15 (как раньше); вертикальный чарт берёт только
+      // первые 10 из этого же массива локально в DrawerCountryChart — данные
+      // не режем здесь дважды (см. spec.md §14 п.4).
       const data = [...stats.by_country]
         .sort((a, b) => b.count - a.count)
         .slice(0, TOP_N_RANKED)
@@ -84,9 +91,9 @@ function getConfig(
       return {
         title: t('explore.dimensions.country'),
         data,
-        chartHeight: Math.max(360, data.length * 30),
-        yAxisWidth: maps ? 140 : 120,
-        labelMaxLen: 22,
+        // Фиксированная высота: в вертикальном layout она больше не зависит от
+        // числа категорий (было — data.length * 30 для горизонтальных баров).
+        chartHeight: 380,
       };
     }
     case 'doc_type':
@@ -188,33 +195,138 @@ function DrawerBarChart({ dim, data, height, yAxisWidth = 120, labelMaxLen = 24 
   );
 }
 
-function DrawerAreaChart({ data, height }: { data: LabelCount[]; height: number }) {
+// Вертикальный (колоночный) чарт специально для country — единственное из
+// country/journal/author измерений с достаточно короткими подписями категорий,
+// чтобы читаться под углом в колоночном layout (journal/author остаются
+// горизонтальными — их подписи существенно длиннее, см. spec.md §14 п.4).
+const TOP_N_COUNTRY_CHART = 10;
+
+function DrawerCountryChart({ data, height }: { data: LabelCount[]; height: number }) {
   const { i18n } = useTranslation();
   const { theme } = useTheme();
   const axis = AXIS_COLORS[theme];
-  const colors = DIMENSION_COLORS.year;
+  // Таблица (DrawerTable) получает полный `data` (топ-15) — здесь режем только
+  // локально для графика, не трогая переданный массив.
+  const chartData = data.slice(0, TOP_N_COUNTRY_CHART);
+  // Ranked-затухание теперь идёт слева направо (индекс = позиция колонки), а не
+  // сверху вниз — тот же getRankedBarColor, total = число КОЛОНОК на графике,
+  // а не полный размер данных таблицы.
+  const truncated = chartData.map((d, i) => ({
+    ...d,
+    label: truncateLabel(d.label, 20),
+    color: getRankedBarColor('country', i, chartData.length, theme),
+  }));
+
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <AreaChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}>
-        <defs>
-          <linearGradient id="drawerYearGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%"  stopColor={colors.base} stopOpacity={0.25} />
-            <stop offset="95%" stopColor={colors.base} stopOpacity={0} />
-          </linearGradient>
-        </defs>
+      <BarChart data={truncated} margin={{ top: 8, right: 8, bottom: 8, left: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={axis.grid} vertical={false} />
-        <XAxis dataKey="label" tick={{ fontSize: 12, fill: axis.tickMuted }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+        <XAxis
+          dataKey="label"
+          tick={{ fontSize: 11, fill: axis.tick }}
+          tickLine={false}
+          axisLine={false}
+          interval={0}
+          angle={-40}
+          textAnchor="end"
+          height={80}
+        />
         <YAxis
+          type="number"
           tick={{ fontSize: 12, fill: axis.tickMuted }}
           tickLine={false}
           axisLine={false}
           width={40}
           tickFormatter={(v: number) => formatAxisTick(v, i18n.language)}
         />
-        <Tooltip content={(p) => <ChartTooltip {...p} dimension="year" />} cursor={{ stroke: colors.base, strokeWidth: 1, strokeDasharray: '4 4' }} />
-        <Area type="monotone" dataKey="count" stroke={colors.base} strokeWidth={2} fill="url(#drawerYearGrad)" dot={false} activeDot={{ r: 4 }} />
-      </AreaChart>
+        <Tooltip content={(p) => <ChartTooltip {...p} dimension="country" />} cursor={{ fill: 'rgba(148,163,184,0.1)' }} />
+        <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+          {truncated.map((row, i) => (
+            <Cell key={i} fill={row.color} />
+          ))}
+        </Bar>
+      </BarChart>
     </ResponsiveContainer>
+  );
+}
+
+// Правый край жёстко зафиксирован на 2030 (не от данных): реальный max(year) в БД
+// технически доходит до 2074, но это одиночные мусорные строки (ошибки метаданных
+// Scopus, см. spec.md §14 п.6) — фиксация естественно отсекает их визуально.
+const YEAR_HARD_MAX = 2030;
+// Левый край по умолчанию; растягивается пользователем через слайдер вплоть до
+// фактического минимального года в данных (сейчас 1965 — не хардкодим, чтобы не
+// терять актуальность при появлении более ранних статей).
+const YEAR_DEFAULT_MIN = 2010;
+// Минимальное окно выборки (слайдер не даёт сжать диапазон сильнее).
+const YEAR_MIN_WINDOW = 2;
+
+function DrawerAreaChart({ data, height }: { data: LabelCount[]; height: number }) {
+  const { i18n } = useTranslation();
+  const { theme } = useTheme();
+  const axis = AXIS_COLORS[theme];
+  const colors = DIMENSION_COLORS.year;
+
+  const { absoluteMin: absoluteMinYear, defaultStart } = useMemo(
+    () => getYearRangeBounds(data, YEAR_DEFAULT_MIN),
+    [data],
+  );
+
+  // Диапазон — локальный state: сбрасывается к дефолту при каждом открытии drawer'а
+  // (компонент размонтируется при закрытии, см. spec.md §14 п.6).
+  const [range, setRange] = useState<[number, number]>([defaultStart, YEAR_HARD_MAX]);
+
+  const zeroFilled = useMemo(() => zeroFillYears(data, range[0], range[1]), [data, range]);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <ResponsiveContainer width="100%" height={height}>
+        <AreaChart data={zeroFilled} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}>
+          <defs>
+            <linearGradient id="drawerYearGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%"  stopColor={colors.base} stopOpacity={0.25} />
+              <stop offset="95%" stopColor={colors.base} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke={axis.grid} vertical={false} />
+          <XAxis dataKey="label" tick={{ fontSize: 12, fill: axis.tickMuted }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+          <YAxis
+            tick={{ fontSize: 12, fill: axis.tickMuted }}
+            tickLine={false}
+            axisLine={false}
+            width={40}
+            tickFormatter={(v: number) => formatAxisTick(v, i18n.language)}
+          />
+          <Tooltip content={(p) => <ChartTooltip {...p} dimension="year" />} cursor={{ stroke: colors.base, strokeWidth: 1, strokeDasharray: '4 4' }} />
+          <Area type="monotone" dataKey="count" stroke={colors.base} strokeWidth={2} fill="url(#drawerYearGrad)" dot={false} activeDot={{ r: 4 }} />
+        </AreaChart>
+      </ResponsiveContainer>
+
+      {/* Range-слайдер: сжатие до YEAR_MIN_WINDOW лет, расширение до дефолта и за его
+          пределы только по левому краю, вплоть до absoluteMinYear. Правый край
+          неподвижен на YEAR_HARD_MAX — minStepsBetweenThumbs (не minStepsBetweenThumbs
+          в пикселях, а в шагах step=1 год) обеспечивает минимальное окно. */}
+      <div className="px-1">
+        <div
+          data-testid="year-range-labels"
+          className="flex justify-between text-xs font-medium tabular-nums text-slate-700 dark:text-slate-300 mb-2"
+        >
+          <span>{range[0]}</span>
+          <span>{range[1]}</span>
+        </div>
+        <div style={{ '--primary': colors.base } as React.CSSProperties}>
+          <Slider
+            aria-label="Диапазон лет"
+            min={absoluteMinYear}
+            max={YEAR_HARD_MAX}
+            step={1}
+            minStepsBetweenThumbs={YEAR_MIN_WINDOW}
+            value={range}
+            onValueChange={(v: number[]) => setRange([v[0], v[1]])}
+          />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -227,7 +339,7 @@ function DrawerOAChart({ data, height }: { data: LabelCount[]; height: number })
   const total = data.reduce((s, d) => s + d.count, 0);
   const oaPct = total > 0 ? ((data[0]?.count ?? 0) / total * 100).toFixed(1) : '0.0';
   const valueFill = theme === 'dark' ? '#f1f5f9' : '#0f172a';
-  const labelFill  = theme === 'dark' ? '#94a3b8' : '#64748b';
+  const labelFill  = theme === 'dark' ? '#94a3b8' : '#0f172a';
 
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -280,7 +392,7 @@ function DrawerDocTypeChart({ data, height }: { data: LabelCount[]; height: numb
   const total = data.reduce((s, d) => s + d.count, 0);
   const topPct = total > 0 ? ((data[0]?.count ?? 0) / total * 100).toFixed(1) : '0.0';
   const valueFill = theme === 'dark' ? '#f1f5f9' : '#0f172a';
-  const labelFill  = theme === 'dark' ? '#94a3b8' : '#64748b';
+  const labelFill  = theme === 'dark' ? '#94a3b8' : '#0f172a';
 
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -416,6 +528,8 @@ export function DimensionDrawer() {
                   <DrawerDocTypeChart data={config.data} height={chartHeight} />
                 ) : drawerDimension === 'year' ? (
                   <DrawerAreaChart data={config.data} height={chartHeight} />
+                ) : drawerDimension === 'country' ? (
+                  <DrawerCountryChart data={config.data} height={chartHeight} />
                 ) : (
                   <DrawerBarChart
                     dim={drawerDimension}

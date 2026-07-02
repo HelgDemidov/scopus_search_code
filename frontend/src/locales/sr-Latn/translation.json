@@ -155,7 +155,7 @@
   "explore": {
     "title": "Analitika kolekcije",
     "subtitlePersonal": "Statistika vaših live pretraga.",
-    "subtitleCollection": "«Vještačka inteligencija i neuronske mreže» — samo članci s DOI.",
+    "subtitleCollection": "«Vještačka inteligencija i neuronske mreže» — samo članci s DOI",
     "modeCollection": "Kolekcija",
     "modePersonal": "Moje pretrage",
     "modeLabel": "Način analitike",
@@ -198,7 +198,7 @@
     },
     "dimensions": {
       "year": "Publikacije po godinama",
-      "country": "Zemlje",
+      "country": "Vodeće zemlje",
       "doc_type": "Tipovi dokumenata",
       "journal": "Vodeći časopisi",
       "open_access": "Open Access",

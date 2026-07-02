@@ -7,6 +7,8 @@ import {
   getRankedBarColor,
   TAXONOMY_PALETTE,
   getTaxonomyColor,
+  getYearRangeBounds,
+  zeroFillYears,
 } from './chartColors';
 import type { Dimension } from './chartColors';
 
@@ -207,5 +209,68 @@ describe('getTaxonomyColor', () => {
 
   it('циклически повторяется, если индекс выходит за длину палитры', () => {
     expect(getTaxonomyColor(TAXONOMY_PALETTE.length)).toBe(TAXONOMY_PALETTE[0]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getYearRangeBounds / zeroFillYears (post-prod §14 п.6 — Publications by Year)
+// ---------------------------------------------------------------------------
+
+describe('getYearRangeBounds', () => {
+  it('absoluteMin — реальный минимальный год в данных', () => {
+    const data = [{ label: '1965', count: 1 }, { label: '2023', count: 500 }];
+    expect(getYearRangeBounds(data, 2010).absoluteMin).toBe(1965);
+  });
+
+  it('defaultStart = defaultMin, если реальные данные начинаются раньше', () => {
+    const data = [{ label: '1965', count: 1 }, { label: '2023', count: 500 }];
+    expect(getYearRangeBounds(data, 2010).defaultStart).toBe(2010);
+  });
+
+  it('defaultStart не может быть раньше фактических данных (клэмп вверх)', () => {
+    // Если реальный минимум (2015) позже дефолта (2010) — стартовое значение
+    // не должно выходить за пределы слайдера (min=absoluteMin для Radix Slider).
+    const data = [{ label: '2015', count: 10 }, { label: '2020', count: 20 }];
+    const { absoluteMin, defaultStart } = getYearRangeBounds(data, 2010);
+    expect(absoluteMin).toBe(2015);
+    expect(defaultStart).toBe(2015);
+  });
+
+  it('пустые данные → фоллбэк на defaultMin для обеих границ', () => {
+    expect(getYearRangeBounds([], 2010)).toEqual({ absoluteMin: 2010, defaultStart: 2010 });
+  });
+});
+
+describe('zeroFillYears', () => {
+  it('заполняет нулём годы без статей внутри диапазона', () => {
+    const data = [{ label: '2020', count: 10 }, { label: '2023', count: 5 }];
+    const result = zeroFillYears(data, 2020, 2023);
+    expect(result).toEqual([
+      { label: '2020', count: 10 },
+      { label: '2021', count: 0 },
+      { label: '2022', count: 0 },
+      { label: '2023', count: 5 },
+    ]);
+  });
+
+  it('длина результата всегда = end - start + 1, независимо от разреженности данных', () => {
+    const data = [{ label: '1965', count: 1 }];
+    const result = zeroFillYears(data, 1965, 2030);
+    expect(result).toHaveLength(2030 - 1965 + 1);
+  });
+
+  it('данные вне диапазона [start, end] не попадают в результат', () => {
+    const data = [{ label: '1900', count: 999 }, { label: '2015', count: 3 }];
+    const result = zeroFillYears(data, 2010, 2020);
+    expect(result.find((r) => r.label === '1900')).toBeUndefined();
+    expect(result.find((r) => r.label === '2015')).toEqual({ label: '2015', count: 3 });
+  });
+
+  it('минимальный диапазон (start === end) возвращает ровно один элемент', () => {
+    const result = zeroFillYears([{ label: '2029', count: 7 }], 2029, 2030);
+    expect(result).toEqual([
+      { label: '2029', count: 7 },
+      { label: '2030', count: 0 },
+    ]);
   });
 });

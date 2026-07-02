@@ -50,7 +50,7 @@ beforeEach(() => {
 describe('TopCountriesChart', () => {
   it('рендерит заголовок через ChartCard', () => {
     render(<TopCountriesChart data={MOCK_DATA} isLoading={false} />);
-    expect(screen.getByText('Countries')).toBeInTheDocument();
+    expect(screen.getByText('Top Countries')).toBeInTheDocument();
   });
 
   it('показывает skeleton при isLoading=true', () => {
@@ -81,7 +81,7 @@ describe('TopCountriesChart', () => {
 
   it('клик по заголовку открывает drawer', async () => {
     render(<TopCountriesChart data={MOCK_DATA} isLoading={false} />);
-    await userEvent.click(screen.getByText('Countries'));
+    await userEvent.click(screen.getByText('Top Countries'));
     expect(useDashboardStore.getState().drawerDimension).toBe('country');
   });
 });

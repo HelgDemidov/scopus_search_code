@@ -56,4 +56,18 @@ describe('KpiTile', () => {
     // DIMENSION_COLORS.country.base = '#16a34a'
     expect((stripe as HTMLElement).style.backgroundColor).toBe('rgb(22, 163, 74)');
   });
+
+  it('фон кнопки всегда тонирован цветом измерения (~10% непрозрачности), даже когда не активна', () => {
+    render(<KpiTile {...defaults} dimension="country" isActive={false} />);
+    const button = screen.getByRole('button');
+    // #16a34a + '1A' (~10% alpha) → rgba(22, 163, 74, 0.10196...)
+    expect(button.style.backgroundColor).toMatch(/rgba\(22, 163, 74, 0\.1/);
+  });
+
+  it('активная плитка сохраняет тот же фон + получает boxShadow-кольцо', () => {
+    render(<KpiTile {...defaults} dimension="country" isActive />);
+    const button = screen.getByRole('button');
+    expect(button.style.backgroundColor).toMatch(/rgba\(22, 163, 74, 0\.1/);
+    expect(button.style.boxShadow).toContain('#16a34a');
+  });
 });

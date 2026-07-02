@@ -17,19 +17,20 @@ export function KpiTile({ label, value, dimension, isActive, isLoading = false, 
   const colors = useDimensionColors(dimension);
 
   // Цвета через inline-стили: Tailwind не поддерживает динамические имена классов.
-  // boxShadow — кольцо-outline без сдвига элемента (в отличие от border).
-  const activeStyle = isActive
-    ? {
-        boxShadow: `0 0 0 2px ${colors.base}`,
-        backgroundColor: `${colors.base}12`, // ~7% opacity hex suffix
-      }
-    : {};
+  // Фон тайла всегда тонирован цветом измерения (~10% непрозрачности — заявленная
+  // «прозрачность 90%», одинаково в обеих темах); boxShadow-кольцо — единственный
+  // индикатор активного состояния поверх этого фона (без сдвига элемента, в отличие
+  // от border).
+  const tileStyle = {
+    backgroundColor: `${colors.base}1A`, // ~10% opacity hex suffix
+    ...(isActive ? { boxShadow: `0 0 0 2px ${colors.base}` } : {}),
+  };
 
   return (
     <button
       onClick={onClick}
-      className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#152236] p-5 flex flex-col gap-1 cursor-pointer text-left w-full transition-all hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm"
-      style={activeStyle}
+      className="rounded-xl border border-slate-200 dark:border-slate-700 p-5 flex flex-col gap-1 cursor-pointer text-left w-full transition-all hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm"
+      style={tileStyle}
       aria-pressed={isActive}
     >
       {isLoading ? (

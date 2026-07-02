@@ -2,6 +2,8 @@
 // Каждое измерение имеет собственный профиль: base, hover, selected, dimmed.
 // Hex-значения используются напрямую в Recharts (не Tremor-строки).
 
+import type { LabelCount } from '../../types/api';
+
 // ---------------------------------------------------------------------------
 // Dimension type — единственный источник истины для имён измерений
 // ---------------------------------------------------------------------------
@@ -86,8 +88,12 @@ export interface AxisColorSet {
   grid: string       // линии CartesianGrid
 }
 
+// Светлая тема: подписи — тёмный slate-900 (не серый) — статичные подписи (имена
+// категорий, значения сетки) были плохо читаемы на светлом фоне. Тот же тон уже
+// используется как valueFill в donut-чартах (DrawerOAChart/DrawerDocTypeChart).
+// Интерактивных подписей (ChartTooltip) это не касается — там свой цвет.
 export const AXIS_COLORS: Record<'light' | 'dark', AxisColorSet> = {
-  light: { tick: '#64748b', tickMuted: '#94a3b8', grid: '#e2e8f0' },
+  light: { tick: '#0f172a', tickMuted: '#0f172a', grid: '#e2e8f0' },
   dark:  { tick: '#cbd5e1', tickMuted: '#94a3b8', grid: '#334155' },
 };
 
@@ -186,6 +192,39 @@ export const TAXONOMY_PALETTE: readonly string[] = [
 // Циклический доступ — на случай если категорий окажется больше длины палитры
 export function getTaxonomyColor(index: number): string {
   return TAXONOMY_PALETTE[index % TAXONOMY_PALETTE.length];
+}
+
+// ---------------------------------------------------------------------------
+// Publications by Year — границы диапазона и zero-fill (post-prod §14 п.6)
+// ---------------------------------------------------------------------------
+
+/**
+ * Абсолютный минимальный год в данных (для крайней левой границы слайдера) и
+ * стартовое значение диапазона по умолчанию (не может быть раньше фактических
+ * данных, даже если defaultMin меньше). Пустые данные → фоллбэк на defaultMin.
+ */
+export function getYearRangeBounds(
+  data: LabelCount[],
+  defaultMin: number,
+): { absoluteMin: number; defaultStart: number } {
+  const years = data.map((d) => Number(d.label));
+  const absoluteMin = years.length > 0 ? Math.min(...years) : defaultMin;
+  return { absoluteMin, defaultStart: Math.max(defaultMin, absoluteMin) };
+}
+
+/**
+ * Разворачивает разреженные данные `by_year` в непрерывный ряд [start, end]:
+ * годы без статей получают count=0. Без этого area-график либо схлопывает
+ * категории (пропуская безданные годы), либо соединяет далёкие точки прямой
+ * линией через десятилетия — оба варианта искажают временную ось.
+ */
+export function zeroFillYears(data: LabelCount[], start: number, end: number): LabelCount[] {
+  const countByYear = new Map(data.map((d) => [Number(d.label), d.count]));
+  const result: LabelCount[] = [];
+  for (let y = start; y <= end; y++) {
+    result.push({ label: String(y), count: countByYear.get(y) ?? 0 });
+  }
+  return result;
 }
 
 // ---------------------------------------------------------------------------

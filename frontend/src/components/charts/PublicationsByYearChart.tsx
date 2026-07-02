@@ -12,7 +12,7 @@ import { ChartCard } from './ChartCard';
 import { ChartTooltip } from './ChartTooltip';
 import { useDimensionColors } from '../../hooks/useDimensionColors';
 import { useTheme } from '../../hooks/useTheme';
-import { formatAxisTick } from './chartColors';
+import { formatAxisTick, AXIS_COLORS } from './chartColors';
 import type { LabelCount } from '../../types/api';
 
 interface PublicationsByYearChartProps {
@@ -24,6 +24,7 @@ export function PublicationsByYearChart({ data, isLoading }: PublicationsByYearC
   const { t, i18n } = useTranslation();
   const colors = useDimensionColors('year');
   const { theme } = useTheme();
+  const axis = AXIS_COLORS[theme];
   const gridStroke = theme === 'dark' ? '#1e293b' : '#e2e8f0'; // slate-800 / slate-200
   // Сортируем по возрастанию года (бэкенд может отдавать в произвольном порядке)
   const sorted = [...data].sort((a, b) => Number(a.label) - Number(b.label));
@@ -48,14 +49,14 @@ export function PublicationsByYearChart({ data, isLoading }: PublicationsByYearC
 
           <XAxis
             dataKey="label"
-            tick={{ fontSize: 11, fill: '#94a3b8' }}
+            tick={{ fontSize: 11, fill: axis.tickMuted }}
             tickLine={false}
             axisLine={false}
             interval="preserveStartEnd"
           />
 
           <YAxis
-            tick={{ fontSize: 11, fill: '#94a3b8' }}
+            tick={{ fontSize: 11, fill: axis.tickMuted }}
             tickLine={false}
             axisLine={false}
             tickFormatter={(v: number) => formatAxisTick(v, i18n.language)}
