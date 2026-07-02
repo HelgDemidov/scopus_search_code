@@ -23,7 +23,15 @@ import {
   SheetTitle,
 } from '../ui/sheet';
 import { ChartTooltip } from '../charts/ChartTooltip';
-import { DIMENSION_COLORS, formatCount, formatAxisTick, truncateLabel } from '../charts/chartColors';
+import {
+  DIMENSION_COLORS,
+  AXIS_COLORS,
+  formatCount,
+  formatAxisTick,
+  truncateLabel,
+  getRankedBarColor,
+  getTaxonomyColor,
+} from '../charts/chartColors';
 import { getLabelMaps } from '../../constants/labelTranslations';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useTheme } from '../../hooks/useTheme';
@@ -41,8 +49,13 @@ interface DrawerConfig {
   chartHeight: number;
   yAxisWidth?: number;
   labelMaxLen?: number;
-  isSpecial?: 'open_access';
+  isSpecial?: 'open_access' | 'doc_type';
 }
+
+// Ранжированные измерения (country/journal/author) — открытые списки, потенциально
+// десятки/сотни значений; показываем только «голову» распределения (см.
+// docs/explore-charts-refactor/spec.md §6). doc_type — закрытая таксономия, не режем.
+const TOP_N_RANKED = 15;
 
 function getConfig(
   dim: Dimension,
@@ -63,34 +76,40 @@ function getConfig(
         data: [...stats.by_year].sort((a, b) => Number(a.label) - Number(b.label)),
         chartHeight: 280,
       };
-    case 'country':
+    case 'country': {
+      const data = [...stats.by_country]
+        .sort((a, b) => b.count - a.count)
+        .slice(0, TOP_N_RANKED)
+        .map((d) => ({ ...d, label: tr(d.label, 'country') }));
       return {
         title: t('explore.dimensions.country'),
-        data: [...stats.by_country]
-          .sort((a, b) => b.count - a.count)
-          .map((d) => ({ ...d, label: tr(d.label, 'country') })),
-        chartHeight: Math.max(360, stats.by_country.length * 30),
+        data,
+        chartHeight: Math.max(360, data.length * 30),
         yAxisWidth: maps ? 140 : 120,
         labelMaxLen: 22,
       };
+    }
     case 'doc_type':
+      // Закрытая таксономия (~12 значений, сумма = 100% коллекции) — композиционные
+      // данные, рендерится как donut (см. spec.md §7), а не как ранжированный список.
       return {
         title: t('explore.dimensions.doc_type'),
         data: [...stats.by_doc_type]
           .sort((a, b) => b.count - a.count)
           .map((d) => ({ ...d, label: tr(d.label, 'doc_type') })),
-        chartHeight: Math.max(240, stats.by_doc_type.length * 36),
-        yAxisWidth: 120,
-        labelMaxLen: 20,
+        chartHeight: 300,
+        isSpecial: 'doc_type',
       };
-    case 'journal':
+    case 'journal': {
+      const data = [...stats.by_journal].sort((a, b) => b.count - a.count).slice(0, TOP_N_RANKED);
       return {
         title: t('explore.dimensions.journal'),
-        data: [...stats.by_journal].sort((a, b) => b.count - a.count),
-        chartHeight: Math.max(480, stats.by_journal.length * 30),
+        data,
+        chartHeight: Math.max(480, data.length * 30),
         yAxisWidth: 200,
         labelMaxLen: 32,
       };
+    }
     case 'open_access':
       return {
         title: t('explore.dimensions.open_access'),
@@ -101,14 +120,16 @@ function getConfig(
         chartHeight: 260,
         isSpecial: 'open_access',
       };
-    case 'author':
+    case 'author': {
+      const data = [...stats.top_authors].sort((a, b) => b.count - a.count).slice(0, TOP_N_RANKED);
       return {
         title: t('explore.dimensions.author'),
-        data: [...stats.top_authors].sort((a, b) => b.count - a.count),
-        chartHeight: Math.max(360, stats.top_authors.length * 30),
+        data,
+        chartHeight: Math.max(360, data.length * 30),
         yAxisWidth: 140,
         labelMaxLen: 24,
       };
+    }
   }
 }
 
@@ -126,16 +147,24 @@ function DrawerBarChart({ dim, data, height, yAxisWidth = 120, labelMaxLen = 24 
   labelMaxLen?: number;
 }) {
   const { i18n } = useTranslation();
-  const colors = DIMENSION_COLORS[dim];
-  const truncated = data.map((d) => ({ ...d, label: truncateLabel(d.label, labelMaxLen) }));
+  const { theme } = useTheme();
+  const axis = AXIS_COLORS[theme];
+  // color кладём прямо в данные — ChartTooltip читает его из payload[0].payload.color,
+  // без этого тултип показывал бы для любого бара один и тот же dimension.base,
+  // даже когда сам бар уже приглушён по рангу (см. ChartTooltip.tsx).
+  const truncated = data.map((d, i) => ({
+    ...d,
+    label: truncateLabel(d.label, labelMaxLen),
+    color: getRankedBarColor(dim, i, data.length, theme),
+  }));
 
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={truncated} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke={axis.grid} horizontal={false} />
         <XAxis
           type="number"
-          tick={{ fontSize: 11, fill: '#94a3b8' }}
+          tick={{ fontSize: 12, fill: axis.tickMuted }}
           tickLine={false}
           axisLine={false}
           tickFormatter={(v: number) => formatAxisTick(v, i18n.language)}
@@ -144,12 +173,16 @@ function DrawerBarChart({ dim, data, height, yAxisWidth = 120, labelMaxLen = 24 
           type="category"
           dataKey="label"
           width={yAxisWidth}
-          tick={{ fontSize: 11, fill: '#64748b' }}
+          tick={{ fontSize: 12, fill: axis.tick }}
           tickLine={false}
           axisLine={false}
         />
         <Tooltip content={(p) => <ChartTooltip {...p} dimension={dim} />} cursor={{ fill: 'rgba(148,163,184,0.1)' }} />
-        <Bar dataKey="count" radius={[0, 4, 4, 0]} fill={colors.base} />
+        <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+          {truncated.map((row, i) => (
+            <Cell key={i} fill={row.color} />
+          ))}
+        </Bar>
       </BarChart>
     </ResponsiveContainer>
   );
@@ -157,6 +190,8 @@ function DrawerBarChart({ dim, data, height, yAxisWidth = 120, labelMaxLen = 24 
 
 function DrawerAreaChart({ data, height }: { data: LabelCount[]; height: number }) {
   const { i18n } = useTranslation();
+  const { theme } = useTheme();
+  const axis = AXIS_COLORS[theme];
   const colors = DIMENSION_COLORS.year;
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -167,10 +202,10 @@ function DrawerAreaChart({ data, height }: { data: LabelCount[]; height: number 
             <stop offset="95%" stopColor={colors.base} stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-        <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+        <CartesianGrid strokeDasharray="3 3" stroke={axis.grid} vertical={false} />
+        <XAxis dataKey="label" tick={{ fontSize: 12, fill: axis.tickMuted }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
         <YAxis
-          tick={{ fontSize: 11, fill: '#94a3b8' }}
+          tick={{ fontSize: 12, fill: axis.tickMuted }}
           tickLine={false}
           axisLine={false}
           width={40}
@@ -186,6 +221,9 @@ function DrawerAreaChart({ data, height }: { data: LabelCount[]; height: number 
 function DrawerOAChart({ data, height }: { data: LabelCount[]; height: number }) {
   const { theme } = useTheme();
   const oaColor = DIMENSION_COLORS.open_access.base;
+  // color в данных — чтобы ChartTooltip показывал правильную точку для сегмента
+  // "Closed Access" (серый CLOSED_COLOR), а не всегда фиксированный dimension.base
+  const colored = data.map((d, i) => ({ ...d, color: i === 0 ? oaColor : CLOSED_COLOR }));
   const total = data.reduce((s, d) => s + d.count, 0);
   const oaPct = total > 0 ? ((data[0]?.count ?? 0) / total * 100).toFixed(1) : '0.0';
   const valueFill = theme === 'dark' ? '#f1f5f9' : '#0f172a';
@@ -195,7 +233,7 @@ function DrawerOAChart({ data, height }: { data: LabelCount[]; height: number })
     <ResponsiveContainer width="100%" height={height}>
       <PieChart>
         <Pie
-          data={data}
+          data={colored}
           cx="50%"
           cy="45%"
           innerRadius="50%"
@@ -206,8 +244,9 @@ function DrawerOAChart({ data, height }: { data: LabelCount[]; height: number })
           endAngle={-270}
           paddingAngle={2}
         >
-          <Cell fill={oaColor} />
-          <Cell fill={CLOSED_COLOR} />
+          {colored.map((row, i) => (
+            <Cell key={i} fill={row.color} />
+          ))}
         </Pie>
         <text x="50%" y="44%" textAnchor="middle" dominantBaseline="middle" fontSize={24} fontWeight={700} fill={valueFill}>
           {oaPct}%
@@ -217,6 +256,63 @@ function DrawerOAChart({ data, height }: { data: LabelCount[]; height: number })
         </text>
         <Tooltip content={(p) => <ChartTooltip {...p} dimension="open_access" />} />
         <Legend iconType="circle" iconSize={8} />
+      </PieChart>
+    </ResponsiveContainer>
+  );
+}
+
+// doc_type — закрытая таксономия (~12 значений), композиционная величина
+// (доли одного целого), а не бинарная как OA. Ranked-затухание одного оттенка
+// здесь не подходит: смежные дуги одного круга с близкими по яркости
+// вариациями одного цвета визуально сливаются в одно пятно (проверено на
+// живых данных — 4 крупных сегмента разного веса читались одинаково
+// фиолетовыми). Вместо этого — качественная палитра TAXONOMY_PALETTE:
+// разные оттенки на каждый сегмент, единые для обеих тем (см. chartColors.ts).
+// Легенда намеренно опущена: при 12 категориях многострочная легенда под
+// donut'ом создаёт визуальный шум и отъедает высоту — DrawerTable ниже уже
+// даёт точное сопоставление цвет/label/доля.
+function DrawerDocTypeChart({ data, height }: { data: LabelCount[]; height: number }) {
+  const { theme } = useTheme();
+  // color в данных — ChartTooltip берёт его из payload[0].payload.color, иначе
+  // точка в тултипе была бы одного фиксированного dimension.base для всех 12
+  // сегментов, хотя сами сегменты закрашены разными цветами палитры.
+  const colored = data.map((d, i) => ({ ...d, color: getTaxonomyColor(i) }));
+  const total = data.reduce((s, d) => s + d.count, 0);
+  const topPct = total > 0 ? ((data[0]?.count ?? 0) / total * 100).toFixed(1) : '0.0';
+  const valueFill = theme === 'dark' ? '#f1f5f9' : '#0f172a';
+  const labelFill  = theme === 'dark' ? '#94a3b8' : '#64748b';
+
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <PieChart>
+        <Pie
+          data={colored}
+          cx="50%"
+          cy="50%"
+          innerRadius="48%"
+          outerRadius="75%"
+          dataKey="count"
+          nameKey="label"
+          startAngle={90}
+          endAngle={-270}
+          // Малый paddingAngle: доля многих категорий (~0.1-0.3%) даёт угол среза
+          // <1° — при paddingAngle=1.5 (как в OA-версии, где сегментов всего 2) зазор
+          // между соседними срезами становится больше самого среза и выглядит как
+          // светлая линия поверх заливки. 0.4 держит границы читаемыми и для 12
+          // сегментов, не «съедая» самые тонкие из них.
+          paddingAngle={0.4}
+        >
+          {colored.map((row, i) => (
+            <Cell key={i} fill={row.color} />
+          ))}
+        </Pie>
+        <text x="50%" y="47%" textAnchor="middle" dominantBaseline="middle" fontSize={22} fontWeight={700} fill={valueFill}>
+          {topPct}%
+        </text>
+        <text x="50%" y="57%" textAnchor="middle" dominantBaseline="middle" fontSize={11} fill={labelFill}>
+          {truncateLabel(data[0]?.label ?? '', 20)}
+        </text>
+        <Tooltip content={(p) => <ChartTooltip {...p} dimension="doc_type" />} />
       </PieChart>
     </ResponsiveContainer>
   );
@@ -286,7 +382,7 @@ export function DimensionDrawer() {
         className={
           isMobile
             ? 'h-[85dvh] w-full flex flex-col p-0 gap-0 rounded-t-xl overflow-hidden'
-            : 'sm:max-w-2xl w-full flex flex-col overflow-y-auto p-0 gap-0'
+            : 'sm:max-w-2xl lg:max-w-3xl w-full h-full flex flex-col overflow-hidden p-0 gap-0'
         }
       >
         {config && colors && drawerDimension && (
@@ -308,11 +404,16 @@ export function DimensionDrawer() {
               </SheetTitle>
             </SheetHeader>
 
-            <div className="flex flex-col gap-6 px-6 py-6 overflow-y-auto flex-1">
-              {/* Chart */}
-              <div>
+            {/* Chart закреплён (flex-shrink-0), таблица получает весь остаток высоты
+                и скроллится независимо — min-h-0 обязателен на обоих flex-1 блоках,
+                иначе flex-item не сжимается меньше своего контента и overflow-y-auto
+                ничего не скроллит (см. docs/explore-charts-refactor/spec.md §4). */}
+            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+              <div className="flex-shrink-0 px-6 pt-6">
                 {config.isSpecial === 'open_access' ? (
                   <DrawerOAChart data={config.data} height={chartHeight} />
+                ) : config.isSpecial === 'doc_type' ? (
+                  <DrawerDocTypeChart data={config.data} height={chartHeight} />
                 ) : drawerDimension === 'year' ? (
                   <DrawerAreaChart data={config.data} height={chartHeight} />
                 ) : (
@@ -326,11 +427,12 @@ export function DimensionDrawer() {
                 )}
               </div>
 
-              {/* Data table */}
-              <DrawerTable
-                data={config.data}
-                totalArticles={stats?.total_articles ?? 0}
-              />
+              <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 pt-6">
+                <DrawerTable
+                  data={config.data}
+                  totalArticles={stats?.total_articles ?? 0}
+                />
+              </div>
             </div>
           </>
         )}

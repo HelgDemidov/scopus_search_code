@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { DIMENSION_COLORS, truncateLabel, formatCount } from './chartColors';
+import {
+  DIMENSION_COLORS,
+  truncateLabel,
+  formatCount,
+  AXIS_COLORS,
+  getRankedBarColor,
+  TAXONOMY_PALETTE,
+  getTaxonomyColor,
+} from './chartColors';
 import type { Dimension } from './chartColors';
 
 // ---------------------------------------------------------------------------
@@ -81,5 +89,97 @@ describe('DIMENSION_COLORS', () => {
     const bases = EXPECTED_DIMENSIONS.map((d) => DIMENSION_COLORS[d].base);
     const unique = new Set(bases);
     expect(unique.size).toBe(EXPECTED_DIMENSIONS.length);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AXIS_COLORS
+// ---------------------------------------------------------------------------
+
+describe('AXIS_COLORS', () => {
+  it('содержит валидные hex-цвета для обеих тем', () => {
+    for (const theme of ['light', 'dark'] as const) {
+      expect(AXIS_COLORS[theme].tick).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(AXIS_COLORS[theme].tickMuted).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(AXIS_COLORS[theme].grid).toMatch(/^#[0-9a-f]{6}$/i);
+    }
+  });
+
+  it('tick и grid различаются между темами (иначе тема не влияла бы на контраст)', () => {
+    expect(AXIS_COLORS.light.tick).not.toBe(AXIS_COLORS.dark.tick);
+    expect(AXIS_COLORS.light.grid).not.toBe(AXIS_COLORS.dark.grid);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getRankedBarColor
+// ---------------------------------------------------------------------------
+
+describe('getRankedBarColor', () => {
+  it('верхний ранг (index=0) всегда возвращает чистый base, независимо от total', () => {
+    expect(getRankedBarColor('country', 0, 15, 'light')).toBe(DIMENSION_COLORS.country.base);
+    expect(getRankedBarColor('country', 0, 15, 'dark')).toBe(DIMENSION_COLORS.country.base);
+  });
+
+  it('total=1 (единственный бар) возвращает чистый base', () => {
+    expect(getRankedBarColor('journal', 0, 1, 'light')).toBe(DIMENSION_COLORS.journal.base);
+  });
+
+  it('нижний ранг (index=total-1) смещён к dimmed/darkDimmed, но не совпадает с ними (t*0.7, не 100%)', () => {
+    const lightResult = getRankedBarColor('author', 14, 15, 'light');
+    const darkResult = getRankedBarColor('author', 14, 15, 'dark');
+    expect(lightResult).not.toBe(DIMENSION_COLORS.author.base);
+    expect(lightResult).not.toBe(DIMENSION_COLORS.author.dimmed);
+    expect(darkResult).not.toBe(DIMENSION_COLORS.author.base);
+    expect(darkResult).not.toBe(DIMENSION_COLORS.author.darkDimmed);
+  });
+
+  it('light и dark темы дают разный результат для одного и того же ранга (разные target-цвета)', () => {
+    const lightResult = getRankedBarColor('doc_type', 5, 12, 'light');
+    const darkResult = getRankedBarColor('doc_type', 5, 12, 'dark');
+    expect(lightResult).not.toBe(darkResult);
+  });
+
+  it('возвращает валидный hex для всех измерений', () => {
+    for (const dim of EXPECTED_DIMENSIONS) {
+      expect(getRankedBarColor(dim, 3, 10, 'light')).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(getRankedBarColor(dim, 3, 10, 'dark')).toMatch(/^#[0-9a-f]{6}$/i);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TAXONOMY_PALETTE / getTaxonomyColor
+// ---------------------------------------------------------------------------
+
+describe('TAXONOMY_PALETTE', () => {
+  it('содержит минимум 12 цветов (по числу типов документов на проде)', () => {
+    expect(TAXONOMY_PALETTE.length).toBeGreaterThanOrEqual(12);
+  });
+
+  it('все цвета — валидные hex', () => {
+    for (const color of TAXONOMY_PALETTE) {
+      expect(color).toMatch(/^#[0-9a-f]{6}$/i);
+    }
+  });
+
+  it('все цвета в палитре уникальны (иначе смежные сегменты donut совпадут)', () => {
+    expect(new Set(TAXONOMY_PALETTE).size).toBe(TAXONOMY_PALETTE.length);
+  });
+});
+
+describe('getTaxonomyColor', () => {
+  it('возвращает соответствующий цвет палитры по индексу', () => {
+    expect(getTaxonomyColor(0)).toBe(TAXONOMY_PALETTE[0]);
+    expect(getTaxonomyColor(3)).toBe(TAXONOMY_PALETTE[3]);
+  });
+
+  it('первые 5 цветов (самые крупные сегменты доната) попарно различны', () => {
+    const first5 = Array.from({ length: 5 }, (_, i) => getTaxonomyColor(i));
+    expect(new Set(first5).size).toBe(5);
+  });
+
+  it('циклически повторяется, если индекс выходит за длину палитры', () => {
+    expect(getTaxonomyColor(TAXONOMY_PALETTE.length)).toBe(TAXONOMY_PALETTE[0]);
   });
 });

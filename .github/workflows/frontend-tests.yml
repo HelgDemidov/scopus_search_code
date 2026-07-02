@@ -10,6 +10,7 @@ on:
       - feat/dark-mode
       - russian-UI
       - montenegro-ui
+      - feat/explore-charts-refactor
     # Запускаем только когда меняется frontend или сам воркфлоу
     paths:
       - 'frontend/**'

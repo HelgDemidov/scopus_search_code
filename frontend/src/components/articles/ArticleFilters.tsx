@@ -347,7 +347,7 @@ export function ArticleFiltersMobile() {
             {t('filters.filtersButton')}
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="w-72 overflow-y-auto">
+        <SheetContent side="left" className="h-full w-72 overflow-y-auto">
           <SheetHeader>
             <SheetTitle>{t('filters.filtersButton')}</SheetTitle>
           </SheetHeader>

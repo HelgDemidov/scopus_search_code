@@ -3,7 +3,7 @@ name: E2E — Railway Staging
 on:
   workflow_dispatch:
   push:
-    branches: [main, feat/stats-crossfilter-v2, feat/functional-indices-lower, feat/dark-mode, russian-UI, montenegro-ui]
+    branches: [main, feat/stats-crossfilter-v2, feat/functional-indices-lower, feat/dark-mode, russian-UI, montenegro-ui, feat/explore-charts-refactor]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
