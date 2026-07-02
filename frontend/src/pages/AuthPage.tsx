@@ -274,6 +274,15 @@ function PasswordInput({
   );
 }
 
+// Активная вкладка окрашена в фирменный синий (тот же оттенок, что и кнопки
+// Sign In/Create account ниже) — иначе Register/Sign in неотличимы визуально.
+const authTabTriggerClass =
+  'w-full justify-start px-3 py-2.5 text-slate-500 dark:text-slate-400 ' +
+  'data-[state=inactive]:hover:bg-slate-100 data-[state=inactive]:hover:text-slate-900 ' +
+  'dark:data-[state=inactive]:hover:bg-slate-700/50 dark:data-[state=inactive]:hover:text-slate-100 ' +
+  'data-[state=active]:bg-blue-800 data-[state=active]:text-white data-[state=active]:hover:bg-blue-800 data-[state=active]:hover:text-white ' +
+  'dark:data-[state=active]:bg-blue-500 dark:data-[state=active]:text-white dark:data-[state=active]:hover:bg-blue-500 dark:data-[state=active]:hover:text-white';
+
 export default function AuthPage() {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
@@ -330,10 +339,10 @@ export default function AuthPage() {
         {/* Sign In / Create Account tabs — вертикальный нав слева, форма справа */}
         <Tabs defaultValue="register" className="flex flex-row gap-5 items-start">
           <TabsList className="flex-col h-auto w-28 shrink-0">
-            <TabsTrigger value="register" className="w-full justify-start px-3 py-2.5">
+            <TabsTrigger value="register" className={authTabTriggerClass}>
               {t('auth.tabRegister')}
             </TabsTrigger>
-            <TabsTrigger value="signin" className="w-full justify-start px-3 py-2.5">
+            <TabsTrigger value="signin" className={authTabTriggerClass}>
               {t('auth.tabSignIn')}
             </TabsTrigger>
           </TabsList>
