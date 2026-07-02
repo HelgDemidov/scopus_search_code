@@ -48,8 +48,20 @@ def make_stats_cache_key(
     open_access: bool | None,
     year_from: int | None,
     year_to: int | None,
+    *,
+    db_namespace: str,
 ) -> str:
-    """Детерминированный ключ кэша: stats:{sha256[:16](sorted_params_json)}."""
+    """Детерминированный ключ кэша: stats:{ns_digest}:{sha256[:16](sorted_params_json)}.
+
+    db_namespace (обычно DATABASE_URL текущего окружения) изолирует ключи между
+    production и staging: оба Railway-окружения используют один физический
+    Upstash Redis (нет отдельной инстанции на окружение, в отличие от Supabase),
+    а сами параметры фильтров совпадают для "статистики без фильтров" — без
+    этой изоляции e2e.yml, дергая GET /articles/stats на staging при каждом
+    push в main, перезаписывал общий ключ staging-данными (найдено 2026-07-02:
+    прод на минуту показывал 1675 статей вместо ~118 тыс. — ровно столько,
+    сколько их в staging Supabase).
+    """
     params = {
         "c": sorted(countries) if countries else None,
         "d": sorted(doc_types) if doc_types else None,
@@ -58,7 +70,8 @@ def make_stats_cache_key(
         "yt": year_to,
     }
     digest = hashlib.sha256(json.dumps(params, sort_keys=True).encode()).hexdigest()[:16]
-    return f"stats:{digest}"
+    ns_digest = hashlib.sha256(db_namespace.encode()).hexdigest()[:8]
+    return f"stats:{ns_digest}:{digest}"
 
 
 def _build_client() -> "UpstashRedisClient | None":

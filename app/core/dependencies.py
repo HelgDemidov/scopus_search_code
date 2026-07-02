@@ -9,6 +9,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.security import decode_access_token, oauth2_scheme
 from app.infrastructure.database import async_session_maker
 from app.infrastructure.database import engine as _lock_engine
@@ -128,6 +129,9 @@ def get_catalog_service(
         catalog_repo=PostgresCatalogRepository(session),
         session=session,
         redis=_redis_client,
+        # Изолирует ключи кэша статистики между окружениями, делящими один Redis
+        # (production/staging Railway) — см. redis_client.make_stats_cache_key
+        db_namespace=settings.database_url_str,
     )
 
 

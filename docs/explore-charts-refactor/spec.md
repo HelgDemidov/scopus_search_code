@@ -229,7 +229,9 @@ export function getRankedBarColor(
 }
 ```
 
-Применяется через `<Cell fill={getRankedBarColor(dim, i, data.length, theme)} />` в `DrawerBarChart` (и в `HorizontalBar` из `DynamicChart.tsx`, если решим унифицировать). В светлой теме бар «выцветает» к бледному тону (`dimmed`), в тёмной — «уходит» ближе к фону (`darkDimmed`, который темнее `base`, а не светлее — визуально тот же эффект «отступления на второй план», симметричный по смыслу для тёмного фона). Точные коэффициенты (`0.7`, кривая интерполяции — линейная vs `sqrt` для более резкого контраста первых 3–5 баров) — подбираются на скриншотах в обеих темах в процессе реализации, не фиксируются здесь как окончательные.
+Применяется через `<Cell fill={getRankedBarColor(dim, i, data.length, theme)} />` в `DrawerBarChart` (и в `HorizontalBar` из `DynamicChart.tsx`, если решим унифицировать).
+
+**Обновлено по итогам второго раунда визуального ревью (см. правку ниже, 2026-07-02):** целевая точка затухания — не `dimmed`/`darkDimmed`, а белый (dark-тема) / чёрный (light-тема), при `t_max=0.88`. Причина пересмотра и итоговая формула — см. отдельную правку в конце этого документа.
 
 ---
 
@@ -248,6 +250,7 @@ export function getRankedBarColor(
 | `DimensionDrawer.test.tsx` (создать, если нет) | chart+table рендерятся в раздельных контейнерах; `doc_type` рендерит donut, не bar; ranked-color функция вызывается с правильными `index/total/theme` | ✅ сделано в исходном PR |
 | `chartColors.test.ts` | `getRankedBarColor` — граничные случаи (`total=1`, `index=0`, `index=total-1`), корректность интерполяции, различие light/dark target | ✅ сделано в исходном PR (+ тесты на `TAXONOMY_PALETTE`/`getTaxonomyColor`, появившиеся по итогам визуального ревью) |
 | Существующие `TopCountriesChart.test.tsx`, `TopAuthorsChart.test.tsx` | не должны падать от смены статуса «стационарного» рендеринга (они тестируют компонент напрямую, не через `ExplorePage`) — ожидаемо не затронуты | ✅ подтверждено, файлы не менялись |
+| `test_redis_client.py` / `test_catalog_service.py` (backend) | `make_stats_cache_key` изолирует ключи по `db_namespace` (не только по фильтрам); `CatalogService` с разными `db_namespace` пишет статистику под разными ключами Redis | ✅ добавлено 2026-07-02, после находки бага cross-environment кэш-коллизии (см. правку ниже) |
 
 Проверить `npm run test` (370 baseline) после каждого этапа, не одним большим прыжком в конце.
 
@@ -277,6 +280,24 @@ export function getRankedBarColor(
 1. Цветная точка в тултипе была жёстко привязана к `DIMENSION_COLORS[dim].base` — с появлением per-сегмента цветов (ranked-fade и палитра) она перестала совпадать с реально закрашенным элементом под курсором (включая давно существующий, но малозаметный баг в `DrawerOAChart` — точка для "Закрытый доступ" показывала teal вместо серого). Исправлено: каждый компонент кладёт вычисленный `color` прямо в данные, `ChartTooltip` читает `payload[0].payload.color` в приоритете.
 2. Pie/Donut не передаёт Cartesian `label` — имя сегмента терялось. Исправлено: fallback на `payload[0].name`.
 3. Универсальная подпись значения (`explore.tableColArticles`, EN/RU/sr-Latn) переименована "Articles/Статей/Članaka" → "Publications/Публикаций/Publikacija" — старое значение создавало тавтологию для сегмента "Статья" ("Статья: Статей: …") и было неточным для остальных типов документов (конференции, главы книг и т.д.).
+
+---
+
+### Правка по итогам второго раунда ревью (2026-07-02, после мерджа PR #42)
+
+**1. Ranked-fade баров (`getRankedBarColor`) — цель затухания сменена с `dimmed`/`darkDimmed` на белый/чёрный.**
+Пользователь указал на UX-проблему: короткие нижние бары (наименьшие по значению) — самые маленькие по площади, и старое затухание в сторону `dimmed`/`darkDimmed` делало их ещё и низкоконтрастными, то есть вдвойне менее заметными. Уточнённое требование: нижние бары должны становиться **контрастнее** относительно фона панели своей темы, а не сливаться с ним. Итоговое правило — верхний ранг (index=0) остаётся чистым `base`; в **dark**-теме (фон панели — тёмно-синий `#152236`) нижние ранги смещаются к **белому**; в **light**-теме (фон панели — чистый белый) — к **чёрному**. Последний бар останавливается на `t=0.88` пути к цели (отличие ~12%, в рамках требуемых 10–15%). Проверено эмпирически в обеих темах через Chrome DevTools MCP на живых production-данных (150 стран, drawer `country`): dark — последний бар `#e3f4e9` (отличие от белого 4–11% по каналам), light — `#031409` (отличие от чёрного ≤8% по каналам). `DIMENSION_COLORS.dimmed`/`darkDimmed` не удалены — они используются отдельно в cross-filter V1 dimming (`ActiveFilterBanner`, `TopCountriesChart`/`TopAuthorsChart`/`TopJournalsChart`, `useDimensionColors`) и не связаны с этой функцией.
+
+**2. Обнаружен и исправлен несвязанный баг: production `/explore` временно показывал ~1.6 тыс. статей вместо 118 тыс.**
+Пользователь сообщил о скриншоте с explore-панелью, показывающей 1,675 статей (вместо реальных 118,868) сразу после мерджа PR #42, пока в `main` ещё шли CI-проверки. Диагностика (прямые SQL-запросы к обеим Supabase-БД через MCP):
+- Production Supabase (`btmiovdmasqufufyuokx`): `SELECT count(*) FROM catalog_articles JOIN articles` → **118,868** (корректно, БД цела).
+- Staging Supabase (`gpbymgvkqtiueoyborrw`): тот же запрос → **1,675** — ровно то число, что временно увидел пользователь на проде.
+
+**Корневая причина:** production и staging Railway-окружения используют **один и тот же физический Upstash Redis** (в отличие от Supabase, где для каждого окружения — отдельная БД). `make_stats_cache_key()` строил ключ кэша исключительно из параметров фильтра (без разделителя окружения), поэтому запрос "статистика без фильтров" с прода и со стейджинга маппился на **один и тот же ключ Redis**. `e2e.yml` (триггер: push в `main`) на каждый пуш дёргает `GET {E2E_BASE_URL}/articles/stats` напрямую по staging (`tests/integration/test_article_by_id_e2e.py`) — это перезаписывало общий ключ маленьким staging-числом на TTL=60s, и в это окно production-запросы получали чужой (staging) кэш-хит.
+
+**Фикс (чисто код, без изменений инфраструктуры Redis/Railway):** `make_stats_cache_key()` (`app/infrastructure/redis_client.py`) получил обязательный keyword-параметр `db_namespace: str` — его sha256-хэш (первые 8 hex) добавлен в ключ как `stats:{ns_digest}:{digest}`. `CatalogService` получил новый конструкторный параметр `db_namespace: str = ""`, `PostgresCatalogRepository`/`CatalogService` его не вычисляют сами (не читают глобальный `settings` — иначе юнит-тесты стали бы зависеть от реального `.env`); намespace инжектится на границе DI (`get_catalog_service()` в `app/core/dependencies.py`) из `settings.database_url_str` — единственное место, где реальный конфиг реально нужен. Итог: production и staging продолжают шарить один Redis, но их ключи больше никогда не пересекаются, независимо от того, что оба сервиса кэшируют статистику "без фильтров" одновременно.
+
+Тесты: `tests/unit/test_redis_client.py` — 4 новых теста (разные `db_namespace` → разные ключи; namespace не попадает в ключ как plaintext); `tests/unit/test_catalog_service.py` — новый тест `test_get_stats_different_db_namespace_different_cache_key` (два сервиса с разным namespace пишут в Redis под разными ключами). Полный прогон: `ruff`/`mypy`/`pytest -m "not requires_pg"` (155 passed) — зелёные.
 
 ---
 

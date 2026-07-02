@@ -26,11 +26,16 @@ class CatalogService:
         catalog_repo: ICatalogRepository,
         session: AsyncSession,
         redis: UpstashRedisClient | None = None,
+        db_namespace: str = "",
     ):
         self.article_repo = article_repo
         self.catalog_repo = catalog_repo
         self.session = session
         self.redis = redis
+        # Изолирует ключи кэша статистики от других окружений, делящих тот же
+        # Redis (см. make_stats_cache_key в redis_client.py). Инъектируется DI
+        # из settings.database_url_str — сервис не читает глобальный конфиг сам.
+        self.db_namespace = db_namespace
 
     # ------------------------------------------------------------------ #
     #  get_catalog_paginated                                               #
@@ -113,7 +118,9 @@ class CatalogService:
         if self.redis is None:
             return await self._fetch_stats_from_db(countries, doc_types, open_access, year_from, year_to)
 
-        cache_key = make_stats_cache_key(countries, doc_types, open_access, year_from, year_to)
+        cache_key = make_stats_cache_key(
+            countries, doc_types, open_access, year_from, year_to, db_namespace=self.db_namespace
+        )
 
         try:
             cached = await self.redis.get(cache_key)

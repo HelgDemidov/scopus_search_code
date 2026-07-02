@@ -189,15 +189,21 @@ def _mk_article(article_id: int) -> Article:
     )
 
 
+_TEST_DB_NAMESPACE = "postgresql+asyncpg://user:pass@test-host:5432/db"
+
+
 def _mk_service(
     articles: List[Article] | None = None,
     total: int = 0,
     redis: FakeRedis | None = None,
+    db_namespace: str = _TEST_DB_NAMESPACE,
 ) -> tuple[CatalogService, FakeArticleRepository, FakeCatalogRepository, FakeSession]:
     ar = FakeArticleRepository()
     cr = FakeCatalogRepository(articles=articles, total=total)
     sess = FakeSession()
-    svc = CatalogService(article_repo=ar, catalog_repo=cr, session=cast(AsyncSession, sess), redis=redis)
+    svc = CatalogService(
+        article_repo=ar, catalog_repo=cr, session=cast(AsyncSession, sess), redis=redis, db_namespace=db_namespace
+    )
     return svc, ar, cr, sess
 
 
@@ -489,10 +495,28 @@ async def test_get_stats_writes_cache_on_miss():
     assert len(redis.setex_calls) == 1, "После DB должна быть запись в Redis"
 
     key, ttl, value = redis.setex_calls[0]
-    expected_key = make_stats_cache_key(["USA"], None, None, None, None)
+    expected_key = make_stats_cache_key(["USA"], None, None, None, None, db_namespace=_TEST_DB_NAMESPACE)
     assert key == expected_key
     assert ttl == STATS_CACHE_TTL
     assert result.total_articles == 42
+
+
+@pytest.mark.asyncio
+async def test_get_stats_different_db_namespace_different_cache_key():
+    """Два сервиса с разным db_namespace (например, prod vs staging, делящие один
+    физический Redis) пишут статистику под РАЗНЫМИ ключами — без этого один
+    из них перезаписал бы кэш другого (см. redis_client.make_stats_cache_key)."""
+    redis_a = FakeRedis(cached_value=None)
+    redis_b = FakeRedis(cached_value=None)
+    svc_a, _, _, _ = _mk_service(redis=redis_a, db_namespace="postgresql://prod-host/db")
+    svc_b, _, _, _ = _mk_service(redis=redis_b, db_namespace="postgresql://staging-host/db")
+
+    await svc_a.get_stats()
+    await svc_b.get_stats()
+
+    key_a, _, _ = redis_a.setex_calls[0]
+    key_b, _, _ = redis_b.setex_calls[0]
+    assert key_a != key_b
 
 
 @pytest.mark.asyncio
