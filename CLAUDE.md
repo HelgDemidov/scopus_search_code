@@ -27,15 +27,10 @@ Frontend: `cd frontend && npm run test / lint / build`
 
 ## MCP-серверы (Claude Code, user-scope, `claude mcp list`)
 Базовые: `github`, `supabase`, `railway`, `claude.ai Vercel`, `sequential-thinking`, `memory`.
-Добавлены 2026-07-02:
-- `context7` (`@upstash/context7-mcp`) — актуальная документация быстро меняющихся зависимостей (SQLAlchemy 2.x async, Pydantic v2, FastAPI, shadcn/ui, Vite) вместо устаревших знаний из обучения
-- `chrome-devtools` (`chrome-devtools-mcp`) — вождение/дебаг настоящего Chrome для фронтенд-QA (performance-трейсы, Core Web Vitals, network/console); по умолчанию поднимает отдельный профиль Chrome, к уже открытому окну можно подключиться через `--browserUrl` (Chrome с `--remote-debugging-port`)
-- `upstash` (`@upstash/mcp-server`, нужен account-level API key, отдельный от `UPSTASH_REDIS_REST_TOKEN`) — управление базой `scopus-cache` напрямую (бэкапы, статистика, raw Redis-команды)
+Добавлены 2026-07-02: `context7` (актуальная документация быстро меняющихся зависимостей), `chrome-devtools` (вождение/дебаг Chrome для фронтенд-QA; `--browserUrl` для подключения к уже открытому окну), `upstash` (управление Upstash Redis напрямую, нужен отдельный account-level ключ).
 
 ## Permissions allowlist (`.claude/settings.json`, добавлено 2026-07-02)
-Project-scope, коммитится в репо (не путать с личным `.claude/settings.local.json`, который менять этим списком не нужно).
-Read-only allowlist: `uv run ruff check *`, `uv run mypy *`, `uv run pytest -m "not requires_pg"`, `cd frontend && npm run test/lint/build`.
-`rg` и `git status` туда не добавлялись — уже в базовом auto-allow Claude Code. `uv run pytest -m requires_pg` намеренно не в allowlist — делает `drop_all` на PG-контейнере, не read-only.
+Project-scope (не путать с личным `.claude/settings.local.json`). Read-only allowlist: `uv run ruff check *`, `uv run mypy *`, `uv run pytest -m "not requires_pg"`, `cd frontend && npm run test/lint/build`. `rg`/`git status` уже в базовом auto-allow; `pytest -m requires_pg` намеренно не в списке — делает `drop_all` на PG-контейнере, не read-only.
 
 ## Python conventions
 - Python 3.12; ruff E,F,I; line-length=115; target-version=py312; alembic/ excluded в pyproject.toml
@@ -44,8 +39,7 @@ Read-only allowlist: `uv run ruff check *`, `uv run mypy *`, `uv run pytest -m "
 - Conventional commits: feat/fix/refactor/test/chore
 
 ## Scopus CQL notes
-- Open Access фильтр: `OPENACCESS(1)` / `NOT OPENACCESS(1)` — **не** `OA(1)` (Scopus API отвергает с 400).
-  Проверено прямым запросом к API 2026-06-25. Файл: `app/infrastructure/scopus_client.py`.
+- Open Access фильтр: `OPENACCESS(1)`/`NOT OPENACCESS(1)` — **не** `OA(1)` (Scopus API отвергает с 400, проверено 2026-06-25). Файл: `app/infrastructure/scopus_client.py`.
 - DOI-фильтр: `ScopusHTTPClient.search()` пропускает статьи без `prism:doi` на этапе парсинга (commit `62d1d13`). Коллекция содержит **только DOI-индексированные статьи**.
 
 ## Auth & security (auth-refactoring, merged 2026-06-26)
@@ -54,7 +48,6 @@ Read-only allowlist: `uv run ruff check *`, `uv run mypy *`, `uv run pytest -m "
 - RT cleanup piggyback: `cleanup_stale_tokens()` вызывается при каждой ротации в `/auth/refresh`
 - Password reset: `POST /auth/password-reset` + `POST /auth/password-reset/confirm`; токены в таблице `password_reset_tokens` (migration 0011); после confirm — `revoke_all_user_tokens()`
 - Email: `IEmailService` ABC → `BrevoEmailService` (httpx, `api.brevo.com/v3/smtp/email`). **Railway блокирует SMTP порты 587/465 — никогда не использовать aiosmtplib/SMTP на Railway.** Env var: `BREVO_API_KEY` + `FROM_EMAIL`.
-- Alembic head: `0014_functional_indices_lower`
 
 ## Do NOT
 - Sync SQLAlchemy calls in async routes. Hardcoded secrets. CommonJS in frontend.
@@ -62,21 +55,13 @@ Read-only allowlist: `uv run ruff check *`, `uv run mypy *`, `uv run pytest -m "
 - SMTP/aiosmtplib на Railway (порт 587 заблокирован). Использовать Brevo REST API (httpx).
 
 ## DB & env-var map (critical)
-Two Supabase instances: production (`btmiovdmasqufufyuokx`) and staging (`gpbymgvkqtiueoyborrw`).
-```
-DATABASE_URL (local .env)     → production Supabase  (uvicorn locally)
-DATABASE_URL (e2e CI env)     → staging Supabase     (из секрета DATABASE_SUPABASE_STAGING_URL)
-DATABASE_TEST_URL             → throwaway PG container — NEVER point at Supabase (tests do drop_all)
-```
-GitHub Secret `DATABASE_URL` удалён. `e2e.yml` задаёт `DATABASE_URL` из `${{ secrets.DATABASE_SUPABASE_STAGING_URL }}`.
+Two Supabase instances: production (`btmiovdmasqufufyuokx`), staging (`gpbymgvkqtiueoyborrw`). `DATABASE_URL` → production Supabase локально (uvicorn) / staging Supabase в e2e CI (из секрета `DATABASE_SUPABASE_STAGING_URL`). `DATABASE_TEST_URL` → throwaway PG-контейнер, НИКОГДА не Supabase (тесты делают `drop_all`). GitHub Secret `DATABASE_URL` удалён (раньше указывал на staging, конфликтовал с локальным `.env`).
 
 ## Redis (Upstash) — кэш stats (PR #32, merged 2026-06-27)
-`UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` — Upstash Redis (HTTPS REST, порт 443).
-Хранятся в: локальный `.env`, Railway Variables (prod + staging), GitHub Secrets.
-Cache-aside в `CatalogService.get_stats()` (TTL=60s); `app/infrastructure/redis_client.py` — синглтон.
-Graceful degradation: переменные не заданы → `redis_client=None` → прямой запрос к БД.
-`SET LOCAL work_mem='32MB'` в `postgres_catalog_repo.get_stats()` — только при `dialect=="postgresql"`.
-Тесты: `FakeRedis` in-memory дублёр, реальный Upstash в CI не используется.
+`UPSTASH_REDIS_REST_URL`/`TOKEN` — Upstash Redis REST (HTTPS 443); в `.env`, Railway (prod+staging — **одна физическая инстанция**, не как раздельные Supabase-БД), GitHub Secrets.
+Cache-aside в `CatalogService.get_stats()` (TTL=60s, `redis_client.py` — синглтон); graceful degradation → `redis_client=None` → прямой запрос к БД.
+Ключ кэша обязательно включает `db_namespace` (sha256 от `DATABASE_URL`, инжектится через DI в `get_catalog_service()`) — иначе prod/staging делят один Redis-ключ (баг 2026-07-02: `e2e.yml` на каждый push освежал общий ключ staging-данными, прод на 60с показывал staging-статистику вместо своей).
+`SET LOCAL work_mem='32MB'` в `postgres_catalog_repo.get_stats()` — только `dialect=="postgresql"`. Тесты: `FakeRedis` in-memory дублёр, реальный Upstash в CI не используется.
 
 ## Test layers & CI
 ```
@@ -88,24 +73,16 @@ CI coverage: jobs `test` + `test-pg` → combined artifacts → `coverage` fail-
 Advisory lock в DI-фабрике → новые тесты `GET /articles/find` не требуют `requires_pg`; только `test_find_articles_postgres.py` (конкурентность).
 
 ### Полная матрица CI-джобов (2026-06-26)
-| Воркфлоу | Джоб | Что проверяет | Триггер |
-|---|---|---|---|
-| `tests.yml` | `test` | pytest SQLite, not requires_pg | push+PR → main |
-| `tests.yml` | `test-pg` | alembic upgrade+check; pytest PG requires_pg | push+PR → main |
-| `tests.yml` | `quality` | ruff check+format, mypy, pip-audit | push+PR → main |
-| `tests.yml` | `coverage` | combined 80% threshold | после test+test-pg |
-| `frontend-tests.yml` | `typecheck` | tsc --noEmit | push main (paths: frontend/**) |
-| `frontend-tests.yml` | `lint` | ESLint --max-warnings 0; npm audit --audit-level=high | push main |
-| `frontend-tests.yml` | `unit` | vitest unit-тесты | push main |
-| `frontend-tests.yml` | `integration` | vitest integration + coverage (все 370 тестов; threshold statements=70%) | push main |
-| `frontend-tests.yml` | `build` | npm run build (Vite production) | push main |
-| `e2e.yml` | `e2e` | smoke-тесты против Railway staging | push main |
+| Воркфлоу | Джобы | Триггер |
+|---|---|---|
+| `tests.yml` | `test` (SQLite), `test-pg` (PG16 + alembic check), `quality` (ruff/mypy/pip-audit), `coverage` (80%, после test+test-pg) | push+PR → main |
+| `frontend-tests.yml` | `typecheck`, `lint` (ESLint + npm audit), `unit`, `integration` (418 тестов, threshold 70%), `build` | push main (paths: frontend/**) |
+| `e2e.yml` | `e2e` — smoke-тесты против Railway staging | push main |
 
-**Branch protection (main, 2026-06-26):** force push запрещён; удаление запрещено; required checks для PR: `test`, `test-pg`, `Code quality (ruff + mypy + pip-audit)` (strict: ветка должна быть актуальна с main). enforce_admins=false — прямой пуш owner'а работает.
-**Dependabot:** `.github/dependabot.yml` — pip + npm + github-actions, еженедельно по понедельникам, limit=3 PR на экосистему.
+**Branch protection (main):** force push и удаление запрещены; required checks для PR: `test`, `test-pg`, `Code quality` (strict). enforce_admins=false — прямой пуш owner'а работает.
+**Dependabot:** `.github/dependabot.yml` — pip + npm + github-actions, еженедельно, limit=3 PR на экосистему.
 
 ## Migration chain note
-`seeder_keywords` NOT в `Base.metadata` в рантайме → drop_all её не трогает. В alembic/env.py SeederKeyword импортируется явно для автогенерации.
-Chain: `f9a3c1e2b7d4` → `0010` → `0011` → `0012` → `0013_fix_schema_drift` → `0014_functional_indices_lower` (head).
-Миграция 0014: функциональные индексы `lower(affiliation_country)` и `lower(document_type)` — применена на prod + staging 2026-06-27.
-`alembic/env.py`: `include_object` хук исключает expression-индексы из autogenerate — без него `alembic check` видит их как "лишние" и хочет удалить (SQLAlchemy рефлектит как `_textual_index_element`).
+`seeder_keywords` NOT в `Base.metadata` в рантайме → drop_all её не трогает; alembic/env.py импортирует SeederKeyword явно для автогенерации.
+Chain: `f9a3c1e2b7d4` → `0010` → `0011` → `0012` → `0013_fix_schema_drift` → `0014_functional_indices_lower` (head — функциональные индексы `lower(affiliation_country/document_type)`, prod+staging 2026-06-27).
+`alembic/env.py`: `include_object` хук исключает expression-индексы из autogenerate — без него `alembic check` видит их как "лишние" (SQLAlchemy рефлектит как `_textual_index_element`).

@@ -305,3 +305,20 @@ export function getRankedBarColor(
 
 **Ветка:** `feat/explore-charts-refactor`, создана от `main` 2026-07-02.
 **CI:** триггер `push` добавлен в `tests.yml`, `frontend-tests.yml`, `e2e.yml` (наравне с существующими веточными триггерами).
+
+---
+
+## 13. Статус выполнения
+
+**Смёрджено:** 2026-07-02, PR #42 (`feat/explore-charts-refactor` → `main`), merge commit `492ab46`.
+
+**Сделано (фазы 1–9, §11, все `[x]`):** 6 стационарных чартов отключены в collection mode; `sheet.tsx` — убраны конфликтующие per-side size-классы; ширина/скролл drawer'а (`lg:max-w-3xl`, раздельные chart/table контейнеры); theme-aware `AXIS_COLORS`; TOP_N=15 для country/journal/author; `doc_type` → donut; ranked-fade баров + качественная палитра `TAXONOMY_PALETTE` для donut; 3 бага в `ChartTooltip.tsx` (цвет точки, отсутствие label, тавтология "Статей").
+
+**После мерджа, 3 follow-up коммита прямо в `main`** (явное разрешение пользователя, без новой ветки):
+- `1adc838` — закрыты 2 пробела тестового покрытия из §10 (`sheet.test.tsx`, `ExplorePage.test.tsx` collection/personal mode).
+- `3c43774` — `getRankedBarColor` переработан по итогам второго визуального ревью: нижние бары теперь набирают контраст относительно фона темы (white в dark / black в light, `t_max=0.88`), а не теряют его.
+- `e3c22b2` — несвязанный баг, найденный попутно: `make_stats_cache_key` получил `db_namespace`, изолирующий кэш статистики между production и staging (делят один Upstash Redis) — см. [[project-redis-upstash]].
+
+**Итог:** 418/418 фронтенд-тестов, backend ruff/mypy/pytest — зелёные.
+
+**Вне scope (не реализуется в этой ветке):** кросс-аналитика по 2+ измерениям (§9) — см. `docs/explore-charts-refactor/` не заводился отдельный файл, задача зафиксирована в памяти [[project_explore_crossanalytics_future]].
