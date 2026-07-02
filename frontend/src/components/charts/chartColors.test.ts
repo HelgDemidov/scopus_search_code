@@ -125,13 +125,39 @@ describe('getRankedBarColor', () => {
     expect(getRankedBarColor('journal', 0, 1, 'light')).toBe(DIMENSION_COLORS.journal.base);
   });
 
-  it('нижний ранг (index=total-1) смещён к dimmed/darkDimmed, но не совпадает с ними (t*0.7, не 100%)', () => {
+  it('нижний ранг (index=total-1) смещён к чёрному (light) / белому (dark), но не совпадает с ними (t=0.88, не 100%)', () => {
     const lightResult = getRankedBarColor('author', 14, 15, 'light');
     const darkResult = getRankedBarColor('author', 14, 15, 'dark');
     expect(lightResult).not.toBe(DIMENSION_COLORS.author.base);
-    expect(lightResult).not.toBe(DIMENSION_COLORS.author.dimmed);
+    expect(lightResult).not.toBe('#000000');
     expect(darkResult).not.toBe(DIMENSION_COLORS.author.base);
-    expect(darkResult).not.toBe(DIMENSION_COLORS.author.darkDimmed);
+    expect(darkResult).not.toBe('#ffffff');
+  });
+
+  it('нижний ранг отличается от цели (белого в dark / чёрного в light) не более чем на ~15%', () => {
+    // 0.88 пути к цели ⇒ остаточная дистанция ~12% (в рамках требуемых 10-15%)
+    const darkResult = getRankedBarColor('author', 14, 15, 'dark');
+    const { r, g, b } = { r: parseInt(darkResult.slice(1, 3), 16), g: parseInt(darkResult.slice(3, 5), 16), b: parseInt(darkResult.slice(5, 7), 16) };
+    for (const channel of [r, g, b]) {
+      expect(255 - channel).toBeLessThanOrEqual(255 * 0.15);
+    }
+
+    const lightResult = getRankedBarColor('author', 14, 15, 'light');
+    const lr = parseInt(lightResult.slice(1, 3), 16);
+    const lg = parseInt(lightResult.slice(3, 5), 16);
+    const lb = parseInt(lightResult.slice(5, 7), 16);
+    for (const channel of [lr, lg, lb]) {
+      expect(channel).toBeLessThanOrEqual(255 * 0.15);
+    }
+  });
+
+  it('в dark теме нижний ранг светлее (ближе к белому), в light — темнее (ближе к чёрному)', () => {
+    const darkResult = getRankedBarColor('doc_type', 11, 12, 'dark');
+    const lightResult = getRankedBarColor('doc_type', 11, 12, 'light');
+    const luminance = (hex: string) =>
+      [1, 3, 5].reduce((sum, i) => sum + parseInt(hex.slice(i, i + 2), 16), 0);
+    expect(luminance(darkResult)).toBeGreaterThan(luminance(DIMENSION_COLORS.doc_type.base));
+    expect(luminance(lightResult)).toBeLessThan(luminance(DIMENSION_COLORS.doc_type.base));
   });
 
   it('light и dark темы дают разный результат для одного и того же ранга (разные target-цвета)', () => {
