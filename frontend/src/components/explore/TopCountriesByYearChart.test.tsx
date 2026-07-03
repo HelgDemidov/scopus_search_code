@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TopCountriesByYearChart } from './TopCountriesByYearChart';
 import { useStatsStore } from '../../stores/statsStore';
 import type { StatsResponse } from '../../types/api';
@@ -56,8 +56,26 @@ const MOCK_STATS = {
   top_journals_by_country: [],
 } satisfies StatsResponse;
 
+// Заглушка window.matchMedia — по умолчанию desktop (не совпадает с mobile query);
+// компонент использует useMediaQuery для уменьшения тултипа на мобильном (см.
+// DimensionDrawer.test.tsx — тот же паттерн).
+function stubMatchMedia(matches: boolean) {
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches,
+    media: query,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  }));
+}
+
 beforeEach(() => {
+  stubMatchMedia(false); // desktop
   useStatsStore.setState({ stats: null, isLoading: false, error: null });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe('TopCountriesByYearChart — загрузка', () => {

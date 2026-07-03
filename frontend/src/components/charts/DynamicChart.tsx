@@ -145,6 +145,7 @@ function PieSegments({ data }: { data: LabelCount[] }) {
           outerRadius="62%"
           dataKey="count"
           paddingAngle={2}
+          rootTabIndex={-1}
         >
           {data.map((_, i) => (
             <Cell key={i} fill={PIE_PALETTE[i % PIE_PALETTE.length]} />

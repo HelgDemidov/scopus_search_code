@@ -165,6 +165,11 @@ function DrawerBarChart({ dim, data, height, yAxisWidth = 120, labelMaxLen = 24 
   const { i18n } = useTranslation();
   const { theme } = useTheme();
   const axis = AXIS_COLORS[theme];
+  // На мобильном height ограничена (см. DimensionDrawer chartHeight — cap 280px),
+  // и все TOP_N_RANKED=15 баров сжимаются в неё же — уменьшенный шрифт подписи
+  // помогает читаемости при таком сжатии (post-prod фикс, п.2).
+  const isMobile = useMediaQuery('(max-width: 767px)');
+  const tickFontSize = isMobile ? 10 : 12;
   // color кладём прямо в данные — ChartTooltip читает его из payload[0].payload.color,
   // без этого тултип показывал бы для любого бара один и тот же dimension.base,
   // даже когда сам бар уже приглушён по рангу (см. ChartTooltip.tsx).
@@ -180,7 +185,7 @@ function DrawerBarChart({ dim, data, height, yAxisWidth = 120, labelMaxLen = 24 
         <CartesianGrid strokeDasharray="3 3" stroke={axis.grid} horizontal={false} />
         <XAxis
           type="number"
-          tick={{ fontSize: 12, fill: axis.tickMuted }}
+          tick={{ fontSize: tickFontSize, fill: axis.tickMuted }}
           tickLine={false}
           axisLine={false}
           tickFormatter={(v: number) => formatAxisTick(v, i18n.language)}
@@ -189,9 +194,29 @@ function DrawerBarChart({ dim, data, height, yAxisWidth = 120, labelMaxLen = 24 
           type="category"
           dataKey="label"
           width={yAxisWidth}
-          tick={{ fontSize: 12, fill: axis.tick }}
           tickLine={false}
           axisLine={false}
+          // interval=0 форсирует показ ВСЕХ подписей категорий — дефолтное
+          // 'preserveEnd' у Recharts тихо прячет часть подписей при нехватке
+          // места (на мобильном при 15 барах в 280px оставалось только 7 из 15).
+          interval={0}
+          // Кастомный tick вместо {fontSize, fill}: Recharts сам переносит длинные
+          // подписи на 2 строки, если те не влезают в width, а при 15 барах в 280px
+          // высота строки (~18.7px) меньше высоты двух строк текста — соседние
+          // подписи налезали друг на друга. Один <text> без переноса гарантирует
+          // одну строку; сама обрезка по символам уже сделана truncateLabel() выше.
+          tick={(props: { x: number; y: number; payload: { value: string } }) => (
+            <text
+              x={props.x}
+              y={props.y}
+              dy={4}
+              textAnchor="end"
+              fontSize={tickFontSize}
+              fill={axis.tick}
+            >
+              {props.payload.value}
+            </text>
+          )}
         />
         <Tooltip content={(p) => <ChartTooltip {...p} dimension={dim} />} cursor={{ fill: 'rgba(148,163,184,0.1)' }} />
         <Bar dataKey="count" radius={[0, 4, 4, 0]}>
@@ -228,7 +253,11 @@ function DrawerCountryChart({ data, height }: { data: LabelCount[]; height: numb
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <BarChart data={truncated} margin={{ top: 8, right: 8, bottom: 8, left: 0 }}>
+      {/* margin.left=20 (не 0): угловая (-40°) подпись якорится textAnchor="end" в
+          точке тика и тянется по диагонали влево-вверх — при left=0 первая буква
+          самой левой подписи обрезалась краем SVG (тот же паттерн, что
+          TopJournalsByCountryChart). */}
+      <BarChart data={truncated} margin={{ top: 8, right: 8, bottom: 8, left: 20 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={axis.grid} vertical={false} />
         <XAxis
           dataKey="label"
@@ -353,6 +382,7 @@ function DrawerOAChart({ data }: { data: LabelCount[] }) {
           startAngle={90}
           endAngle={-270}
           paddingAngle={2}
+          rootTabIndex={-1}
         >
           {colored.map((row, i) => (
             <Cell key={i} fill={row.color} />
@@ -411,6 +441,7 @@ function DrawerDocTypeChart({ data }: { data: LabelCount[] }) {
           // светлая линия поверх заливки. 0.4 держит границы читаемыми и для 12
           // сегментов, не «съедая» самые тонкие из них.
           paddingAngle={0.4}
+          rootTabIndex={-1}
         >
           {colored.map((row, i) => (
             <Cell key={i} fill={row.color} />
@@ -496,7 +527,11 @@ export function DimensionDrawer() {
         side={isMobile ? 'bottom' : 'right'}
         className={
           isMobile
-            ? 'h-[85dvh] w-full flex flex-col p-0 gap-0 rounded-t-xl overflow-hidden'
+            // 85dvh «в притык» задевал заголовок страницы на невысоких мобильных
+            // viewport'ах (напр. 810px высотой — зазор между низом заголовка и
+            // верхом drawer'а был 0.6px). min(85dvh, 100dvh-140px) гарантирует
+            // от шапки минимум 140px, не срезая высоту drawer'а на высоких экранах.
+            ? 'h-[min(85dvh,calc(100dvh_-_140px))] w-full flex flex-col p-0 gap-0 rounded-t-xl overflow-hidden'
             : 'sm:max-w-2xl lg:max-w-3xl w-full h-full flex flex-col overflow-hidden p-0 gap-0'
         }
       >

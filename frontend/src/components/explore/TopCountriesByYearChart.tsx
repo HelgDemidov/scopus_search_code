@@ -19,6 +19,7 @@ import { AXIS_COLORS, formatAxisTick, formatCount, getYearRangeBounds, pivotYear
 import { getCountryColor } from '../../constants/countryColors';
 import { YEAR_HARD_MAX, YEAR_MIN_WINDOW } from '../../constants/yearRange';
 import { getLabelMaps } from '../../constants/labelTranslations';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 // График 1 — Top Countries by Year (docs/explore-cross-analytics/spec.md §4).
 // Расширение уже готового пайплайна Publications by Year (тот же year-range slider,
@@ -54,6 +55,11 @@ export function TopCountriesByYearChart() {
   const { theme } = useTheme();
   const axis = AXIS_COLORS[theme];
   const { data, countries, isLoading } = useTopCountriesData();
+  // Тултип показывает по строке на каждую из топ-10 стран — на узком мобильном
+  // экране широкий/высокий тултип с крупным шрифтом мог вылезать за правый край
+  // viewport, почти закрывая график. Уменьшаем шрифт/паддинг и не даём тултипу
+  // выходить за пределы области графика по X (allowEscapeViewBox).
+  const isMobile = useMediaQuery('(max-width: 767px)');
   const maps = getLabelMaps(i18n.language);
   const trCountry = (label: string) => (maps ? maps.country[label] ?? label : label);
 
@@ -122,12 +128,16 @@ export function TopCountriesByYearChart() {
             />
             <Tooltip
               formatter={(value: number, name: string) => [formatCount(value), trCountry(name)]}
+              allowEscapeViewBox={{ x: false, y: true }}
               contentStyle={{
                 borderRadius: 8,
                 border: `1px solid ${axis.grid}`,
                 backgroundColor: theme === 'dark' ? '#152236' : '#ffffff',
-                fontSize: 13,
+                fontSize: isMobile ? 10 : 13,
+                padding: isMobile ? '4px 8px' : undefined,
+                maxWidth: isMobile ? 170 : undefined,
               }}
+              itemStyle={isMobile ? { padding: 0 } : undefined}
             />
             <Legend
               onClick={(entry: Payload) => toggleCountry(String(entry.dataKey))}

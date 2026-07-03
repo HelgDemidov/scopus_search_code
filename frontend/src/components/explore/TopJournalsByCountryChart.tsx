@@ -51,13 +51,17 @@ function JournalCountryTooltip({ active, payload, label }: TooltipProps<ValueTyp
     .sort((a, b) => (a.dataKey === 'Other' ? 1 : 0) - (b.dataKey === 'Other' ? 1 : 0));
   const total = rows.reduce((s, p) => s + (Number(p.value) || 0), 0);
 
+  // На узком мобильном экране тултип с 6 строками (топ-5 стран + Other) на полный
+  // размер почти закрывал сам график и вылезал за правый край экрана — на мобильном
+  // уменьшаем паддинги/шрифт/max-width (mobile-first Tailwind: базовый класс — узкий
+  // вариант, sm: — прежний десктопный размер).
   return (
-    <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#152236] px-3 py-2 shadow-lg text-sm max-w-[260px]">
-      <p className="font-medium text-slate-900 dark:text-slate-100 mb-1.5 break-words">{label}</p>
-      <div className="flex flex-col gap-1">
+    <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#152236] px-2 py-1.5 sm:px-3 sm:py-2 shadow-lg text-xs sm:text-sm max-w-[170px] sm:max-w-[260px]">
+      <p className="font-medium text-slate-900 dark:text-slate-100 mb-1 sm:mb-1.5 break-words">{label}</p>
+      <div className="flex flex-col gap-0.5 sm:gap-1">
         {rows.map((p) => (
-          <div key={String(p.dataKey)} className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+          <div key={String(p.dataKey)} className="flex items-center gap-1.5 sm:gap-2">
+            <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
             <span className="text-slate-500 dark:text-slate-400 flex-1">
               {translateCountry(String(p.dataKey), i18n.language, t)}
             </span>
@@ -67,7 +71,7 @@ function JournalCountryTooltip({ active, payload, label }: TooltipProps<ValueTyp
           </div>
         ))}
       </div>
-      <div className="mt-1.5 pt-1.5 border-t border-slate-100 dark:border-slate-800 flex justify-between text-xs text-slate-400">
+      <div className="mt-1 sm:mt-1.5 pt-1 sm:pt-1.5 border-t border-slate-100 dark:border-slate-800 flex justify-between text-[11px] sm:text-xs text-slate-400">
         <span>{t('explore.tableColArticles')}</span>
         <span className="font-medium tabular-nums">{formatCount(total)}</span>
       </div>
@@ -87,7 +91,10 @@ export function TopJournalsByCountryChart() {
   return (
     <ChartCard title={t('explore.crossCharts.topJournalsByCountry')} isLoading={isLoading} skeletonHeight="h-96">
       <ResponsiveContainer width="100%" height={420}>
-        <BarChart data={pivoted} margin={{ top: 8, right: 8, bottom: 8, left: 0 }}>
+        {/* margin.left=20 (не 0): угловые (-40°) подписи журналов якорятся по
+            textAnchor="end" в точке тика и тянутся по диагонали влево-вверх —
+            при left=0 первая буква самой левой подписи обрезалась краем SVG. */}
+        <BarChart data={pivoted} margin={{ top: 8, right: 8, bottom: 8, left: 20 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={axis.grid} vertical={false} />
           <XAxis
             dataKey="journal"
@@ -108,7 +115,11 @@ export function TopJournalsByCountryChart() {
             width={44}
             tickFormatter={(v: number) => formatAxisTick(v, i18n.language)}
           />
-          <Tooltip content={(p) => <JournalCountryTooltip {...p} />} cursor={{ fill: 'rgba(148,163,184,0.1)' }} />
+          <Tooltip
+            content={(p) => <JournalCountryTooltip {...p} />}
+            cursor={{ fill: 'rgba(148,163,184,0.1)' }}
+            allowEscapeViewBox={{ x: false, y: true }}
+          />
           {/* Легенда стран — сверху справа (не под осью X, где она конкурировала бы с
               длинными угловыми подписями журналов); Recharts сам резервирует место
               под график, оборачивая элементы в 2 строки при нехватке ширины. */}
