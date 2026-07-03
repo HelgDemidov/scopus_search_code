@@ -161,7 +161,7 @@ export function JournalLandscapeScatterChart() {
     >
       <div className="flex flex-col gap-4">
         <ResponsiveContainer width="100%" height={460}>
-          <ScatterChart margin={{ top: 8, right: 16, bottom: 28, left: 16 }}>
+          <ScatterChart margin={{ top: 8, right: 16, bottom: 28, left: 28 }}>
             <defs>
               {QUADRANTS.map((q) => (
                 <radialGradient key={q} id={`journal-halo-${q}`}>
@@ -181,7 +181,7 @@ export function JournalLandscapeScatterChart() {
               label={{
                 value: t('explore.crossCharts.journalImpact.xAxisLabel'),
                 position: 'bottom',
-                offset: 4,
+                offset: 8,
                 fill: axis.tickMuted,
                 fontSize: 12,
               }}
@@ -196,11 +196,13 @@ export function JournalLandscapeScatterChart() {
               axisLine={false}
               width={44}
               allowDataOverflow
+              // position="left" (не "insideLeft") — тот же принцип, что у X: подпись
+              // снаружи области построения, с тем же offset=8 от тиков, что и у X-оси.
               label={{
                 value: t('explore.crossCharts.journalImpact.yAxisLabel'),
                 angle: -90,
-                position: 'insideLeft',
-                offset: 10,
+                position: 'left',
+                offset: 8,
                 style: { textAnchor: 'middle' },
                 fill: axis.tickMuted,
                 fontSize: 12,
@@ -237,9 +239,13 @@ export function JournalLandscapeScatterChart() {
             value={[maxYear]}
             onValueChange={(v: number[]) => setMaxYear(v[0])}
           />
-          <div className="flex justify-between text-[11px] text-slate-400 mt-1">
-            <span>{MATURITY_MIN_YEAR}</span>
-            <span>{MATURITY_MAX_YEAR}</span>
+          <div className="flex justify-between text-[11px] text-slate-400 mt-3">
+            {Array.from(
+              { length: MATURITY_MAX_YEAR - MATURITY_MIN_YEAR + 1 },
+              (_, i) => MATURITY_MIN_YEAR + i,
+            ).map((year) => (
+              <span key={year}>{year}</span>
+            ))}
           </div>
         </div>
       </div>

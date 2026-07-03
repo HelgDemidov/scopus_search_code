@@ -97,7 +97,11 @@ export function Header() {
               asChild
               variant="default"
               size="sm"
-              className="bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400"
+              // text-white + rounded-md переопределяют дефолт shadcn Button
+              // (text-primary-foreground в тёмной теме — почти чёрный, см. index.css
+              // --primary-foreground; rounded-lg) — тот же вид, что у CTA-баннера
+              // "Sign in" в ExplorePage.tsx, единообразно по всему сайту.
+              className="bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-md"
             >
               <Link to="/auth">{t('nav.signIn')}</Link>
             </Button>

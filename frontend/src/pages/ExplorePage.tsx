@@ -51,6 +51,11 @@ const TopJournalsByCountryChart = lazy(() =>
 const JournalLandscapeScatterChart = lazy(() =>
   import('../components/explore/JournalLandscapeScatterChart').then(m => ({ default: m.JournalLandscapeScatterChart }))
 );
+// Table Builder (docs/explore-table-builder/spec.md §3) — заменяет удалённый
+// ChartBuilderPanel; тоже lazy, тот же принцип: не в основном чанке ExplorePage.
+const TableBuilderPanel = lazy(() =>
+  import('../components/explore/TableBuilderPanel').then(m => ({ default: m.TableBuilderPanel }))
+);
 
 // ---------------------------------------------------------------------------
 // Skeleton-заглушки
@@ -214,13 +219,12 @@ export default function ExplorePage() {
 
                 {/* 4-й фикс-график — объём×импакт по журналам (spec.md §1) */}
                 <JournalLandscapeScatterChart />
+
+                {/* Table Builder — пользовательские pivot-таблицы (spec.md §3) */}
+                <TableBuilderPanel />
               </div>
             </Suspense>
           </ErrorBoundary>
-
-          {/* TODO(explore-table-builder): Table Builder заменяет удалённый ChartBuilderPanel
-              (флоский, одномерный — дублировал KpiRow/DimensionDrawer, spec.md §0/§2).
-              Новый конструктор — только таблицы, docs/explore-table-builder/spec.md §3. */}
         </>
       )}
 
