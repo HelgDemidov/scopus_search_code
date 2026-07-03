@@ -73,6 +73,8 @@ class ICatalogRepository(ABC):
         Возвращает агрегированную статистику по каталогу с опциональными фильтрами.
         Без фильтров — полная статистика (эквивалент V1).
         Поля ответа: total_articles, total_journals, total_countries, total_authors,
-        open_access_count, by_year, by_journal, by_country, by_doc_type, top_keywords, top_authors.
+        open_access_count, by_year, by_journal, by_country, by_doc_type, top_keywords, top_authors,
+        by_year_top_countries, sunburst_country_open_access, top_journals_by_country
+        (кросс-агрегаты для стационарных графиков /explore, docs/explore-cross-analytics/spec.md §2).
         """
         pass

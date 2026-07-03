@@ -162,6 +162,9 @@ const MOCK_STATS: StatsResponse = {
   by_journal: [],
   top_keywords: [],
   top_authors: [],
+  by_year_top_countries: [],
+  sunburst_country_open_access: [],
+  top_journals_by_country: [],
 };
 
 function makeArticle(id: number): ArticleResponse {

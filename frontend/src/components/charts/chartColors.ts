@@ -2,7 +2,7 @@
 // Каждое измерение имеет собственный профиль: base, hover, selected, dimmed.
 // Hex-значения используются напрямую в Recharts (не Tremor-строки).
 
-import type { LabelCount } from '../../types/api';
+import type { LabelCount, YearCountryCount } from '../../types/api';
 
 // ---------------------------------------------------------------------------
 // Dimension type — единственный источник истины для имён измерений
@@ -194,6 +194,11 @@ export function getTaxonomyColor(index: number): string {
   return TAXONOMY_PALETTE[index % TAXONOMY_PALETTE.length];
 }
 
+// Цвет "Closed Access" сегмента (donut/sunburst) — единая точка объявления,
+// используется в DrawerOAChart и CountrySunburstChart (slate-400, вне DIMENSION_COLORS,
+// т.к. это не самостоятельное измерение, а второе состояние бинарного open_access).
+export const CLOSED_ACCESS_COLOR = '#94a3b8';
+
 // ---------------------------------------------------------------------------
 // Publications by Year — границы диапазона и zero-fill (post-prod §14 п.6)
 // ---------------------------------------------------------------------------
@@ -225,6 +230,96 @@ export function zeroFillYears(data: LabelCount[], start: number, end: number): L
     result.push({ label: String(y), count: countByYear.get(y) ?? 0 });
   }
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Top Countries by Year — сведение плоских (year, country, count) в
+// wide-формат для мультисерийного Recharts (docs/explore-cross-analytics/spec.md §3.1,
+// §4). Отдельная функция, а не расширение zeroFillYears() — та работает с одной
+// серией и возвращает другую форму данных (LabelCount[], не wide-объекты);
+// развести одну сигнатуру на два несовместимых shape было бы хуже, чем два имени.
+// ---------------------------------------------------------------------------
+
+export type YearCountryRow = { year: number } & Record<string, number>;
+
+/**
+ * Разворачивает YearCountryCount[] в непрерывный по годам wide-формат
+ * `{ year, [country]: count, ... }`, с нулями для (год, страна) без данных —
+ * тот же принцип zero-fill, что и zeroFillYears(), но на несколько параллельных
+ * серий сразу. `countries` передаётся явно (не выводится из data) — чтобы страна
+ * без единой статьи в выбранном пользователем поддиапазоне слайдера всё равно
+ * получила нулевую линию, а не разрыв.
+ */
+export function pivotYearCountrySeries(
+  data: YearCountryCount[],
+  countries: string[],
+  start: number,
+  end: number,
+): YearCountryRow[] {
+  const countByYearCountry = new Map<string, number>();
+  for (const d of data) {
+    countByYearCountry.set(`${d.year}|${d.country}`, d.count);
+  }
+
+  const result: YearCountryRow[] = [];
+  for (let year = start; year <= end; year++) {
+    const row: YearCountryRow = { year };
+    for (const country of countries) {
+      row[country] = countByYearCountry.get(`${year}|${country}`) ?? 0;
+    }
+    result.push(row);
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Sunburst — минимальный угол отрисовки для тонких сегментов (spec.md §3.3, §5).
+// ---------------------------------------------------------------------------
+
+/**
+ * Recharts распределяет углы `Pie` пропорционально `value` в пределах 360°.
+ * Сегменты с долей заметно ниже среднего (напр. 1 статья из 120 000) получают
+ * угол среза <0.5° — визуально неразличимы и некликабельны. Флурим (floor) такие
+ * сегменты до минимального угла `minDegrees`, компенсируя это пропорциональным
+ * сжатием остальных — суммарный `value` кольца остаётся неизменным (это важно:
+ * выравнивание дочернего кольца под родительским в технике вложенных Pie
+ * держится на равенстве сумм между уровнями, см. spec.md §3.3). Исходное
+ * значение сохраняется как `value` — используется в tooltip/подписи; для
+ * рендера используется новое поле `renderValue`.
+ */
+export function applyMinimumArcFloor<T extends { value: number }>(
+  items: T[],
+  minDegrees = 1.5,
+): Array<T & { renderValue: number }> {
+  const total = items.reduce((sum, d) => sum + d.value, 0);
+  if (total <= 0 || items.length === 0) {
+    return items.map((d) => ({ ...d, renderValue: d.value }));
+  }
+
+  const minValue = (minDegrees / 360) * total;
+  const flooredIndices = new Set<number>();
+  items.forEach((d, i) => {
+    if (d.value < minValue) flooredIndices.add(i);
+  });
+
+  // Вырожденный случай (пришлось бы флурить вообще всё, например слишком много
+  // сегментов при слишком большом minDegrees) — возвращаем без искажений.
+  if (flooredIndices.size === 0 || flooredIndices.size === items.length) {
+    return items.map((d) => ({ ...d, renderValue: d.value }));
+  }
+
+  const flooredOriginalSum = items.reduce(
+    (sum, d, i) => (flooredIndices.has(i) ? sum + d.value : sum),
+    0,
+  );
+  const remainingOriginalSum = total - flooredOriginalSum;
+  const remainingTargetSum = total - flooredIndices.size * minValue;
+  const scale = remainingTargetSum / remainingOriginalSum;
+
+  return items.map((d, i) => ({
+    ...d,
+    renderValue: flooredIndices.has(i) ? minValue : d.value * scale,
+  }));
 }
 
 // ---------------------------------------------------------------------------

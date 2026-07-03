@@ -38,6 +38,9 @@ const MOCK_STATS: StatsResponse = {
   by_journal:  [{ label: 'Nature', count: 100 }],
   top_keywords: [{ label: 'Neural Networks', count: 400 }],
   top_authors: [{ label: 'J. Smith', count: 15 }, { label: 'L. Wang', count: 12 }],
+  by_year_top_countries: [],
+  sunburst_country_open_access: [],
+  top_journals_by_country: [],
 };
 
 vi.mock('../../stores/statsStore', () => ({

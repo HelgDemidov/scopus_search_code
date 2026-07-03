@@ -216,7 +216,18 @@
     "tableColCount": "Count",
     "tableColShare": "Share",
     "removeChart": "Remove chart",
-    "closedAccess": "Closed Access"
+    "closedAccess": "Closed Access",
+    "crossCharts": {
+      "topCountriesByYear": "Top Countries by Year",
+      "yearRangeLabel": "Year range",
+      "sunburst": "Country → Open Access",
+      "sunburstLevelCountry": "Country",
+      "sunburstLevelOpenAccess": "Open Access",
+      "ofParent": "of {{parent}}",
+      "topJournalsByCountry": "Top Journals by Country",
+      "other": "Other",
+      "allPublications": "all publications"
+    }
   },
   "article": {
     "backHome": "← Back to home",
