@@ -118,9 +118,7 @@ async def get_stats(
 
 @router.get("/stats/journal-impact", response_model=list[JournalImpactPoint], tags=["Analytics"])
 async def get_journal_impact(
-    max_year: int = Query(
-        2024, ge=2022, le=2024, description="Учитывать статьи, опубликованные <= max_year"
-    ),
+    max_year: int = Query(2024, ge=2022, le=2024, description="Учитывать статьи, опубликованные <= max_year"),
     service: CatalogService = Depends(get_catalog_service),
 ) -> list[JournalImpactPoint]:
     return await service.get_journal_impact(max_year=max_year)
