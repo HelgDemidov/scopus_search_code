@@ -6,10 +6,48 @@
 
 import { apiClient } from './client';
 import type { ActiveSelection } from '../stores/dashboardStore';
-import type { StatsResponse } from '../types/api';
+import type { JournalImpactPoint, PivotDimension, PivotResponse, StatsResponse } from '../types/api';
 
 export async function getStats(): Promise<StatsResponse> {
   const response = await apiClient.get<StatsResponse>('/articles/stats');
+  return response.data;
+}
+
+// Journal Landscape Scatter (docs/explore-table-builder/spec.md §1) — не часть
+// StatsResponse/get_stats(): значение зависит от рантайм-параметра слайдера
+// окна зрелости, отдельный некэшируемый запрос при каждой смене maxYear.
+export async function getJournalImpact(maxYear: number, signal?: AbortSignal): Promise<JournalImpactPoint[]> {
+  const response = await apiClient.get<JournalImpactPoint[]>('/articles/stats/journal-impact', {
+    params: { max_year: maxYear },
+    signal,
+  });
+  return response.data;
+}
+
+// Table Builder (docs/explore-table-builder/spec.md §3) — тоже вне StatsResponse:
+// ленивый запрос по клику пользователя в конкретную rowDim×colDim комбинацию,
+// не кэшируется ни на клиенте, ни на сервере.
+export interface PivotParams {
+  rowDim: PivotDimension;
+  colDim: PivotDimension;
+  topNRows?: number;
+  topNCols?: number;
+  filterDim?: PivotDimension;
+  filterValue?: string;
+}
+
+export async function getPivot(params: PivotParams, signal?: AbortSignal): Promise<PivotResponse> {
+  const response = await apiClient.get<PivotResponse>('/articles/stats/pivot', {
+    params: {
+      row_dim: params.rowDim,
+      col_dim: params.colDim,
+      top_n_rows: params.topNRows,
+      top_n_cols: params.topNCols,
+      filter_dim: params.filterDim,
+      filter_value: params.filterValue,
+    },
+    signal,
+  });
   return response.data;
 }
 

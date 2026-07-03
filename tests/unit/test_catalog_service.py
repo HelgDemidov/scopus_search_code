@@ -12,7 +12,9 @@ from app.models.article import Article
 from app.schemas.article_schemas import (
     CountByField,
     JournalCountryCount,
+    JournalImpactPoint,
     PaginatedArticleResponse,
+    PivotResponse,
     StatsResponse,
     SunburstSegment,
     YearCountryCount,
@@ -46,6 +48,8 @@ class FakeCatalogRepository(ICatalogRepository):
         self.get_count_calls: list[dict] = []
         self.save_seeded_calls: list[dict] = []
         self.stats_call_count = 0
+        self.journal_impact_calls: list[int] = []
+        self.pivot_calls: list[dict] = []
 
     # Сигнатура синхронизирована с ICatalogRepository после добавления фильтров
     async def get_all(
@@ -129,6 +133,40 @@ class FakeCatalogRepository(ICatalogRepository):
             "by_year_top_countries": [{"year": 2025, "country": "USA", "count": 18}],
             "sunburst_country_open_access": [{"country": "USA", "open_access": True, "count": 9}],
             "top_journals_by_country": [{"journal": "Nature", "country": "USA", "count": 6}],
+        }
+
+    async def get_journal_impact(self, max_year: int) -> list[dict]:
+        self.journal_impact_calls.append(max_year)
+        return [
+            {"journal": "Nature", "count": 91, "mean_citations": 80.79, "median_citations": 52.0},
+            {"journal": "IEEE Access", "count": 321, "mean_citations": 23.18, "median_citations": 10.0},
+        ]
+
+    async def get_pivot(
+        self,
+        row_dim: str,
+        col_dim: str,
+        top_n_rows: int,
+        top_n_cols: int,
+        filter_dim: str | None = None,
+        filter_value: str | None = None,
+    ) -> dict:
+        self.pivot_calls.append(
+            {
+                "row_dim": row_dim,
+                "col_dim": col_dim,
+                "top_n_rows": top_n_rows,
+                "top_n_cols": top_n_cols,
+                "filter_dim": filter_dim,
+                "filter_value": filter_value,
+            }
+        )
+        return {
+            "row_labels": ["2023", "2024"],
+            "col_labels": ["USA", "China"],
+            "matrix": [[10, 5], [20, 8]],
+            "row_totals": [15, 28],
+            "col_totals": [30, 13],
         }
 
 
@@ -413,6 +451,77 @@ async def test_get_stats_delegates_to_catalog_repo():
 
     # Ровно один вызов get_stats() в репозиторий
     assert cr.stats_call_count == 1
+
+
+# ================================================================ #
+#  Тесты get_journal_impact (Journal Landscape Scatter)             #
+# ================================================================ #
+
+
+@pytest.mark.asyncio
+async def test_get_journal_impact_returns_journal_impact_points():
+    svc, _, _, _ = _mk_service()
+
+    result = await svc.get_journal_impact(max_year=2024)
+
+    assert len(result) == 2
+    assert all(isinstance(p, JournalImpactPoint) for p in result)
+    assert result[0].journal == "Nature"
+    assert result[0].count == 91
+    assert result[0].mean_citations == 80.79
+    assert result[0].median_citations == 52.0
+
+
+@pytest.mark.asyncio
+async def test_get_journal_impact_passes_max_year_to_repo():
+    svc, _, cr, _ = _mk_service()
+
+    await svc.get_journal_impact(max_year=2022)
+
+    assert cr.journal_impact_calls == [2022]
+
+
+# ================================================================ #
+#  Тесты get_pivot (Table Builder)                                  #
+# ================================================================ #
+
+
+@pytest.mark.asyncio
+async def test_get_pivot_returns_pivot_response():
+    svc, _, _, _ = _mk_service()
+
+    result = await svc.get_pivot(row_dim="year", col_dim="country", top_n_rows=20, top_n_cols=15)
+
+    assert isinstance(result, PivotResponse)
+    assert result.row_dim == "year"
+    assert result.col_dim == "country"
+    assert result.row_labels == ["2023", "2024"]
+    assert result.matrix == [[10, 5], [20, 8]]
+
+
+@pytest.mark.asyncio
+async def test_get_pivot_passes_all_params_to_repo():
+    svc, _, cr, _ = _mk_service()
+
+    await svc.get_pivot(
+        row_dim="doc_type",
+        col_dim="open_access",
+        top_n_rows=10,
+        top_n_cols=5,
+        filter_dim="year",
+        filter_value="2024",
+    )
+
+    assert cr.pivot_calls == [
+        {
+            "row_dim": "doc_type",
+            "col_dim": "open_access",
+            "top_n_rows": 10,
+            "top_n_cols": 5,
+            "filter_dim": "year",
+            "filter_value": "2024",
+        }
+    ]
 
 
 # ================================================================ #

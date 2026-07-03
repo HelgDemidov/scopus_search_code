@@ -196,14 +196,6 @@
       "authors_many": "авторов",
       "authors_other": "авторов"
     },
-    "chartBuilder": {
-      "addChart": "Добавить график",
-      "cancel": "Отмена",
-      "addToPage": "Добавить на страницу",
-      "chooseDim": "Выберите измерение",
-      "chooseType": "Выберите тип графика",
-      "builderLabel": "Конструктор графиков"
-    },
     "dimensions": {
       "year": "Публикации по годам",
       "country": "Ведущие страны",
@@ -220,19 +212,29 @@
       "open_access": "Open Access",
       "author": "Автор"
     },
-    "chartTypes": {
-      "bar_h": "Горизонтальный столбик",
-      "bar_v": "Вертикальный столбик",
-      "pie": "Круговая диаграмма",
-      "line": "Линейный график",
-      "table": "Таблица"
-    },
     "tableColLabel": "Метка",
     "tableColArticles": "Публикаций",
     "tableColCount": "Кол-во",
     "tableColShare": "Доля",
-    "removeChart": "Удалить график",
     "closedAccess": "Закрытый доступ",
+    "tableBuilder": {
+      "heading": "Конструктор таблиц",
+      "rowsLabel": "Строки",
+      "colsLabel": "Столбцы",
+      "slicerLabel": "Фильтр (опционально)",
+      "slicerNone": "Нет",
+      "slicerValueLabel": "Значение",
+      "addButton": "Добавить таблицу",
+      "cancel": "Отмена",
+      "removeTable": "Удалить таблицу",
+      "searchPlaceholder": "Поиск по строкам…",
+      "totalColumn": "Итого",
+      "csvExport": "Скачать CSV",
+      "emptyState": "Нет данных для этой комбинации.",
+      "sparseWarning": "Мало результатов при этом фильтре — попробуйте другое значение.",
+      "marginalNote": "Итоги по строкам/столбцам считаются по всей выборке, а не только по показанным ячейкам.",
+      "pairTitle": "{{row}} × {{col}}"
+    },
     "crossCharts": {
       "topCountriesByYear": "Ведущие страны по годам",
       "yearRangeLabel": "Диапазон лет",
@@ -242,7 +244,22 @@
       "ofParent": "от {{parent}}",
       "topJournalsByCountry": "Ведущие журналы по странам",
       "other": "Другое",
-      "allPublications": "всех публикаций"
+      "allPublications": "всех публикаций",
+      "journalImpact": {
+        "title": "Ландшафт журналов",
+        "maturityLabel": "Окно зрелости цитирований",
+        "maturityCaption": "Статьи, опубликованные по {{year}} год включительно",
+        "xAxisLabel": "Публикаций",
+        "yAxisLabel": "Среднее число цитирований",
+        "tooltipMean": "Средн. цитирований",
+        "tooltipMedian": "Медиана цитирований",
+        "quadrants": {
+          "flagship": "Флагман",
+          "hiddenGem": "Скрытая жемчужина",
+          "volumeFactory": "Высокий объём",
+          "peripheral": "Периферия"
+        }
+      }
     }
   },
   "article": {

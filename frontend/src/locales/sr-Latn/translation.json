@@ -188,14 +188,6 @@
       "authors_few": "autora",
       "authors_other": "autora"
     },
-    "chartBuilder": {
-      "addChart": "Dodaj grafikon",
-      "cancel": "Otkaži",
-      "addToPage": "Dodaj na stranicu",
-      "chooseDim": "Odaberite dimenziju",
-      "chooseType": "Odaberite tip grafikona",
-      "builderLabel": "Graditelj grafikona"
-    },
     "dimensions": {
       "year": "Publikacije po godinama",
       "country": "Vodeće zemlje",
@@ -212,19 +204,29 @@
       "open_access": "Open Access",
       "author": "Autor"
     },
-    "chartTypes": {
-      "bar_h": "Horizontalni stupac",
-      "bar_v": "Vertikalni stupac",
-      "pie": "Kružni dijagram",
-      "line": "Linijski grafikon",
-      "table": "Tabela"
-    },
     "tableColLabel": "Oznaka",
     "tableColArticles": "Publikacija",
     "tableColCount": "Broj",
     "tableColShare": "Udio",
-    "removeChart": "Ukloni grafikon",
     "closedAccess": "Zatvoreni pristup",
+    "tableBuilder": {
+      "heading": "Graditelj tabela",
+      "rowsLabel": "Redovi",
+      "colsLabel": "Kolone",
+      "slicerLabel": "Filter (opciono)",
+      "slicerNone": "Nijedan",
+      "slicerValueLabel": "Vrijednost",
+      "addButton": "Dodaj tabelu",
+      "cancel": "Otkaži",
+      "removeTable": "Ukloni tabelu",
+      "searchPlaceholder": "Pretraga redova…",
+      "totalColumn": "Ukupno",
+      "csvExport": "Preuzmi CSV",
+      "emptyState": "Nema podataka za ovu kombinaciju.",
+      "sparseWarning": "Malo rezultata za ovaj filter — probajte drugu vrijednost.",
+      "marginalNote": "Zbirovi po redovima/kolonama odnose se na cijeli skup podataka, ne samo na prikazane ćelije.",
+      "pairTitle": "{{row}} × {{col}}"
+    },
     "crossCharts": {
       "topCountriesByYear": "Vodeće zemlje po godinama",
       "yearRangeLabel": "Opseg godina",
@@ -234,7 +236,22 @@
       "ofParent": "od {{parent}}",
       "topJournalsByCountry": "Vodeći časopisi po zemljama",
       "other": "Ostalo",
-      "allPublications": "svih publikacija"
+      "allPublications": "svih publikacija",
+      "journalImpact": {
+        "title": "Pejzaž časopisa",
+        "maturityLabel": "Prozor zrelosti citata",
+        "maturityCaption": "Članci objavljeni zaključno sa {{year}} godinom",
+        "xAxisLabel": "Publikacija",
+        "yAxisLabel": "Prosečan broj citata",
+        "tooltipMean": "Prosečno citiranje",
+        "tooltipMedian": "Medijana citiranja",
+        "quadrants": {
+          "flagship": "Vodeći",
+          "hiddenGem": "Skriveni dragulj",
+          "volumeFactory": "Visok obim",
+          "peripheral": "Periferni"
+        }
+      }
     }
   },
   "article": {

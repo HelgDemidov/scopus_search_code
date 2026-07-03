@@ -17,8 +17,6 @@ import { ErrorBoundary } from '../components/ui/ErrorBoundary';
 import { KpiRow } from '../components/explore/KpiRow';
 import { DimensionDrawer } from '../components/explore/DimensionDrawer';
 import { ActiveFilterBanner } from '../components/explore/ActiveFilterBanner';
-import { ChartBuilderPanel } from '../components/explore/ChartBuilderPanel';
-import { DynamicChart } from '../components/charts/DynamicChart';
 
 // Charts — lazy-loaded: не попадают в основной чанк ExplorePage
 const PublicationsByYearChart = lazy(() =>
@@ -47,6 +45,16 @@ const CountrySunburstChart = lazy(() =>
 );
 const TopJournalsByCountryChart = lazy(() =>
   import('../components/explore/TopJournalsByCountryChart').then(m => ({ default: m.TopJournalsByCountryChart }))
+);
+// 4-й фикс-график (docs/explore-table-builder/spec.md §1) — объём×импакт по журналам,
+// единственное измерение на 2 метриках, поэтому не часть Table Builder (§3).
+const JournalLandscapeScatterChart = lazy(() =>
+  import('../components/explore/JournalLandscapeScatterChart').then(m => ({ default: m.JournalLandscapeScatterChart }))
+);
+// Table Builder (docs/explore-table-builder/spec.md §3) — заменяет удалённый
+// ChartBuilderPanel; тоже lazy, тот же принцип: не в основном чанке ExplorePage.
+const TableBuilderPanel = lazy(() =>
+  import('../components/explore/TableBuilderPanel').then(m => ({ default: m.TableBuilderPanel }))
 );
 
 // ---------------------------------------------------------------------------
@@ -102,8 +110,6 @@ export default function ExplorePage() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const {
     activeSelection,
-    builderCards,
-    removeBuilderCard,
     fetchFilteredStats,
     clearFilteredStats,
   } = useDashboardStore();
@@ -211,24 +217,14 @@ export default function ExplorePage() {
                   <TopJournalsByCountryChart />
                 </div>
 
-                {/* Пользовательские чарты из Chart Builder */}
-                {builderCards.length > 0 && (
-                  <div className="flex flex-col gap-6">
-                    {builderCards.map((card) => (
-                      <DynamicChart
-                        key={card.id}
-                        card={card}
-                        onRemove={() => removeBuilderCard(card.id)}
-                      />
-                    ))}
-                  </div>
-                )}
+                {/* 4-й фикс-график — объём×импакт по журналам (spec.md §1) */}
+                <JournalLandscapeScatterChart />
+
+                {/* Table Builder — пользовательские pivot-таблицы (spec.md §3) */}
+                <TableBuilderPanel />
               </div>
             </Suspense>
           </ErrorBoundary>
-
-          {/* Chart Builder — всегда виден (не внутри Suspense) */}
-          <ChartBuilderPanel />
         </>
       )}
 

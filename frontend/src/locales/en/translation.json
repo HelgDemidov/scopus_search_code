@@ -180,14 +180,6 @@
       "authors_one": "Author",
       "authors_other": "Authors"
     },
-    "chartBuilder": {
-      "addChart": "Add chart",
-      "cancel": "Cancel",
-      "addToPage": "Add to page",
-      "chooseDim": "Choose dimension",
-      "chooseType": "Choose chart type",
-      "builderLabel": "Chart builder"
-    },
     "dimensions": {
       "year": "Publications by Year",
       "country": "Top Countries",
@@ -204,19 +196,29 @@
       "open_access": "Open Access",
       "author": "Author"
     },
-    "chartTypes": {
-      "bar_h": "Horizontal Bar",
-      "bar_v": "Vertical Bar",
-      "pie": "Pie",
-      "line": "Line",
-      "table": "Table"
-    },
     "tableColLabel": "Label",
     "tableColArticles": "Publications",
     "tableColCount": "Count",
     "tableColShare": "Share",
-    "removeChart": "Remove chart",
     "closedAccess": "Closed Access",
+    "tableBuilder": {
+      "heading": "Table Builder",
+      "rowsLabel": "Rows",
+      "colsLabel": "Columns",
+      "slicerLabel": "Filter (optional)",
+      "slicerNone": "None",
+      "slicerValueLabel": "Value",
+      "addButton": "Add table",
+      "cancel": "Cancel",
+      "removeTable": "Remove table",
+      "searchPlaceholder": "Search rows…",
+      "totalColumn": "Total",
+      "csvExport": "Download CSV",
+      "emptyState": "No data for this combination.",
+      "sparseWarning": "Few results for this filter — try a different value.",
+      "marginalNote": "Row/column totals reflect the full dataset, not just the cells shown.",
+      "pairTitle": "{{row}} × {{col}}"
+    },
     "crossCharts": {
       "topCountriesByYear": "Top Countries by Year",
       "yearRangeLabel": "Year range",
@@ -226,7 +228,22 @@
       "ofParent": "of {{parent}}",
       "topJournalsByCountry": "Top Journals by Country",
       "other": "Other",
-      "allPublications": "all publications"
+      "allPublications": "all publications",
+      "journalImpact": {
+        "title": "Journal Landscape",
+        "maturityLabel": "Citation maturity window",
+        "maturityCaption": "Articles published through {{year}}",
+        "xAxisLabel": "Publications",
+        "yAxisLabel": "Average citations",
+        "tooltipMean": "Avg. citations",
+        "tooltipMedian": "Median citations",
+        "quadrants": {
+          "flagship": "Flagship",
+          "hiddenGem": "Hidden gem",
+          "volumeFactory": "High volume",
+          "peripheral": "Peripheral"
+        }
+      }
     }
   },
   "article": {

@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { getFilteredStats, selectionToParams } from '../api/stats';
-import type { Dimension, ChartType } from '../components/charts/chartColors';
-import type { StatsResponse } from '../types/api';
+import type { Dimension } from '../components/charts/chartColors';
+import type { PivotDimension, StatsResponse } from '../types/api';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -13,10 +13,15 @@ export interface ActiveSelection {
   value: string;
 }
 
+// Table Builder (docs/explore-table-builder/spec.md §3) — заменяет флоский Chart
+// Builder (dimension+chartType). filterDim/filterValue — опциональный slicer
+// (3-е измерение как фильтр, не ось).
 export interface BuilderCard {
   id: string;
-  dimension: Dimension;
-  chartType: ChartType;
+  rowDim: PivotDimension;
+  colDim: PivotDimension;
+  filterDim?: PivotDimension;
+  filterValue?: string;
 }
 
 interface DashboardStore {
@@ -125,9 +130,13 @@ export const useDashboardStore = create<DashboardStore>()(
       storage: createJSONStorage(() => localStorage),
       // Только builderCards персистируются — всё остальное сессионное
       partialize: (state) => ({ builderCards: state.builderCards }),
-      version: 1,
+      // v2: BuilderCard сменил форму (dimension+chartType → rowDim/colDim/filterDim,
+      // Table Builder вместо Chart Builder, docs/explore-table-builder/spec.md §2/§3) —
+      // старые сохранённые карточки несовместимы, сбрасываем в пустой список, а не
+      // пытаемся смэппить поля из другой предметной области.
+      version: 2,
       migrate: (_persisted, version) => {
-        if (version < 1) return { builderCards: [] };
+        if (version < 2) return { builderCards: [] };
         return _persisted as { builderCards: BuilderCard[] };
       },
     }

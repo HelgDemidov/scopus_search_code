@@ -73,6 +73,34 @@ export interface StatsResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Journal Landscape Scatter + Table Builder (docs/explore-table-builder/spec.md)
+// ---------------------------------------------------------------------------
+
+// Точка scatter — GET /articles/stats/journal-impact?max_year=
+export interface JournalImpactPoint {
+  journal: string;
+  count: number;
+  mean_citations: number;
+  median_citations: number;
+}
+
+// Whitelist измерений Table Builder (spec.md §3.1) — синхронизировано с
+// app.schemas.article_schemas.PivotDimension. 'author' сознательно исключён
+// (нет ORCID, риск ложной агрегации по однофамильцам).
+export type PivotDimension = 'year' | 'country' | 'doc_type' | 'journal' | 'open_access';
+
+// GET /articles/stats/pivot — 2D pivot по 2 измерениям + опциональный slicer
+export interface PivotResponse {
+  row_dim: PivotDimension;
+  col_dim: PivotDimension;
+  row_labels: string[];
+  col_labels: string[];
+  matrix: number[][];
+  row_totals: number[];
+  col_totals: number[];
+}
+
+// ---------------------------------------------------------------------------
 // Статистика поискового запроса (GET /articles/search/stats?search=...)
 // Отдельный интерфейс — не алиас StatsResponse:
 //   - нет total_articles, total_journals, total_countries, open_access_count
