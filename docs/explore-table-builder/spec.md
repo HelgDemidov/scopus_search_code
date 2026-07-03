@@ -156,18 +156,18 @@ GET /articles/stats/pivot?row_dim=year&col_dim=country&top_n_rows=20&top_n_cols=
 
 ## 5. Чек-лист реализации
 
-- [ ] Backend: `JournalImpactPoint`/`PivotResponse` схемы (`app/schemas/article_schemas.py`)
-- [ ] Backend: `GET /articles/stats/journal-impact` (роутер + сервис + репозиторий-метод + whitelist/валидация)
-- [ ] Backend: `GET /articles/stats/pivot` (роутер + сервис + репозиторий-метод + whitelist + security-тест инъекций)
-- [ ] Backend: тесты (unit + SQLite-integration) для обоих эндпоинтов
-- [ ] Frontend: `JournalLandscapeScatterChart.tsx` (+ слайдер, квадрант-цвета, лог-шкала, i18n)
-- [ ] Frontend: удалить `ChartBuilderPanel.tsx`/`DynamicChart.tsx` (+ их `.test.tsx`)
-- [ ] Frontend: `TableBuilderPanel.tsx` + `PivotTable.tsx` (сортировка/поиск/пагинация/CSV)
-- [ ] Frontend: `dashboardStore.ts` — новая форма `BuilderCard`, миграция персиста
-- [ ] Frontend: i18n — `explore.crossCharts.journalImpact.*`, `explore.tableBuilder.*` (en/ru/sr-Latn)
-- [ ] `ExplorePage.tsx` — разместить scatter (full-width, после ряда sunburst/journals) + заменить builder-секцию
-- [ ] Тесты (frontend + backend), визуальная проверка в обеих темах (Chrome DevTools MCP), desktop + mobile
-- [ ] Обновить `frontend/CLAUDE.md`/корневой `CLAUDE.md` после мерджа (см. `post-merge-sync`)
+- [x] Backend: `JournalImpactPoint`/`PivotResponse` схемы (`app/schemas/article_schemas.py`)
+- [x] Backend: `GET /articles/stats/journal-impact` (роутер + сервис + репозиторий-метод + whitelist/валидация)
+- [x] Backend: `GET /articles/stats/pivot` (роутер + сервис + репозиторий-метод + whitelist + security-тест инъекций)
+- [x] Backend: тесты (unit + SQLite-integration) для обоих эндпоинтов
+- [x] Frontend: `JournalLandscapeScatterChart.tsx` (+ слайдер, квадрант-цвета, лог-шкала, i18n)
+- [x] Frontend: удалить `ChartBuilderPanel.tsx`/`DynamicChart.tsx` (+ их `.test.tsx`)
+- [x] Frontend: `TableBuilderPanel.tsx` + `PivotTable.tsx` (сортировка/поиск/пагинация/CSV)
+- [x] Frontend: `dashboardStore.ts` — новая форма `BuilderCard`, миграция персиста
+- [x] Frontend: i18n — `explore.crossCharts.journalImpact.*`, `explore.tableBuilder.*` (en/ru/sr-Latn)
+- [x] `ExplorePage.tsx` — разместить scatter (full-width, после ряда sunburst/journals) + заменить builder-секцию
+- [x] Тесты (frontend + backend), визуальная проверка в обеих темах (Chrome DevTools MCP), desktop + mobile
+- [x] Обновить `frontend/CLAUDE.md`/корневой `CLAUDE.md` после мерджа (см. `post-merge-sync`)
 
 ---
 
@@ -176,3 +176,15 @@ GET /articles/stats/pivot?row_dim=year&col_dim=country&top_n_rows=20&top_n_cols=
 - Cross-filter (`activeSelection`) для pivot-таблиц — не наследуется в v1, отдельная итерация при необходимости.
 - Кэширование `pivot`-эндпоинта — v1 без кэша (некритичная нагрузка при штучных запросах из UI); если станет узким местом — отдельный Redis-ключ вне `db_namespace`-схемы `get_stats()`.
 - XLSX/JSON-экспорт — не требуется, CSV закрывает сценарий; пересмотреть только по явному запросу.
+
+---
+
+## 7. Статус выполнения
+
+Смёрджено в `main` 2026-07-03, PR [#44](https://github.com/HelgDemidov/scopus_search_code/pull/44) (merge-коммит `1d76d2d`).
+
+Коммиты: `b167020` (ТЗ) → `f0da94e` (backend: `/stats/journal-impact` + `/stats/pivot`, `JournalLandscapeScatterChart`) → `0214844` (`TableBuilderPanel`/`PivotTable`) → `3e2c5f4` (стиль кнопки Add table) → `de7fe95` (ruff format, CI fix). Пост-мердж полировка отдельным коммитом в `main`: `43930e7` (контраст/выравнивание/фиолетовый акцент кнопки Table Builder, сброс сортировки по 3-му клику, размер шрифта Sign in/Add table).
+
+Реализовано полностью по чек-листу §5, включая визуальную проверку в обеих темах и на мобильном экране (Chrome DevTools MCP). Backend: 183 теста (`pytest -m "not requires_pg"`). Frontend: 527 тестов, tsc/eslint чистые.
+
+Открытые вопросы §6 остаются вне скоупа v1 без изменений.

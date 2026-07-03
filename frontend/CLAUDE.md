@@ -26,7 +26,7 @@ i18n: react-i18next 17 + i18next 26 + i18next-browser-languagedetector 8.
 
 ## Tests (co-location pattern: тест рядом с источником)
 Unit: `src/**/*.test.{ts,tsx}` | Integration: `*.integration.test.*`
-Total (main, 2026-07-03): **483** тестов, все зелёные.
+Total (main, 2026-07-03): **527** тестов, все зелёные.
 Vitest patterns (Checkbox mock, fake timers, vi.hoisted) — см. память [[feedback-vitest-testing-patterns]].
 jsdom browser API mocks — см. память [[feedback-jsdom-browser-api-mocks]].
 
@@ -47,15 +47,13 @@ npm run test / test:watch / test:coverage / lint / build
 ## Dark mode (feat/dark-mode, merged PR #33, 2026-06-28)
 `ThemeContext.ts` → `ThemeProvider.tsx` (overlay fade 3500/400ms) → `useTheme.ts` → `ThemeToggle.tsx`. `StarFieldCanvas.tsx` — Canvas звёздное небо (400/150 звёзд desktop/mobile, MAX_METEORS=50, HiDPI, prefers-reduced-motion).
 Фон `#0d1b2a`; поверхности (ChartCard/KpiTile/ChartTooltip) `#152236`. `useDimensionColors(dimension)` — theme-aware (dark → `darkDimmed` 900-shades). По умолчанию dark (первое посещение без localStorage). Логотип в Header → `articleStore.resetSearch()`.
-`react-hooks/set-state-in-effect` — disable-comment **внутри** useEffect перед setState (ESLint flat config требует).
 
 ## /explore analytics dashboard (merged 2026-06-27; рефакторинг PR #42, 2026-07-02)
 `ExplorePage` — collection mode: KpiRow (6 тайлов) → клик открывает `DimensionDrawer` (Sheet) с детальным видом. 6 старых стационарных чартов **отключены** в collection mode (компоненты не удалены, просто не рендерятся — дублировали DimensionDrawer); в personal mode (история пользователя) 4 из них по-прежнему используются.
 `DimensionDrawer`: `year` — area, `open_access`/`doc_type` — donut, `country`/`journal`/`author` — horizontal bar (top-15, ranked-цвет).
-`chartColors.ts`: `getRankedBarColor()` — верхний бар чистый `base`, нижние смещаются к белому (dark-тема) / чёрному (light-тема), контрастнее фона своей темы, не выцветают в него. `TAXONOMY_PALETTE`/`getTaxonomyColor()` — 12-цветная качественная палитра для `doc_type` donut (ranked-fade неразличим на смежных дугах одного круга).
-Cross-filter V1 — визуальный: Cell fill из `dashboardStore.activeSelection` (base/selected/dimmed); серверной фильтрации нет. `CHART_TYPE_LABELS` — в `chartColors.ts`, не в `DynamicChart` (react-refresh/only-export-components).
-
+`chartColors.ts`: `getRankedBarColor()` — верхний бар чистый `base`, нижние смещаются к белому (dark-тема) / чёрному (light-тема), контрастнее фона своей темы, не выцветают в него. `TAXONOMY_PALETTE`/`getTaxonomyColor()` — 12-цветная качественная палитра для `doc_type` donut (ranked-fade неразличим на смежных дугах одного круга). Cross-filter V1 — визуальный: Cell fill из `dashboardStore.activeSelection` (base/selected/dimmed); серверной фильтрации нет.
 **Кросс-аналитические графики (feat/explore-cross-analytics, PR #43, merged 2026-07-03):** 3 новых стационарных графика под KPI-рядом в collection mode — `TopCountriesByYearChart` (топ-10 стран, line chart, тот же year-range слайдер, что drawer `year`), `CountrySunburstChart` (2-уровневый Country → OpenAccess, вложенные Recharts `Pie`; изначально планировался 3-уровневым с DocType — упрощён после визуального ревью), `TopJournalsByCountryChart` (топ-10 журналов, вертикальные stacked-бары по топ-5 странам + Other). Инфраструктура: `constants/countryColors.ts` (`getCountryColor()` — по названию страны, не по позиции в топе), `constants/yearRange.ts`, `explore/crossChartData.ts`. `OpenAccessChart`/`TopAuthorsChart` (мёртвый код) удалены. Recharts `Pie`-фокус-рамка на клик (`.recharts-sector` жёстко `tabindex="-1"` изнутри Recharts) — фикс `.recharts-sector:focus{outline:none}` в `index.css`, **обязательно вне `@layer base`** (Tailwind v3 иначе вырезает правило при tree-shaking, см. память [[feedback-tailwind-layer-purge]]).
+**Table Builder + Journal Landscape Scatter (feat/explore-table-builder, PR #44, merged 2026-07-03):** заменяет флоский `ChartBuilderPanel`/`DynamicChart` (оба удалены) — `TableBuilderPanel`/`PivotTable` (2D pivot по whitelist из 10 пар C(5,2) базовых измерений year/country/doc_type/journal/open_access + опциональный slicer как 3-е измерение-фильтр; CSV-экспорт RFC4180+BOM) и `JournalLandscapeScatterChart` (объём×цитируемость по 4 квадрантам через `computeJournalQuadrants()` в `crossChartData.ts`, слайдер окна зрелости 2022–2024). `dashboardStore.BuilderCard` — новая форма `rowDim/colDim/filterDim/filterValue` (persist-миграция v2, старый dimension+chartType формат сбрасывается в пустой список).
 
 ## Auth pages (auth-refactoring, merged 2026-06-26)
 - `ForgotPasswordPage` (`/forgot-password`) — email → `POST /auth/password-reset`; всегда показывает "Check your email" (не раскрывает наличие аккаунта)
@@ -78,5 +76,4 @@ GA4 (`G-RZW7LRD02L`): `gtag.js` в `index.html` через `%VITE_GA_MEASUREMENT
 ## Build & conventions
 - Tailwind v3 via PostCSS (NOT @tailwindcss/vite — это v4); vendor-charts chunk ~432 kB gzip ~115 kB — ожидаемо (Recharts). ESM only (`"type": "module"`); PascalCase компоненты `.tsx`, camelCase утилиты `.ts`.
 - shadcn/ui в `components/ui/` — прямые правки разрешены (уже кастомизированы).
-- **`Button` (и любой shadcn/ui компонент, используемый как `<PopoverTrigger asChild>`)** обязан быть обёрнут в `React.forwardRef` — иначе в React 18.3.1 Radix ref-chain обрывается, `isPositioned` остаётся `false`, Popover рендерится за экраном (`translate(0, -200%)`). Исправлено в commit `62228bd`.
 - Тест-файлы: co-location, `*.test.tsx` (unit) / `*.integration.test.tsx` (integration).

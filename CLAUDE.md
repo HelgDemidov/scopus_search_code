@@ -62,6 +62,7 @@ Two Supabase instances: production (`btmiovdmasqufufyuokx`), staging (`gpbymgvkq
 Cache-aside в `CatalogService.get_stats()` (TTL=60s, `redis_client.py` — синглтон); graceful degradation → `redis_client=None` → прямой запрос к БД.
 Ключ кэша обязательно включает `db_namespace` (sha256 от `DATABASE_URL`, инжектится через DI в `get_catalog_service()`) — иначе prod/staging делят один Redis-ключ (баг 2026-07-02: `e2e.yml` на каждый push освежал общий ключ staging-данными, прод на 60с показывал staging-статистику вместо своей).
 `SET LOCAL work_mem='32MB'` в `postgres_catalog_repo.get_stats()` — только `dialect=="postgresql"`. Тесты: `FakeRedis` in-memory дублёр, реальный Upstash в CI не используется.
+Публичные `/stats/journal-impact` и `/stats/pivot` (Table Builder/Journal Landscape, PR #44, merged 2026-07-03) — **не кэшируются** (runtime-параметризованные, в отличие от `/stats`); `_ALLOWED_PIVOT_PAIRS` whitelist в `app/routers/articles.py` — defense-in-depth от SQL-инъекции поверх Literal-типизации `PivotDimension`.
 
 ## Test layers & CI
 ```
