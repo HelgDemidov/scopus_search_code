@@ -12,6 +12,7 @@ on:
       - montenegro-ui
       - feat/explore-charts-refactor
       - feat/explore-cross-analytics
+      - feat/explore-table-builder
     # Запускаем только когда меняется frontend или сам воркфлоу
     paths:
       - 'frontend/**'
