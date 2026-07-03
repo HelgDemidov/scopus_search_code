@@ -26,14 +26,14 @@ i18n: react-i18next 17 + i18next 26 + i18next-browser-languagedetector 8.
 
 ## Tests (co-location pattern: тест рядом с источником)
 Unit: `src/**/*.test.{ts,tsx}` | Integration: `*.integration.test.*`
-Total (main, 2026-07-02): **418** тестов, все зелёные.
+Total (main, 2026-07-03): **483** тестов, все зелёные.
 Vitest patterns (Checkbox mock, fake timers, vi.hoisted) — см. память [[feedback-vitest-testing-patterns]].
 jsdom browser API mocks — см. память [[feedback-jsdom-browser-api-mocks]].
 
 ### Coverage (2026-06-26)
 `vite.config.ts` → `coverage.include`: 12 файлов бизнес-логики (stores/articleStore|authStore|historyStore, hooks/usePagination, pages/HomePage|ForgotPassword|ResetPassword, api/articles, components/articles/ArticleFilters|ArticleList|PaginationBar|ScopusPaginationBar).
 Threshold: `statements: 70` (фактическое: **76.54%**). Исключены: `components/ui/` (vendor), `components/charts/` (Recharts passthrough), `App.tsx` (v8 показывает 0% через vi.mock — ложный ноль), `main.tsx`.
-CI: `integration` job считает coverage по всем 418 тестам. `frontend/coverage/` в `.gitignore`.
+CI: `integration` job считает coverage по всем тестам. `frontend/coverage/` в `.gitignore`.
 
 ## CI: frontend-tests.yml (triggers: push main, paths: frontend/**)
 Джобы: `typecheck` (tsc --noEmit), `lint` (ESLint --max-warnings 0 + npm audit --audit-level=high), `unit` (vitest, искл. `*.integration.test.*`), `integration` (vitest + coverage artifact), `build` (npm run build).
@@ -54,6 +54,8 @@ npm run test / test:watch / test:coverage / lint / build
 `DimensionDrawer`: `year` — area, `open_access`/`doc_type` — donut, `country`/`journal`/`author` — horizontal bar (top-15, ranked-цвет).
 `chartColors.ts`: `getRankedBarColor()` — верхний бар чистый `base`, нижние смещаются к белому (dark-тема) / чёрному (light-тема), контрастнее фона своей темы, не выцветают в него. `TAXONOMY_PALETTE`/`getTaxonomyColor()` — 12-цветная качественная палитра для `doc_type` donut (ranked-fade неразличим на смежных дугах одного круга).
 Cross-filter V1 — визуальный: Cell fill из `dashboardStore.activeSelection` (base/selected/dimmed); серверной фильтрации нет. `CHART_TYPE_LABELS` — в `chartColors.ts`, не в `DynamicChart` (react-refresh/only-export-components).
+
+**Кросс-аналитические графики (feat/explore-cross-analytics, PR #43, merged 2026-07-03):** 3 новых стационарных графика под KPI-рядом в collection mode — `TopCountriesByYearChart` (топ-10 стран, line chart, тот же year-range слайдер, что drawer `year`), `CountrySunburstChart` (2-уровневый Country → OpenAccess, вложенные Recharts `Pie`; изначально планировался 3-уровневым с DocType — упрощён после визуального ревью), `TopJournalsByCountryChart` (топ-10 журналов, вертикальные stacked-бары по топ-5 странам + Other). Инфраструктура: `constants/countryColors.ts` (`getCountryColor()` — по названию страны, не по позиции в топе), `constants/yearRange.ts`, `explore/crossChartData.ts`. `OpenAccessChart`/`TopAuthorsChart` (мёртвый код) удалены. Recharts `Pie`-фокус-рамка на клик (`.recharts-sector` жёстко `tabindex="-1"` изнутри Recharts) — фикс `.recharts-sector:focus{outline:none}` в `index.css`, **обязательно вне `@layer base`** (Tailwind v3 иначе вырезает правило при tree-shaking, см. память [[feedback-tailwind-layer-purge]]).
 
 ## Auth pages (auth-refactoring, merged 2026-06-26)
 - `ForgotPasswordPage` (`/forgot-password`) — email → `POST /auth/password-reset`; всегда показывает "Check your email" (не раскрывает наличие аккаунта)
