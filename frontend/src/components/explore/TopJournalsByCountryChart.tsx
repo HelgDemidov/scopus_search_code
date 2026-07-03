@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import type { TooltipProps } from 'recharts';
 import type { ValueType, NameType } from 'recharts/types/component/DefaultTooltipContent';
+import type { Payload } from 'recharts/types/component/DefaultLegendContent';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { useStatsStore } from '../../stores/statsStore';
@@ -79,6 +80,75 @@ function JournalCountryTooltip({ active, payload, label }: TooltipProps<ValueTyp
   );
 }
 
+// "Other" — визуально последним элементом легенды (хотя в countryOrder он
+// первый — нужен нижним сегментом стека, см. pivotJournalCountryData). Порядок
+// Bar/стека не трогаем, переставляем только для отображения в легенде.
+function reorderOtherLast(payload: Payload[]): Payload[] {
+  const otherIdx = payload.findIndex((p) => p.value === 'Other');
+  if (otherIdx === -1) return payload;
+  const rest = [...payload.slice(0, otherIdx), ...payload.slice(otherIdx + 1)];
+  return [...rest, payload[otherIdx]];
+}
+
+function rowWidth(row: Payload[], lang: string, t: TFunction): number {
+  return row.reduce((sum, entry) => sum + translateCountry(String(entry.value), lang, t).length, 0);
+}
+
+// Верхняя строка — чуть длиннее нижней (визуально устойчивее, чем наоборот):
+// делим список пополам, и если нижняя строка получилась длиннее (по сумме длин
+// переведённых подписей), переносим из неё один — первый — лейбл в верхнюю.
+function splitLegendRows(payload: Payload[], lang: string, t: TFunction): [Payload[], Payload[]] {
+  const ordered = reorderOtherLast(payload);
+  const mid = Math.ceil(ordered.length / 2);
+  let row1 = ordered.slice(0, mid);
+  let row2 = ordered.slice(mid);
+  if (row2.length > 1 && rowWidth(row2, lang, t) >= rowWidth(row1, lang, t)) {
+    row1 = [...row1, row2[0]];
+    row2 = row2.slice(1);
+  }
+  return [row1, row2];
+}
+
+// Кастомный контент легенды: раскладывает страны в 2 строки вместо однострочной
+// легенды Recharts. Дефолтная <Legend> оборачивает элементы в 2 строки, только
+// когда не хватает ширины контейнера — на десктопе все 6 подписей (топ-5 стран +
+// Other) помещаются в 1 строку и повисают почти вплотную над самым высоким баром
+// (Scientific Reports). Принудительно фиксированные 2 строки держат легенду
+// компактной и выше по вертикали.
+// Каждая строка — независимый flex-контейнер (а не общая grid-колонка): при
+// разной длине названий стран (China vs United Kingdom) общие колонки растягивали
+// бы обе строки под самую длинную ячейку в каждой колонке, раздувая расстояние
+// между соседними подписями. items-end на внешнем flex-col прижимает обе строки
+// к одному правому краю (более узкая строка не растягивается на всю ширину).
+function JournalCountryLegend({ payload }: { payload?: Payload[] }) {
+  const { t, i18n } = useTranslation();
+  const { theme } = useTheme();
+  if (!payload?.length) return null;
+  const rows = splitLegendRows(payload, i18n.language, t);
+  // OTHER_BUCKET_COLOR (slate-500) — контрастный на белом фоне, но на тёмном
+  // навигационном #0d1b2a почти сливается; на тёмной теме подпись "Other"
+  // (не сам кружок-swatch) берёт axis.tick — тот же светлый slate, что подписи осей.
+  return (
+    <div className="flex flex-col items-end gap-y-1 text-xs">
+      {rows.map((row, i) => (
+        <div key={i} className="flex gap-x-2.5">
+          {row.map((entry) => (
+            <span key={String(entry.value)} className="flex items-center gap-1 whitespace-nowrap">
+              <span
+                className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                style={{ backgroundColor: entry.color }}
+              />
+              <span style={{ color: entry.value === 'Other' && theme === 'dark' ? AXIS_COLORS.dark.tick : entry.color }}>
+                {translateCountry(String(entry.value), i18n.language, t)}
+              </span>
+            </span>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function TopJournalsByCountryChart() {
   const { t, i18n } = useTranslation();
   const { theme } = useTheme();
@@ -121,14 +191,9 @@ export function TopJournalsByCountryChart() {
             allowEscapeViewBox={{ x: false, y: true }}
           />
           {/* Легенда стран — сверху справа (не под осью X, где она конкурировала бы с
-              длинными угловыми подписями журналов); Recharts сам резервирует место
-              под график, оборачивая элементы в 2 строки при нехватке ширины. */}
-          <Legend
-            verticalAlign="top"
-            align="right"
-            formatter={(value: string) => translateCountry(value, i18n.language, t)}
-            wrapperStyle={{ fontSize: 12 }}
-          />
+              длинными угловыми подписями журналов), принудительно в 2 строки —
+              см. JournalCountryLegend. */}
+          <Legend verticalAlign="top" align="right" content={(props) => <JournalCountryLegend payload={props.payload} />} />
           {countryOrder.map((country) => (
             <Bar
               key={country}
