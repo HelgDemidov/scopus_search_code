@@ -109,7 +109,12 @@ export function TopJournalsByCountryChart() {
             tickFormatter={(v: number) => formatAxisTick(v, i18n.language)}
           />
           <Tooltip content={(p) => <JournalCountryTooltip {...p} />} cursor={{ fill: 'rgba(148,163,184,0.1)' }} />
+          {/* Легенда стран — сверху справа (не под осью X, где она конкурировала бы с
+              длинными угловыми подписями журналов); Recharts сам резервирует место
+              под график, оборачивая элементы в 2 строки при нехватке ширины. */}
           <Legend
+            verticalAlign="top"
+            align="right"
             formatter={(value: string) => translateCountry(value, i18n.language, t)}
             wrapperStyle={{ fontSize: 12 }}
           />

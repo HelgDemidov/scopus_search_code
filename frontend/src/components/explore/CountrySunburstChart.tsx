@@ -192,6 +192,12 @@ export function CountrySunburstChart() {
   // меняется при hover/click, см. STROKE_WIDTH выше).
   const separatorColor = theme === 'dark' ? '#152236' : '#ffffff';
 
+  // rootTabIndex={-1} на обоих <Pie> ниже: по умолчанию Recharts делает всю группу
+  // сектора фокусируемой (rootTabIndex=0) — клик по сегменту переводит на неё фокус,
+  // и браузер рисует нативную прямоугольную focus-рамку поверх круга. Она не связана
+  // с логикой подсветки (isBrightened/brightenHsl) и не нужна — а11y-навигация по
+  // секторам стрелками этим графиком не используется.
+
   // Выбранный (клик) сегмент — при клике сам сегмент и все его дочерние (для
   // level1 — оба OA-сегмента этой страны в level2) становятся на 10% ярче.
   // Повторный клик по тому же сегменту снимает выбор.
@@ -244,6 +250,7 @@ export function CountrySunburstChart() {
             endAngle={-270}
             paddingAngle={0}
             isAnimationActive={false}
+            rootTabIndex={-1}
             {...ringClickHandler(1, level1)}
           >
             {renderCells(1, level1)}
@@ -260,6 +267,7 @@ export function CountrySunburstChart() {
             endAngle={-270}
             paddingAngle={0}
             isAnimationActive={false}
+            rootTabIndex={-1}
             {...ringClickHandler(2, level2)}
           >
             {renderCells(2, level2)}
