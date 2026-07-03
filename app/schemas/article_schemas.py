@@ -1,7 +1,12 @@
 from datetime import date
-from typing import List
+from typing import List, Literal
 
 from pydantic import BaseModel
+
+# Whitelist измерений Table Builder (docs/explore-table-builder/spec.md §3.1) — Literal
+# даёт FastAPI/Pydantic автоматическую 422-валидацию на уровне запроса, до того как
+# строка попадёт в SQL-запрос репозитория (защита от инъекции через "произвольное" имя колонки).
+PivotDimension = Literal["year", "country", "doc_type", "journal", "open_access"]
 
 
 class ArticleResponse(BaseModel):
@@ -55,6 +60,28 @@ class JournalCountryCount(BaseModel):
     journal: str
     country: str
     count: int
+
+
+class JournalImpactPoint(BaseModel):
+    # Точка Journal Landscape Scatter (docs/explore-table-builder/spec.md §1).
+    # Считается по статьям, опубликованным <= max_year (интерактивный слайдер
+    # окна зрелости), только для журналов с count >= 20 (см. postgres_catalog_repo).
+    journal: str
+    count: int
+    mean_citations: float
+    median_citations: float
+
+
+class PivotResponse(BaseModel):
+    # Ответ Table Builder — 2D pivot по 2 из 5 whitelisted измерений, опционально
+    # суженный slicer'ом (3-е измерение как фильтр, не ось — docs/explore-table-builder/spec.md §3).
+    row_dim: PivotDimension
+    col_dim: PivotDimension
+    row_labels: List[str]
+    col_labels: List[str]
+    matrix: List[List[int]]  # counts, matrix[i][j] = row_labels[i] x col_labels[j]
+    row_totals: List[int]  # маржинальные суммы ДО обрезки top_n_cols (не сумма видимых ячеек)
+    col_totals: List[int]  # маржинальные суммы ДО обрезки top_n_rows
 
 
 class StatsResponse(BaseModel):

@@ -1,4 +1,5 @@
-from typing import List
+import statistics
+from typing import Any, List
 
 import sqlalchemy as sa
 from sqlalchemy import extract, func, select, text
@@ -391,4 +392,189 @@ class PostgresCatalogRepository(ICatalogRepository):
                 {"journal": r.journal, "country": r.country_bucket, "count": r.count}
                 for r in top_journals_by_country_rows
             ],
+        }
+
+    # ------------------------------------------------------------------ #
+    #  get_journal_impact — Journal Landscape Scatter                     #
+    #  (docs/explore-table-builder/spec.md §1)                            #
+    # ------------------------------------------------------------------ #
+
+    _JOURNAL_IMPACT_MIN_COUNT = 20
+    _JOURNAL_IMPACT_TOP_N = 40
+
+    async def get_journal_impact(self, max_year: int) -> list[dict]:
+        """Топ-N журналов (объём + среднее/медианное цитирование) среди статей <= max_year.
+
+        Медиана считается в Python (statistics.median), не через SQL percentile_cont —
+        та PG-only, SQLite (юнит/интеграционные тесты) её не поддерживает. count/avg —
+        портируемый SQL, отбирает top-N журналов; сырые cited_by_count подтягиваются
+        вторым запросом только для них (не для всего окна зрелости).
+        """
+        stmt = (
+            select(Article)
+            .join(CatalogArticle, CatalogArticle.article_id == Article.id)
+            .where(
+                Article.journal.isnot(None),
+                func.extract("year", Article.publication_date) <= max_year,
+            )
+        )
+        catalog_articles_q = stmt.subquery()
+
+        top_rows = (
+            await self.session.execute(
+                select(
+                    catalog_articles_q.c.journal,
+                    func.count().label("count"),
+                    func.avg(catalog_articles_q.c.cited_by_count).label("mean_citations"),
+                )
+                .select_from(catalog_articles_q)
+                .group_by(catalog_articles_q.c.journal)
+                .having(func.count() >= self._JOURNAL_IMPACT_MIN_COUNT)
+                .order_by(sa.text("count DESC"))
+                .limit(self._JOURNAL_IMPACT_TOP_N)
+            )
+        ).all()
+
+        if not top_rows:
+            return []
+
+        top_journals = [r.journal for r in top_rows]
+
+        # Медиана — только по журналам из top_rows, не по всему окну зрелости
+        raw_rows = await self.session.execute(
+            select(
+                catalog_articles_q.c.journal,
+                catalog_articles_q.c.cited_by_count,
+            )
+            .select_from(catalog_articles_q)
+            .where(catalog_articles_q.c.journal.in_(top_journals))
+        )
+        citations_by_journal: dict[str, list[int]] = {j: [] for j in top_journals}
+        for r in raw_rows:
+            citations_by_journal[r.journal].append(r.cited_by_count or 0)
+
+        return [
+            {
+                "journal": r.journal,
+                "count": r.count,
+                "mean_citations": float(r.mean_citations or 0),
+                "median_citations": float(statistics.median(citations_by_journal[r.journal])),
+            }
+            for r in top_rows
+        ]
+
+    # ------------------------------------------------------------------ #
+    #  get_pivot — Table Builder                                          #
+    #  (docs/explore-table-builder/spec.md §3)                            #
+    # ------------------------------------------------------------------ #
+
+    _PIVOT_DIMENSIONS = frozenset({"year", "country", "doc_type", "journal", "open_access"})
+
+    @staticmethod
+    def _pivot_label(dim: str, value: Any) -> str:
+        if dim == "year":
+            return str(int(value))
+        if dim == "open_access":
+            return "true" if value else "false"
+        return str(value)
+
+    async def get_pivot(
+        self,
+        row_dim: str,
+        col_dim: str,
+        top_n_rows: int,
+        top_n_cols: int,
+        filter_dim: str | None = None,
+        filter_value: str | None = None,
+    ) -> dict:
+        """2D pivot по 2 whitelisted измерениям + опциональный slicer (3-е измерение как фильтр).
+
+        Whitelist (_PIVOT_DIMENSIONS) — второй эшелон защиты от SQL-инъекции: row_dim/col_dim/
+        filter_dim уже ограничены типом PivotDimension на уровне роутера (Literal → 422 до
+        вызова репозитория), здесь — явная проверка вместо слепой интерполяции строки в запрос.
+        top_n_rows/top_n_cols — обрезка по маржинальному объёму каждого измерения ДО пересечения
+        друг с другом (country/journal высококардинальны — без обрезки pivot нечитаем).
+        """
+        if row_dim not in self._PIVOT_DIMENSIONS or col_dim not in self._PIVOT_DIMENSIONS:
+            raise ValueError(f"Unknown pivot dimension: {row_dim!r}/{col_dim!r}")
+
+        article_columns = {
+            "year": func.extract("year", Article.publication_date),
+            "country": Article.affiliation_country,
+            "doc_type": Article.document_type,
+            "journal": Article.journal,
+            "open_access": Article.open_access,
+        }
+
+        stmt = select(Article).join(CatalogArticle, CatalogArticle.article_id == Article.id)
+
+        if filter_dim is not None and filter_value is not None:
+            if filter_dim not in self._PIVOT_DIMENSIONS:
+                raise ValueError(f"Unknown pivot filter dimension: {filter_dim!r}")
+            filter_col = article_columns[filter_dim]
+            if filter_dim == "year":
+                stmt = stmt.where(filter_col == int(filter_value))
+            elif filter_dim == "open_access":
+                stmt = stmt.where(filter_col.is_(filter_value.lower() == "true"))
+            else:
+                stmt = stmt.where(func.lower(filter_col) == filter_value.lower())
+
+        catalog_articles_q = stmt.subquery()
+
+        cq_columns = {
+            "year": func.extract("year", catalog_articles_q.c.publication_date),
+            "country": catalog_articles_q.c.affiliation_country,
+            "doc_type": catalog_articles_q.c.document_type,
+            "journal": catalog_articles_q.c.journal,
+            "open_access": catalog_articles_q.c.open_access,
+        }
+        row_col = cq_columns[row_dim]
+        col_col = cq_columns[col_dim]
+
+        # Маржинальные top-N по объёму — до пересечения друг с другом
+        row_rows = (
+            await self.session.execute(
+                select(row_col.label("value"), func.count().label("count"))
+                .select_from(catalog_articles_q)
+                .where(row_col.isnot(None))
+                .group_by(row_col)
+                .order_by(sa.text("count DESC"))
+                .limit(top_n_rows)
+            )
+        ).all()
+        col_rows = (
+            await self.session.execute(
+                select(col_col.label("value"), func.count().label("count"))
+                .select_from(catalog_articles_q)
+                .where(col_col.isnot(None))
+                .group_by(col_col)
+                .order_by(sa.text("count DESC"))
+                .limit(top_n_cols)
+            )
+        ).all()
+
+        if not row_rows or not col_rows:
+            return {"row_labels": [], "col_labels": [], "matrix": [], "row_totals": [], "col_totals": []}
+
+        row_values = [r.value for r in row_rows]
+        col_values = [r.value for r in col_rows]
+
+        matrix_rows = await self.session.execute(
+            select(row_col.label("row_value"), col_col.label("col_value"), func.count().label("n"))
+            .select_from(catalog_articles_q)
+            .where(row_col.in_(row_values), col_col.in_(col_values))
+            .group_by(row_col, col_col)
+        )
+        # Лейбл "n", не "count" — Row наследует tuple.count(), mypy иначе резолвит
+        # r.count как метод (Callable), а не как подписанную колонку.
+        cell_lookup: dict[tuple, int] = {(r.row_value, r.col_value): r.n for r in matrix_rows}
+
+        matrix = [[cell_lookup.get((rv, cv), 0) for cv in col_values] for rv in row_values]
+
+        return {
+            "row_labels": [self._pivot_label(row_dim, v) for v in row_values],
+            "col_labels": [self._pivot_label(col_dim, v) for v in col_values],
+            "matrix": matrix,
+            "row_totals": [r.count for r in row_rows],
+            "col_totals": [r.count for r in col_rows],
         }

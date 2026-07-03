@@ -196,14 +196,6 @@
       "authors_many": "авторов",
       "authors_other": "авторов"
     },
-    "chartBuilder": {
-      "addChart": "Добавить график",
-      "cancel": "Отмена",
-      "addToPage": "Добавить на страницу",
-      "chooseDim": "Выберите измерение",
-      "chooseType": "Выберите тип графика",
-      "builderLabel": "Конструктор графиков"
-    },
     "dimensions": {
       "year": "Публикации по годам",
       "country": "Ведущие страны",
@@ -220,13 +212,6 @@
       "open_access": "Open Access",
       "author": "Автор"
     },
-    "chartTypes": {
-      "bar_h": "Горизонтальный столбик",
-      "bar_v": "Вертикальный столбик",
-      "pie": "Круговая диаграмма",
-      "line": "Линейный график",
-      "table": "Таблица"
-    },
     "tableColLabel": "Метка",
     "tableColArticles": "Публикаций",
     "tableColCount": "Кол-во",
@@ -242,7 +227,22 @@
       "ofParent": "от {{parent}}",
       "topJournalsByCountry": "Ведущие журналы по странам",
       "other": "Другое",
-      "allPublications": "всех публикаций"
+      "allPublications": "всех публикаций",
+      "journalImpact": {
+        "title": "Ландшафт журналов",
+        "maturityLabel": "Окно зрелости цитирований",
+        "maturityCaption": "Статьи, опубликованные по {{year}} год включительно",
+        "xAxisLabel": "Публикаций",
+        "yAxisLabel": "Средн. цитирований",
+        "tooltipMean": "Средн. цитирований",
+        "tooltipMedian": "Медиана цитирований",
+        "quadrants": {
+          "flagship": "Флагман",
+          "hiddenGem": "Скрытая жемчужина",
+          "volumeFactory": "Высокий объём",
+          "peripheral": "Периферия"
+        }
+      }
     }
   },
   "article": {

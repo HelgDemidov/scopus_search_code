@@ -13,7 +13,10 @@ from app.schemas.article_schemas import (
     ArticleResponse,
     CountByField,
     JournalCountryCount,
+    JournalImpactPoint,
     PaginatedArticleResponse,
+    PivotDimension,
+    PivotResponse,
     StatsResponse,
     SunburstSegment,
     YearCountryCount,
@@ -188,6 +191,50 @@ class CatalogService:
                 for r in raw["top_journals_by_country"]
             ],
         )
+
+    # ------------------------------------------------------------------ #
+    #  get_journal_impact — Journal Landscape Scatter                     #
+    #  (docs/explore-table-builder/spec.md §1)                            #
+    # ------------------------------------------------------------------ #
+
+    async def get_journal_impact(self, max_year: int) -> list[JournalImpactPoint]:
+        """Топ-N журналов (объём×импакт) для интерактивного слайдера окна зрелости.
+
+        Без кэша (в отличие от get_stats) — значение зависит от рантайм-параметра
+        max_year, кэшировать одну плоскую StatsResponse-запись бессмысленно.
+        """
+        raw = await self.catalog_repo.get_journal_impact(max_year=max_year)
+        return [JournalImpactPoint(**r) for r in raw]
+
+    # ------------------------------------------------------------------ #
+    #  get_pivot — Table Builder                                          #
+    #  (docs/explore-table-builder/spec.md §3)                            #
+    # ------------------------------------------------------------------ #
+
+    async def get_pivot(
+        self,
+        row_dim: PivotDimension,
+        col_dim: PivotDimension,
+        top_n_rows: int,
+        top_n_cols: int,
+        filter_dim: PivotDimension | None = None,
+        filter_value: str | None = None,
+    ) -> PivotResponse:
+        """2D pivot по 2 измерениям + опциональный slicer. Без кэша — как get_journal_impact,
+        значение зависит от рантайм-выбора пользователя в Table Builder.
+
+        Проверка допустимости конкретной ПАРЫ измерений (§3.1) и row_dim != col_dim —
+        на уровне роутера (это HTTP-контракт, а не бизнес-правило самого сервиса).
+        """
+        raw = await self.catalog_repo.get_pivot(
+            row_dim=row_dim,
+            col_dim=col_dim,
+            top_n_rows=top_n_rows,
+            top_n_cols=top_n_cols,
+            filter_dim=filter_dim,
+            filter_value=filter_value,
+        )
+        return PivotResponse(row_dim=row_dim, col_dim=col_dim, **raw)
 
     # ------------------------------------------------------------------ #
     #  seed                                                                #

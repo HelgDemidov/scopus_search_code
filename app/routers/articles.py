@@ -20,7 +20,10 @@ from app.models.user import User
 from app.schemas.article_schemas import (
     ArticleResponse,
     CountByField,
+    JournalImpactPoint,
     PaginatedArticleResponse,
+    PivotDimension,
+    PivotResponse,
     SearchStatsResponse,
     StatsResponse,
 )
@@ -64,6 +67,23 @@ def _get_search_result_repo(
 
 _WINDOW_DAYS = 7  # единственный источник правды для квоты
 
+# Whitelist допустимых пар измерений Table Builder (docs/explore-table-builder/spec.md §3.1).
+# Порядок row/col внутри пары не важен — пользователь может поменять оси местами.
+_ALLOWED_PIVOT_PAIRS: frozenset[frozenset[str]] = frozenset(
+    {
+        frozenset({"year", "country"}),
+        frozenset({"year", "doc_type"}),
+        frozenset({"year", "open_access"}),
+        frozenset({"year", "journal"}),
+        frozenset({"country", "doc_type"}),
+        frozenset({"country", "open_access"}),
+        frozenset({"country", "journal"}),
+        frozenset({"doc_type", "open_access"}),
+        frozenset({"doc_type", "journal"}),
+        frozenset({"open_access", "journal"}),
+    }
+)
+
 
 # ------------------------------------------------------------------ #
 #  GET /stats — публичный, без JWT                                    #
@@ -85,6 +105,61 @@ async def get_stats(
         open_access=open_access,
         year_from=year_from,
         year_to=year_to,
+    )
+
+
+# ------------------------------------------------------------------ #
+#  GET /stats/journal-impact — публичный, без JWT                     #
+#  Journal Landscape Scatter (docs/explore-table-builder/spec.md §1)  #
+#  Отдельный, не кэшируемый эндпоинт (в отличие от /stats) — значение  #
+#  зависит от рантайм-параметра слайдера окна зрелости.                #
+# ------------------------------------------------------------------ #
+
+
+@router.get("/stats/journal-impact", response_model=list[JournalImpactPoint], tags=["Analytics"])
+async def get_journal_impact(
+    max_year: int = Query(
+        2024, ge=2022, le=2024, description="Учитывать статьи, опубликованные <= max_year"
+    ),
+    service: CatalogService = Depends(get_catalog_service),
+) -> list[JournalImpactPoint]:
+    return await service.get_journal_impact(max_year=max_year)
+
+
+# ------------------------------------------------------------------ #
+#  GET /stats/pivot — публичный, без JWT                              #
+#  Table Builder (docs/explore-table-builder/spec.md §3). Не кэшируется —#
+#  ленивая загрузка по выбору пользователя в конкретную комбинацию.   #
+# ------------------------------------------------------------------ #
+
+
+@router.get("/stats/pivot", response_model=PivotResponse, tags=["Analytics"])
+async def get_pivot(
+    row_dim: PivotDimension = Query(..., description="Измерение по строкам"),
+    col_dim: PivotDimension = Query(..., description="Измерение по столбцам"),
+    top_n_rows: int = Query(20, ge=1, le=50, description="Топ-N строк по маржинальному объёму"),
+    top_n_cols: int = Query(15, ge=1, le=50, description="Топ-N столбцов по маржинальному объёму"),
+    filter_dim: PivotDimension | None = Query(None, description="3-е измерение как slicer (фильтр, не ось)"),
+    filter_value: str | None = Query(None, description="Значение slicer'а — обязательно, если задан filter_dim"),
+    service: CatalogService = Depends(get_catalog_service),
+) -> PivotResponse:
+    if row_dim == col_dim:
+        raise HTTPException(status_code=422, detail="row_dim и col_dim должны различаться")
+    if frozenset({row_dim, col_dim}) not in _ALLOWED_PIVOT_PAIRS:
+        raise HTTPException(status_code=422, detail=f"Комбинация {row_dim}×{col_dim} не поддерживается")
+    if filter_dim is not None:
+        if filter_dim in (row_dim, col_dim):
+            raise HTTPException(status_code=422, detail="filter_dim не может совпадать с row_dim/col_dim")
+        if filter_value is None:
+            raise HTTPException(status_code=422, detail="filter_value обязателен, если задан filter_dim")
+
+    return await service.get_pivot(
+        row_dim=row_dim,
+        col_dim=col_dim,
+        top_n_rows=top_n_rows,
+        top_n_cols=top_n_cols,
+        filter_dim=filter_dim,
+        filter_value=filter_value,
     )
 
 

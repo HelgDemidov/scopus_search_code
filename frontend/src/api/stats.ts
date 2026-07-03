@@ -6,10 +6,21 @@
 
 import { apiClient } from './client';
 import type { ActiveSelection } from '../stores/dashboardStore';
-import type { StatsResponse } from '../types/api';
+import type { JournalImpactPoint, StatsResponse } from '../types/api';
 
 export async function getStats(): Promise<StatsResponse> {
   const response = await apiClient.get<StatsResponse>('/articles/stats');
+  return response.data;
+}
+
+// Journal Landscape Scatter (docs/explore-table-builder/spec.md §1) — не часть
+// StatsResponse/get_stats(): значение зависит от рантайм-параметра слайдера
+// окна зрелости, отдельный некэшируемый запрос при каждой смене maxYear.
+export async function getJournalImpact(maxYear: number, signal?: AbortSignal): Promise<JournalImpactPoint[]> {
+  const response = await apiClient.get<JournalImpactPoint[]>('/articles/stats/journal-impact', {
+    params: { max_year: maxYear },
+    signal,
+  });
   return response.data;
 }
 

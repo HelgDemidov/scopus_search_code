@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { buildRawGroups, pivotJournalCountryData } from './crossChartData';
+import { buildRawGroups, computeJournalQuadrants, pivotJournalCountryData } from './crossChartData';
+import type { JournalImpactPoint } from '../../types/api';
 
 // ---------------------------------------------------------------------------
 // buildRawGroups
@@ -102,5 +103,71 @@ describe('pivotJournalCountryData', () => {
     const result = pivotJournalCountryData([]);
     expect(result.pivoted).toEqual([]);
     expect(result.countryOrder).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeJournalQuadrants (JournalLandscapeScatterChart)
+// ---------------------------------------------------------------------------
+
+describe('computeJournalQuadrants', () => {
+  function journal(overrides: Partial<JournalImpactPoint>): JournalImpactPoint {
+    return { journal: 'J', count: 20, mean_citations: 5, median_citations: 2, ...overrides };
+  }
+
+  it('пустые данные не падают', () => {
+    const result = computeJournalQuadrants([]);
+    expect(result.points).toEqual([]);
+    expect(result.medianCount).toBe(0);
+    expect(result.medianMean).toBe(0);
+  });
+
+  it('делит на 4 квадранта по медианам count/mean_citations выборки', () => {
+    const data = [
+      journal({ journal: 'Flagship', count: 100, mean_citations: 50 }),
+      journal({ journal: 'HiddenGem', count: 10, mean_citations: 50 }),
+      journal({ journal: 'VolumeFactory', count: 100, mean_citations: 1 }),
+      journal({ journal: 'Peripheral', count: 10, mean_citations: 1 }),
+    ];
+    const { points } = computeJournalQuadrants(data);
+    const byName = Object.fromEntries(points.map((p) => [p.journal, p.quadrant]));
+
+    expect(byName['Flagship']).toBe('flagship');
+    expect(byName['HiddenGem']).toBe('hiddenGem');
+    expect(byName['VolumeFactory']).toBe('volumeFactory');
+    expect(byName['Peripheral']).toBe('peripheral');
+  });
+
+  it('точка ровно на медиане по обеим осям — считается "высокой" (>=), попадает в flagship', () => {
+    // Нечётное число точек — медиана средней точки равна её собственному значению
+    const data = [
+      journal({ journal: 'Low', count: 10, mean_citations: 1 }),
+      journal({ journal: 'Median', count: 20, mean_citations: 5 }),
+      journal({ journal: 'High', count: 30, mean_citations: 9 }),
+    ];
+    const { points, medianCount, medianMean } = computeJournalQuadrants(data);
+    expect(medianCount).toBe(20);
+    expect(medianMean).toBe(5);
+    const median = points.find((p) => p.journal === 'Median')!;
+    expect(median.quadrant).toBe('flagship');
+  });
+
+  it('plotMean floor: mean_citations=0 не ломает лог-шкалу, но в точке сохраняется истинное значение', () => {
+    const data = [journal({ journal: 'Zero', count: 20, mean_citations: 0 })];
+    const { points } = computeJournalQuadrants(data);
+    expect(points[0].mean_citations).toBe(0);
+    expect(points[0].plotMean).toBeGreaterThan(0);
+  });
+
+  it('медиана по чётному числу точек — среднее двух средних значений', () => {
+    const data = [
+      journal({ count: 10, mean_citations: 1 }),
+      journal({ count: 20, mean_citations: 2 }),
+      journal({ count: 30, mean_citations: 3 }),
+      journal({ count: 40, mean_citations: 4 }),
+    ];
+    const { medianCount, medianMean } = computeJournalQuadrants(data);
+    expect(medianCount).toBe(25); // (20+30)/2
+    expect(medianMean).toBe(2.5); // (2+3)/2
   });
 });

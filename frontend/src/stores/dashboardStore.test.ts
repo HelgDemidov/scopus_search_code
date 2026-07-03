@@ -110,24 +110,35 @@ describe('drawer', () => {
 
 describe('builderCards', () => {
   it('addBuilderCard добавляет карточку в массив', () => {
-    useDashboardStore.getState().addBuilderCard({ dimension: 'year', chartType: 'bar_v' });
+    useDashboardStore.getState().addBuilderCard({ rowDim: 'year', colDim: 'country' });
     const cards = useDashboardStore.getState().builderCards;
     expect(cards).toHaveLength(1);
-    expect(cards[0]).toMatchObject({ dimension: 'year', chartType: 'bar_v' });
+    expect(cards[0]).toMatchObject({ rowDim: 'year', colDim: 'country' });
     expect(typeof cards[0].id).toBe('string');
   });
 
   it('addBuilderCard сохраняет несколько карточек', () => {
-    useDashboardStore.getState().addBuilderCard({ dimension: 'year', chartType: 'line' });
-    useDashboardStore.getState().addBuilderCard({ dimension: 'country', chartType: 'pie' });
+    useDashboardStore.getState().addBuilderCard({ rowDim: 'year', colDim: 'doc_type' });
+    useDashboardStore.getState().addBuilderCard({ rowDim: 'country', colDim: 'open_access' });
     expect(useDashboardStore.getState().builderCards).toHaveLength(2);
+  });
+
+  it('addBuilderCard сохраняет опциональный slicer (filterDim/filterValue)', () => {
+    useDashboardStore.getState().addBuilderCard({
+      rowDim: 'doc_type',
+      colDim: 'open_access',
+      filterDim: 'year',
+      filterValue: '2024',
+    });
+    const cards = useDashboardStore.getState().builderCards;
+    expect(cards[0]).toMatchObject({ filterDim: 'year', filterValue: '2024' });
   });
 
   it('removeBuilderCard удаляет карточку по id', () => {
     useDashboardStore.setState({
       builderCards: [
-        { id: 'c1', dimension: 'year', chartType: 'line' },
-        { id: 'c2', dimension: 'country', chartType: 'bar_h' },
+        { id: 'c1', rowDim: 'year', colDim: 'country' },
+        { id: 'c2', rowDim: 'country', colDim: 'doc_type' },
       ],
     });
     useDashboardStore.getState().removeBuilderCard('c1');
@@ -138,7 +149,7 @@ describe('builderCards', () => {
 
   it('removeBuilderCard с несуществующим id не меняет массив', () => {
     useDashboardStore.setState({
-      builderCards: [{ id: 'c1', dimension: 'year', chartType: 'line' }],
+      builderCards: [{ id: 'c1', rowDim: 'year', colDim: 'country' }],
     });
     useDashboardStore.getState().removeBuilderCard('nonexistent');
     expect(useDashboardStore.getState().builderCards).toHaveLength(1);
@@ -190,13 +201,13 @@ describe('clearFilteredStats', () => {
 
 describe('persist', () => {
   it('addBuilderCard записывает builderCards в localStorage', () => {
-    useDashboardStore.getState().addBuilderCard({ dimension: 'country', chartType: 'bar_h' });
+    useDashboardStore.getState().addBuilderCard({ rowDim: 'country', colDim: 'doc_type' });
 
     const raw = localStorage.getItem('scopus-dashboard-v1');
     expect(raw).not.toBeNull();
     const stored = JSON.parse(raw!);
     expect(stored.state.builderCards).toHaveLength(1);
-    expect(stored.state.builderCards[0].dimension).toBe('country');
+    expect(stored.state.builderCards[0].rowDim).toBe('country');
   });
 
   it('partialize: activeSelection и drawerDimension не попадают в localStorage', () => {
@@ -213,5 +224,25 @@ describe('persist', () => {
     }
     // Если localStorage пуст — partialize отработал корректно (ничего не записал)
     expect(true).toBe(true);
+  });
+});
+
+describe('persist migrate (v2 — Table Builder заменил Chart Builder)', () => {
+  it('сбрасывает builderCards при version < 2 (несовместимая старая форма dimension/chartType)', () => {
+    const { migrate } = useDashboardStore.persist.getOptions();
+    const oldPersisted = { builderCards: [{ id: 'x', dimension: 'year', chartType: 'line' }] };
+
+    const result = migrate!(oldPersisted, 1) as { builderCards: unknown[] };
+
+    expect(result.builderCards).toEqual([]);
+  });
+
+  it('сохраняет builderCards при version >= 2 (совместимая форма rowDim/colDim)', () => {
+    const { migrate } = useDashboardStore.persist.getOptions();
+    const currentPersisted = { builderCards: [{ id: 'x', rowDim: 'year', colDim: 'country' }] };
+
+    const result = migrate!(currentPersisted, 2) as { builderCards: unknown[] };
+
+    expect(result.builderCards).toHaveLength(1);
   });
 });

@@ -188,14 +188,6 @@
       "authors_few": "autora",
       "authors_other": "autora"
     },
-    "chartBuilder": {
-      "addChart": "Dodaj grafikon",
-      "cancel": "Otkaži",
-      "addToPage": "Dodaj na stranicu",
-      "chooseDim": "Odaberite dimenziju",
-      "chooseType": "Odaberite tip grafikona",
-      "builderLabel": "Graditelj grafikona"
-    },
     "dimensions": {
       "year": "Publikacije po godinama",
       "country": "Vodeće zemlje",
@@ -212,13 +204,6 @@
       "open_access": "Open Access",
       "author": "Autor"
     },
-    "chartTypes": {
-      "bar_h": "Horizontalni stupac",
-      "bar_v": "Vertikalni stupac",
-      "pie": "Kružni dijagram",
-      "line": "Linijski grafikon",
-      "table": "Tabela"
-    },
     "tableColLabel": "Oznaka",
     "tableColArticles": "Publikacija",
     "tableColCount": "Broj",
@@ -234,7 +219,22 @@
       "ofParent": "od {{parent}}",
       "topJournalsByCountry": "Vodeći časopisi po zemljama",
       "other": "Ostalo",
-      "allPublications": "svih publikacija"
+      "allPublications": "svih publikacija",
+      "journalImpact": {
+        "title": "Pejzaž časopisa",
+        "maturityLabel": "Prozor zrelosti citata",
+        "maturityCaption": "Članci objavljeni zaključno sa {{year}} godinom",
+        "xAxisLabel": "Publikacija",
+        "yAxisLabel": "Prosečno citiranje",
+        "tooltipMean": "Prosečno citiranje",
+        "tooltipMedian": "Medijana citiranja",
+        "quadrants": {
+          "flagship": "Vodeći",
+          "hiddenGem": "Skriveni dragulj",
+          "volumeFactory": "Visok obim",
+          "peripheral": "Periferni"
+        }
+      }
     }
   },
   "article": {

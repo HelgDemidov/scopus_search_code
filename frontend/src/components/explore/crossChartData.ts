@@ -1,11 +1,12 @@
-// Чистые функции подготовки данных для CountrySunburstChart/TopJournalsByCountryChart —
-// вынесены из компонентов в отдельный файл (не chartColors.ts: это не переиспользуемые
-// dataviz-утилиты, а разовая подготовка формы данных под конкретные 2 графика), чтобы
-// react-refresh/only-export-components не предупреждал на экспорт функций из файла
-// компонента (тот же паттерн, что CHART_TYPE_LABELS вынесен в chartColors.ts, а не
-// оставлен в DynamicChart.tsx — см. frontend/CLAUDE.md).
+// Чистые функции подготовки данных для CountrySunburstChart/TopJournalsByCountryChart/
+// JournalLandscapeScatterChart — вынесены из компонентов в отдельный файл (не
+// chartColors.ts: это не переиспользуемые dataviz-утилиты, а разовая подготовка формы
+// данных под конкретные графики), чтобы react-refresh/only-export-components не
+// предупреждал на экспорт функций из файла компонента (тот же паттерн, что было
+// с CHART_TYPE_LABELS, вынесенным в chartColors.ts, а не оставленным в
+// удалённом DynamicChart.tsx — см. frontend/CLAUDE.md).
 
-import type { JournalCountryCount, SunburstSegment } from '../../types/api';
+import type { JournalCountryCount, JournalImpactPoint, SunburstSegment } from '../../types/api';
 
 // ---------------------------------------------------------------------------
 // CountrySunburstChart — группировка Country → OpenAccess (упрощено с 3 до 2
@@ -82,4 +83,59 @@ export function pivotJournalCountryData(data: JournalCountryCount[]) {
   });
 
   return { countryOrder, pivoted };
+}
+
+// ---------------------------------------------------------------------------
+// JournalLandscapeScatterChart — квадранты объём×импакт (spec.md §1)
+// ---------------------------------------------------------------------------
+
+export type JournalQuadrant = 'flagship' | 'hiddenGem' | 'volumeFactory' | 'peripheral';
+
+export interface JournalScatterPoint extends JournalImpactPoint {
+  quadrant: JournalQuadrant;
+  // Y-позиция на графике: log-шкала не принимает 0 — для точек с mean_citations=0
+  // (статистически возможно даже при N>=20) используем пол LOG_SCALE_FLOOR только
+  // для координаты; tooltip показывает истинное mean_citations, не plotMean.
+  plotMean: number;
+}
+
+const LOG_SCALE_FLOOR = 0.1;
+
+function median(sortedAsc: number[]): number {
+  const mid = Math.floor(sortedAsc.length / 2);
+  return sortedAsc.length % 2 !== 0 ? sortedAsc[mid] : (sortedAsc[mid - 1] + sortedAsc[mid]) / 2;
+}
+
+/**
+ * Делит журналы на 4 квадранта по медианам count/mean_citations ТЕКУЩЕЙ выборки
+ * (той же top-N, что вернул бэкенд для выбранного окна зрелости) — не по всей
+ * коллекции. Совпадающие с медианой значения считаются "высокими" (>=), поэтому
+ * ровно на медиане журнал попадает в flagship/volumeFactory, а не смещается в
+ * противоположный квадрант при чётном числе точек.
+ */
+export function computeJournalQuadrants(data: JournalImpactPoint[]): {
+  points: JournalScatterPoint[];
+  medianCount: number;
+  medianMean: number;
+} {
+  if (data.length === 0) return { points: [], medianCount: 0, medianMean: 0 };
+
+  const medianCount = median([...data.map((d) => d.count)].sort((a, b) => a - b));
+  const medianMean = median([...data.map((d) => d.mean_citations)].sort((a, b) => a - b));
+
+  const points = data.map((d) => {
+    const highVolume = d.count >= medianCount;
+    const highImpact = d.mean_citations >= medianMean;
+    const quadrant: JournalQuadrant =
+      highVolume && highImpact
+        ? 'flagship'
+        : !highVolume && highImpact
+          ? 'hiddenGem'
+          : highVolume && !highImpact
+            ? 'volumeFactory'
+            : 'peripheral';
+    return { ...d, quadrant, plotMean: Math.max(d.mean_citations, LOG_SCALE_FLOOR) };
+  });
+
+  return { points, medianCount, medianMean: Math.max(medianMean, LOG_SCALE_FLOOR) };
 }
