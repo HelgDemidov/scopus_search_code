@@ -89,9 +89,7 @@ async def test_by_year_top_countries_excludes_countries_outside_top10(
     """11-я по объёму страна не должна попасть в by_year_top_countries."""
     articles: list[dict] = []
     # 10 стран с явно разным объёмом — гарантированный топ-10
-    for idx, country in enumerate(
-        ["C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "C10"]
-    ):
+    for idx, country in enumerate(["C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "C10"]):
         articles += _repeat(10 - idx, affiliation_country=country, publication_date=datetime.date(2024, 1, 1))
     # 11-я страна — заведомо меньше всех остальных, не должна пройти в топ-10
     articles += _repeat(1, affiliation_country="C11-excluded", publication_date=datetime.date(2024, 1, 1))
