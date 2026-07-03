@@ -232,7 +232,18 @@
     "tableColCount": "Кол-во",
     "tableColShare": "Доля",
     "removeChart": "Удалить график",
-    "closedAccess": "Закрытый доступ"
+    "closedAccess": "Закрытый доступ",
+    "crossCharts": {
+      "topCountriesByYear": "Ведущие страны по годам",
+      "yearRangeLabel": "Диапазон лет",
+      "sunburst": "Страна → Открытый доступ",
+      "sunburstLevelCountry": "Страна",
+      "sunburstLevelOpenAccess": "Открытый доступ",
+      "ofParent": "от {{parent}}",
+      "topJournalsByCountry": "Ведущие журналы по странам",
+      "other": "Другое",
+      "allPublications": "всех публикаций"
+    }
   },
   "article": {
     "backHome": "← На главную",

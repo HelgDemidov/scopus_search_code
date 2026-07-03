@@ -235,42 +235,112 @@ class PostgresCatalogRepository(ICatalogRepository):
             .order_by(sa.text("year DESC"))
         )
 
-        # Распределение по журналам (топ-20)
-        by_journal_rows = await self.session.execute(
-            select(
-                catalog_articles_q.c.journal,
-                func.count().label("count"),
+        # Распределение по журналам (топ-20). Материализуем в список сразу (.all()) —
+        # ниже переиспользуем топ-10 label'ов для кросс-агрегата top_journals_by_country,
+        # а результат execute() иначе можно проитерировать только один раз.
+        by_journal_rows = (
+            await self.session.execute(
+                select(
+                    catalog_articles_q.c.journal,
+                    func.count().label("count"),
+                )
+                .select_from(catalog_articles_q)
+                .where(catalog_articles_q.c.journal.isnot(None))
+                .group_by(catalog_articles_q.c.journal)
+                .order_by(sa.text("count DESC"))
+                .limit(20)
             )
-            .select_from(catalog_articles_q)
-            .where(catalog_articles_q.c.journal.isnot(None))
-            .group_by(catalog_articles_q.c.journal)
-            .order_by(sa.text("count DESC"))
-            .limit(20)
-        )
+        ).all()
 
-        # Распределение по странам
-        by_country_rows = await self.session.execute(
+        # Распределение по странам — аналогично материализуем для переиспользования
+        # топ-5/топ-10 label'ов в 3 кросс-агрегатах ниже (garantируем, что топ-N
+        # везде на странице совпадает — см. docs/explore-cross-analytics/spec.md §2.2)
+        by_country_rows = (
+            await self.session.execute(
+                select(
+                    catalog_articles_q.c.affiliation_country,
+                    func.count().label("count"),
+                )
+                .select_from(catalog_articles_q)
+                .where(catalog_articles_q.c.affiliation_country.isnot(None))
+                .group_by(catalog_articles_q.c.affiliation_country)
+                .order_by(sa.text("count DESC"))
+                .limit(20)
+            )
+        ).all()
+
+        # Распределение по типам документов — материализуем для топ-5 фиксированного
+        # набора типов документа, используемого в sunburst (см. ниже)
+        by_doc_type_rows = (
+            await self.session.execute(
+                select(
+                    catalog_articles_q.c.document_type,
+                    func.count().label("count"),
+                )
+                .select_from(catalog_articles_q)
+                .where(catalog_articles_q.c.document_type.isnot(None))
+                .group_by(catalog_articles_q.c.document_type)
+                .order_by(sa.text("count DESC"))
+            )
+        ).all()
+
+        # ------------------------------------------------------------------ #
+        #  Кросс-агрегаты для стационарных графиков /explore                  #
+        #  (docs/explore-cross-analytics/spec.md §2.2)                        #
+        # ------------------------------------------------------------------ #
+        top10_countries = [r.affiliation_country for r in by_country_rows[:10]]
+        top5_countries = [r.affiliation_country for r in by_country_rows[:5]]
+        top10_journals = [r.journal for r in by_journal_rows[:10]]
+
+        # График 1 — Top Countries by Year: топ-10 стран × год
+        by_year_top_countries_rows = await self.session.execute(
             select(
+                func.extract("year", catalog_articles_q.c.publication_date).label("year"),
                 catalog_articles_q.c.affiliation_country,
                 func.count().label("count"),
             )
             .select_from(catalog_articles_q)
-            .where(catalog_articles_q.c.affiliation_country.isnot(None))
-            .group_by(catalog_articles_q.c.affiliation_country)
-            .order_by(sa.text("count DESC"))
-            .limit(20)
+            .where(catalog_articles_q.c.affiliation_country.in_(top10_countries))
+            .group_by(sa.text("year"), catalog_articles_q.c.affiliation_country)
+            .order_by(sa.text("year DESC"))
         )
 
-        # Распределение по типам документов
-        by_doc_type_rows = await self.session.execute(
+        # График 2 — Sunburst Country(топ-5) → OpenAccess. Изначально был 3-уровневым
+        # (+ DocType посередине), упрощён до 2 уровней по итогам визуального ревью —
+        # третий слой был нечитаем, см. docs/explore-cross-analytics/spec.md §5.
+        sunburst_rows = await self.session.execute(
             select(
-                catalog_articles_q.c.document_type,
+                catalog_articles_q.c.affiliation_country,
+                catalog_articles_q.c.open_access,
                 func.count().label("count"),
             )
             .select_from(catalog_articles_q)
-            .where(catalog_articles_q.c.document_type.isnot(None))
-            .group_by(catalog_articles_q.c.document_type)
-            .order_by(sa.text("count DESC"))
+            .where(
+                catalog_articles_q.c.affiliation_country.in_(top5_countries),
+                catalog_articles_q.c.open_access.isnot(None),
+            )
+            .group_by(catalog_articles_q.c.affiliation_country, catalog_articles_q.c.open_access)
+        )
+
+        # График 3 — Top Journals × Country: топ-10 журналов, страны бакетированы
+        # в тот же топ-5 + Other, что sunburst — единая легенда стран по дашборду.
+        country_col = catalog_articles_q.c.affiliation_country
+        country_bucket = sa.case(
+            (country_col.in_(top5_countries), country_col),
+            else_=sa.literal("Other"),
+        ).label("country_bucket")
+        top_journals_by_country_rows = await self.session.execute(
+            select(
+                catalog_articles_q.c.journal,
+                country_bucket,
+                func.count().label("count"),
+            )
+            .select_from(catalog_articles_q)
+            .where(
+                catalog_articles_q.c.journal.in_(top10_journals),
+                catalog_articles_q.c.affiliation_country.isnot(None),
+            )
+            .group_by(catalog_articles_q.c.journal, country_bucket)
         )
 
         # Топ ключевых слов из catalog_articles.keyword (legacy — не отображается в UI)
@@ -309,4 +379,16 @@ class PostgresCatalogRepository(ICatalogRepository):
             "by_doc_type": [{"doc_type": r.document_type, "count": r.count} for r in by_doc_type_rows],
             "top_keywords": [{"keyword": r.keyword, "count": r.count} for r in top_keywords_rows],
             "top_authors": [{"author": r.author, "count": r.count} for r in top_authors_rows],
+            "by_year_top_countries": [
+                {"year": int(r.year), "country": r.affiliation_country, "count": r.count}
+                for r in by_year_top_countries_rows
+            ],
+            "sunburst_country_open_access": [
+                {"country": r.affiliation_country, "open_access": r.open_access, "count": r.count}
+                for r in sunburst_rows
+            ],
+            "top_journals_by_country": [
+                {"journal": r.journal, "country": r.country_bucket, "count": r.count}
+                for r in top_journals_by_country_rows
+            ],
         }

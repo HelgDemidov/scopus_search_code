@@ -9,7 +9,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.interfaces.article_repository import IArticleRepository
 from app.interfaces.catalog_repository import ICatalogRepository
 from app.models.article import Article
-from app.schemas.article_schemas import ArticleResponse, CountByField, PaginatedArticleResponse, StatsResponse
+from app.schemas.article_schemas import (
+    ArticleResponse,
+    CountByField,
+    JournalCountryCount,
+    PaginatedArticleResponse,
+    StatsResponse,
+    SunburstSegment,
+    YearCountryCount,
+)
 
 if TYPE_CHECKING:
     from app.infrastructure.redis_client import UpstashRedisClient
@@ -167,6 +175,18 @@ class CatalogService:
             by_doc_type=[CountByField(label=r["doc_type"], count=r["count"]) for r in raw["by_doc_type"]],
             top_keywords=[CountByField(label=r["keyword"], count=r["count"]) for r in raw["top_keywords"]],
             top_authors=[CountByField(label=r["author"], count=r["count"]) for r in raw["top_authors"]],
+            by_year_top_countries=[
+                YearCountryCount(year=r["year"], country=r["country"], count=r["count"])
+                for r in raw["by_year_top_countries"]
+            ],
+            sunburst_country_open_access=[
+                SunburstSegment(country=r["country"], open_access=r["open_access"], count=r["count"])
+                for r in raw["sunburst_country_open_access"]
+            ],
+            top_journals_by_country=[
+                JournalCountryCount(journal=r["journal"], country=r["country"], count=r["count"])
+                for r in raw["top_journals_by_country"]
+            ],
         )
 
     # ------------------------------------------------------------------ #

@@ -224,7 +224,18 @@
     "tableColCount": "Broj",
     "tableColShare": "Udio",
     "removeChart": "Ukloni grafikon",
-    "closedAccess": "Zatvoreni pristup"
+    "closedAccess": "Zatvoreni pristup",
+    "crossCharts": {
+      "topCountriesByYear": "Vodeće zemlje po godinama",
+      "yearRangeLabel": "Opseg godina",
+      "sunburst": "Zemlja → Otvoreni pristup",
+      "sunburstLevelCountry": "Zemlja",
+      "sunburstLevelOpenAccess": "Otvoreni pristup",
+      "ofParent": "od {{parent}}",
+      "topJournalsByCountry": "Vodeći časopisi po zemljama",
+      "other": "Ostalo",
+      "allPublications": "svih publikacija"
+    }
   },
   "article": {
     "backHome": "← Na početnu",

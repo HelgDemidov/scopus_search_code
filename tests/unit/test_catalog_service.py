@@ -9,7 +9,14 @@ from app.infrastructure.redis_client import STATS_CACHE_TTL, make_stats_cache_ke
 from app.interfaces.article_repository import IArticleRepository
 from app.interfaces.catalog_repository import ICatalogRepository
 from app.models.article import Article
-from app.schemas.article_schemas import CountByField, PaginatedArticleResponse, StatsResponse
+from app.schemas.article_schemas import (
+    CountByField,
+    JournalCountryCount,
+    PaginatedArticleResponse,
+    StatsResponse,
+    SunburstSegment,
+    YearCountryCount,
+)
 from app.services.catalog_service import CatalogService
 
 # ================================================================ #
@@ -119,6 +126,9 @@ class FakeCatalogRepository(ICatalogRepository):
             "by_doc_type": [{"doc_type": "Article", "count": 40}],
             "top_keywords": [{"keyword": "deep learning", "count": 12}],
             "top_authors": [{"author": "J. Smith", "count": 5}],
+            "by_year_top_countries": [{"year": 2025, "country": "USA", "count": 18}],
+            "sunburst_country_open_access": [{"country": "USA", "open_access": True, "count": 9}],
+            "top_journals_by_country": [{"journal": "Nature", "country": "USA", "count": 6}],
         }
 
 
@@ -171,6 +181,9 @@ def _minimal_stats_response() -> StatsResponse:
         by_doc_type=[CountByField(label="Article", count=40)],
         top_keywords=[CountByField(label="deep learning", count=12)],
         top_authors=[CountByField(label="J. Smith", count=5)],
+        by_year_top_countries=[YearCountryCount(year=2025, country="USA", count=18)],
+        sunburst_country_open_access=[SunburstSegment(country="USA", open_access=True, count=9)],
+        top_journals_by_country=[JournalCountryCount(journal="Nature", country="USA", count=6)],
     )
 
 

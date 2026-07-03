@@ -35,8 +35,10 @@ import {
   getTaxonomyColor,
   getYearRangeBounds,
   zeroFillYears,
+  CLOSED_ACCESS_COLOR,
 } from '../charts/chartColors';
 import { getLabelMaps } from '../../constants/labelTranslations';
+import { YEAR_HARD_MAX, YEAR_DEFAULT_MIN, YEAR_MIN_WINDOW } from '../../constants/yearRange';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useTheme } from '../../hooks/useTheme';
 import type { Dimension } from '../charts/chartColors';
@@ -61,17 +63,8 @@ interface DrawerConfig {
 // docs/explore-charts-refactor/spec.md §6). doc_type — закрытая таксономия, не режем.
 const TOP_N_RANKED = 15;
 
-// Правый край жёстко зафиксирован на 2030 (не от данных): реальный max(year) в БД
-// технически доходит до 2074, но это одиночные мусорные строки (ошибки метаданных
-// Scopus, см. spec.md §14 п.6) — фиксация естественно отсекает их и из таблицы, и из
-// графика (используется ниже и в getConfig, и в DrawerAreaChart).
-const YEAR_HARD_MAX = 2030;
-// Левый край по умолчанию; растягивается пользователем через слайдер вплоть до
-// фактического минимального года в данных (сейчас 1965 — не хардкодим, чтобы не
-// терять актуальность при появлении более ранних статей).
-const YEAR_DEFAULT_MIN = 2010;
-// Минимальное окно выборки (слайдер не даёт сжать диапазон сильнее).
-const YEAR_MIN_WINDOW = 2;
+// YEAR_HARD_MAX/YEAR_DEFAULT_MIN/YEAR_MIN_WINDOW — см. constants/yearRange.ts
+// (вынесены оттуда же, используются также в TopCountriesByYearChart).
 
 function getConfig(
   dim: Dimension,
@@ -161,8 +154,6 @@ function getConfig(
 // ---------------------------------------------------------------------------
 // Drawer chart
 // ---------------------------------------------------------------------------
-
-const CLOSED_COLOR = '#94a3b8';
 
 function DrawerBarChart({ dim, data, height, yAxisWidth = 120, labelMaxLen = 24 }: {
   dim: Dimension;
@@ -341,8 +332,8 @@ function DrawerOAChart({ data }: { data: LabelCount[] }) {
   const { theme } = useTheme();
   const oaColor = DIMENSION_COLORS.open_access.base;
   // color в данных — чтобы ChartTooltip показывал правильную точку для сегмента
-  // "Closed Access" (серый CLOSED_COLOR), а не всегда фиксированный dimension.base
-  const colored = data.map((d, i) => ({ ...d, color: i === 0 ? oaColor : CLOSED_COLOR }));
+  // "Closed Access" (серый CLOSED_ACCESS_COLOR), а не всегда фиксированный dimension.base
+  const colored = data.map((d, i) => ({ ...d, color: i === 0 ? oaColor : CLOSED_ACCESS_COLOR }));
   const total = data.reduce((s, d) => s + d.count, 0);
   const oaPct = total > 0 ? ((data[0]?.count ?? 0) / total * 100).toFixed(1) : '0.0';
   const valueFill = theme === 'dark' ? '#f1f5f9' : '#0f172a';

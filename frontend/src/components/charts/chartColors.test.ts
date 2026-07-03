@@ -9,6 +9,8 @@ import {
   getTaxonomyColor,
   getYearRangeBounds,
   zeroFillYears,
+  pivotYearCountrySeries,
+  applyMinimumArcFloor,
 } from './chartColors';
 import type { Dimension } from './chartColors';
 
@@ -272,5 +274,94 @@ describe('zeroFillYears', () => {
       { label: '2029', count: 7 },
       { label: '2030', count: 0 },
     ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// pivotYearCountrySeries
+// ---------------------------------------------------------------------------
+
+describe('pivotYearCountrySeries', () => {
+  it('сводит плоские (year, country, count) в wide-формат с одним ключом на страну', () => {
+    const data = [
+      { year: 2023, country: 'China', count: 100 },
+      { year: 2023, country: 'USA', count: 50 },
+      { year: 2024, country: 'China', count: 120 },
+    ];
+    const result = pivotYearCountrySeries(data, ['China', 'USA'], 2023, 2024);
+    expect(result).toEqual([
+      { year: 2023, China: 100, USA: 50 },
+      { year: 2024, China: 120, USA: 0 },
+    ]);
+  });
+
+  it('заполняет нулём (год, страна) без данных — включая страну без единой записи в диапазоне', () => {
+    const data = [{ year: 2023, country: 'China', count: 10 }];
+    const result = pivotYearCountrySeries(data, ['China', 'India'], 2023, 2025);
+    expect(result).toEqual([
+      { year: 2023, China: 10, India: 0 },
+      { year: 2024, China: 0, India: 0 },
+      { year: 2025, China: 0, India: 0 },
+    ]);
+  });
+
+  it('длина результата всегда = end - start + 1', () => {
+    const result = pivotYearCountrySeries([], ['China'], 2000, 2010);
+    expect(result).toHaveLength(11);
+  });
+
+  it('данные вне диапазона [start, end] не попадают в результат', () => {
+    const data = [{ year: 1900, country: 'China', count: 999 }];
+    const result = pivotYearCountrySeries(data, ['China'], 2010, 2020);
+    expect(result.every((r) => r.year >= 2010 && r.year <= 2020)).toBe(true);
+    expect(result.reduce((s, r) => s + r.China, 0)).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyMinimumArcFloor
+// ---------------------------------------------------------------------------
+
+describe('applyMinimumArcFloor', () => {
+  it('не трогает данные, если все сегменты уже выше порога', () => {
+    const items = [{ value: 100 }, { value: 100 }, { value: 100 }];
+    const result = applyMinimumArcFloor(items, 1.5);
+    result.forEach((r, i) => expect(r.renderValue).toBe(items[i].value));
+  });
+
+  it('поднимает тонкий сегмент до минимального угла, компенсируя сжатием остальных', () => {
+    // 1 из 100000 — угол среза ~0.0036°, заведомо ниже порога 1.5°
+    const items = [{ value: 99999 }, { value: 1 }];
+    const result = applyMinimumArcFloor(items, 1.5);
+
+    const tinyDegrees = (result[1].renderValue / (result[0].renderValue + result[1].renderValue)) * 360;
+    expect(tinyDegrees).toBeCloseTo(1.5, 1);
+    // Исходное значение сохраняется — используется в tooltip/подписи
+    expect(result[1].value).toBe(1);
+  });
+
+  it('сохраняет исходную сумму value после компенсации (иначе ломается выравнивание колец)', () => {
+    const items = [{ value: 99999 }, { value: 1 }];
+    const result = applyMinimumArcFloor(items, 1.5);
+    const originalTotal = items.reduce((s, d) => s + d.value, 0);
+    const renderTotal = result.reduce((s, d) => s + d.renderValue, 0);
+    expect(renderTotal).toBeCloseTo(originalTotal, 6);
+  });
+
+  it('вырожденный случай (пустой массив) не падает', () => {
+    expect(applyMinimumArcFloor([], 1.5)).toEqual([]);
+  });
+
+  it('вырожденный случай (сумма = 0) возвращает данные без искажений', () => {
+    const items = [{ value: 0 }, { value: 0 }];
+    const result = applyMinimumArcFloor(items, 1.5);
+    expect(result.map((r) => r.renderValue)).toEqual([0, 0]);
+  });
+
+  it('сохраняет дополнительные поля объекта (не только value)', () => {
+    const items = [{ value: 10, label: 'Article', country: 'China' }];
+    const result = applyMinimumArcFloor(items, 1.5);
+    expect(result[0].label).toBe('Article');
+    expect(result[0].country).toBe('China');
   });
 });

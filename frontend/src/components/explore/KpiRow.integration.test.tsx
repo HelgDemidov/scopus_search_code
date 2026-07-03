@@ -31,6 +31,9 @@ const MOCK_STATS: StatsResponse = {
     { label: 'J. Smith', count: 42 },
     { label: 'L. Wang', count: 38 },
   ],
+  by_year_top_countries: [],
+  sunburst_country_open_access: [],
+  top_journals_by_country: [],
 };
 
 beforeEach(() => {

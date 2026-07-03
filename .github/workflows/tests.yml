@@ -11,6 +11,7 @@ on:
       - russian-UI
       - montenegro-ui
       - feat/explore-charts-refactor
+      - feat/explore-cross-analytics
 
   pull_request:
     branches:

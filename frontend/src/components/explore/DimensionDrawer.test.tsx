@@ -89,6 +89,9 @@ const MOCK_STATS: StatsResponse = {
   ],
   top_keywords: [],
   top_authors: rankedRows('Author'),
+  by_year_top_countries: [],
+  sunburst_country_open_access: [],
+  top_journals_by_country: [],
 };
 
 beforeEach(() => {

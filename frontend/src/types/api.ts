@@ -36,6 +36,25 @@ export interface LabelCount {
 // Алиас для обратной совместимости с chart-компонентами
 export type StatsItem = LabelCount;
 
+// Кросс-агрегаты для стационарных графиков /explore (docs/explore-cross-analytics/spec.md §2)
+export interface YearCountryCount {
+  year: number;
+  country: string;
+  count: number;
+}
+
+export interface SunburstSegment {
+  country: string;
+  open_access: boolean;
+  count: number;
+}
+
+export interface JournalCountryCount {
+  journal: string;
+  country: string; // топ-5 (тот же набор, что в SunburstSegment) + "Other"
+  count: number;
+}
+
 export interface StatsResponse {
   total_articles: number;
   total_journals: number;
@@ -48,6 +67,9 @@ export interface StatsResponse {
   by_doc_type: LabelCount[];
   top_keywords: LabelCount[];
   top_authors: LabelCount[];
+  by_year_top_countries: YearCountryCount[];
+  sunburst_country_open_access: SunburstSegment[];
+  top_journals_by_country: JournalCountryCount[];
 }
 
 // ---------------------------------------------------------------------------

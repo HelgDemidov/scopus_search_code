@@ -33,10 +33,21 @@ const DocumentTypesChart = lazy(() =>
 const TopJournalsChart = lazy(() =>
   import('../components/charts/TopJournalsChart').then(m => ({ default: m.TopJournalsChart }))
 );
-// OpenAccessChart/TopAuthorsChart: стационарные варианты отключены в collection mode
-// (см. docs/explore-charts-refactor/spec.md §1) — компоненты остаются в репозитории,
-// используются только их drawer-эквиваленты (DimensionDrawer). Personal mode их не использует,
-// поэтому здесь больше не импортируются.
+// OpenAccessChart/TopAuthorsChart удалены (docs/explore-cross-analytics/spec.md §1) —
+// не рендерились нигде (ни collection, ни personal mode), подтверждённый мёртвый код.
+// Их drawer-эквиваленты (DimensionDrawer) продолжают работать без изменений.
+
+// 3 новых кросс-аналитических стационарных графика collection mode (spec.md §4-6) —
+// тоже lazy: показывают комбинированные разрезы данных, которых KPI/drawer не дают.
+const TopCountriesByYearChart = lazy(() =>
+  import('../components/explore/TopCountriesByYearChart').then(m => ({ default: m.TopCountriesByYearChart }))
+);
+const CountrySunburstChart = lazy(() =>
+  import('../components/explore/CountrySunburstChart').then(m => ({ default: m.CountrySunburstChart }))
+);
+const TopJournalsByCountryChart = lazy(() =>
+  import('../components/explore/TopJournalsByCountryChart').then(m => ({ default: m.TopJournalsByCountryChart }))
+);
 
 // ---------------------------------------------------------------------------
 // Skeleton-заглушки
@@ -45,13 +56,13 @@ const TopJournalsChart = lazy(() =>
 function CollectionSkeleton() {
   return (
     <div className="flex flex-col gap-6">
-      <Skeleton className="h-56 w-full rounded-xl" />
+      {/* Top Countries by Year — full width */}
+      <Skeleton className="h-[440px] w-full rounded-xl" />
+      {/* Sunburst + Top Journals by Country — вторая строка, пополам */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-72 w-full rounded-xl" />
-        ))}
+        <Skeleton className="h-[480px] w-full rounded-xl" />
+        <Skeleton className="h-[480px] w-full rounded-xl" />
       </div>
-      <Skeleton className="h-[360px] w-full rounded-xl" />
     </div>
   );
 }
@@ -190,9 +201,15 @@ export default function ExplorePage() {
                 {/* Активный фильтр — появляется между KpiRow и графиками */}
                 <ActiveFilterBanner />
 
-                {/* 6 стационарных чартов отключены здесь (дублировали KpiRow → DimensionDrawer,
-                    см. docs/explore-charts-refactor/spec.md §0–1). Компоненты не удалены —
-                    только их рендер в collection mode. */}
+                {/* 6 старых стационарных чартов отключены здесь (дублировали KpiRow →
+                    DimensionDrawer, см. docs/explore-charts-refactor/spec.md §0–1).
+                    На их месте — 3 новых кросс-аналитических графика (spec.md §4-6):
+                    комбинированные разрезы, которых KPI/drawer (всегда одномерные) не дают. */}
+                <TopCountriesByYearChart />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <CountrySunburstChart />
+                  <TopJournalsByCountryChart />
+                </div>
 
                 {/* Пользовательские чарты из Chart Builder */}
                 {builderCards.length > 0 && (

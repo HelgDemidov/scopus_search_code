@@ -137,8 +137,6 @@ vi.mock('../components/charts/PublicationsByYearChart', () => ({ PublicationsByY
 vi.mock('../components/charts/TopCountriesChart', () => ({ TopCountriesChart: () => <div data-testid="chart-country" /> }));
 vi.mock('../components/charts/DocumentTypesChart', () => ({ DocumentTypesChart: () => <div data-testid="chart-doctype" /> }));
 vi.mock('../components/charts/TopJournalsChart', () => ({ TopJournalsChart: () => <div data-testid="chart-journal" /> }));
-vi.mock('../components/charts/OpenAccessChart', () => ({ OpenAccessChart: () => <div data-testid="chart-oa" /> }));
-vi.mock('../components/charts/TopAuthorsChart', () => ({ TopAuthorsChart: () => <div data-testid="chart-authors" /> }));
 vi.mock('../components/charts/DynamicChart', () => ({ DynamicChart: () => null }));
 
 // ---------------------------------------------------------------------------
@@ -185,11 +183,13 @@ describe('ExplorePage — cross-filter V2 useEffect', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Отключение 6 стационарных чартов в collection mode (spec.md §1)
+// Отключение 4 личных стационарных чартов в collection mode (spec.md §1;
+// OpenAccessChart/TopAuthorsChart удалены целиком — были мёртвым кодом,
+// см. docs/explore-cross-analytics/spec.md §1)
 // ---------------------------------------------------------------------------
 
-describe('ExplorePage — collection mode: стационарные чарты отключены', () => {
-  it('ни один из 6 стационарных чартов не рендерится', async () => {
+describe('ExplorePage — collection mode: личные стационарные чарты отключены', () => {
+  it('ни один из 4 personal-mode чартов не рендерится', async () => {
     await act(async () => {
       render(<ExplorePage />);
     });
@@ -198,8 +198,6 @@ describe('ExplorePage — collection mode: стационарные чарты �
     expect(screen.queryByTestId('chart-country')).not.toBeInTheDocument();
     expect(screen.queryByTestId('chart-doctype')).not.toBeInTheDocument();
     expect(screen.queryByTestId('chart-journal')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('chart-oa')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('chart-authors')).not.toBeInTheDocument();
   });
 
   it('KpiRow и DimensionDrawer по-прежнему рендерятся — они единственный путь к деталям', async () => {
@@ -231,16 +229,6 @@ describe('ExplorePage — personal mode не затронут', () => {
     expect(await screen.findByTestId('chart-country')).toBeInTheDocument();
     expect(await screen.findByTestId('chart-doctype')).toBeInTheDocument();
     expect(await screen.findByTestId('chart-journal')).toBeInTheDocument();
-  });
-
-  it('OpenAccess и TopAuthors в personal mode не используются — их там никогда не было', async () => {
-    await act(async () => {
-      render(<ExplorePage />);
-    });
-    await screen.findByTestId('chart-year'); // дожидаемся, что Suspense резолвнулся
-
-    expect(screen.queryByTestId('chart-oa')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('chart-authors')).not.toBeInTheDocument();
   });
 
   it('KpiRow/DimensionDrawer не рендерятся в personal mode (нет cross-filter drawer для личной истории)', async () => {

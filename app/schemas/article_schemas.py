@@ -33,6 +33,30 @@ class CountByField(BaseModel):
     count: int
 
 
+class YearCountryCount(BaseModel):
+    # Кросс-агрегат для графика Top Countries by Year (docs/explore-cross-analytics/spec.md §4)
+    year: int
+    country: str
+    count: int
+
+
+class SunburstSegment(BaseModel):
+    # Сегмент 2-уровневого sunburst Country → OpenAccess (spec.md §5, упрощено
+    # с 3 до 2 уровней по итогам визуального ревью — doc_type как промежуточный
+    # слой убран: третий слой был визуально нечитаем).
+    country: str
+    open_access: bool
+    count: int
+
+
+class JournalCountryCount(BaseModel):
+    # Кросс-агрегат для графика Top Journals × Country (spec.md §6).
+    # country — один из топ-5 (тот же набор, что в SunburstSegment) + "Other".
+    journal: str
+    country: str
+    count: int
+
+
 class StatsResponse(BaseModel):
     # Схема публичного эндпоинта GET /articles/stats
     # Возвращает агрегированную статистику по статьям каталога (catalog_articles)
@@ -47,6 +71,10 @@ class StatsResponse(BaseModel):
     by_doc_type: List[CountByField]  # Распределение по типу документа
     top_keywords: List[CountByField]  # Топ ключевых слов сидера (legacy)
     top_authors: List[CountByField]  # Топ-20 авторов по числу статей
+    # Кросс-агрегаты для стационарных графиков /explore (explore-cross-analytics)
+    by_year_top_countries: List[YearCountryCount]  # Топ-10 стран × год
+    sunburst_country_open_access: List[SunburstSegment]  # Топ-5 стран × Open Access
+    top_journals_by_country: List[JournalCountryCount]  # Топ-10 журналов × топ-5 стран
 
 
 class SearchStatsResponse(BaseModel):
