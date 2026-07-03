@@ -96,11 +96,14 @@ export function Header() {
             <Button
               asChild
               variant="default"
-              size="sm"
+              size="lg"
               // text-white + rounded-md переопределяют дефолт shadcn Button
               // (text-primary-foreground в тёмной теме — почти чёрный, см. index.css
               // --primary-foreground; rounded-lg) — тот же вид, что у CTA-баннера
               // "Sign in" в ExplorePage.tsx, единообразно по всему сайту.
+              // size="lg" (h-9, text-sm) вместо "sm" (h-7, text-[0.8rem]) — совпадает
+              // с navigationMenuTriggerStyle() соседней ссылки "Explore" по высоте и
+              // размеру шрифта, обе надписи на одном горизонтальном уровне.
               className="bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-md"
             >
               <Link to="/auth">{t('nav.signIn')}</Link>

@@ -110,6 +110,17 @@ describe('PivotTable — сортировка', () => {
     expect(labels).toEqual(['Germany', 'United States', 'China']); // asc: 1, 2, 5
   });
 
+  it('третий клик по тому же заголовку сбрасывает сортировку на дефолтную (Total desc)', async () => {
+    const user = userEvent.setup();
+    render(<PivotTable data={SMALL_DATA} rowDim="country" colDim="doc_type" />);
+    await user.click(screen.getByText('Review'));
+    await user.click(screen.getByText('Review'));
+    await user.click(screen.getByText('Review'));
+    const rows = screen.getAllByRole('row').slice(1, -1);
+    const labels = rows.map((r) => within(r).getAllByRole('cell')[0].textContent);
+    expect(labels).toEqual(['United States', 'China', 'Germany']); // снова Total desc: 52, 35, 11
+  });
+
   it('клик по заголовку строки (rowDimLabel) сортирует по алфавиту по возрастанию', async () => {
     const user = userEvent.setup();
     render(<PivotTable data={SMALL_DATA} rowDim="country" colDim="doc_type" />);

@@ -239,7 +239,7 @@ export function JournalLandscapeScatterChart() {
             value={[maxYear]}
             onValueChange={(v: number[]) => setMaxYear(v[0])}
           />
-          <div className="flex justify-between text-[11px] text-slate-400 mt-3">
+          <div className="flex justify-between text-[11px] text-slate-600 dark:text-slate-400 mt-3">
             {Array.from(
               { length: MATURITY_MAX_YEAR - MATURITY_MIN_YEAR + 1 },
               (_, i) => MATURITY_MIN_YEAR + i,

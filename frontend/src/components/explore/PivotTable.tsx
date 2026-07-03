@@ -145,12 +145,20 @@ export function PivotTable({ data, rowDim, colDim }: PivotTableProps) {
   const nonEmptyCells = useMemo(() => countNonEmptyCells(data.matrix), [data]);
   const isSparse = nonEmptyCells > 0 && nonEmptyCells < SPARSE_THRESHOLD;
 
+  // Клик 1 (другая колонка) → natural-направление (desc для чисел, asc для label).
+  // Клик 2 (та же колонка) → противоположное направление.
+  // Клик 3 (та же колонка, уже в противоположном направлении) → сброс на дефолт
+  // (total desc) — без него сортировку было не сбросить обратно.
   function handleSort(key: SortKey) {
-    if (key === sortKey) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    } else {
+    const naturalDir = key === 'label' ? 'asc' : 'desc';
+    if (key !== sortKey) {
       setSortKey(key);
-      setSortDir(key === 'label' ? 'asc' : 'desc');
+      setSortDir(naturalDir);
+    } else if (sortDir === naturalDir) {
+      setSortDir(naturalDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey('total');
+      setSortDir('desc');
     }
   }
 

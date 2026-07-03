@@ -222,11 +222,13 @@ function AddTableForm({
       <div className="flex items-center gap-3 pt-1">
         {/* Тот же синий + text-white/rounded-md, что и Sign in (Header.tsx, CTA-баннер
             ExplorePage.tsx) — единый вид основных CTA-кнопок сайта в обеих темах,
-            а не дефолтные shadcn Button text-primary-foreground/rounded-lg. */}
+            а не дефолтные shadcn Button text-primary-foreground/rounded-lg.
+            size="default" (h-8, text-sm) вместо "sm" (h-7, text-[0.8rem]) — совпадает
+            по размеру шрифта и уровню с соседней текстовой кнопкой Cancel. */}
         <Button
           onClick={handleAdd}
           disabled={!canAdd}
-          size="sm"
+          size="default"
           className="bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-md"
         >
           {t('explore.tableBuilder.addButton')}
@@ -258,11 +260,19 @@ export function TableBuilderPanel() {
     setIsOpen(false);
   }
 
+  // Пока нет ни одной таблицы и форма свёрнута, отдельный заголовок избыточен —
+  // текст "Table Builder" переезжает внутрь самой кнопки-триггера (см. п.4 фикса
+  // 2026-07-03). Заголовок возвращается, как только появляется хотя бы одна
+  // карточка или открыта форма добавления — там он даёт визуальную подпись секции.
+  const showHeading = isOpen || builderCards.length > 0;
+
   return (
     <div className="flex flex-col gap-6">
-      <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-        {t('explore.tableBuilder.heading')}
-      </h2>
+      {showHeading && (
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+          {t('explore.tableBuilder.heading')}
+        </h2>
+      )}
 
       {builderCards.length > 0 && (
         <div className="flex flex-col gap-6">
@@ -278,10 +288,21 @@ export function TableBuilderPanel() {
         <button
           onClick={() => setIsOpen(true)}
           aria-label={t('explore.tableBuilder.addButton')}
-          className="flex items-center gap-2 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 px-5 py-4 text-sm font-medium text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all w-full"
+          // Заливка/рамка — по образцу KpiTile (KpiTile.tsx): цветной фон при
+          // низкой непрозрачности + нейтральная slate-рамка, но здесь 20% вместо
+          // 10% ("прозрачность 80%" вместо "90%"), т.к. кнопка на всю ширину и
+          // менее плотная по контенту, чем KPI-тайл. Фиолетовый (violet) — тот же
+          // акцент, что у KPI-тайла Document Types (doc_type в DIMENSION_COLORS,
+          // chartColors.ts) — выбран по прямому запросу пользователя 2026-07-03,
+          // без привязки к какому-то одному измерению по смыслу.
+          // Текст — text-lg/font-semibold/slate-900|100, 1:1 как у заголовка
+          // "Table Builder" в открытом состоянии (тот же h2 ниже) — тот же
+          // размер и цвет в обеих темах. justify-start (не center) — текст
+          // прижат к левому краю с тем же px-5, что и у карточек рядом.
+          className="flex items-center justify-start gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-violet-800/20 dark:bg-violet-500/20 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-violet-800/25 dark:hover:bg-violet-500/25 hover:shadow-sm px-5 py-3 text-lg font-semibold text-slate-900 dark:text-slate-100 transition-all w-full"
         >
           <Plus className="size-4" aria-hidden />
-          {t('explore.tableBuilder.addButton')}
+          {builderCards.length > 0 ? t('explore.tableBuilder.addButton') : t('explore.tableBuilder.heading')}
         </button>
       )}
     </div>

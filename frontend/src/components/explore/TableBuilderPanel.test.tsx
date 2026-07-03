@@ -44,9 +44,11 @@ beforeEach(() => {
 });
 
 describe('TableBuilderPanel — форма добавления', () => {
-  it('изначально показывает свёрнутую кнопку "Add table", без формы', () => {
+  it('изначально показывает свёрнутую кнопку с текстом "Table Builder", без отдельного заголовка и без формы', () => {
     render(<TableBuilderPanel />);
-    expect(screen.getByRole('button', { name: 'Add table' })).toBeInTheDocument();
+    const trigger = screen.getByRole('button', { name: 'Add table' }); // aria-label стабилен для поиска
+    expect(trigger).toHaveTextContent('Table Builder'); // видимый текст — заголовок, "Add table" не показан
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
     expect(screen.queryByRole('region')).not.toBeInTheDocument();
   });
 
@@ -163,5 +165,16 @@ describe('TableBuilderPanel — карточки', () => {
 
     await user.click(screen.getByRole('button', { name: 'Remove table' }));
     expect(useDashboardStore.getState().builderCards).toHaveLength(0);
+  });
+
+  it('когда есть карточки, заголовок виден отдельно, а свёрнутая кнопка показывает текст "Add table"', async () => {
+    useDashboardStore.setState({
+      builderCards: [{ id: 'c1', rowDim: 'year', colDim: 'country', filterDim: undefined, filterValue: undefined }],
+    });
+    render(<TableBuilderPanel />);
+    await screen.findByText('Year × Country');
+
+    expect(screen.getByRole('heading', { name: 'Table Builder' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add table' })).toHaveTextContent('Add table');
   });
 });
