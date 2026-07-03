@@ -118,21 +118,6 @@
     outline-color: color-mix(in oklch, var(--ring) 50%, transparent);
   }
 
-  /* Recharts Pie/Sunburst: каждый <path class="recharts-sector"> получает
-     tabindex="-1" от самого Recharts (жёстко задано внутри Pie.js, не
-     настраивается через rootTabIndex) — но tabindex="-1" убирает элемент
-     только из Tab-последовательности, клик мышью всё равно переводит на
-     него фокус, и браузер рисует нативную прямоугольную focus-рамку (bbox
-     дуги) поверх круглого графика. Клик обрабатывается кастомным onClick
-     (подсветка сегмента), клавиатурная навигация по секторам не
-     используется — рамку можно безопасно скрыть.
-     rootTabIndex={-1} на <Pie> (см. CountrySunburstChart/DimensionDrawer/
-     DynamicChart) при этом всё равно оставлен — не мешает, но сам по себе
-     эту рамку не убирал. */
-  .recharts-sector:focus {
-    outline: none;
-  }
-
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
@@ -141,4 +126,29 @@
   html {
     @apply font-sans;
   }
+}
+
+/* Recharts Pie/Sunburst: каждый <path class="recharts-sector"> получает
+   tabindex="-1" от самого Recharts (жёстко задано внутри Pie.js, не
+   настраивается через rootTabIndex) — но tabindex="-1" убирает элемент
+   только из Tab-последовательности, клик мышью всё равно переводит на
+   него фокус, и браузер рисует нативную прямоугольную focus-рамку (bbox
+   дуги) поверх круглого графика. Клик обрабатывается кастомным onClick
+   (подсветка сегмента), клавиатурная навигация по секторам не
+   используется — рамку можно безопасно скрыть.
+   rootTabIndex={-1} на <Pie> (см. CountrySunburstChart/DimensionDrawer/
+   DynamicChart) при этом всё равно оставлен — не мешает, но сам по себе
+   эту рамку не убирал.
+   ВАЖНО: правило вынесено ЗА пределы @layer base — Tailwind v3 применяет
+   content-based tree-shaking даже к обычным (не generated) CSS-правилам
+   внутри @layer, и вырезает любой селектор, чья строка класса не найдена
+   буквально в отсканированных content-файлах (index.html/src/**). Класс
+   "recharts-sector" добавляется самим Recharts в рантайме и никогда не
+   встречается как литеральный текст в нашем коде — внутри @layer base
+   это правило молча выпиливалось при продакшен-сборке (проверено:
+   dist/assets/index-*.css не содержал ни строки "recharts-sector", ни
+   "outline:none" рядом с ней), хотя в dev-режиме (без tree-shaking) всё
+   работало. Вне @layer действие content-purge не распространяется. */
+.recharts-sector:focus {
+  outline: none;
 }
