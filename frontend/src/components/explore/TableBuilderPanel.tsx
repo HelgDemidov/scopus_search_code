@@ -220,13 +220,14 @@ function AddTableForm({
       </div>
 
       <div className="flex items-center gap-3 pt-1">
-        {/* Тот же синий, что и Sign in в Header.tsx — единая акцентная палитра для
-            основных CTA-кнопок сайта в обеих темах, а не дефолтный --primary. */}
+        {/* Тот же синий + text-white/rounded-md, что и Sign in (Header.tsx, CTA-баннер
+            ExplorePage.tsx) — единый вид основных CTA-кнопок сайта в обеих темах,
+            а не дефолтные shadcn Button text-primary-foreground/rounded-lg. */}
         <Button
           onClick={handleAdd}
           disabled={!canAdd}
           size="sm"
-          className="bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400"
+          className="bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-md"
         >
           {t('explore.tableBuilder.addButton')}
         </Button>
