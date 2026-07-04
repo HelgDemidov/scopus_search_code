@@ -10,6 +10,9 @@ import { createBrowserRouter, Outlet as RouterOutlet, useLocation } from 'react-
 import type { RouteObject } from 'react-router-dom';
 import { Header } from './components/layout/Header';
 import { PrivateRoute } from './components/layout/PrivateRoute';
+import { recordBreadcrumb } from './utils/errorReport';
+import NotFoundPage from './pages/error/NotFoundPage';
+import RouteErrorPage from './pages/error/RouteErrorPage';
 
 // Заглушка при ленивой загрузке страницы (используется внутри lazyPage)
 function PageFallback() {
@@ -60,6 +63,8 @@ function RootLayout() {
     if (typeof window.gtag === 'function') {
       window.gtag('event', 'page_view', { page_path: location.pathname + location.search });
     }
+    // Breadcrumb для "Report this issue" на error-страницах (docs/error-experience/spec.md)
+    recordBreadcrumb(location.pathname + location.search);
   }, [location]);
 
   return (
@@ -96,6 +101,11 @@ export const appRoutes: RouteObject[] = [
   {
     path: '/',
     element: <RootLayout />,
+    // errorElement ловит непойманные исключения из loader/action/render
+    // дочерних роутов (docs/error-experience/spec.md) — 404 обрабатывается
+    // ОТДЕЛЬНЫМ path:'*' роутом ниже, не через errorElement: «такой страницы
+    // нет» семантически не «ошибка».
+    errorElement: <RouteErrorPage />,
     children: [
       { index: true,           element: HomePage },
       { path: 'explore',       element: ExplorePage },
@@ -111,6 +121,7 @@ export const appRoutes: RouteObject[] = [
           { path: 'profile', element: ProfilePage },
         ],
       },
+      { path: '*', element: <NotFoundPage /> },
     ],
   },
 ];
