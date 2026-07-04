@@ -1,5 +1,19 @@
 import { useEffect, useRef } from 'react';
 import { useTheme } from '../../hooks/useTheme';
+import { getBlackHole } from '../../stores/blackHoleStore';
+import {
+  blackHoleRadiusPx,
+  computeLensing,
+  isInsideBlackHoleDisk,
+  shouldHideCursor,
+} from '../../utils/blackHoleLensing';
+import {
+  BLACK_HOLE_DIAMETER_RATIO,
+  CAPTURED_CURSOR_ARC_SPAN,
+  CAPTURED_METEOR_ARC_SPAN,
+  CAPTURED_METEOR_FADE_MS,
+  CAPTURED_STAR_ARC_SPAN,
+} from '../../constants/blackHole';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -24,6 +38,18 @@ interface Meteor {
   duration: number;
   startTime: number;
   maxAlpha: number;
+  // Заполняются, если метеор пролетел ближе LENSING_INNER_DIAMETERS к чёрной
+  // дыре (docs/error-experience/spec.md) — вместо полосы по вектору скорости
+  // рендерится зафиксированная дуга по орбите, угасающая за CAPTURED_METEOR_FADE_MS
+  capturedAt?: number;
+  capturedAngle?: number;
+  capturedOrbitRadius?: number;
+}
+
+interface BlackHoleGeometry {
+  x: number;
+  y: number;
+  radius: number;
 }
 
 interface ShowerSpec {
@@ -88,21 +114,67 @@ function generateStars(w: number, h: number): Star[] {
   });
 }
 
+// Дуга по орбите вокруг чёрной дыры — общий рендер для «схлопнувшихся»
+// звёзд/метеоров (режим 'captured' из computeLensing).
+function drawOrbitArc(
+  ctx: CanvasRenderingContext2D,
+  bh: BlackHoleGeometry,
+  orbitRadius: number,
+  centerAngle: number,
+  angularSpanFraction: number,
+  alpha: number,
+): void {
+  const halfSpan = angularSpanFraction * Math.PI; // fraction — доля полной окружности
+  ctx.beginPath();
+  ctx.arc(bh.x, bh.y, orbitRadius, centerAngle - halfSpan, centerAngle + halfSpan);
+  ctx.strokeStyle = `rgba(255,255,255,${Math.max(0, alpha).toFixed(3)})`;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
 function drawStars(
   ctx: CanvasRenderingContext2D,
   stars: Star[],
   now: number,
   animate: boolean,
+  blackHole: BlackHoleGeometry | null,
 ): void {
   for (const s of stars) {
     let a = s.baseBrightness;
     if (animate && s.twinkles) {
       a = Math.max(0, Math.min(1, a * (1 + TWINKLE_AMP * Math.sin(2 * Math.PI * now / s.twinklePeriod + s.twinklePhase))));
     }
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(255,255,255,${a.toFixed(3)})`;
-    ctx.fill();
+
+    if (!blackHole) {
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,255,${a.toFixed(3)})`;
+      ctx.fill();
+      continue;
+    }
+
+    const lensing = computeLensing(s.x, s.y, blackHole.x, blackHole.y, blackHole.radius);
+    if (lensing.mode === 'normal') {
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,255,${a.toFixed(3)})`;
+      ctx.fill();
+    } else if (lensing.mode === 'lensed') {
+      ctx.beginPath();
+      ctx.ellipse(
+        s.x, s.y,
+        s.radius * lensing.scaleAlongOrbit,
+        s.radius * lensing.scaleAcrossOrbit,
+        lensing.angle, 0, Math.PI * 2,
+      );
+      ctx.fillStyle = `rgba(255,255,255,${a.toFixed(3)})`;
+      ctx.fill();
+    } else {
+      // captured — статичная дуга (звёзды не двигаются, в отличие от метеоров)
+      const orbitRadius = Math.hypot(s.x - blackHole.x, s.y - blackHole.y);
+      const angle = Math.atan2(s.y - blackHole.y, s.x - blackHole.x);
+      drawOrbitArc(ctx, blackHole, orbitRadius, angle, CAPTURED_STAR_ARC_SPAN, a);
+    }
   }
 }
 
@@ -139,15 +211,29 @@ function drawAndFilterMeteors(
   ctx: CanvasRenderingContext2D,
   meteors: Meteor[],
   now: number,
+  blackHole: BlackHoleGeometry | null,
 ): Meteor[] {
   ctx.save();
   ctx.lineCap = 'round';
 
   const alive: Meteor[] = [];
   for (const m of meteors) {
+    // Уже захвачен — рендерим зафиксированную дугу, игнорируя исходную
+    // траекторию/duration; живёт CAPTURED_METEOR_FADE_MS, затем удаляется
+    if (m.capturedAt !== undefined && blackHole) {
+      const fadeProgress = (now - m.capturedAt) / CAPTURED_METEOR_FADE_MS;
+      if (fadeProgress >= 1) continue;
+      alive.push(m);
+      const alpha = m.maxAlpha * (1 - fadeProgress);
+      drawOrbitArc(
+        ctx, blackHole, m.capturedOrbitRadius ?? 0, m.capturedAngle ?? 0,
+        CAPTURED_METEOR_ARC_SPAN, alpha,
+      );
+      continue;
+    }
+
     const progress = (now - m.startTime) / m.duration;
     if (progress >= 1) continue;
-    alive.push(m);
 
     // Профиль альфа: fade-in 0–10%, plateau 10–80%, fade-out 80–100%
     let a: number;
@@ -159,6 +245,18 @@ function drawAndFilterMeteors(
     const dist  = progress * m.length;
     const headX = m.x0 + m.dx * dist;
     const headY = m.y0 + m.dy * dist;
+
+    // Проверяем горизонт события — метеор мгновенно «схлопывается» в дугу
+    if (blackHole && computeLensing(headX, headY, blackHole.x, blackHole.y, blackHole.radius).mode === 'captured') {
+      m.capturedAt = now;
+      m.capturedAngle = Math.atan2(headY - blackHole.y, headX - blackHole.x);
+      m.capturedOrbitRadius = Math.hypot(headX - blackHole.x, headY - blackHole.y);
+      alive.push(m);
+      drawOrbitArc(ctx, blackHole, m.capturedOrbitRadius, m.capturedAngle, CAPTURED_METEOR_ARC_SPAN, a);
+      continue;
+    }
+
+    alive.push(m);
     const tail  = Math.min(progress, 0.30) * m.length;
     const tailX = headX - m.dx * tail;
     const tailY = headY - m.dy * tail;
@@ -179,6 +277,80 @@ function drawAndFilterMeteors(
 
   ctx.restore();
   return alive;
+}
+
+// Круг самой чёрной дыры — рисуется поверх звёзд/метеоров (горизонт событий
+// физически «закрывает» всё, что за ним), абсолютно чёрный, без текстуры
+function drawBlackHole(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): void {
+  ctx.beginPath();
+  ctx.arc(bh.x, bh.y, bh.radius, 0, Math.PI * 2);
+  ctx.fillStyle = '#000000';
+  ctx.fill();
+}
+
+const CURSOR_BASE_RADIUS = 3; // px — базовый размер синтетического «курсора» на канвасе
+const CURSOR_ALPHA = 0.85;
+
+// Экспериментальная курсорная деформация (docs/error-experience/spec.md,
+// раздел Reach) — непрерывная, не дискретная: величина сплющивания следует
+// той же гладкой computeLensing(), что и звёзды, поэтому нет «прыжка» при
+// пересечении границы, только плавное нарастание/убывание при движении мыши.
+function renderCursorLensing(
+  ctx: CanvasRenderingContext2D,
+  blackHole: BlackHoleGeometry | null,
+  cursorPos: { x: number; y: number } | null,
+  cursorHiddenRef: { current: boolean },
+): void {
+  if (!blackHole || !cursorPos) {
+    if (cursorHiddenRef.current) {
+      cursorHiddenRef.current = false;
+      document.body.style.cursor = '';
+    }
+    return;
+  }
+
+  const diameter = blackHole.radius * 2;
+  const distFromSurface = Math.hypot(cursorPos.x - blackHole.x, cursorPos.y - blackHole.y) - blackHole.radius;
+  const hidden = shouldHideCursor(cursorHiddenRef.current, distFromSurface, diameter);
+  cursorHiddenRef.current = hidden;
+  document.body.style.cursor = hidden ? 'none' : '';
+  if (!hidden) return;
+
+  // «Наведение на сам круг — исчезает бесследно»: ничего не рисуем
+  if (isInsideBlackHoleDisk(cursorPos.x, cursorPos.y, blackHole.x, blackHole.y, blackHole.radius)) {
+    return;
+  }
+
+  const lensing = computeLensing(cursorPos.x, cursorPos.y, blackHole.x, blackHole.y, blackHole.radius);
+  if (lensing.mode === 'captured') {
+    const orbitRadius = Math.hypot(cursorPos.x - blackHole.x, cursorPos.y - blackHole.y);
+    const angle = Math.atan2(cursorPos.y - blackHole.y, cursorPos.x - blackHole.x);
+    drawOrbitArc(ctx, blackHole, orbitRadius, angle, CAPTURED_CURSOR_ARC_SPAN, CURSOR_ALPHA);
+    return;
+  }
+
+  // 'lensed' И узкая гистерезис-зона, где computeLensing уже вернул бы
+  // 'normal' — рисуем плавный эллипс (при scale=1,1 это просто кружок),
+  // чтобы скрытый системный курсор не оставлял видимый разрыв
+  ctx.beginPath();
+  ctx.ellipse(
+    cursorPos.x, cursorPos.y,
+    CURSOR_BASE_RADIUS * lensing.scaleAlongOrbit,
+    CURSOR_BASE_RADIUS * lensing.scaleAcrossOrbit,
+    lensing.angle, 0, Math.PI * 2,
+  );
+  ctx.fillStyle = `rgba(255,255,255,${CURSOR_ALPHA})`;
+  ctx.fill();
+}
+
+function resolveBlackHoleGeometry(w: number, h: number): BlackHoleGeometry | null {
+  const pos = getBlackHole();
+  if (!pos) return null;
+  return {
+    x: pos.xRatio * w,
+    y: pos.yRatio * h,
+    radius: blackHoleRadiusPx(w, h, BLACK_HOLE_DIAMETER_RATIO),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -231,6 +403,9 @@ function StarFieldCanvasInner() {
   const nextSoloRef  = useRef<number>(0);
   const nextShwRef   = useRef<number>(0);
   const sizeRef      = useRef({ w: 0, h: 0 });
+  // Экспериментальная курсорная деформация (docs/error-experience/spec.md, Reach)
+  const cursorPosRef    = useRef<{ x: number; y: number } | null>(null);
+  const cursorHiddenRef = useRef(false);
 
   useEffect(() => {
     const canvasEl = canvasRef.current;
@@ -274,10 +449,21 @@ function StarFieldCanvasInner() {
       if (ctx) {
         const { w, h } = sizeRef.current;
         ctx.clearRect(0, 0, w, h);
-        drawStars(ctx, starsRef.current, 0, false);
+        // reduced-motion: чёрная дыра статична, без искажения звёзд/метеоров
+        // (само искажение — вид анимации), поэтому звёзды рисуются как обычно,
+        // а круг просто накладывается поверх
+        drawStars(ctx, starsRef.current, 0, false, null);
+        const bh = resolveBlackHoleGeometry(w, h);
+        if (bh) drawBlackHole(ctx, bh);
       }
       return;
     }
+
+    // ---- Курсор (Reach — только вне prefers-reduced-motion) ----
+    function onMouseMove(e: MouseEvent) {
+      cursorPosRef.current = { x: e.clientX, y: e.clientY };
+    }
+    window.addEventListener('mousemove', onMouseMove);
 
     // ---- RAF loop ----
     function loop(now: number) {
@@ -292,8 +478,9 @@ function StarFieldCanvasInner() {
       if (!ctx) return;
 
       const { w, h } = sizeRef.current;
+      const blackHole = resolveBlackHoleGeometry(w, h);
       ctx.clearRect(0, 0, w, h);
-      drawStars(ctx, starsRef.current, now, true);
+      drawStars(ctx, starsRef.current, now, true, blackHole);
 
       // Solo meteor
       if (now >= nextSoloRef.current && meteorsRef.current.length < MAX_METEORS) {
@@ -329,8 +516,13 @@ function StarFieldCanvasInner() {
 
       // Draw meteors & remove expired
       if (meteorsRef.current.length > 0) {
-        meteorsRef.current = drawAndFilterMeteors(ctx, meteorsRef.current, now);
+        meteorsRef.current = drawAndFilterMeteors(ctx, meteorsRef.current, now, blackHole);
       }
+
+      // Круг — поверх звёзд/метеоров (горизонт событий их «закрывает»)
+      if (blackHole) drawBlackHole(ctx, blackHole);
+
+      renderCursorLensing(ctx, blackHole, cursorPosRef.current, cursorHiddenRef);
     }
 
     rafRef.current = requestAnimationFrame(loop);
@@ -353,7 +545,10 @@ function StarFieldCanvasInner() {
     return () => {
       cancelAnimationFrame(rafRef.current);
       document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('mousemove', onMouseMove);
       ro.disconnect();
+      // На случай ухода со страницы прямо в момент, когда курсор был скрыт
+      document.body.style.cursor = '';
     };
   }, []);
 

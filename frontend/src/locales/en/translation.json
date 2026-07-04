@@ -291,5 +291,30 @@
     "refreshHistory": "Refresh search history",
     "clearFilter": "Clear filter",
     "loadingStats": "Loading filtered stats"
+  },
+  "errors": {
+    "notFound": {
+      "status": "NO SIGNAL",
+      "queryLabel": "QUERY:",
+      "title": "Page not found",
+      "description": "This link may be outdated, or the page may have moved.",
+      "home": "Go home"
+    },
+    "routeError": {
+      "status": "TRANSMISSION INTERRUPTED",
+      "idLabel": "ID:",
+      "title": "Something went wrong",
+      "description": "An unexpected error occurred. You can try again or go back home.",
+      "retry": "Try again",
+      "home": "Go home",
+      "report": "Report this issue",
+      "copyId": "Copy",
+      "copied": "Copied"
+    },
+    "toast": {
+      "network": "Network error. Check your connection and try again.",
+      "server": "Server error ({{status}}). Please try again later.",
+      "requestIdLabel": "ID:"
+    }
   }
 }

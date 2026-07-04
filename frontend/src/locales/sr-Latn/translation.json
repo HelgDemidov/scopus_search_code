@@ -300,5 +300,30 @@
     "refreshHistory": "Osvježi historiju pretrage",
     "clearFilter": "Poništi filter",
     "loadingStats": "Učitavanje filtrirane statistike"
+  },
+  "errors": {
+    "notFound": {
+      "status": "NEMA SIGNALA",
+      "queryLabel": "UPIT:",
+      "title": "Stranica nije pronađena",
+      "description": "Link je možda zastareo ili je stranica premeštena.",
+      "home": "Početna"
+    },
+    "routeError": {
+      "status": "VEZA PREKINUTA",
+      "idLabel": "ID:",
+      "title": "Nešto je pošlo po zlu",
+      "description": "Došlo je do neočekivane greške. Pokušajte ponovo ili se vratite na početnu.",
+      "retry": "Pokušaj ponovo",
+      "home": "Početna",
+      "report": "Prijavi problem",
+      "copyId": "Kopiraj",
+      "copied": "Kopirano"
+    },
+    "toast": {
+      "network": "Greška mreže. Proverite vezu i pokušajte ponovo.",
+      "server": "Greška servera ({{status}}). Pokušajte kasnije.",
+      "requestIdLabel": "ID:"
+    }
   }
 }

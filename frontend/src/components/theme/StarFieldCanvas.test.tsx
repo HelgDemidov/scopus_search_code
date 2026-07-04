@@ -2,12 +2,14 @@ import { render } from '@testing-library/react';
 import { describe, it, expect, beforeAll, afterEach, afterAll, vi } from 'vitest';
 import { StarFieldCanvas } from './StarFieldCanvas';
 import { ThemeProvider } from './ThemeProvider';
+import { setBlackHole } from '../../stores/blackHoleStore';
 
 // Canvas rendering context stub — достаточно для утверждений о монтировании
 const stubCtx = {
   clearRect: vi.fn(),
   beginPath: vi.fn(),
   arc: vi.fn(),
+  ellipse: vi.fn(),
   fill: vi.fn(),
   stroke: vi.fn(),
   moveTo: vi.fn(),
@@ -99,5 +101,30 @@ describe('StarFieldCanvas', () => {
     );
     unmount();
     expect(cancelAnimationFrame).toHaveBeenCalled();
+  });
+
+  it('draws the black hole disk when one is registered (docs/error-experience/spec.md)', () => {
+    localStorage.setItem('theme', 'dark');
+    const captured: { loop: FrameRequestCallback | null } = { loop: null };
+    vi.stubGlobal('requestAnimationFrame', vi.fn((cb: FrameRequestCallback) => {
+      captured.loop = cb;
+      return 42;
+    }));
+
+    setBlackHole({ xRatio: 0.5, yRatio: 0.5 });
+    render(
+      <ThemeProvider>
+        <StarFieldCanvas />
+      </ThemeProvider>,
+    );
+
+    expect(captured.loop).not.toBeNull();
+    captured.loop?.(1000);
+
+    // drawBlackHole рисуется последним в кадре — абсолютно чёрный fillStyle
+    // на конец кадра означает, что круг реально отрисовался (не просто no-op)
+    expect(stubCtx.fillStyle).toBe('#000000');
+
+    setBlackHole(null);
   });
 });

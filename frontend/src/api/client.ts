@@ -19,6 +19,7 @@
 
 import axios from 'axios';
 import { toast } from 'sonner';
+import i18n from '../i18n';
 import { getToken, setTokenValue } from '../stores/tokenStore';
 
 // Базовый URL берется из переменной окружения Vite.
@@ -141,15 +142,27 @@ apiClient.interceptors.response.use(
 
     // Сетевые ошибки и таймауты (!error.response — ответа от сервера нет вовсе)
     if (!error.response) {
-      toast.warning('Network error. Check your connection and try again.');
+      toast.warning(i18n.t('errors.toast.network'));
       return Promise.reject(error);
     }
 
     const status = error.response.status;
 
-    // 5xx — ошибки на стороне сервера, пользователь должен знать
+    // 5xx — ошибки на стороне сервера, пользователь должен знать.
+    // X-Request-ID (issue #48) — тот же id, что и в структурированных
+    // логах бэкенда; копия по клику закрывает пробел из
+    // docs/error-experience/spec.md («откуда юзер берёт id ошибки»).
     if (status >= 500) {
-      toast.error(`Server error (${status}). Please try again later.`);
+      const requestId: string | undefined = error.response.headers?.['x-request-id'];
+      toast.error(i18n.t('errors.toast.server', { status }), {
+        description: requestId ? i18n.t('errors.toast.requestIdLabel') + ' ' + requestId : undefined,
+        action: requestId
+          ? {
+              label: i18n.t('errors.routeError.copyId'),
+              onClick: () => { void navigator.clipboard.writeText(requestId); },
+            }
+          : undefined,
+      });
       return Promise.reject(error);
     }
 

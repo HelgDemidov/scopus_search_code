@@ -13,16 +13,19 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-// Дефолтный fallback — минималистичный блок с кнопкой setState-сброса
+// Дефолтный fallback — минималистичный блок с кнопкой setState-сброса.
+// Токены приведены к текущей тёмной теме (#152236/slate-700 — те же, что
+// ErrorPanel error-страниц, docs/error-experience/spec.md), light-режим
+// не трогаем — он не менялся.
 function DefaultFallback({ onReset }: { onReset: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-8 text-center">
+    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[#152236] p-8 text-center">
       <p className="text-sm text-slate-500 dark:text-slate-400">
         Something went wrong while rendering this section.
       </p>
       <button
         onClick={onReset}
-        className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+        className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
       >
         Try again
       </button>
