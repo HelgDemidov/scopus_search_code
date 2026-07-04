@@ -95,9 +95,7 @@ class PostgresSearchHistoryRepository(ISearchHistoryRepository):
             .limit(n)
         )
         stmt = (
-            delete(SearchHistory)
-            .where(SearchHistory.user_id == user_id)
-            .where(SearchHistory.id.notin_(keep_ids))
+            delete(SearchHistory).where(SearchHistory.user_id == user_id).where(SearchHistory.id.notin_(keep_ids))
         )
         if keep_since is not None:
             # Предохранитель: не удаляем строки, ещё актуальные для квотного окна,

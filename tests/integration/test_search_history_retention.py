@@ -73,9 +73,7 @@ async def _seed_history_rows(
 
 async def _user_history_queries(db_session: AsyncSession, user_id: int) -> set[str]:
     rows = (
-        (await db_session.execute(select(SearchHistory).where(SearchHistory.user_id == user_id)))
-        .scalars()
-        .all()
+        (await db_session.execute(select(SearchHistory).where(SearchHistory.user_id == user_id))).scalars().all()
     )
     return {r.query for r in rows}
 

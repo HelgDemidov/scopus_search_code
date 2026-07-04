@@ -75,9 +75,7 @@ class FakeSearchHistoryRepository(ISearchHistoryRepository):
         to_delete = [
             r
             for r in self._rows
-            if r.user_id == user_id
-            and r.id not in keep_ids
-            and (keep_since is None or r.created_at < keep_since)
+            if r.user_id == user_id and r.id not in keep_ids and (keep_since is None or r.created_at < keep_since)
         ]
         for row in to_delete:
             self._rows.remove(row)
