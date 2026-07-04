@@ -204,6 +204,15 @@
         "legendZeroResult": "Pretrage bez rezultata",
         "legendCumulative": "Prikupljeno članaka",
         "empty": "Još uvijek nema dovoljno podataka."
+      },
+      "fingerprint": {
+        "title": "Otisak filtera",
+        "rowOpenAccess": "Open Access filter",
+        "rowDocTypes": "Tipovi dokumenata",
+        "rowCountries": "Zemlje",
+        "rowYearRange": "Širina opsega godina",
+        "zeroResultMarker": "Nema rezultata",
+        "empty": "Još uvijek nema dovoljno istorije pretrage."
       }
     },
     "dimensions": {

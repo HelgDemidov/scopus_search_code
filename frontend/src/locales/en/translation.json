@@ -195,6 +195,15 @@
         "legendZeroResult": "Zero-result searches",
         "legendCumulative": "Articles collected",
         "empty": "Not enough data yet."
+      },
+      "fingerprint": {
+        "title": "Filter fingerprint",
+        "rowOpenAccess": "Open Access filter",
+        "rowDocTypes": "Document types",
+        "rowCountries": "Countries",
+        "rowYearRange": "Year range width",
+        "zeroResultMarker": "No results",
+        "empty": "Not enough search history yet."
       }
     },
     "dimensions": {

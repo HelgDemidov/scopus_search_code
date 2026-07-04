@@ -213,6 +213,15 @@
         "legendZeroResult": "Поиски без результата",
         "legendCumulative": "Собрано статей",
         "empty": "Пока недостаточно данных."
+      },
+      "fingerprint": {
+        "title": "Отпечаток фильтров",
+        "rowOpenAccess": "Фильтр Open Access",
+        "rowDocTypes": "Типы документов",
+        "rowCountries": "Страны",
+        "rowYearRange": "Ширина диапазона лет",
+        "zeroResultMarker": "Нет результатов",
+        "empty": "Пока недостаточно истории поиска."
       }
     },
     "dimensions": {

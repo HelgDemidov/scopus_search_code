@@ -208,8 +208,10 @@ export async function findArticles(
 // bare-array никогда не возвращается (verified: SearchHistoryResponse Pydantic schema).
 // ---------------------------------------------------------------------------
 
-export async function getSearchHistory(): Promise<SearchHistoryItem[]> {
-  const response = await apiClient.get<SearchHistoryResponse>('/articles/history');
+export async function getSearchHistory(n?: number): Promise<SearchHistoryItem[]> {
+  const response = await apiClient.get<SearchHistoryResponse>('/articles/history', {
+    params: n !== undefined ? { n } : undefined,
+  });
   return response.data.items;
 }
 

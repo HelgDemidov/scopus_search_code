@@ -23,6 +23,7 @@ const {
   mockCloseDrawer,
   mockGetPersonalStats,
   mockGetPersonalActivity,
+  mockGetSearchHistory,
   getDashboardState,
   getIsAuthenticated,
   setIsAuthenticated,
@@ -47,6 +48,7 @@ const {
     granularity: 'week',
     buckets: [],
   });
+  const mockGetSearchHistory = vi.fn().mockResolvedValue([]);
 
   let activeSelection: ActiveSelection | null = null;
   let isAuthenticated = false;
@@ -78,6 +80,7 @@ const {
     mockCloseDrawer,
     mockGetPersonalStats,
     mockGetPersonalActivity,
+    mockGetSearchHistory,
     getDashboardState,
     getIsAuthenticated: () => isAuthenticated,
     setIsAuthenticated: (v: boolean) => { isAuthenticated = v; },
@@ -114,6 +117,7 @@ vi.mock('../stores/authStore', () => ({
 vi.mock('../api/articles', () => ({
   getPersonalStats: mockGetPersonalStats,
   getPersonalActivity: mockGetPersonalActivity,
+  getSearchHistory: mockGetSearchHistory,
 }));
 
 vi.mock('react-router-dom', () => ({
@@ -148,6 +152,9 @@ vi.mock('../components/explore/DimensionDrawer', () => ({
 vi.mock('../components/explore/ActiveFilterBanner', () => ({ ActiveFilterBanner: () => null }));
 vi.mock('../components/explore/PersonalActivityChart', () => ({
   PersonalActivityChart: () => <div data-testid="personal-activity-chart" />,
+}));
+vi.mock('../components/explore/FilterFingerprintStrip', () => ({
+  FilterFingerprintStrip: () => <div data-testid="filter-fingerprint-strip" />,
 }));
 vi.mock('../components/explore/ChartBuilderPanel', () => ({ ChartBuilderPanel: () => null }));
 
@@ -232,16 +239,17 @@ describe('ExplorePage — personal mode', () => {
     setUrlMode('personal');
   });
 
-  it('вызывает getPersonalStats и getPersonalActivity при входе в personal mode', async () => {
+  it('вызывает getPersonalStats/getPersonalActivity/getSearchHistory при входе в personal mode', async () => {
     await act(async () => {
       render(<ExplorePage />);
     });
 
     expect(mockGetPersonalStats).toHaveBeenCalledOnce();
     expect(mockGetPersonalActivity).toHaveBeenCalledOnce();
+    expect(mockGetSearchHistory).toHaveBeenCalledWith(15);
   });
 
-  it('PersonalKpiRow/PersonalDimensionDrawer/PersonalActivityChart рендерятся, когда total > 0 (docs/explore-personal-redesign/spec.md §1-2)', async () => {
+  it('PersonalKpiRow/PersonalDimensionDrawer/PersonalActivityChart/FilterFingerprintStrip рендерятся, когда total > 0 (docs/explore-personal-redesign/spec.md §1-2)', async () => {
     await act(async () => {
       render(<ExplorePage />);
     });
@@ -249,6 +257,7 @@ describe('ExplorePage — personal mode', () => {
     expect(await screen.findByTestId('personal-kpi-row')).toBeInTheDocument();
     expect(await screen.findByTestId('personal-dimension-drawer')).toBeInTheDocument();
     expect(await screen.findByTestId('personal-activity-chart')).toBeInTheDocument();
+    expect(await screen.findByTestId('filter-fingerprint-strip')).toBeInTheDocument();
   });
 
   it('collection-scoped KpiRow/DimensionDrawer не рендерятся в personal mode', async () => {
@@ -278,6 +287,7 @@ describe('ExplorePage — personal mode', () => {
     expect(await screen.findByText(/No search history yet/)).toBeInTheDocument();
     expect(screen.queryByTestId('personal-kpi-row')).not.toBeInTheDocument();
     expect(screen.queryByTestId('personal-activity-chart')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('filter-fingerprint-strip')).not.toBeInTheDocument();
   });
 
   it('ошибка getPersonalStats → показывает emptyPersonal, не падает', async () => {

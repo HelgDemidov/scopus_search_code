@@ -23,8 +23,11 @@ import type { PersonalActivityResponse } from '../../types/api';
 // похожие поиски задваивали бы рост, см. бэкенд get_personal_activity_for_user).
 
 const SUCCESSFUL_COLOR = DIMENSION_COLORS.year.base; // blue-600 — тот же тон, что Publications by Year
-const ZERO_RESULT_COLOR = '#d97706'; // amber-600 — приглушённый акцент, НЕ error-red:
-// это поведение пользователя (потраченная впустую квота), а не ошибка приложения
+// amber-600 — приглушённый акцент, НЕ error-red: это поведение пользователя (потраченная
+// впустую квота), а не ошибка приложения. Экспортируется — FilterFingerprintStrip
+// переиспользует тот же цвет для своего zero-result маркера (единый визуальный сигнал
+// между обоими разрезами автобиографического раздела, spec.md §2.2).
+export const ZERO_RESULT_COLOR = '#d97706';
 const CUMULATIVE_LINE_COLOR = DIMENSION_COLORS.open_access.base; // teal-600 — визуально отделяет линию от баров
 
 function formatPeriodLabel(periodStart: string, granularity: 'week' | 'month', lang: string): string {
