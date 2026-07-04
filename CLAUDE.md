@@ -64,13 +64,16 @@ Cache-aside в `CatalogService.get_stats()` (TTL=60s, `redis_client.py` — си
 `SET LOCAL work_mem='32MB'` в `postgres_catalog_repo.get_stats()` — только `dialect=="postgresql"`. Тесты: `FakeRedis` in-memory дублёр, реальный Upstash в CI не используется.
 Публичные `/stats/journal-impact` и `/stats/pivot` (Table Builder/Journal Landscape, PR #44, merged 2026-07-03) — **не кэшируются** (runtime-параметризованные, в отличие от `/stats`); `_ALLOWED_PIVOT_PAIRS` whitelist в `app/routers/articles.py` — defense-in-depth от SQL-инъекции поверх Literal-типизации `PivotDimension`.
 
+## Personal search data (PR #45, merged 2026-07-04)
+`search_history` тримится до `SearchHistoryService.HISTORY_DEPTH_LIMIT=100`/юзер бесшовно внутри `SearchService.find_and_save` (`ISearchHistoryRepository.trim_to_last_n(user_id, n, keep_since)`, вызывается между `insert_row` и `save_results`, без блока/ошибки для клиента). `keep_since` обязателен в проде: `HISTORY_DEPTH_LIMIT(100) < QUOTA_LIMIT(200)` за то же 7-дневное окно — без него retention занижает `count_in_window()` и делает недельную квоту Scopus недостижимой. Migration `0015` — разовый бэкфилл. `GET /articles/stats/personal` (JWT, без кэша) — реальный источник `/explore?mode=personal` вместо клиентских `historyStore`-селекторов по параметрам фильтров (удалены как вводящие в заблуждение); `get_search_stats_for_user` дополнен `by_open_access`. `/profile` — просмотр статей прошлого поиска через уже существующий `GET /articles/history/{id}/results`.
+
 ## Test layers & CI
 ```
 tests/unit/ + tests/integration/ (no marker) → CI job 'test'    (SQLite)
 tests/integration/ requires_pg              → CI job 'test-pg' (PG 16)
 tests/integration/*e2e*  E2E_BASE_URL       → e2e.yml          (live Railway staging)
 ```
-CI coverage: jobs `test` + `test-pg` → combined artifacts → `coverage` fail-under=80 (текущий: ~82%).
+CI coverage: jobs `test` + `test-pg` → combined artifacts → `coverage` fail-under=80 (текущий: 81%, PR #45).
 Advisory lock в DI-фабрике → новые тесты `GET /articles/find` не требуют `requires_pg`; только `test_find_articles_postgres.py` (конкурентность).
 
 ### Полная матрица CI-джобов (2026-06-26)
@@ -85,5 +88,5 @@ Advisory lock в DI-фабрике → новые тесты `GET /articles/find
 
 ## Migration chain note
 `seeder_keywords` NOT в `Base.metadata` в рантайме → drop_all её не трогает; alembic/env.py импортирует SeederKeyword явно для автогенерации.
-Chain: `f9a3c1e2b7d4` → `0010` → `0011` → `0012` → `0013_fix_schema_drift` → `0014_functional_indices_lower` (head — функциональные индексы `lower(affiliation_country/document_type)`, prod+staging 2026-06-27).
+Chain: `f9a3c1e2b7d4` → `0010` → `0011` → `0012` → `0013_fix_schema_drift` → `0014_functional_indices_lower` → `0015_trim_search_history_over_limit` (head — data migration, разовый бэкфилл retention-лимита search_history, PR #45).
 `alembic/env.py`: `include_object` хук исключает expression-индексы из autogenerate — без него `alembic check` видит их как "лишние" (SQLAlchemy рефлектит как `_textual_index_element`).

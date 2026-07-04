@@ -112,16 +112,16 @@ GET /articles/stats/personal   (JWT обязателен, без кэша)
 
 ## 6. Чек-лист реализации
 
-- [ ] `ISearchHistoryRepository.trim_to_last_n` + Postgres-реализация
-- [ ] `SearchService.find_and_save` — вызов trim внутри транзакции
-- [ ] Alembic data migration — разовый бэкфилл лимита 100
-- [ ] `SearchStatsResponse` + `get_search_stats_for_user` — `by_open_access`
-- [ ] `GET /articles/stats/personal` — новый роут
-- [ ] `api/articles.ts` — `getPersonalStats()`, `getSearchResults()`
-- [ ] `ExplorePage.tsx` / `historyStore.ts` — переключение источника, удаление мёртвого кода
-- [ ] `SearchHistoryList.tsx` — expand-детали: lazy-обёртка на `ArticleCard`, fetch строго по клику, `aria-expanded`/`aria-controls`
-- [ ] Тесты backend (§5) — coverage +2-3%
-- [ ] Тесты frontend (§5)
+- [x] `ISearchHistoryRepository.trim_to_last_n` + Postgres-реализация
+- [x] `SearchService.find_and_save` — вызов trim внутри транзакции
+- [x] Alembic data migration — разовый бэкфилл лимита 100
+- [x] `SearchStatsResponse` + `get_search_stats_for_user` — `by_open_access`
+- [x] `GET /articles/stats/personal` — новый роут
+- [x] `api/articles.ts` — `getPersonalStats()`, `getSearchResults()`
+- [x] `ExplorePage.tsx` / `historyStore.ts` — переключение источника, удаление мёртвого кода
+- [x] `SearchHistoryList.tsx` — expand-детали: lazy-обёртка на `ArticleCard`, fetch строго по клику, `aria-expanded`/`aria-controls`
+- [x] Тесты backend (§5) — combined coverage 81% (порог CI 80% пройден; целевой прирост +2-3% явно не подтверждён, см. §8)
+- [x] Тесты frontend (§5)
 
 ---
 
@@ -136,4 +136,16 @@ GET /articles/stats/personal   (JWT обязателен, без кэша)
 
 ## 8. Статус выполнения
 
-Не начато.
+**Смёрджено:** 2026-07-04, PR [#45](https://github.com/HelgDemidov/scopus_search_code/pull/45) → `main` (merge commit `9d77015`).
+**Коммиты ветки `feat/personal-search-data`:** `b991f45` (реализация §1–§4), `0098a42` (ruff format fix), `a210573` (docs: ruff format --check в CLAUDE.md).
+
+**Сделано — всё по чек-листу §6**, включая оба бага, найденных по ходу реализации (не было в исходной спеке):
+1. `keep_since`-предохранитель в `trim_to_last_n` — без него retention ломал бы недельную квоту Scopus (`HISTORY_DEPTH_LIMIT=100 < QUOTA_LIMIT=200` за то же 7-дневное окно).
+2. Ветка пустого состояния `explore.emptyPersonal` была технически недостижима в старом коде (`personalData` всегда truthy) — исправлено проверкой `personalStats.total > 0`.
+
+Заодно: первое тестовое покрытие `get_search_stats_for_user` (0→15 тестов), фикс deprecation warning (`DISTINCT ON` недоступен на SQLite), фикс CI (`ruff format --check` отсутствовал в документированной команде — попал в отдельный коммит после первого красного прогона).
+
+**Метрики:** backend 209 тестов, combined coverage (test+test-pg) **81%** — порог CI (80%) пройден с запасом, но целевой прирост +2-3%, о котором просил пользователь, **не подтверждён явно** (решено не гнаться за точной цифрой — см. диалог 2026-07-04, пользователь согласился, что порога достаточно). Frontend 527→543 тестов, `ruff`/`mypy`/ESLint/`tsc`/build — все чистые.
+
+**Вне скоупа v1** — см. §7, актуально без изменений.
+
