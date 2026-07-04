@@ -89,13 +89,26 @@ async def get_optional_current_user(
     token: str | None = Depends(_oauth2_scheme_optional),
     service: UserService = Depends(get_user_service),
 ) -> User | None:
-    # Опциональная JWT-аутентификация: возвращает None если токен не передан
-    # Используется для публичных эндпоинтов с опциональной видимостью (GET /articles/{id})
+    # Опциональная JWT-аутентификация: возвращает None если токен не передан вовсе
+    # (анонимный визит — легитимный публичный доступ). Используется для публичных
+    # эндпоинтов с опциональной видимостью (GET /articles/{id}).
+    #
+    # Токен ПРИСУТСТВУЕТ, но невалиден/истёк — бросаем 401 (как get_current_user),
+    # а не тихо трактуем как анонима: без этого фронтендовый silent-refresh
+    # (client.ts, реагирует только на реальный 401) никогда не срабатывает для
+    # этого эндпоинта, и залогиненный пользователь с истёкшим AT молча теряет
+    # видимость собственных статей из личных поисков (баг 2026-07-05).
+    from fastapi import HTTPException, status
+
     if token is None:
         return None
     email = decode_access_token(token)
     if not email:
-        return None
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Токен недействителен или истек",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return await service.get_current_user(email)
 
 
