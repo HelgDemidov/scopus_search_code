@@ -190,8 +190,13 @@ class PostgresArticleRepository(IArticleRepository):
 
         if user_id is not None:
             # Статья также видна, если пользователь искал её (есть в его search_result_articles)
+            # select(sa.literal(1)) не привязан ни к одной таблице — без явного
+            # select_from() SQLAlchemy не может определить "левую" сторону для .join()
+            # и бросает InvalidRequestError ("Don't know how to join to ...") на любом
+            # реальном движке (баг 2026-07-05: ни разу не был покрыт тестом с реальным SQL).
             user_search_exists = (
                 select(sa.literal(1))
+                .select_from(SearchResultArticle)
                 .join(
                     SearchHistory,
                     SearchResultArticle.search_history_id == SearchHistory.id,

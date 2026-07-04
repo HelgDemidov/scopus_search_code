@@ -179,6 +179,69 @@ class TestRepositoryGetById:
 
 
 # ---------------------------------------------------------------------------
+# Регрессия 2026-07-05: get_by_id(article_id, user_id=...) с непустой личной
+# видимостью (не в каталоге, но найдена пользователем через /articles/find).
+#
+# Баг: user_search_exists = select(sa.literal(1)).join(SearchHistory, ...) —
+# select(sa.literal(1)) не привязан ни к одной таблице, SQLAlchemy не может
+# определить "левую" сторону join и бросает InvalidRequestError на любом
+# реальном движке (не только PostgreSQL — воспроизводится и на SQLite).
+# Ни один существующий тест не передавал user_id != None в реальный SQL —
+# только моканный ArticleService.get_by_id, поэтому баг не был пойман раньше.
+# ---------------------------------------------------------------------------
+
+
+class TestRepositoryGetByIdWithUserVisibility:
+    """Видимость статьи из личного (не каталожного) поиска пользователя."""
+
+    @pytest_asyncio.fixture
+    async def personal_article_for_user(self, db_session: AsyncSession):
+        """Статья НЕ в каталоге, но найденная user_id через один личный поиск."""
+        from app.models.search_history import SearchHistory
+        from app.models.search_result_article import SearchResultArticle
+        from app.models.user import User
+
+        user = User(email="visibility@example.com", hashed_password="x")
+        db_session.add(user)
+        await db_session.flush()
+
+        article = Article(**{**_ARTICLE_KWARGS, "doi": "10.1234/personal-only"})
+        db_session.add(article)
+        await db_session.flush()
+
+        history = SearchHistory(user_id=user.id, query="nn", result_count=1, filters={})
+        db_session.add(history)
+        await db_session.flush()
+
+        db_session.add(SearchResultArticle(search_history_id=history.id, article_id=article.id, rank=0))
+        await db_session.commit()
+
+        return user, article
+
+    @pytest.mark.asyncio
+    async def test_owner_sees_personal_article(self, db_session: AsyncSession, personal_article_for_user):
+        """Владелец поиска должен видеть свою личную статью — не должно бросать InvalidRequestError."""
+        user, article = personal_article_for_user
+        repo = PostgresArticleRepository(db_session)
+
+        result = await repo.get_by_id(article.id, user_id=user.id)
+
+        assert result is not None
+        assert result.id == article.id
+
+    @pytest.mark.asyncio
+    async def test_other_user_does_not_see_personal_article(
+        self, db_session: AsyncSession, personal_article_for_user
+    ):
+        """Личная статья не видна ни анониму (user_id=None), ни другому пользователю."""
+        user, article = personal_article_for_user
+        repo = PostgresArticleRepository(db_session)
+
+        assert await repo.get_by_id(article.id, user_id=None) is None
+        assert await repo.get_by_id(article.id, user_id=user.id + 999) is None
+
+
+# ---------------------------------------------------------------------------
 # 4. ArticleService.get_by_id — делегирование и конвертация ORM → Pydantic
 # ---------------------------------------------------------------------------
 
