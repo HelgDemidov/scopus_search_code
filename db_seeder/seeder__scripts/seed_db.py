@@ -113,6 +113,19 @@ async def _call_gc_endpoint(client: httpx.AsyncClient, headers: dict) -> int | N
     return response.json().get("deleted", 0)
 
 
+async def _call_health_check_endpoint(client: httpx.AsyncClient, headers: dict) -> str | None:
+    """POST /seeder/health-check — health-check алертинг piggyback на cron (issue #48).
+
+    Реалтайм не даёт (латентность до 2ч, привязана к циклу cron) — осознанный
+    trade-off вместо Sentry/OTel.
+    """
+    response = await client.post(f"{BASE_URL}/seeder/health-check", headers=headers)
+    if response.status_code != 200:
+        print(f"{Fore.RED}Health-check ошибка {response.status_code}: {response.text[:100]}")
+        return None
+    return response.json().get("status")
+
+
 async def seed_database() -> None:
     print(f"{Fore.CYAN}===== Сидер Scopus запущен =====")
     print(f"BASE_URL: {BASE_URL}\n")
@@ -225,6 +238,14 @@ async def seed_database() -> None:
             deleted = await _call_gc_endpoint(client, headers)
             if deleted is not None:
                 print(f"{Fore.GREEN}Удалено статей-сирот: {deleted}")
+
+            # ── Health-check: алерт при недоступности БД/Redis ─────────────
+            print(f"\n{Fore.CYAN}── Health-check: проверяем зависимости ──")
+            health_status = await _call_health_check_endpoint(client, headers)
+            if health_status == "degraded":
+                print(f"{Fore.RED}Обнаружены проблемы — письмо отправлено")
+            elif health_status == "ok":
+                print(f"{Fore.GREEN}Всё в порядке")
 
     finally:
         await conn.close()

@@ -11,6 +11,12 @@ class BrevoEmailService(IEmailService):
             f"<p><a href='{reset_url}'>Reset your password</a> (link valid for 1 hour).</p>"
             "<p>If you did not request this, you can safely ignore this email.</p>"
         )
+        await self._send(to_email, "Scopus Search — password reset", html)
+
+    async def send_alert_email(self, to_email: str, subject: str, message: str) -> None:
+        await self._send(to_email, subject, f"<p>{message}</p>")
+
+    async def _send(self, to_email: str, subject: str, html: str) -> None:
         async with httpx.AsyncClient() as client:
             resp = await client.post(
                 "https://api.brevo.com/v3/smtp/email",
@@ -18,7 +24,7 @@ class BrevoEmailService(IEmailService):
                 json={
                     "sender": {"name": "Scopus Search", "email": settings.FROM_EMAIL},
                     "to": [{"email": to_email}],
-                    "subject": "Scopus Search — password reset",
+                    "subject": subject,
                     "htmlContent": html,
                 },
                 timeout=10.0,

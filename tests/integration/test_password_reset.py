@@ -34,6 +34,9 @@ class _NoOpEmailService(IEmailService):
     async def send_password_reset_email(self, to_email: str, reset_url: str) -> None:
         pass
 
+    async def send_alert_email(self, to_email: str, subject: str, message: str) -> None:
+        pass
+
 
 # ---------------------------------------------------------------------------
 # Фикстура: подмена email-сервиса для всех тестов модуля
