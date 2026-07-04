@@ -5,14 +5,7 @@ on:
   push:
     branches:
       - main
-      - feat/stats-crossfilter-v2
-      - feat/functional-indices-lower
-      - feat/dark-mode
-      - russian-UI
-      - montenegro-ui
-      - feat/explore-charts-refactor
-      - feat/explore-cross-analytics
-      - feat/explore-table-builder
+      - feat/personal-search-data
 
   pull_request:
     branches:
