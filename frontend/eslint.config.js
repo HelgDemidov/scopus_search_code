@@ -30,4 +30,11 @@ export default tseslint.config(
     files: ["src/components/ui/**/*.{ts,tsx}"],
     rules: { "react-refresh/only-export-components": "off" },
   },
+  {
+    // router.tsx осознанно смешивает layout-компоненты (RootLayout) с route-данными
+    // (appRoutes/router) — appRoutes нужен как единственный источник истины для
+    // регрессионного теста ArticleCard.test.tsx. Fast refresh для конфига роутинга некритичен.
+    files: ["src/router.tsx"],
+    rules: { "react-refresh/only-export-components": "off" },
+  },
 );

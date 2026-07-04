@@ -2,123 +2,17 @@
 // Импорты — все в начале файла (ESLint import/first)
 // ---------------------------------------------------------------------------
 
-import { lazy, Suspense, useEffect } from 'react';
-import { RouterProvider, createBrowserRouter, Outlet as RouterOutlet, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
+import { RouterProvider } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { useTranslation } from 'react-i18next';
 import { Toaster } from './components/ui/sonner';
-import { Header } from './components/layout/Header';
-import { PrivateRoute } from './components/layout/PrivateRoute';
 import { ThemeProvider } from './components/theme/ThemeProvider';
 import { StarFieldCanvas } from './components/theme/StarFieldCanvas';
 import { useAuthStore } from './stores/authStore';
 import { useStatsStore } from './stores/statsStore';
-
-// ---------------------------------------------------------------------------
-// Вспомогательные компоненты — объявляются до первого использования
-// ---------------------------------------------------------------------------
-
-// Заглушка при ленивой загрузке страницы (используется внутри lazyPage)
-function PageFallback() {
-  return (
-    <div className="flex min-h-[60vh] items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-800 dark:border-slate-700 dark:border-t-blue-500" />
-    </div>
-  );
-}
-
-// Обертка для ленивой загрузки страниц — code splitting через React.lazy + Suspense.
-//
-// Фикс: перехватываем TypeError «Failed to fetch dynamically imported module» —
-// браузерный признак stale-chunk после нового деплоя на Vercel/CDN.
-// Новый деплой меняет хэши чанков; браузер со старым index.html пытается
-// загрузить уже несуществующий файл и получает HTML 404 с MIME text/html —
-// строгая MIME-проверка модульных скриптов отказывает в исполнении.
-// window.location.reload() загружает свежий index.html с актуальными хэшами.
-function lazyPage(factory: () => Promise<{ default: React.ComponentType }>) {
-  const safeFactory = () =>
-    factory().catch((err: unknown) => {
-      // Stale-chunk: CDN вернул HTML вместо JS после нового деплоя
-      if (
-        err instanceof TypeError &&
-        err.message.includes('Failed to fetch dynamically imported module')
-      ) {
-        window.location.reload();
-      }
-      // Остальные ошибки (сетевые, синтаксические) пробрасываем дальше —
-      // React Router ErrorBoundary покажет понятный экран ошибки
-      return Promise.reject(err);
-    });
-
-  const Component = lazy(safeFactory);
-  return (
-    <Suspense fallback={<PageFallback />}>
-      <Component />
-    </Suspense>
-  );
-}
-
-// Общий шаблон страницы: Header сверху + содержимое через Outlet.
-// useLocation доступен здесь, т.к. RootLayout рендерится внутри RouterProvider.
-function RootLayout() {
-  const location = useLocation();
-
-  useEffect(() => {
-    if (typeof window.gtag === 'function') {
-      window.gtag('event', 'page_view', { page_path: location.pathname + location.search });
-    }
-  }, [location]);
-
-  return (
-    <div className="min-h-screen bg-background text-foreground">
-      <Header />
-      <main>
-        <RouterOutlet />
-      </main>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Ленивые страницы — объявляются после lazyPage (нет зависимости от hoisting)
-// ---------------------------------------------------------------------------
-
-const HomePage            = lazyPage(() => import('./pages/HomePage'));
-const ExplorePage         = lazyPage(() => import('./pages/ExplorePage'));
-const AuthPage            = lazyPage(() => import('./pages/AuthPage'));
-const OAuthCallback       = lazyPage(() => import('./pages/OAuthCallback'));
-const ProfilePage         = lazyPage(() => import('./pages/ProfilePage'));
-const ArticlePage         = lazyPage(() => import('./pages/ArticlePage'));
-const ForgotPasswordPage  = lazyPage(() => import('./pages/ForgotPasswordPage'));
-const ResetPasswordPage   = lazyPage(() => import('./pages/ResetPasswordPage'));
-
-// ---------------------------------------------------------------------------
-// Маршруты по §3 ТЗ
-// ---------------------------------------------------------------------------
-
-const router = createBrowserRouter([
-  {
-    path: '/',
-    element: <RootLayout />,
-    children: [
-      { index: true,           element: HomePage },
-      { path: 'explore',       element: ExplorePage },
-      { path: 'auth',             element: AuthPage },
-      { path: 'auth/callback',   element: OAuthCallback },
-      { path: 'article/:id',     element: ArticlePage },
-      { path: 'forgot-password', element: ForgotPasswordPage },
-      { path: 'reset-password',  element: ResetPasswordPage },
-      {
-        // Защищенные маршруты через PrivateRoute
-        element: <PrivateRoute />,
-        children: [
-          { path: 'profile', element: ProfilePage },
-        ],
-      },
-    ],
-  },
-]);
+import { router } from './router';
 
 // ---------------------------------------------------------------------------
 // Модульный флаг — защита от двойного запуска гидрации

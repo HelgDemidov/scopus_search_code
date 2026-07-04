@@ -39,7 +39,7 @@ export function ArticleCard({ article }: ArticleCardProps) {
     >
       {/* Title */}
       <Link
-        to={`/articles/${id}`}
+        to={`/article/${id}`}
         className="text-base font-semibold leading-snug text-slate-900 dark:text-slate-100 hover:text-blue-800 dark:hover:text-blue-400 transition-colors line-clamp-3"
       >
         {title}

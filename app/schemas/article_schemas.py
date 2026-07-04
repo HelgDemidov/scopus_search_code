@@ -12,7 +12,7 @@ PivotDimension = Literal["year", "country", "doc_type", "journal", "open_access"
 class ArticleResponse(BaseModel):
     # Схема одной статьи — только поля, реально доступные в Scopus free-tier API
     # keyword убран: он принадлежит catalog_articles, а не articles
-    id: int  # первичный ключ — нужен для маршрута /articles/:id на фронтенде
+    id: int  # первичный ключ — нужен для маршрута /article/:id на фронтенде
     title: str  # Название статьи (dc:title)
     journal: str | None  # Название издания (prism:publicationName)
     author: str | None  # Первый автор (dc:creator)
