@@ -105,11 +105,14 @@ class StatsResponse(BaseModel):
 
 
 class SearchStatsResponse(BaseModel):
-    # Схема GET /articles/search/stats — агрегаты по результатам пользовательского поиска
+    # Схема GET /articles/search/stats и GET /articles/stats/personal —
+    # агрегаты по результатам пользовательского поиска
     # Данные из search_result_articles JOIN search_history WHERE user_id
-    # Клиент — Tremor-дашборд авторизованного пользователя
     total: int  # Всего уникальных статей в поисках пользователя
     by_year: List[CountByField]  # Распределение по годам публикации
     by_journal: List[CountByField]  # Топ-20 журналов
     by_country: List[CountByField]  # Топ-20 стран аффилиации
     by_doc_type: List[CountByField]  # Распределение по типу документа
+    # label: "true"/"false" (та же конвенция, что PivotDimension="open_access" в pivot,
+    # см. postgres_catalog_repo._stringify_dim) — docs/personal-search-data/spec.md §2.1
+    by_open_access: List[CountByField]

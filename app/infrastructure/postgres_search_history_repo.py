@@ -1,7 +1,7 @@
 import datetime
 from typing import List
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.interfaces.search_history_repo import ISearchHistoryRepository
@@ -78,3 +78,30 @@ class PostgresSearchHistoryRepository(ISearchHistoryRepository):
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def trim_to_last_n(
+        self,
+        user_id: int,
+        n: int,
+        keep_since: datetime.datetime | None = None,
+    ) -> int:
+        # Подзапрос: id строк, которые нужно СОХРАНИТЬ (последние n по created_at,
+        # id DESC как tie-break при равных timestamp). Портируемо на SQLite —
+        # без PG-специфичного синтаксиса, dialect-проверка не нужна.
+        keep_ids = (
+            select(SearchHistory.id)
+            .where(SearchHistory.user_id == user_id)
+            .order_by(SearchHistory.created_at.desc(), SearchHistory.id.desc())
+            .limit(n)
+        )
+        stmt = (
+            delete(SearchHistory).where(SearchHistory.user_id == user_id).where(SearchHistory.id.notin_(keep_ids))
+        )
+        if keep_since is not None:
+            # Предохранитель: не удаляем строки, ещё актуальные для квотного окна,
+            # даже если их больше n (см. docstring ISearchHistoryRepository.trim_to_last_n)
+            stmt = stmt.where(SearchHistory.created_at < keep_since)
+        result = await self.session.execute(stmt)
+        # CursorResult.rowcount доступен в рантайме для DML (DELETE), но Result[Any]
+        # в типах execute() его не объявляет
+        return result.rowcount or 0  # type: ignore[attr-defined]

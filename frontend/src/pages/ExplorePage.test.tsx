@@ -20,7 +20,7 @@ const {
   mockClearFilteredStats,
   mockFetchFilteredStats,
   mockFetchStats,
-  mockFetchHistory,
+  mockGetPersonalStats,
   getDashboardState,
   getIsAuthenticated,
   setIsAuthenticated,
@@ -30,7 +30,16 @@ const {
   const mockClearFilteredStats = vi.fn();
   const mockFetchFilteredStats = vi.fn().mockResolvedValue(undefined);
   const mockFetchStats = vi.fn().mockResolvedValue(undefined);
-  const mockFetchHistory = vi.fn().mockResolvedValue(undefined);
+  // По умолчанию — непустая личная статистика (total > 0), чтобы существующие
+  // тесты personal mode не переопределяли это в каждом it()
+  const mockGetPersonalStats = vi.fn().mockResolvedValue({
+    total: 1,
+    by_year: [],
+    by_journal: [],
+    by_country: [],
+    by_doc_type: [],
+    by_open_access: [],
+  });
 
   let activeSelection: ActiveSelection | null = null;
   let isAuthenticated = false;
@@ -58,7 +67,7 @@ const {
     mockClearFilteredStats,
     mockFetchFilteredStats,
     mockFetchStats,
-    mockFetchHistory,
+    mockGetPersonalStats,
     getDashboardState,
     getIsAuthenticated: () => isAuthenticated,
     setIsAuthenticated: (v: boolean) => { isAuthenticated = v; },
@@ -90,15 +99,10 @@ vi.mock('../stores/authStore', () => ({
     selector({ isAuthenticated: getIsAuthenticated() }),
 }));
 
-vi.mock('../stores/historyStore', () => ({
-  useHistoryStore: (selector?: (s: unknown) => unknown) => {
-    const state = { items: [], isLoading: false, fetchHistory: mockFetchHistory };
-    return selector ? selector(state) : state;
-  },
-  selectByYear: vi.fn(() => []),
-  selectByDocType: vi.fn(() => []),
-  selectByCountry: vi.fn(() => []),
-  selectByJournal: vi.fn(() => []),
+// Personal mode теперь получает данные из GET /articles/stats/personal, а не
+// из historyStore-селекторов (docs/personal-search-data/spec.md §4)
+vi.mock('../api/articles', () => ({
+  getPersonalStats: mockGetPersonalStats,
 }));
 
 vi.mock('react-router-dom', () => ({
@@ -211,16 +215,26 @@ describe('ExplorePage — collection mode: личные стационарные
 });
 
 // ---------------------------------------------------------------------------
-// Personal mode не затронут рефакторингом (spec.md §1 — "не трогать")
+// Personal mode: реальная агрегация через GET /articles/stats/personal
+// (docs/personal-search-data/spec.md §2/§4 — заменяет клиентские селекторы
+// по фильтрам поиска)
 // ---------------------------------------------------------------------------
 
-describe('ExplorePage — personal mode не затронут', () => {
+describe('ExplorePage — personal mode', () => {
   beforeEach(() => {
     setIsAuthenticated(true);
     setUrlMode('personal');
   });
 
-  it('4 личных чарта рендерятся (year/country/doctype/journal)', async () => {
+  it('вызывает getPersonalStats при входе в personal mode', async () => {
+    await act(async () => {
+      render(<ExplorePage />);
+    });
+
+    expect(mockGetPersonalStats).toHaveBeenCalledOnce();
+  });
+
+  it('4 личных чарта рендерятся (year/country/doctype/journal), когда total > 0', async () => {
     await act(async () => {
       render(<ExplorePage />);
     });
@@ -239,5 +253,33 @@ describe('ExplorePage — personal mode не затронут', () => {
 
     expect(screen.queryByTestId('kpi-row')).not.toBeInTheDocument();
     expect(screen.queryByTestId('dimension-drawer')).not.toBeInTheDocument();
+  });
+
+  it('total=0 → показывает emptyPersonal вместо чартов (ранее недостижимая ветка — баг найден и исправлен в §4)', async () => {
+    mockGetPersonalStats.mockResolvedValueOnce({
+      total: 0,
+      by_year: [],
+      by_journal: [],
+      by_country: [],
+      by_doc_type: [],
+      by_open_access: [],
+    });
+
+    await act(async () => {
+      render(<ExplorePage />);
+    });
+
+    expect(await screen.findByText(/No search history yet/)).toBeInTheDocument();
+    expect(screen.queryByTestId('chart-year')).not.toBeInTheDocument();
+  });
+
+  it('ошибка getPersonalStats → показывает emptyPersonal, не падает', async () => {
+    mockGetPersonalStats.mockRejectedValueOnce(new Error('network down'));
+
+    await act(async () => {
+      render(<ExplorePage />);
+    });
+
+    expect(await screen.findByText(/No search history yet/)).toBeInTheDocument();
   });
 });

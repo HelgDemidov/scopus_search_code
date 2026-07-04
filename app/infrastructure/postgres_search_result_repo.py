@@ -132,8 +132,13 @@ class PostgresSearchResultRepository(ISearchResultRepository):
                 )
             )
 
-        # Оборачиваем в subquery для агрегатов
-        articles_sq = base_q.distinct(Article.id).subquery()
+        # Оборачиваем в subquery для агрегатов. distinct() без аргумента, а не
+        # distinct(Article.id) — DISTINCT ON поддерживает только PG-диалект (SQLite
+        # тихо игнорирует ON и роняет deprecation warning, в будущих версиях
+        # SQLAlchemy это CompileError). base_q селектит только колонки Article
+        # (select(Article)), поэтому обычный DISTINCT по всем колонкам эквивалентен
+        # DISTINCT ON (id) — id входит в набор колонок и является PK.
+        articles_sq = base_q.distinct().subquery()
 
         # Итоговый счётчик
         total_row = await self.session.execute(select(func.count()).select_from(articles_sq))
@@ -188,10 +193,24 @@ class PostgresSearchResultRepository(ISearchResultRepository):
             .order_by(sa.text("count DESC"))
         )
 
+        # Распределение по Open Access (docs/personal-search-data/spec.md §2.1) —
+        # единственное осмысленное новое категориальное измерение: bool → 2 бакета
+        by_open_access_rows = await self.session.execute(
+            select(
+                articles_sq.c.open_access,
+                func.count().label("count"),
+            )
+            .select_from(articles_sq)
+            .where(articles_sq.c.open_access.isnot(None))
+            .group_by(articles_sq.c.open_access)
+            .order_by(sa.text("count DESC"))
+        )
+
         return {
             "total": total,
             "by_year": [{"year": int(r.year), "count": r.count} for r in by_year_rows],
             "by_journal": [{"journal": r.journal, "count": r.count} for r in by_journal_rows],
             "by_country": [{"country": r.affiliation_country, "count": r.count} for r in by_country_rows],
             "by_doc_type": [{"doc_type": r.document_type, "count": r.count} for r in by_doc_type_rows],
+            "by_open_access": [{"open_access": r.open_access, "count": r.count} for r in by_open_access_rows],
         }

@@ -115,6 +115,9 @@ export interface SearchStatsResponse {
   by_journal: LabelCount[];
   by_country: LabelCount[];
   by_doc_type: LabelCount[];
+  // label: "true"/"false" (docs/personal-search-data/spec.md §2.1) — UI пока не рендерит,
+  // данные готовы для будущей персональной OA-визуализации
+  by_open_access: LabelCount[];
 }
 
 // ---------------------------------------------------------------------------
