@@ -8,10 +8,6 @@ htmlcov/
 .vercel/
 .railway/
 
-# project mask & project tree
-docs/project_mask/
-docs/project_tree/
-
 # frontend coverage report
 frontend/coverage/
 
