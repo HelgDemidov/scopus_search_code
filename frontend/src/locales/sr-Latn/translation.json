@@ -173,6 +173,10 @@
       "articlesIndexed_one": "indeksirani članak",
       "articlesIndexed_few": "indeksirana članka",
       "articlesIndexed_other": "indeksiranih članaka",
+      "articlesFound": "Pronađenih članaka",
+      "articlesFound_one": "pronađeni članak",
+      "articlesFound_few": "pronađena članka",
+      "articlesFound_other": "pronađenih članaka",
       "countries": "Zemalja",
       "countries_one": "zemlja",
       "countries_few": "zemlje",
@@ -190,6 +194,26 @@
       "authors_one": "autor",
       "authors_few": "autora",
       "authors_other": "autora"
+    },
+    "personal": {
+      "activity": {
+        "title": "Aktivnost pretrage",
+        "subtitleWeek": "Po sedmicama",
+        "subtitleMonth": "Po mjesecima",
+        "legendSuccessful": "Uspješne pretrage",
+        "legendZeroResult": "Pretrage bez rezultata",
+        "legendCumulative": "Prikupljeno članaka",
+        "empty": "Još uvijek nema dovoljno podataka."
+      },
+      "fingerprint": {
+        "title": "Otisak filtera",
+        "rowOpenAccess": "Open Access filter",
+        "rowDocTypes": "Tipovi dokumenata",
+        "rowCountries": "Zemlje",
+        "rowYearRange": "Širina opsega godina",
+        "zeroResultMarker": "Nema rezultata",
+        "empty": "Još uvijek nema dovoljno istorije pretrage."
+      }
     },
     "dimensions": {
       "year": "Publikacije po godinama",

@@ -22,6 +22,7 @@ from app.schemas.article_schemas import (
     CountByField,
     JournalImpactPoint,
     PaginatedArticleResponse,
+    PersonalActivityResponse,
     PivotDimension,
     PivotResponse,
     SearchStatsResponse,
@@ -264,6 +265,23 @@ async def get_personal_stats(
         search=None,
     )
     return _to_search_stats_response(data)
+
+
+# ------------------------------------------------------------------ #
+#  GET /stats/personal/activity — приватный, JWT обязателен           #
+# ------------------------------------------------------------------ #
+
+
+@router.get("/stats/personal/activity", response_model=PersonalActivityResponse, tags=["Analytics"])
+async def get_personal_activity(
+    result_repo: PostgresSearchResultRepository = Depends(_get_search_result_repo),
+    current_user: User = Depends(get_current_user),
+) -> PersonalActivityResponse:
+    # Автобиографический раздел /explore?mode=personal (docs/explore-personal-redesign/
+    # spec.md §2.1) — поисковая активность по времени + накопление уникальных статей.
+    # Без кэша — та же логика, что /stats/personal.
+    data = await result_repo.get_personal_activity_for_user(user_id=int(current_user.id))
+    return PersonalActivityResponse(**data)
 
 
 def _to_search_stats_response(data: dict) -> SearchStatsResponse:

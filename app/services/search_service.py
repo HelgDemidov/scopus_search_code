@@ -45,10 +45,15 @@ class SearchService:
 
         Порядок операций (все в одной транзакции):
         1. Запрос к Scopus API
-        2. upsert статей в таблицу articles → получаем id
-        3. INSERT в search_history → получаем search_history.id
+        2. upsert статей в таблицу articles → получаем id (пропускается, если Scopus
+           вернул 0 статей — upsert-ить нечего)
+        3. INSERT в search_history → получаем search_history.id (пишется ВСЕГДА,
+           даже при result_count=0: реальный вызов Scopus API уже израсходован и
+           должен попадать в квоту и быть виден пользователю, а не исчезать молча)
         4. Retention: trim_to_last_n — удаляем историю сверх лимита на юзера
         5. INSERT в search_result_articles с rank = порядок в выдаче Scopus
+           (пропускается при 0 статей — save_results() и так no-op на пустом списке,
+           но пропуск явно избегает бессмысленного вызова)
         6. commit()
 
         Если любой шаг бросает исключение — транзакция откатывается целиком.
@@ -65,11 +70,12 @@ class SearchService:
             filters=filters,  # Пробрасываем фильтры в CQL-запрос Scopus
         )
 
-        if not articles:
-            return []
-
-        # Шаг 2: upsert в articles — статьи получают id из БД
-        articles_with_ids = await self.article_repo.upsert_many(articles)
+        # Шаг 2: upsert в articles — статьи получают id из БД.
+        # Если Scopus вернул 0 статей, upsert-ить нечего — но поиск всё равно
+        # реально израсходовал вызов Scopus API и должен попасть в историю (шаг 3).
+        articles_with_ids: List[Article] = []
+        if articles:
+            articles_with_ids = await self.article_repo.upsert_many(articles)
 
         # Шаг 3: фиксируем запрос в search_history — получаем history_row.id
         # Если upsert_many бросил — сюда не дойдем (история не пишется)
@@ -103,11 +109,14 @@ class SearchService:
         )
 
         # Шаг 5: связываем статьи с записью истории через search_result_articles
-        # rank = порядковый индекс в выдаче Scopus (0-based)
-        await self.search_result_repo.save_results(
-            search_history_id=history_row.id,
-            articles=articles_with_ids,
-        )
+        # rank = порядковый индекс в выдаче Scopus (0-based). Пропускаем при 0
+        # статей — save_results() и так no-op на пустом списке, но пропуск явно
+        # избегает бессмысленного вызова репозитория.
+        if articles_with_ids:
+            await self.search_result_repo.save_results(
+                search_history_id=history_row.id,
+                articles=articles_with_ids,
+            )
 
         # Шаг 6: единственный commit() — атомарно фиксируем articles +
         # search_history + search_result_articles одной транзакцией

@@ -8,7 +8,7 @@
  */
 
 import { render, act, screen } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import ExplorePage from './ExplorePage';
 import type { ActiveSelection } from '../stores/dashboardStore';
 
@@ -20,7 +20,10 @@ const {
   mockClearFilteredStats,
   mockFetchFilteredStats,
   mockFetchStats,
+  mockCloseDrawer,
   mockGetPersonalStats,
+  mockGetPersonalActivity,
+  mockGetSearchHistory,
   getDashboardState,
   getIsAuthenticated,
   setIsAuthenticated,
@@ -30,6 +33,7 @@ const {
   const mockClearFilteredStats = vi.fn();
   const mockFetchFilteredStats = vi.fn().mockResolvedValue(undefined);
   const mockFetchStats = vi.fn().mockResolvedValue(undefined);
+  const mockCloseDrawer = vi.fn();
   // По умолчанию — непустая личная статистика (total > 0), чтобы существующие
   // тесты personal mode не переопределяли это в каждом it()
   const mockGetPersonalStats = vi.fn().mockResolvedValue({
@@ -40,6 +44,11 @@ const {
     by_doc_type: [],
     by_open_access: [],
   });
+  const mockGetPersonalActivity = vi.fn().mockResolvedValue({
+    granularity: 'week',
+    buckets: [],
+  });
+  const mockGetSearchHistory = vi.fn().mockResolvedValue([]);
 
   let activeSelection: ActiveSelection | null = null;
   let isAuthenticated = false;
@@ -54,6 +63,7 @@ const {
       drawerDimension: null,
       clearFilteredStats: mockClearFilteredStats,
       fetchFilteredStats: mockFetchFilteredStats,
+      closeDrawer: mockCloseDrawer,
       removeBuilderCard: vi.fn(),
       setActiveSelection: vi.fn(),
     };
@@ -67,7 +77,10 @@ const {
     mockClearFilteredStats,
     mockFetchFilteredStats,
     mockFetchStats,
+    mockCloseDrawer,
     mockGetPersonalStats,
+    mockGetPersonalActivity,
+    mockGetSearchHistory,
     getDashboardState,
     getIsAuthenticated: () => isAuthenticated,
     setIsAuthenticated: (v: boolean) => { isAuthenticated = v; },
@@ -103,6 +116,8 @@ vi.mock('../stores/authStore', () => ({
 // из historyStore-селекторов (docs/personal-search-data/spec.md §4)
 vi.mock('../api/articles', () => ({
   getPersonalStats: mockGetPersonalStats,
+  getPersonalActivity: mockGetPersonalActivity,
+  getSearchHistory: mockGetSearchHistory,
 }));
 
 vi.mock('react-router-dom', () => ({
@@ -129,19 +144,19 @@ vi.mock('../components/ui/ErrorBoundary', () => ({
 // Заглушки explore-компонентов — рендерят testid-маркер (а не null), чтобы
 // тесты ниже могли утверждать их присутствие/отсутствие в DOM
 vi.mock('../components/explore/KpiRow', () => ({ KpiRow: () => <div data-testid="kpi-row" /> }));
-vi.mock('../components/explore/DimensionDrawer', () => ({ DimensionDrawer: () => <div data-testid="dimension-drawer" /> }));
+vi.mock('../components/explore/PersonalKpiRow', () => ({ PersonalKpiRow: () => <div data-testid="personal-kpi-row" /> }));
+vi.mock('../components/explore/DimensionDrawer', () => ({
+  DimensionDrawer: () => <div data-testid="dimension-drawer" />,
+  PersonalDimensionDrawer: () => <div data-testid="personal-dimension-drawer" />,
+}));
 vi.mock('../components/explore/ActiveFilterBanner', () => ({ ActiveFilterBanner: () => null }));
+vi.mock('../components/explore/PersonalActivityChart', () => ({
+  PersonalActivityChart: () => <div data-testid="personal-activity-chart" />,
+}));
+vi.mock('../components/explore/FilterFingerprintStrip', () => ({
+  FilterFingerprintStrip: () => <div data-testid="filter-fingerprint-strip" />,
+}));
 vi.mock('../components/explore/ChartBuilderPanel', () => ({ ChartBuilderPanel: () => null }));
-
-// Заглушки lazy-загружаемых chart-компонентов — тоже testid-маркеры:
-// используются, чтобы проверить, что 6 стационарных чартов больше не
-// рендерятся в collection mode (docs/explore-charts-refactor/spec.md §1),
-// но 4 из них по-прежнему рендерятся в personal mode.
-vi.mock('../components/charts/PublicationsByYearChart', () => ({ PublicationsByYearChart: () => <div data-testid="chart-year" /> }));
-vi.mock('../components/charts/TopCountriesChart', () => ({ TopCountriesChart: () => <div data-testid="chart-country" /> }));
-vi.mock('../components/charts/DocumentTypesChart', () => ({ DocumentTypesChart: () => <div data-testid="chart-doctype" /> }));
-vi.mock('../components/charts/TopJournalsChart', () => ({ TopJournalsChart: () => <div data-testid="chart-journal" /> }));
-vi.mock('../components/charts/DynamicChart', () => ({ DynamicChart: () => null }));
 
 // ---------------------------------------------------------------------------
 // setUp
@@ -187,30 +202,28 @@ describe('ExplorePage — cross-filter V2 useEffect', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Отключение 4 личных стационарных чартов в collection mode (spec.md §1;
-// OpenAccessChart/TopAuthorsChart удалены целиком — были мёртвым кодом,
-// см. docs/explore-cross-analytics/spec.md §1)
+// Collection mode: KpiRow/DimensionDrawer (не Personal*) — единственный путь
+// к деталям (docs/explore-personal-redesign/spec.md §1; старые 4 personal-only
+// чарта и OpenAccessChart/TopAuthorsChart удалены целиком, были мёртвым кодом)
 // ---------------------------------------------------------------------------
 
-describe('ExplorePage — collection mode: личные стационарные чарты отключены', () => {
-  it('ни один из 4 personal-mode чартов не рендерится', async () => {
-    await act(async () => {
-      render(<ExplorePage />);
-    });
-
-    expect(screen.queryByTestId('chart-year')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('chart-country')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('chart-doctype')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('chart-journal')).not.toBeInTheDocument();
-  });
-
-  it('KpiRow и DimensionDrawer по-прежнему рендерятся — они единственный путь к деталям', async () => {
+describe('ExplorePage — collection mode: KpiRow/DimensionDrawer, не Personal*', () => {
+  it('KpiRow и DimensionDrawer рендерятся — они единственный путь к деталям', async () => {
     await act(async () => {
       render(<ExplorePage />);
     });
 
     expect(screen.getByTestId('kpi-row')).toBeInTheDocument();
     expect(screen.getByTestId('dimension-drawer')).toBeInTheDocument();
+  });
+
+  it('personal-scoped варианты не рендерятся в collection mode', async () => {
+    await act(async () => {
+      render(<ExplorePage />);
+    });
+
+    expect(screen.queryByTestId('personal-kpi-row')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('personal-dimension-drawer')).not.toBeInTheDocument();
   });
 });
 
@@ -226,36 +239,38 @@ describe('ExplorePage — personal mode', () => {
     setUrlMode('personal');
   });
 
-  it('вызывает getPersonalStats при входе в personal mode', async () => {
+  it('вызывает getPersonalStats/getPersonalActivity/getSearchHistory при входе в personal mode', async () => {
     await act(async () => {
       render(<ExplorePage />);
     });
 
     expect(mockGetPersonalStats).toHaveBeenCalledOnce();
+    expect(mockGetPersonalActivity).toHaveBeenCalledOnce();
+    expect(mockGetSearchHistory).toHaveBeenCalledWith(15);
   });
 
-  it('4 личных чарта рендерятся (year/country/doctype/journal), когда total > 0', async () => {
+  it('PersonalKpiRow/PersonalDimensionDrawer/PersonalActivityChart/FilterFingerprintStrip рендерятся, когда total > 0 (docs/explore-personal-redesign/spec.md §1-2)', async () => {
     await act(async () => {
       render(<ExplorePage />);
     });
 
-    expect(await screen.findByTestId('chart-year')).toBeInTheDocument();
-    expect(await screen.findByTestId('chart-country')).toBeInTheDocument();
-    expect(await screen.findByTestId('chart-doctype')).toBeInTheDocument();
-    expect(await screen.findByTestId('chart-journal')).toBeInTheDocument();
+    expect(await screen.findByTestId('personal-kpi-row')).toBeInTheDocument();
+    expect(await screen.findByTestId('personal-dimension-drawer')).toBeInTheDocument();
+    expect(await screen.findByTestId('personal-activity-chart')).toBeInTheDocument();
+    expect(await screen.findByTestId('filter-fingerprint-strip')).toBeInTheDocument();
   });
 
-  it('KpiRow/DimensionDrawer не рендерятся в personal mode (нет cross-filter drawer для личной истории)', async () => {
+  it('collection-scoped KpiRow/DimensionDrawer не рендерятся в personal mode', async () => {
     await act(async () => {
       render(<ExplorePage />);
     });
-    await screen.findByTestId('chart-year');
+    await screen.findByTestId('personal-kpi-row');
 
     expect(screen.queryByTestId('kpi-row')).not.toBeInTheDocument();
     expect(screen.queryByTestId('dimension-drawer')).not.toBeInTheDocument();
   });
 
-  it('total=0 → показывает emptyPersonal вместо чартов (ранее недостижимая ветка — баг найден и исправлен в §4)', async () => {
+  it('total=0 → показывает emptyPersonal вместо KPI/drawer (ранее недостижимая ветка — баг найден и исправлен в §4)', async () => {
     mockGetPersonalStats.mockResolvedValueOnce({
       total: 0,
       by_year: [],
@@ -270,7 +285,9 @@ describe('ExplorePage — personal mode', () => {
     });
 
     expect(await screen.findByText(/No search history yet/)).toBeInTheDocument();
-    expect(screen.queryByTestId('chart-year')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('personal-kpi-row')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('personal-activity-chart')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('filter-fingerprint-strip')).not.toBeInTheDocument();
   });
 
   it('ошибка getPersonalStats → показывает emptyPersonal, не падает', async () => {
@@ -281,5 +298,41 @@ describe('ExplorePage — personal mode', () => {
     });
 
     expect(await screen.findByText(/No search history yet/)).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Единый Sheet-instance между режимами (docs/explore-personal-redesign/spec.md
+// §1.2 п.5) — при смене mode drawer обязан закрываться, иначе может остаться
+// открытым с "залипшим" измерением от предыдущего режима.
+// ---------------------------------------------------------------------------
+
+describe('ExplorePage — единый drawer между режимами', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('переключение mode вызывает closeDrawer', async () => {
+    // Дополнительный await act(async () => {}) ниже даёт время резолвиться lazy-
+    // импорту стационарных collection-чартов (TopCountriesByYearChart и т.п.,
+    // не замоканы в этом файле) — им нужен window.matchMedia (useMediaQuery),
+    // которого нет в jsdom по умолчанию.
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }));
+
+    setIsAuthenticated(true);
+    const { rerender } = render(<ExplorePage />);
+    await act(async () => {});
+
+    mockCloseDrawer.mockClear();
+    setUrlMode('personal');
+    rerender(<ExplorePage />);
+
+    expect(mockCloseDrawer).toHaveBeenCalled();
   });
 });

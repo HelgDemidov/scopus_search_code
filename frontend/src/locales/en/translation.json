@@ -169,6 +169,9 @@
       "articlesIndexed": "Articles indexed",
       "articlesIndexed_one": "Article Indexed",
       "articlesIndexed_other": "Articles Indexed",
+      "articlesFound": "Articles found",
+      "articlesFound_one": "Article Found",
+      "articlesFound_other": "Articles Found",
       "countries": "Countries",
       "countries_one": "Country",
       "countries_other": "Countries",
@@ -182,6 +185,26 @@
       "authors": "Authors",
       "authors_one": "Author",
       "authors_other": "Authors"
+    },
+    "personal": {
+      "activity": {
+        "title": "Search activity",
+        "subtitleWeek": "By week",
+        "subtitleMonth": "By month",
+        "legendSuccessful": "Successful searches",
+        "legendZeroResult": "Zero-result searches",
+        "legendCumulative": "Articles collected",
+        "empty": "Not enough data yet."
+      },
+      "fingerprint": {
+        "title": "Filter fingerprint",
+        "rowOpenAccess": "Open Access filter",
+        "rowDocTypes": "Document types",
+        "rowCountries": "Countries",
+        "rowYearRange": "Year range width",
+        "zeroResultMarker": "No results",
+        "empty": "Not enough search history yet."
+      }
     },
     "dimensions": {
       "year": "Publications by Year",

@@ -42,7 +42,7 @@ import { YEAR_HARD_MAX, YEAR_DEFAULT_MIN, YEAR_MIN_WINDOW } from '../../constant
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useTheme } from '../../hooks/useTheme';
 import type { Dimension } from '../charts/chartColors';
-import type { LabelCount, StatsResponse } from '../../types/api';
+import type { DimensionStatsSource, LabelCount, SearchStatsResponse, StatsResponse } from '../../types/api';
 import type { TFunction } from 'i18next';
 
 // ---------------------------------------------------------------------------
@@ -66,9 +66,12 @@ const TOP_N_RANKED = 15;
 // YEAR_HARD_MAX/YEAR_DEFAULT_MIN/YEAR_MIN_WINDOW — см. constants/yearRange.ts
 // (вынесены оттуда же, используются также в TopCountriesByYearChart).
 
+// Общий источник данных для обоих режимов (docs/explore-personal-redesign/spec.md
+// §1.2) — StatsResponse (collection) адаптируется через toDimensionStatsSource()
+// ниже, SearchStatsResponse (personal) структурно совместим уже как есть.
 function getConfig(
   dim: Dimension,
-  stats: StatsResponse | null,
+  stats: DimensionStatsSource | null,
   t: TFunction,
   lang: string,
 ): DrawerConfig | null {
@@ -128,18 +131,27 @@ function getConfig(
         labelMaxLen: 32,
       };
     }
-    case 'open_access':
+    case 'open_access': {
+      // by_open_access — канонически 2 элемента, лейблы 'true'/'false' (см.
+      // DimensionStatsSource в types/api.ts); для collection их строит
+      // toDimensionStatsSource() из open_access_count/total_articles, для
+      // personal бэкенд уже отдаёт их в этом виде.
+      const oa = stats.by_open_access.find((d) => d.label === 'true')?.count ?? 0;
+      const closed = stats.by_open_access.find((d) => d.label === 'false')?.count ?? 0;
       return {
         title: t('explore.dimensions.open_access'),
         data: [
-          { label: tr('Open Access', 'oa'), count: stats.open_access_count },
-          { label: tr('Closed Access', 'oa'), count: stats.total_articles - stats.open_access_count },
+          { label: tr('Open Access', 'oa'), count: oa },
+          { label: tr('Closed Access', 'oa'), count: closed },
         ],
         chartHeight: 260,
         isSpecial: 'open_access',
       };
+    }
     case 'author': {
-      const data = [...stats.top_authors].sort((a, b) => b.count - a.count).slice(0, TOP_N_RANKED);
+      // top_authors опционален — personal его не предоставляет (см. spec.md §1.1);
+      // 'author' в принципе недостижим из personal UI (не входит в её список измерений).
+      const data = [...(stats.top_authors ?? [])].sort((a, b) => b.count - a.count).slice(0, TOP_N_RANKED);
       return {
         title: t('explore.dimensions.author'),
         data,
@@ -498,17 +510,38 @@ function DrawerTable({ data, totalArticles }: { data: LabelCount[]; totalArticle
 }
 
 // ---------------------------------------------------------------------------
-// DimensionDrawer — основной компонент
+// Адаптер collection → общий источник (personal уже структурно совместим —
+// SearchStatsResponse satisfies DimensionStatsSource без преобразований)
 // ---------------------------------------------------------------------------
 
-export function DimensionDrawer() {
+function toDimensionStatsSource(stats: StatsResponse | null): DimensionStatsSource | null {
+  if (!stats) return null;
+  return {
+    total: stats.total_articles,
+    by_year: stats.by_year,
+    by_country: stats.by_country,
+    by_doc_type: stats.by_doc_type,
+    by_journal: stats.by_journal,
+    by_open_access: [
+      { label: 'true', count: stats.open_access_count },
+      { label: 'false', count: stats.total_articles - stats.open_access_count },
+    ],
+    top_authors: stats.top_authors,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// DimensionDrawerCore — общая презентационная сердцевина (без обращения к
+// какому-либо стору), используется обеими обёртками ниже
+// ---------------------------------------------------------------------------
+
+function DimensionDrawerCore({ source }: { source: DimensionStatsSource | null }) {
   const { t, i18n } = useTranslation();
   const { drawerDimension, closeDrawer } = useDashboardStore();
-  const { stats } = useStatsStore();
   const isMobile = useMediaQuery('(max-width: 767px)');
 
   const isOpen = drawerDimension !== null;
-  const config = drawerDimension ? getConfig(drawerDimension, stats, t, i18n.language) : null;
+  const config = drawerDimension ? getConfig(drawerDimension, source, t, i18n.language) : null;
   const colors = drawerDimension ? DIMENSION_COLORS[drawerDimension] : null;
   // Donut-графики (open_access/doc_type) занимают фиксированную долю высоты вкладки
   // (60% график+подписи / 40% таблица, post-prod фикс 2026-07-02 п.3) вместо
@@ -577,7 +610,7 @@ export function DimensionDrawer() {
                   <div className="basis-2/5 min-h-0 overflow-y-auto px-6 pb-6 pt-6">
                     <DrawerTable
                       data={config.data}
-                      totalArticles={stats?.total_articles ?? 0}
+                      totalArticles={source?.total ?? 0}
                     />
                   </div>
                 </>
@@ -602,7 +635,7 @@ export function DimensionDrawer() {
                   <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 pt-6">
                     <DrawerTable
                       data={config.data}
-                      totalArticles={stats?.total_articles ?? 0}
+                      totalArticles={source?.total ?? 0}
                     />
                   </div>
                 </>
@@ -613,4 +646,24 @@ export function DimensionDrawer() {
       </SheetContent>
     </Sheet>
   );
+}
+
+// ---------------------------------------------------------------------------
+// DimensionDrawer — collection mode (поведение не меняется относительно
+// исходной версии, снаружи по-прежнему без пропсов)
+// ---------------------------------------------------------------------------
+
+export function DimensionDrawer() {
+  const { stats } = useStatsStore();
+  return <DimensionDrawerCore source={toDimensionStatsSource(stats)} />;
+}
+
+// ---------------------------------------------------------------------------
+// PersonalDimensionDrawer — personal mode (docs/explore-personal-redesign/spec.md
+// §1.2 п.3). SearchStatsResponse структурно satisfies DimensionStatsSource —
+// передаётся как есть, без адаптера.
+// ---------------------------------------------------------------------------
+
+export function PersonalDimensionDrawer({ stats }: { stats: SearchStatsResponse | null }) {
+  return <DimensionDrawerCore source={stats} />;
 }

@@ -12,6 +12,7 @@ import type {
   PaginatedArticleResponse,
   ArticleResponse,
   SearchStatsResponse,
+  PersonalActivityResponse,
   ScopusQuota,
   SearchHistoryItem,
   SearchHistoryResponse,
@@ -110,6 +111,16 @@ export async function getPersonalStats(): Promise<SearchStatsResponse> {
 }
 
 // ---------------------------------------------------------------------------
+// GET /articles/stats/personal/activity — поисковая активность по времени
+// (docs/explore-personal-redesign/spec.md §2.1)
+// ---------------------------------------------------------------------------
+
+export async function getPersonalActivity(): Promise<PersonalActivityResponse> {
+  const response = await apiClient.get<PersonalActivityResponse>('/articles/stats/personal/activity');
+  return response.data;
+}
+
+// ---------------------------------------------------------------------------
 // GET /articles/:id — одна статья по первичному ключу (публичный)
 // ---------------------------------------------------------------------------
 
@@ -197,8 +208,10 @@ export async function findArticles(
 // bare-array никогда не возвращается (verified: SearchHistoryResponse Pydantic schema).
 // ---------------------------------------------------------------------------
 
-export async function getSearchHistory(): Promise<SearchHistoryItem[]> {
-  const response = await apiClient.get<SearchHistoryResponse>('/articles/history');
+export async function getSearchHistory(n?: number): Promise<SearchHistoryItem[]> {
+  const response = await apiClient.get<SearchHistoryResponse>('/articles/history', {
+    params: n !== undefined ? { n } : undefined,
+  });
   return response.data.items;
 }
 

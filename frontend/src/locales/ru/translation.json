@@ -177,6 +177,11 @@
       "articlesIndexed_few": "статьи в индексе",
       "articlesIndexed_many": "статей в индексе",
       "articlesIndexed_other": "статей в индексе",
+      "articlesFound": "Статей найдено",
+      "articlesFound_one": "статья найдена",
+      "articlesFound_few": "статьи найдено",
+      "articlesFound_many": "статей найдено",
+      "articlesFound_other": "статей найдено",
       "countries": "Стран",
       "countries_one": "страна",
       "countries_few": "страны",
@@ -198,6 +203,26 @@
       "authors_few": "автора",
       "authors_many": "авторов",
       "authors_other": "авторов"
+    },
+    "personal": {
+      "activity": {
+        "title": "Поисковая активность",
+        "subtitleWeek": "По неделям",
+        "subtitleMonth": "По месяцам",
+        "legendSuccessful": "Успешные поиски",
+        "legendZeroResult": "Поиски без результата",
+        "legendCumulative": "Собрано статей",
+        "empty": "Пока недостаточно данных."
+      },
+      "fingerprint": {
+        "title": "Отпечаток фильтров",
+        "rowOpenAccess": "Фильтр Open Access",
+        "rowDocTypes": "Типы документов",
+        "rowCountries": "Страны",
+        "rowYearRange": "Ширина диапазона лет",
+        "zeroResultMarker": "Нет результатов",
+        "empty": "Пока недостаточно истории поиска."
+      }
     },
     "dimensions": {
       "year": "Публикации по годам",

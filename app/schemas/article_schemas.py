@@ -116,3 +116,20 @@ class SearchStatsResponse(BaseModel):
     # label: "true"/"false" (та же конвенция, что PivotDimension="open_access" в pivot,
     # см. postgres_catalog_repo._stringify_dim) — docs/personal-search-data/spec.md §2.1
     by_open_access: List[CountByField]
+
+
+class PersonalActivityBucket(BaseModel):
+    # Один период (неделя/месяц) поисковой активности пользователя
+    # (docs/explore-personal-redesign/spec.md §2.1)
+    period_start: date
+    successful_searches: int  # result_count > 0
+    zero_result_searches: int  # result_count == 0 — потраченная впустую квота Scopus
+    cumulative_unique_articles: int  # нарастающим итогом на конец периода
+
+
+class PersonalActivityResponse(BaseModel):
+    # Ответ GET /articles/stats/personal/activity — приватный, JWT обязателен, без кэша
+    # (как /stats/personal). granularity выбирается автоматически по разбросу истории
+    # пользователя: week при <= 70 дней, иначе month (spec.md §2.1).
+    granularity: Literal["week", "month"]
+    buckets: List[PersonalActivityBucket]

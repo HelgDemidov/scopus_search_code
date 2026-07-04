@@ -4,28 +4,19 @@ import { Trans, useTranslation } from 'react-i18next';
 import { useStatsStore } from '../stores/statsStore';
 import { useAuthStore } from '../stores/authStore';
 import { useDashboardStore } from '../stores/dashboardStore';
-import { getPersonalStats } from '../api/articles';
-import type { SearchStatsResponse } from '../types/api';
+import { getPersonalStats, getPersonalActivity, getSearchHistory } from '../api/articles';
+import type { SearchStatsResponse, PersonalActivityResponse, SearchHistoryItem } from '../types/api';
 import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
 import { ErrorBoundary } from '../components/ui/ErrorBoundary';
 import { KpiRow } from '../components/explore/KpiRow';
-import { DimensionDrawer } from '../components/explore/DimensionDrawer';
+import { PersonalKpiRow } from '../components/explore/PersonalKpiRow';
+import { DimensionDrawer, PersonalDimensionDrawer } from '../components/explore/DimensionDrawer';
 import { ActiveFilterBanner } from '../components/explore/ActiveFilterBanner';
 
-// Charts — lazy-loaded: не попадают в основной чанк ExplorePage
-const PublicationsByYearChart = lazy(() =>
-  import('../components/charts/PublicationsByYearChart').then(m => ({ default: m.PublicationsByYearChart }))
-);
-const TopCountriesChart = lazy(() =>
-  import('../components/charts/TopCountriesChart').then(m => ({ default: m.TopCountriesChart }))
-);
-const DocumentTypesChart = lazy(() =>
-  import('../components/charts/DocumentTypesChart').then(m => ({ default: m.DocumentTypesChart }))
-);
-const TopJournalsChart = lazy(() =>
-  import('../components/charts/TopJournalsChart').then(m => ({ default: m.TopJournalsChart }))
-);
+// PublicationsByYearChart/DocumentTypesChart/TopCountriesChart/TopJournalsChart
+// удалены (docs/explore-personal-redesign/spec.md §1.4) — personal mode теперь
+// переиспользует KpiRow/DimensionDrawer вместо отдельного набора старых чартов.
 // OpenAccessChart/TopAuthorsChart удалены (docs/explore-cross-analytics/spec.md §1) —
 // не рендерились нигде (ни collection, ни personal mode), подтверждённый мёртвый код.
 // Их drawer-эквиваленты (DimensionDrawer) продолжают работать без изменений.
@@ -51,6 +42,20 @@ const JournalLandscapeScatterChart = lazy(() =>
 const TableBuilderPanel = lazy(() =>
   import('../components/explore/TableBuilderPanel').then(m => ({ default: m.TableBuilderPanel }))
 );
+// Автобиографический раздел personal mode (docs/explore-personal-redesign/spec.md §2.1) —
+// тоже lazy, тот же принцип: новый Recharts-чанк не должен попадать в основной ExplorePage.
+const PersonalActivityChart = lazy(() =>
+  import('../components/explore/PersonalActivityChart').then(m => ({ default: m.PersonalActivityChart }))
+);
+// Filter fingerprint (docs/explore-personal-redesign/spec.md §2.2) — тоже lazy,
+// тот же принцип: не в основном чанке ExplorePage.
+const FilterFingerprintStrip = lazy(() =>
+  import('../components/explore/FilterFingerprintStrip').then(m => ({ default: m.FilterFingerprintStrip }))
+);
+
+// Максимум записей истории, нужных fingerprint (desktop N=15 — см. spec.md §2.2;
+// mobile N=8 фронт сам режет из этого же набора, повторный фетч не нужен).
+const FINGERPRINT_HISTORY_LIMIT = 15;
 
 // ---------------------------------------------------------------------------
 // Skeleton-заглушки
@@ -66,16 +71,6 @@ function CollectionSkeleton() {
         <Skeleton className="h-[480px] w-full rounded-xl" />
         <Skeleton className="h-[480px] w-full rounded-xl" />
       </div>
-    </div>
-  );
-}
-
-function PersonalSkeleton() {
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <Skeleton key={i} className="h-64 w-full rounded-xl" />
-      ))}
     </div>
   );
 }
@@ -107,6 +102,7 @@ export default function ExplorePage() {
     activeSelection,
     fetchFilteredStats,
     clearFilteredStats,
+    closeDrawer,
   } = useDashboardStore();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -120,8 +116,25 @@ export default function ExplorePage() {
   // фильтров, а не атрибуты фактически найденных статей.
   const [personalStats, setPersonalStats] = useState<SearchStatsResponse | null>(null);
   const [personalLoading, setPersonalLoading] = useState(false);
+  // Автобиографический раздел (docs/explore-personal-redesign/spec.md §2.1) —
+  // отдельный эндпоинт/state, фетчится параллельно с personalStats в том же эффекте.
+  const [personalActivity, setPersonalActivity] = useState<PersonalActivityResponse | null>(null);
+  const [personalActivityLoading, setPersonalActivityLoading] = useState(false);
+  // Filter fingerprint (spec.md §2.2) — переиспользует существующий GET /articles/history,
+  // без нового backend-эндпоинта.
+  const [fingerprintItems, setFingerprintItems] = useState<SearchHistoryItem[]>([]);
+  const [fingerprintLoading, setFingerprintLoading] = useState(false);
 
   useEffect(() => { fetchStats(); }, [fetchStats]);
+
+  // Единственный Sheet-instance (dashboardStore.drawerDimension) используется обоими
+  // режимами (docs/explore-personal-redesign/spec.md §1.2 п.5) — при переключении
+  // mode закрываем drawer, иначе он может остаться открытым с "залипшим" измерением
+  // от предыдущего режима (напр. 'author' из collection недостижим в personal).
+  useEffect(() => {
+    closeDrawer();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
 
   // Cross-filter V2: при изменении выбора — запрашиваем отфильтрованные статистику
   useEffect(() => {
@@ -135,10 +148,20 @@ export default function ExplorePage() {
     let cancelled = false;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPersonalLoading(true);
+    setPersonalActivityLoading(true);
+    setFingerprintLoading(true);
     getPersonalStats()
       .then((data) => { if (!cancelled) setPersonalStats(data); })
       .catch(() => { if (!cancelled) setPersonalStats(null); })
       .finally(() => { if (!cancelled) setPersonalLoading(false); });
+    getPersonalActivity()
+      .then((data) => { if (!cancelled) setPersonalActivity(data); })
+      .catch(() => { if (!cancelled) setPersonalActivity(null); })
+      .finally(() => { if (!cancelled) setPersonalActivityLoading(false); });
+    getSearchHistory(FINGERPRINT_HISTORY_LIMIT)
+      .then((items) => { if (!cancelled) setFingerprintItems(items); })
+      .catch(() => { if (!cancelled) setFingerprintItems([]); })
+      .finally(() => { if (!cancelled) setFingerprintLoading(false); });
     return () => { cancelled = true; };
   }, [mode]);
 
@@ -225,28 +248,28 @@ export default function ExplorePage() {
       )}
 
       {/* ================================================================ */}
-      {/* PERSONAL MODE — существующие чарты                               */}
+      {/* PERSONAL MODE — KPI + Drawer (docs/explore-personal-redesign/spec.md §1) */}
       {/* ================================================================ */}
       {mode === 'personal' && (
         <ErrorBoundary fallback={<ChartErrorFallback />}>
-          {personalLoading ? (
-            <PersonalSkeleton />
-          ) : personalStats && personalStats.total > 0 ? (
-            <Suspense fallback={<PersonalSkeleton />}>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <PublicationsByYearChart data={personalStats.by_year} isLoading={false} />
-                <DocumentTypesChart data={personalStats.by_doc_type} isLoading={false} />
-                <TopCountriesChart data={personalStats.by_country} isLoading={false} />
-                <TopJournalsChart data={personalStats.by_journal} isLoading={false} />
-              </div>
-            </Suspense>
-          ) : (
+          {!personalLoading && (!personalStats || personalStats.total === 0) ? (
             <p className="text-sm text-slate-500 dark:text-slate-400">
               <Trans
                 i18nKey="explore.emptyPersonal"
                 components={{ lnk: <Link to="/" className="underline underline-offset-2 hover:text-slate-700 dark:hover:text-slate-300" /> }}
               />
             </p>
+          ) : (
+            <>
+              <PersonalKpiRow stats={personalStats} isLoading={personalLoading} />
+              <PersonalDimensionDrawer stats={personalStats} />
+              <Suspense fallback={<Skeleton className="h-80 w-full rounded-xl" />}>
+                <PersonalActivityChart data={personalActivity} isLoading={personalActivityLoading} />
+              </Suspense>
+              <Suspense fallback={<Skeleton className="h-48 w-full rounded-xl" />}>
+                <FilterFingerprintStrip items={fingerprintItems} isLoading={fingerprintLoading} />
+              </Suspense>
+            </>
           )}
         </ErrorBoundary>
       )}

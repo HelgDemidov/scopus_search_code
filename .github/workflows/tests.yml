@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - feat/explore-personal-redesign
 
   pull_request:
     branches:

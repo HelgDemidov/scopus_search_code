@@ -214,3 +214,87 @@ class PostgresSearchResultRepository(ISearchResultRepository):
             "by_doc_type": [{"doc_type": r.document_type, "count": r.count} for r in by_doc_type_rows],
             "by_open_access": [{"open_access": r.open_access, "count": r.count} for r in by_open_access_rows],
         }
+
+    # ------------------------------------------------------------------ #
+    #  get_personal_activity_for_user                                     #
+    # ------------------------------------------------------------------ #
+
+    async def get_personal_activity_for_user(self, user_id: int) -> dict:
+        """Поисковая активность пользователя по времени (docs/explore-personal-
+        redesign/spec.md §2.1). Грануляция и группировка по периодам — в Python
+        (не date_trunc/strftime) — портируемо между PG и SQLite, тот же принцип,
+        что медиана в CatalogRepository.get_journal_impact.
+        """
+        history_rows = (
+            await self.session.execute(
+                select(SearchHistory.created_at, SearchHistory.result_count)
+                .where(SearchHistory.user_id == user_id)
+                .order_by(SearchHistory.created_at)
+            )
+        ).all()
+
+        if not history_rows:
+            return {"granularity": "week", "buckets": []}
+
+        # Авто-грануляция: активный пользователь заполняет HISTORY_DEPTH_LIMIT=100
+        # за недели, редкий — за месяцы; фиксированная грануляция была бы либо
+        # пустой, либо нечитаемой (spec.md §2.1).
+        span_days = (history_rows[-1].created_at - history_rows[0].created_at).days
+        granularity = "week" if span_days <= 70 else "month"
+
+        def period_start(dt: datetime.datetime) -> datetime.date:
+            d = dt.date()
+            if granularity == "week":
+                return d - datetime.timedelta(days=d.weekday())  # понедельник этой недели
+            return d.replace(day=1)
+
+        # Бары: успешные/нулевые поиски по периодам — без join, из самой search_history
+        search_buckets: dict[datetime.date, dict[str, int]] = {}
+        for row in history_rows:
+            key = period_start(row.created_at)
+            bucket = search_buckets.setdefault(key, {"successful": 0, "zero": 0})
+            if row.result_count > 0:
+                bucket["successful"] += 1
+            else:
+                bucket["zero"] += 1
+
+        # Линия: первое появление каждой статьи пользователя (не суммарный
+        # result_count — иначе повторные похожие поиски задваивали бы рост).
+        # .select_from() явно — тот же класс запроса, что уже ронял get_by_id
+        # (баг 2026-07-05, см. память project-broken-join-visibility-bug), здесь
+        # явная защита, хотя select() уже анкорится на реальную колонку.
+        first_seen_rows = (
+            await self.session.execute(
+                select(
+                    SearchResultArticle.article_id,
+                    func.min(SearchHistory.created_at).label("first_seen"),
+                )
+                .select_from(SearchResultArticle)
+                .join(SearchHistory, SearchResultArticle.search_history_id == SearchHistory.id)
+                .where(SearchHistory.user_id == user_id)
+                .group_by(SearchResultArticle.article_id)
+            )
+        ).all()
+
+        new_articles_by_period: dict[datetime.date, int] = {}
+        for fs_row in first_seen_rows:
+            key = period_start(fs_row.first_seen)
+            new_articles_by_period[key] = new_articles_by_period.get(key, 0) + 1
+
+        all_periods = sorted(set(search_buckets) | set(new_articles_by_period))
+
+        buckets = []
+        cumulative = 0
+        for period in all_periods:
+            cumulative += new_articles_by_period.get(period, 0)
+            sb = search_buckets.get(period, {"successful": 0, "zero": 0})
+            buckets.append(
+                {
+                    "period_start": period,
+                    "successful_searches": sb["successful"],
+                    "zero_result_searches": sb["zero"],
+                    "cumulative_unique_articles": cumulative,
+                }
+            )
+
+        return {"granularity": granularity, "buckets": buckets}

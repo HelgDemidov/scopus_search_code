@@ -115,9 +115,47 @@ export interface SearchStatsResponse {
   by_journal: LabelCount[];
   by_country: LabelCount[];
   by_doc_type: LabelCount[];
-  // label: "true"/"false" (docs/personal-search-data/spec.md §2.1) — UI пока не рендерит,
-  // данные готовы для будущей персональной OA-визуализации
+  // label: "true"/"false" (docs/personal-search-data/spec.md §2.1) — та же конвенция,
+  // что и канонический DimensionStatsSource.by_open_access ниже
   by_open_access: LabelCount[];
+}
+
+// ---------------------------------------------------------------------------
+// Общий интерфейс данных KPI/Drawer (docs/explore-personal-redesign/spec.md §1.2) —
+// объединяет StatsResponse (collection) и SearchStatsResponse (personal) для
+// переиспользования DimensionDrawer между режимами. by_open_access — канонически
+// РОВНО 2 элемента с лейблами 'true'/'false' (конвенция PivotDimension/
+// postgres_catalog_repo._stringify_dim); для collection строится адаптером из
+// open_access_count/total_articles, для personal — уже в этом виде из бэкенда.
+// top_authors — опционально: только collection, personal не предоставляет
+// (см. spec.md §1.1 — author исключён из personal KPI/drawer).
+// ---------------------------------------------------------------------------
+
+export interface DimensionStatsSource {
+  total: number;
+  by_year: LabelCount[];
+  by_country: LabelCount[];
+  by_doc_type: LabelCount[];
+  by_journal: LabelCount[];
+  by_open_access: LabelCount[];
+  top_authors?: LabelCount[];
+}
+
+// ---------------------------------------------------------------------------
+// Поисковая активность по времени (GET /articles/stats/personal/activity)
+// docs/explore-personal-redesign/spec.md §2.1
+// ---------------------------------------------------------------------------
+
+export interface PersonalActivityBucket {
+  period_start: string;               // 'YYYY-MM-DD' — начало периода (week/month)
+  successful_searches: number;        // result_count > 0
+  zero_result_searches: number;       // result_count == 0 — потраченная впустую квота
+  cumulative_unique_articles: number; // нарастающим итогом на конец периода
+}
+
+export interface PersonalActivityResponse {
+  granularity: 'week' | 'month';      // выбрано автоматически по разбросу истории
+  buckets: PersonalActivityBucket[];
 }
 
 // ---------------------------------------------------------------------------
