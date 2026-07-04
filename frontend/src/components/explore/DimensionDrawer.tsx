@@ -403,7 +403,7 @@ function DrawerOAChart({ data }: { data: LabelCount[] }) {
         <text x="50%" y="44%" textAnchor="middle" dominantBaseline="middle" fontSize={24} fontWeight={700} fill={valueFill}>
           {oaPct}%
         </text>
-        <text x="50%" y="53%" textAnchor="middle" dominantBaseline="middle" fontSize={11} fill={labelFill}>
+        <text x="50%" y="53%" textAnchor="middle" dominantBaseline="middle" fontSize={13} fontWeight={600} fill={labelFill}>
           Open Access
         </text>
         <Tooltip content={(p) => <ChartTooltip {...p} dimension="open_access" />} />
@@ -462,7 +462,7 @@ function DrawerDocTypeChart({ data }: { data: LabelCount[] }) {
         <text x="50%" y="47%" textAnchor="middle" dominantBaseline="middle" fontSize={22} fontWeight={700} fill={valueFill}>
           {topPct}%
         </text>
-        <text x="50%" y="57%" textAnchor="middle" dominantBaseline="middle" fontSize={11} fill={labelFill}>
+        <text x="50%" y="57%" textAnchor="middle" dominantBaseline="middle" fontSize={13} fontWeight={600} fill={labelFill}>
           {truncateLabel(data[0]?.label ?? '', 20)}
         </text>
         <Tooltip content={(p) => <ChartTooltip {...p} dimension="doc_type" />} />

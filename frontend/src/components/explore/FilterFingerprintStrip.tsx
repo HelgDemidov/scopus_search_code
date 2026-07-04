@@ -63,7 +63,7 @@ export function FilterFingerprintStrip({ items, isLoading }: FilterFingerprintSt
           {t('explore.personal.fingerprint.empty')}
         </p>
       ) : (
-        <div className="overflow-x-auto mt-2">
+        <div className="overflow-x-auto mt-2 mb-2">
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-700">
