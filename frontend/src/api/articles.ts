@@ -16,6 +16,7 @@ import type {
   SearchHistoryItem,
   SearchHistoryResponse,
   QuotaResponse,
+  SearchResultsResponse,
 } from '../types/api';
 
 // ---------------------------------------------------------------------------
@@ -94,6 +95,17 @@ export async function getSearchStats(
     '/articles/search/stats',
     { params: { search } },
   );
+  return response.data;
+}
+
+// ---------------------------------------------------------------------------
+// GET /articles/stats/personal — агрегаты по ВСЕЙ истории поиска пользователя
+// (docs/personal-search-data/spec.md §2) — источник /explore?mode=personal.
+// Требует JWT; не кэшируется (см. роутер)
+// ---------------------------------------------------------------------------
+
+export async function getPersonalStats(): Promise<SearchStatsResponse> {
+  const response = await apiClient.get<SearchStatsResponse>('/articles/stats/personal');
   return response.data;
 }
 
@@ -196,5 +208,18 @@ export async function getSearchHistory(): Promise<SearchHistoryItem[]> {
 
 export async function getScopusQuota(): Promise<QuotaResponse> {
   const response = await apiClient.get<QuotaResponse>('/articles/find/quota');
+  return response.data;
+}
+
+// ---------------------------------------------------------------------------
+// GET /articles/history/:searchId/results — статьи конкретного прошлого поиска
+// (docs/personal-search-data/spec.md §3) — ownership-проверка на бэкенде;
+// вызывать строго по клику на expand в SearchHistoryList, не при монтировании
+// ---------------------------------------------------------------------------
+
+export async function getSearchResults(searchId: number): Promise<SearchResultsResponse> {
+  const response = await apiClient.get<SearchResultsResponse>(
+    `/articles/history/${searchId}/results`,
+  );
   return response.data;
 }

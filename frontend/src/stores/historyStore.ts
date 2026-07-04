@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { getSearchHistory } from '../api/articles';
-import type { SearchHistoryItem, LabelCount, ArticleClientFilters } from '../types/api';
+import type { SearchHistoryItem, ArticleClientFilters } from '../types/api';
 
 // HistoryFilters = ArticleClientFilters: client-side фильтры переехали
 // из articleStore сюда согласно §1.3 (filter-slice split)
@@ -41,75 +41,3 @@ export const useHistoryStore = create<HistoryStore>((set) => ({
     set({ historyFilters: {} });
   },
 }));
-
-// ---------------------------------------------------------------------------
-// Чистые селекторы для агрегации истории в LabelCount[]
-// ---------------------------------------------------------------------------
-
-const MISSING = '\u00abНе указано\u00bb';
-
-function incr(map: Map<string, number>, key: string) {
-  map.set(key, (map.get(key) ?? 0) + 1);
-}
-
-function toLabelCount(map: Map<string, number>): LabelCount[] {
-  return Array.from(map.entries())
-    .map(([label, count]) => ({ label, count }))
-    .sort((a, b) => b.count - a.count);
-}
-
-// Возвращает массив строк из item.filters[key] — поддерживает scalar/array
-function extractValues(filters: Record<string, unknown>, key: string): string[] {
-  const raw = filters?.[key];
-  if (raw === undefined || raw === null) return [];
-  if (Array.isArray(raw)) {
-    const arr = raw
-      .filter((v) => v !== null && v !== undefined && v !== '')
-      .map((v) => String(v));
-    return arr.length ? arr : [];
-  }
-  if (raw === '') return [];
-  return [String(raw)];
-}
-
-export function selectByYear(items: SearchHistoryItem[]): LabelCount[] {
-  const map = new Map<string, number>();
-  for (const item of items) {
-    const iso = item.created_at;
-    const year = iso && iso.length >= 4 ? iso.slice(0, 4) : MISSING;
-    incr(map, year || MISSING);
-  }
-  return toLabelCount(map);
-}
-
-function selectByFilterKey(
-  items: SearchHistoryItem[],
-  keys: string[],
-): LabelCount[] {
-  const map = new Map<string, number>();
-  for (const item of items) {
-    const filters = item.filters ?? {};
-    let collected: string[] = [];
-    for (const key of keys) {
-      collected = collected.concat(extractValues(filters, key));
-    }
-    if (collected.length === 0) {
-      incr(map, MISSING);
-    } else {
-      for (const v of collected) incr(map, v);
-    }
-  }
-  return toLabelCount(map);
-}
-
-export function selectByDocType(items: SearchHistoryItem[]): LabelCount[] {
-  return selectByFilterKey(items, ['docTypes', 'doc_types', 'docType', 'document_type']);
-}
-
-export function selectByCountry(items: SearchHistoryItem[]): LabelCount[] {
-  return selectByFilterKey(items, ['countries', 'country', 'affiliation_country']);
-}
-
-export function selectByJournal(items: SearchHistoryItem[]): LabelCount[] {
-  return selectByFilterKey(items, ['journals', 'journal']);
-}

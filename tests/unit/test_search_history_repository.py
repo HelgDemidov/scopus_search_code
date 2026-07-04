@@ -61,6 +61,28 @@ class FakeSearchHistoryRepository(ISearchHistoryRepository):
         candidates = [r.created_at for r in self._rows if r.user_id == user_id and r.created_at >= since]
         return min(candidates) if candidates else None
 
+    async def trim_to_last_n(
+        self,
+        user_id: int,
+        n: int,
+        keep_since: datetime.datetime | None = None,
+    ) -> int:
+        # Эмулируем DELETE ... WHERE id NOT IN (SELECT ... ORDER BY created_at DESC, id DESC LIMIT n)
+        # AND created_at < keep_since (если задан) — предохранитель квотного окна
+        user_rows = [r for r in self._rows if r.user_id == user_id]
+        user_rows.sort(key=lambda r: (r.created_at, r.id), reverse=True)
+        keep_ids = {r.id for r in user_rows[:n]}
+        to_delete = [
+            r
+            for r in self._rows
+            if r.user_id == user_id
+            and r.id not in keep_ids
+            and (keep_since is None or r.created_at < keep_since)
+        ]
+        for row in to_delete:
+            self._rows.remove(row)
+        return len(to_delete)
+
 
 # 2. Тест: вставка одной строки
 @pytest.mark.asyncio
@@ -177,3 +199,146 @@ async def test_reset_at_calculation():
     reset_at = oldest + datetime.timedelta(days=7)
     # reset_at должен быть в будущем относительно now
     assert reset_at > now
+
+
+# ================================================================ #
+#  Тесты trim_to_last_n — retention (docs/personal-search-data/spec.md §1)   #
+# ================================================================ #
+
+
+@pytest.mark.asyncio
+async def test_trim_to_last_n_removes_oldest_beyond_limit():
+    repo = FakeSearchHistoryRepository()
+    for i in range(5):
+        await repo.insert_row(user_id=1, query=f"q{i}", result_count=i)
+
+    deleted = await repo.trim_to_last_n(user_id=1, n=3)
+
+    remaining = await repo.get_last_n(user_id=1, n=10)
+    assert deleted == 2
+    assert len(remaining) == 3
+    # Остались 3 самые свежие: q2, q3, q4 (insert_row в порядке возрастания id)
+    assert [r.query for r in remaining] == ["q4", "q3", "q2"]
+
+
+@pytest.mark.asyncio
+async def test_trim_to_last_n_noop_when_under_limit():
+    repo = FakeSearchHistoryRepository()
+    for i in range(3):
+        await repo.insert_row(user_id=1, query=f"q{i}", result_count=i)
+
+    deleted = await repo.trim_to_last_n(user_id=1, n=100)
+
+    remaining = await repo.get_last_n(user_id=1, n=100)
+    assert deleted == 0
+    assert len(remaining) == 3
+
+
+@pytest.mark.asyncio
+async def test_trim_to_last_n_noop_at_exact_limit():
+    repo = FakeSearchHistoryRepository()
+    for i in range(3):
+        await repo.insert_row(user_id=1, query=f"q{i}", result_count=i)
+
+    deleted = await repo.trim_to_last_n(user_id=1, n=3)
+
+    assert deleted == 0
+    assert len(await repo.get_last_n(user_id=1, n=100)) == 3
+
+
+@pytest.mark.asyncio
+async def test_trim_to_last_n_does_not_touch_other_users():
+    repo = FakeSearchHistoryRepository()
+    for i in range(5):
+        await repo.insert_row(user_id=1, query=f"user1-{i}", result_count=i)
+    for i in range(2):
+        await repo.insert_row(user_id=2, query=f"user2-{i}", result_count=i)
+
+    await repo.trim_to_last_n(user_id=1, n=2)
+
+    user1_remaining = await repo.get_last_n(user_id=1, n=100)
+    user2_remaining = await repo.get_last_n(user_id=2, n=100)
+    assert len(user1_remaining) == 2
+    assert len(user2_remaining) == 2  # не тронуты триммингом другого пользователя
+
+
+@pytest.mark.asyncio
+async def test_trim_to_last_n_empty_history_noop():
+    repo = FakeSearchHistoryRepository()
+
+    deleted = await repo.trim_to_last_n(user_id=1, n=100)
+
+    assert deleted == 0
+
+
+@pytest.mark.asyncio
+async def test_trim_to_last_n_keep_since_protects_rows_within_quota_window():
+    """Регрессия: HISTORY_DEPTH_LIMIT(100) < QUOTA_LIMIT(200) за то же 7-дневное окно.
+
+    Без keep_since retention удалил бы строки, ещё актуальные для count_in_window(),
+    и used никогда не смог бы дойти до 200 — 429 стал бы недостижим (найдено при
+    проектировании интеграционного теста, docs/personal-search-data/spec.md §1).
+    """
+    repo = FakeSearchHistoryRepository()
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+    quota_window_start = now - datetime.timedelta(days=7)
+
+    # 150 строк за последние 3 дня — все внутри квотного окна, все младше 7 дней
+    for i in range(150):
+        row = SearchHistory(
+            id=i + 1,
+            user_id=1,
+            query=f"recent-{i}",
+            result_count=1,
+            filters={},
+            created_at=now - datetime.timedelta(minutes=i),
+        )
+        repo._rows.append(row)
+    repo._next_id = 151
+
+    deleted = await repo.trim_to_last_n(user_id=1, n=100, keep_since=quota_window_start)
+
+    # Ничего не удалено — все 150 строк моложе keep_since, даже сверх n=100
+    assert deleted == 0
+    assert len(await repo.get_last_n(user_id=1, n=1000)) == 150
+
+
+@pytest.mark.asyncio
+async def test_trim_to_last_n_keep_since_allows_deletion_of_old_rows_beyond_window():
+    """Строки СТАРШЕ keep_since и сверх n по-прежнему удаляются как обычно."""
+    repo = FakeSearchHistoryRepository()
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+    quota_window_start = now - datetime.timedelta(days=7)
+
+    # 5 старых строк (10 дней назад — вне квотного окна) + 3 свежих (внутри окна)
+    for i in range(5):
+        repo._rows.append(
+            SearchHistory(
+                id=i + 1,
+                user_id=1,
+                query=f"old-{i}",
+                result_count=1,
+                filters={},
+                created_at=now - datetime.timedelta(days=10, minutes=i),
+            )
+        )
+    for i in range(3):
+        repo._rows.append(
+            SearchHistory(
+                id=100 + i,
+                user_id=1,
+                query=f"recent-{i}",
+                result_count=1,
+                filters={},
+                created_at=now - datetime.timedelta(minutes=i),
+            )
+        )
+    repo._next_id = 200
+
+    deleted = await repo.trim_to_last_n(user_id=1, n=2, keep_since=quota_window_start)
+
+    # n=2, но 3 свежих строки защищены keep_since — удаляются только старые сверх них
+    remaining = await repo.get_last_n(user_id=1, n=1000)
+    assert deleted == 5  # все 5 старых строк удалены (не входят в top-2 и старше окна)
+    assert len(remaining) == 3
+    assert {r.query for r in remaining} == {"recent-0", "recent-1", "recent-2"}

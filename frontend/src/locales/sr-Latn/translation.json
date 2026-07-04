@@ -149,7 +149,10 @@
       "resultCount_few": "{{count}} rezultata",
       "resultCount_other": "{{count}} rezultata",
       "prevPage": "Prethodna stranica",
-      "nextPage": "Sljedeća stranica"
+      "nextPage": "Sljedeća stranica",
+      "showResults": "Prikaži članke",
+      "hideResults": "Sakrij članke",
+      "resultsError": "Neuspjelo učitavanje članaka"
     }
   },
   "explore": {

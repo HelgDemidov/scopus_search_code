@@ -1,16 +1,11 @@
-import { useEffect, useMemo, lazy, Suspense } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Trans, useTranslation } from 'react-i18next';
 import { useStatsStore } from '../stores/statsStore';
 import { useAuthStore } from '../stores/authStore';
-import {
-  useHistoryStore,
-  selectByYear,
-  selectByDocType,
-  selectByCountry,
-  selectByJournal,
-} from '../stores/historyStore';
 import { useDashboardStore } from '../stores/dashboardStore';
+import { getPersonalStats } from '../api/articles';
+import type { SearchStatsResponse } from '../types/api';
 import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
 import { ErrorBoundary } from '../components/ui/ErrorBoundary';
@@ -115,13 +110,16 @@ export default function ExplorePage() {
   } = useDashboardStore();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const historyItems = useHistoryStore((s) => s.items);
-  const historyLoading = useHistoryStore((s) => s.isLoading);
-  const fetchHistory = useHistoryStore((s) => s.fetchHistory);
-
   const modeParam = searchParams.get('mode');
   const mode: 'collection' | 'personal' =
     isAuthenticated && modeParam === 'personal' ? 'personal' : 'collection';
+
+  // Personal mode: реальная агрегация по найденным статьям, не по фильтрам поиска
+  // (docs/personal-search-data/spec.md §2/§4) — заменяет клиентские selectByYear/
+  // DocType/Country/Journal из historyStore, которые агрегировали параметры
+  // фильтров, а не атрибуты фактически найденных статей.
+  const [personalStats, setPersonalStats] = useState<SearchStatsResponse | null>(null);
+  const [personalLoading, setPersonalLoading] = useState(false);
 
   useEffect(() => { fetchStats(); }, [fetchStats]);
 
@@ -133,18 +131,16 @@ export default function ExplorePage() {
   }, [activeSelection]);
 
   useEffect(() => {
-    if (isAuthenticated) fetchHistory();
-  }, [isAuthenticated, fetchHistory]);
-
-  const personalData = useMemo(() => {
-    if (mode !== 'personal') return null;
-    return {
-      by_year: selectByYear(historyItems),
-      by_doc_type: selectByDocType(historyItems),
-      by_country: selectByCountry(historyItems),
-      by_journal: selectByJournal(historyItems),
-    };
-  }, [mode, historyItems]);
+    if (mode !== 'personal') return;
+    let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPersonalLoading(true);
+    getPersonalStats()
+      .then((data) => { if (!cancelled) setPersonalStats(data); })
+      .catch(() => { if (!cancelled) setPersonalStats(null); })
+      .finally(() => { if (!cancelled) setPersonalLoading(false); });
+    return () => { cancelled = true; };
+  }, [mode]);
 
   function switchMode(next: 'collection' | 'personal') {
     const params = new URLSearchParams(searchParams);
@@ -233,15 +229,15 @@ export default function ExplorePage() {
       {/* ================================================================ */}
       {mode === 'personal' && (
         <ErrorBoundary fallback={<ChartErrorFallback />}>
-          {historyLoading ? (
+          {personalLoading ? (
             <PersonalSkeleton />
-          ) : personalData ? (
+          ) : personalStats && personalStats.total > 0 ? (
             <Suspense fallback={<PersonalSkeleton />}>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <PublicationsByYearChart data={personalData.by_year} isLoading={false} />
-                <DocumentTypesChart data={personalData.by_doc_type} isLoading={false} />
-                <TopCountriesChart data={personalData.by_country} isLoading={false} />
-                <TopJournalsChart data={personalData.by_journal} isLoading={false} />
+                <PublicationsByYearChart data={personalStats.by_year} isLoading={false} />
+                <DocumentTypesChart data={personalStats.by_doc_type} isLoading={false} />
+                <TopCountriesChart data={personalStats.by_country} isLoading={false} />
+                <TopJournalsChart data={personalStats.by_journal} isLoading={false} />
               </div>
             </Suspense>
           ) : (

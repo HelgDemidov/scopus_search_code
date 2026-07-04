@@ -240,12 +240,44 @@ async def get_search_stats(
         user_id=int(current_user.id),
         search=search,
     )
+    return _to_search_stats_response(data)
+
+
+# ------------------------------------------------------------------ #
+#  GET /stats/personal — приватный, JWT обязателен                    #
+# ------------------------------------------------------------------ #
+
+
+@router.get("/stats/personal", response_model=SearchStatsResponse, tags=["Analytics"])
+async def get_personal_stats(
+    result_repo: PostgresSearchResultRepository = Depends(_get_search_result_repo),
+    current_user: User = Depends(get_current_user),
+) -> SearchStatsResponse:
+    # Приватный эндпоинт — источник инфографики /explore?mode=personal (не кэшируется:
+    # низкий QPS, join на ≤HISTORY_DEPTH_LIMIT записей истории на пользователя, по
+    # аналогии с /stats/pivot и /stats/journal-impact — docs/personal-search-data/spec.md §2.2).
+    # search=None — агрегат по ВСЕЙ (не по одному ключевому слову) истории пользователя.
+    # Отдельный роут, а не search=None через /search/stats: тот путь никогда не
+    # выполнялся и не тестировался (роутер требовал min_length=2).
+    data = await result_repo.get_search_stats_for_user(
+        user_id=int(current_user.id),
+        search=None,
+    )
+    return _to_search_stats_response(data)
+
+
+def _to_search_stats_response(data: dict) -> SearchStatsResponse:
+    # Общий маппинг dict репозитория → Pydantic-схему для /search/stats и /stats/personal
     return SearchStatsResponse(
         total=data["total"],
         by_year=[CountByField(label=str(r["year"]), count=r["count"]) for r in data["by_year"]],
         by_journal=[CountByField(label=r["journal"], count=r["count"]) for r in data["by_journal"]],
         by_country=[CountByField(label=r["country"], count=r["count"]) for r in data["by_country"]],
         by_doc_type=[CountByField(label=r["doc_type"], count=r["count"]) for r in data["by_doc_type"]],
+        by_open_access=[
+            CountByField(label="true" if r["open_access"] else "false", count=r["count"])
+            for r in data["by_open_access"]
+        ],
     )
 
 
@@ -344,7 +376,12 @@ async def get_find_quota(
 
 @router.get("/history", response_model=SearchHistoryResponse)
 async def get_search_history(
-    n: int = Query(100, ge=1, le=100, description="Количество последних записей истории"),
+    n: int = Query(
+        SearchHistoryService.HISTORY_DEPTH_LIMIT,
+        ge=1,
+        le=SearchHistoryService.HISTORY_DEPTH_LIMIT,
+        description="Количество последних записей истории",
+    ),
     service: SearchHistoryService = Depends(get_search_history_service),
     current_user: User = Depends(get_current_user),
 ) -> SearchHistoryResponse:

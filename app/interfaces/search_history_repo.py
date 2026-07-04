@@ -59,3 +59,26 @@ class ISearchHistoryRepository(ABC):
         Возвращает None если окно пустое (использованных запросов нет).
         """
         pass
+
+    @abstractmethod
+    async def trim_to_last_n(
+        self,
+        user_id: int,
+        n: int,
+        keep_since: datetime.datetime | None = None,
+    ) -> int:
+        """
+        Retention: удаляет для user_id все строки истории сверх последних n
+        (по created_at DESC, id DESC как tie-break). Возвращает число удалённых строк.
+        Идемпотентно — если строк <= n, ничего не удаляет.
+        Вызывается внутри SearchService.find_and_save сразу после insert_row —
+        новая запись всегда самая свежая и переживает trim (docs/personal-search-data/spec.md §1).
+
+        keep_since: если задан — строки с created_at >= keep_since НИКОГДА не удаляются,
+        даже если их больше n. Обязателен для прод-вызова: без этого предохранителя
+        retention может удалить строки, ещё учитываемые в count_in_window() для недельной
+        квоты (HISTORY_DEPTH_LIMIT=100 < QUOTA_LIMIT=200) — used начнёт занижаться, и
+        429 станет недостижим для активных пользователей. SearchService передаёт сюда
+        начало 7-дневного квотного окна.
+        """
+        pass

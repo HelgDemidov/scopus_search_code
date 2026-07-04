@@ -1,4 +1,5 @@
 # Сервис пользовательского поиска — оркестрирует Scopus API + сохранение результатов
+import datetime
 from typing import List
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,6 +9,7 @@ from app.interfaces.search_client import ISearchClient
 from app.interfaces.search_history_repo import ISearchHistoryRepository
 from app.interfaces.search_result_repo import ISearchResultRepository
 from app.models.article import Article
+from app.services.search_history_service import SearchHistoryService
 
 
 class SearchService:
@@ -45,8 +47,9 @@ class SearchService:
         1. Запрос к Scopus API
         2. upsert статей в таблицу articles → получаем id
         3. INSERT в search_history → получаем search_history.id
-        4. INSERT в search_result_articles с rank = порядок в выдаче Scopus
-        5. commit()
+        4. Retention: trim_to_last_n — удаляем историю сверх лимита на юзера
+        5. INSERT в search_result_articles с rank = порядок в выдаче Scopus
+        6. commit()
 
         Если любой шаг бросает исключение — транзакция откатывается целиком.
         """
@@ -78,14 +81,35 @@ class SearchService:
             scopus_query=scopus_query,  # Сохраняем построенный CQL-запрос
         )
 
-        # Шаг 4: связываем статьи с записью истории через search_result_articles
+        # Шаг 4: retention — новая строка всегда самая свежая (largest created_at/id)
+        # и гарантированно переживает trim; 101-я по счету (самая старая) тихо
+        # удаляется здесь же, в той же транзакции. Блока/ошибки для пользователя нет
+        # (docs/personal-search-data/spec.md §1). Cascade на search_result_articles —
+        # через ondelete="CASCADE" в модели, отдельного шага не требует.
+        #
+        # keep_since обязателен: HISTORY_DEPTH_LIMIT(100) < QUOTA_LIMIT(200) за то же
+        # 7-дневное окно — без этого предохранителя retention удалял бы строки, ещё
+        # учитываемые в count_in_window() при проверке квоты в роутере, и used
+        # никогда не смог бы дойти до 200 → 429 стал бы недостижим для активных
+        # пользователей (найдено при проектировании интеграционного теста, не было
+        # в исходной спеке §1).
+        quota_window_start = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(
+            days=SearchHistoryService.WINDOW_DAYS
+        )
+        await self.history_repo.trim_to_last_n(
+            user_id=user_id,
+            n=SearchHistoryService.HISTORY_DEPTH_LIMIT,
+            keep_since=quota_window_start,
+        )
+
+        # Шаг 5: связываем статьи с записью истории через search_result_articles
         # rank = порядковый индекс в выдаче Scopus (0-based)
         await self.search_result_repo.save_results(
             search_history_id=history_row.id,
             articles=articles_with_ids,
         )
 
-        # Шаг 5: единственный commit() — атомарно фиксируем articles +
+        # Шаг 6: единственный commit() — атомарно фиксируем articles +
         # search_history + search_result_articles одной транзакцией
         await self.session.commit()
 

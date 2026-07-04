@@ -12,6 +12,7 @@ from app.interfaces.search_history_repo import ISearchHistoryRepository
 from app.interfaces.search_result_repo import ISearchResultRepository
 from app.models.article import Article
 from app.models.search_history import SearchHistory
+from app.services.search_history_service import SearchHistoryService
 from app.services.search_service import SearchService
 
 # ================================================================ #
@@ -82,8 +83,12 @@ class FakeArticleRepository(IArticleRepository):
 
 
 class FakeSearchHistoryRepository(ISearchHistoryRepository):
-    def __init__(self):
+    def __init__(self, call_order: list[str] | None = None):
         self.insert_calls: list[dict] = []
+        self.trim_calls: list[dict] = []
+        # Общий с FakeSearchResultRepository список — фиксирует порядок шагов
+        # insert_row → trim_to_last_n → save_results для проверки последовательности
+        self.call_order: list[str] = call_order if call_order is not None else []
 
     async def insert_row(
         self,
@@ -103,6 +108,7 @@ class FakeSearchHistoryRepository(ISearchHistoryRepository):
                 "scopus_query": scopus_query,
             }
         )
+        self.call_order.append("insert_row")
         return SearchHistory(
             id=len(self.insert_calls),
             user_id=user_id,
@@ -124,10 +130,21 @@ class FakeSearchHistoryRepository(ISearchHistoryRepository):
     ) -> datetime.datetime | None:
         return None
 
+    async def trim_to_last_n(
+        self,
+        user_id: int,
+        n: int,
+        keep_since: datetime.datetime | None = None,
+    ) -> int:
+        self.trim_calls.append({"user_id": user_id, "n": n, "keep_since": keep_since})
+        self.call_order.append("trim_to_last_n")
+        return 0
+
 
 class FakeSearchResultRepository(ISearchResultRepository):
-    def __init__(self):
+    def __init__(self, call_order: list[str] | None = None):
         self.save_results_calls: list[dict] = []
+        self.call_order: list[str] = call_order if call_order is not None else []
 
     async def save_results(
         self,
@@ -140,6 +157,7 @@ class FakeSearchResultRepository(ISearchResultRepository):
                 "articles": list(articles),
             }
         )
+        self.call_order.append("save_results")
 
     async def get_results_by_history_id(self, search_history_id: int, user_id: int) -> List[Article] | None:
         return None
@@ -191,8 +209,9 @@ def _mk_service(
 ]:
     sc = FakeSearchClient(articles=articles, raise_exc=search_raise)
     ar = FakeArticleRepository(raise_exc=upsert_raise)
-    hr = FakeSearchHistoryRepository()
-    sr = FakeSearchResultRepository()
+    shared_call_order: list[str] = []
+    hr = FakeSearchHistoryRepository(call_order=shared_call_order)
+    sr = FakeSearchResultRepository(call_order=shared_call_order)
     sess = FakeSession()
     svc = SearchService(
         search_client=sc,
@@ -226,7 +245,7 @@ async def test_constructor_stores_all_dependencies():
 
 @pytest.mark.asyncio
 async def test_find_and_save_success_full_pipeline():
-    """Успешный путь: search → upsert_many → insert_row → save_results → commit."""
+    """Успешный путь: search → upsert_many → insert_row → trim_to_last_n → save_results → commit."""
     svc, sc, ar, hr, sr, sess = _mk_service(articles=[_mk_article("10.test/1"), _mk_article("10.test/2")])
 
     result = await svc.find_and_save("AI", count=10, user_id=7, filters={"year_from": 2020})
@@ -247,17 +266,32 @@ async def test_find_and_save_success_full_pipeline():
     assert call["result_count"] == 2
     assert call["filters"] == {"year_from": 2020}
 
-    # 4. save_results вызван с корректным search_history_id и статьями с id
+    # 4. trim_to_last_n вызван с user_id, HISTORY_DEPTH_LIMIT и keep_since —
+    # предохранитель квотного окна (WINDOW_DAYS назад от текущего момента)
+    assert len(hr.trim_calls) == 1
+    trim_call = hr.trim_calls[0]
+    assert trim_call["user_id"] == 7
+    assert trim_call["n"] == SearchHistoryService.HISTORY_DEPTH_LIMIT
+    expected_floor = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(
+        days=SearchHistoryService.WINDOW_DAYS
+    )
+    assert trim_call["keep_since"] is not None
+    assert abs((trim_call["keep_since"] - expected_floor).total_seconds()) < 5
+
+    # 5. save_results вызван с корректным search_history_id и статьями с id
     assert len(sr.save_results_calls) == 1
     sr_call = sr.save_results_calls[0]
     assert sr_call["search_history_id"] == 1
     assert len(sr_call["articles"]) == 2
     assert all(a.id is not None for a in sr_call["articles"])
 
-    # 5. commit() вызван ровно один раз
+    # 6. Порядок шагов: insert_row → trim_to_last_n → save_results
+    assert hr.call_order == ["insert_row", "trim_to_last_n", "save_results"]
+
+    # 7. commit() вызван ровно один раз
     assert sess.commit_call_count == 1
 
-    # 6. Результат возвращает статьи с id
+    # 8. Результат возвращает статьи с id
     assert len(result) == 2
 
 
@@ -345,6 +379,7 @@ async def test_find_and_save_empty_returns_empty_and_skips_pipeline():
     assert result == []
     assert ar.upsert_many_calls == []
     assert hr.insert_calls == []
+    assert hr.trim_calls == []  # trim не вызывается, если история вообще не писалась
     assert sr.save_results_calls == []
     assert sess.commit_call_count == 0
 
@@ -364,6 +399,7 @@ async def test_find_and_save_search_exception_skips_all_db_ops():
 
     assert ar.upsert_many_calls == []
     assert hr.insert_calls == []
+    assert hr.trim_calls == []
     assert sr.save_results_calls == []
     assert sess.commit_call_count == 0
 
@@ -381,5 +417,6 @@ async def test_find_and_save_upsert_exception_skips_history_and_results():
 
     assert len(ar.upsert_many_calls) == 1
     assert hr.insert_calls == []
+    assert hr.trim_calls == []
     assert sr.save_results_calls == []
     assert sess.commit_call_count == 0

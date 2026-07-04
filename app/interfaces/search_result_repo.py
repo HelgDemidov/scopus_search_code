@@ -42,8 +42,11 @@ class ISearchResultRepository(ABC):
     ) -> dict:
         """
         Возвращает агрегаты по статьям из поисков конкретного пользователя:
-        total, by_year, by_journal, by_country, by_doc_type.
-        search: опциональный ILIKE-фильтр по title/author статей.
+        total, by_year, by_journal, by_country, by_doc_type, by_open_access.
+        search: опциональный ILIKE-фильтр по title/author статей. search=None —
+        агрегат по ВСЕЙ истории пользователя (GET /articles/stats/personal).
         since: опциональный фильтр — только поиски начиная с этой даты.
+        Статьи дедуплицируются по id (.distinct) — одна и та же статья, найденная
+        в двух разных поисках пользователя, считается один раз, не дважды.
         """
         pass

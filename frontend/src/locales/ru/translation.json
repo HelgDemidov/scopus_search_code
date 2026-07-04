@@ -152,7 +152,10 @@
       "resultCount_many": "{{count}} результатов",
       "resultCount_other": "{{count}} результатов",
       "prevPage": "Предыдущая страница",
-      "nextPage": "Следующая страница"
+      "nextPage": "Следующая страница",
+      "showResults": "Показать статьи",
+      "hideResults": "Скрыть статьи",
+      "resultsError": "Не удалось загрузить статьи"
     }
   },
   "explore": {
