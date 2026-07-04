@@ -2,8 +2,8 @@ import { useTranslation } from 'react-i18next';
 import { useStatsStore } from '../../stores/statsStore';
 import { useDashboardStore } from '../../stores/dashboardStore';
 import { KpiTile } from './KpiTile';
+import { getKpiLabel } from './kpiLabels';
 import type { Dimension } from '../charts/chartColors';
-import type { TFunction } from 'i18next';
 
 type Stats = NonNullable<ReturnType<typeof useStatsStore.getState>['stats']>;
 
@@ -13,19 +13,53 @@ interface KpiConfig {
   getValue: (stats: Stats) => number;
 }
 
-function getKpiLabel(dim: Dimension, count: number, t: TFunction): string {
-  switch (dim) {
-    case 'year':        return t('explore.kpi.articlesIndexed', { count });
-    case 'country':     return t('explore.kpi.countries', { count });
-    case 'open_access': return t('explore.kpi.openAccess');
-    case 'doc_type':    return t('explore.kpi.docTypes', { count });
-    case 'journal':     return t('explore.kpi.journals', { count });
-    case 'author':      return t('explore.kpi.authors', { count });
-  }
+// ---------------------------------------------------------------------------
+// KpiTileRow — общая презентационная сердцевина (docs/explore-personal-redesign/
+// spec.md §1.2 п.4): не читает никакой стор, только рендерит уже вычисленные
+// тайлы. Формулы вычисления value у collection/personal разные (см. spec.md
+// §1.1) — переиспользуется только оболочка, не сама формула.
+// ---------------------------------------------------------------------------
+
+export interface KpiTileSpec {
+  dimension: Dimension;
+  label: string;
+  value: number;
 }
 
-// Ряд из 6 кликабельных KPI-тайлов над дашбордом.
-// Клик открывает Drawer с детальным видом по выбранному измерению.
+interface KpiTileRowProps {
+  tiles: KpiTileSpec[];
+  isLoading: boolean;
+  drawerDimension: Dimension | null;
+  onTileClick: (dimension: Dimension) => void;
+  columnsClassName?: string;
+}
+
+export function KpiTileRow({
+  tiles,
+  isLoading,
+  drawerDimension,
+  onTileClick,
+  columnsClassName = 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3',
+}: KpiTileRowProps) {
+  return (
+    <div className={columnsClassName}>
+      {tiles.map(({ dimension, label, value }) => (
+        <KpiTile
+          key={dimension}
+          label={label}
+          value={value}
+          dimension={dimension}
+          isActive={drawerDimension === dimension}
+          isLoading={isLoading}
+          onClick={() => onTileClick(dimension)}
+        />
+      ))}
+    </div>
+  );
+}
+
+// Ряд из 6 кликабельных KPI-тайлов над дашбордом (collection mode, поведение
+// не меняется). Клик открывает Drawer с детальным видом по выбранному измерению.
 export function KpiRow() {
   const { t } = useTranslation();
   const { stats, isLoading } = useStatsStore();
@@ -48,22 +82,17 @@ export function KpiRow() {
     }
   }
 
+  const tiles: KpiTileSpec[] = KPI_TILES.map(({ dimension, getLabel, getValue }) => {
+    const count = stats ? getValue(stats) : 0;
+    return { dimension, label: getLabel(count), value: count };
+  });
+
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-      {KPI_TILES.map(({ dimension, getLabel, getValue }) => {
-        const count = stats ? getValue(stats) : 0;
-        return (
-          <KpiTile
-            key={dimension}
-            label={getLabel(count)}
-            value={count}
-            dimension={dimension}
-            isActive={drawerDimension === dimension}
-            isLoading={isLoading}
-            onClick={() => handleTileClick(dimension)}
-          />
-        );
-      })}
-    </div>
+    <KpiTileRow
+      tiles={tiles}
+      isLoading={isLoading}
+      drawerDimension={drawerDimension}
+      onTileClick={handleTileClick}
+    />
   );
 }

@@ -2,6 +2,7 @@
 
 **Статус:** черновик v1 · 2026-07-05
 **Ветка:** `feat/explore-personal-redesign`
+**Сквозное требование:** каждая новая единица функционала по чек-листу §6 (компонент, эндпоинт, репозиторий-метод) должна сопровождаться адекватным тестовым покрытием — не постфактум одним общим прогоном в конце, а по завершении каждого пункта чек-листа (см. §1.5/§2.3).
 
 ---
 
@@ -42,19 +43,21 @@
 
 `KpiRow`/`DimensionDrawer` сейчас **сами** читают `useStatsStore` (жёсткая связь с collection-эндпоинтом) — прямое переиспользование невозможно без рефакторинга на props. План:
 
-1. Ввести общий TS-интерфейс `DimensionStatsSource` (`by_year`/`by_journal`/`by_country`/`by_doc_type`/`by_open_access`, все `LabelCount[]`) в `types/api.ts`. И `StatsResponse`, и `SearchStatsResponse` уже структурно ему удовлетворяют — изменений в бэкенд-схемах не требуется.
-2. `getConfig()` в `DimensionDrawer.tsx` — сузить тип параметра `stats: StatsResponse | null` → `stats: DimensionStatsSource | null`; функция и так обращается только к полям, входящим в общий интерфейс (кроме `author`-ветки, которая остаётся недоступной, если `dimension` не входит в переданный список допустимых для конкретного источника).
-3. `KpiRow`/`DimensionDrawer` — перевести на приём `source`/`isLoading` через props вместо прямого чтения `useStatsStore` внутри. Для сохранения нулевого риска регрессии в collection mode: оставить `<KpiRow />`/`<DimensionDrawer />` как есть внешне (обёртки без пропсов, читающие `useStatsStore` и прокидывающие вниз в общий презентационный компонент) — то есть сам рефакторинг invisible снаружи для существующих call site в `ExplorePage.tsx`.
-4. Новые тонкие обёртки `PersonalKpiRow`/`PersonalDimensionDrawer` — читают personal-стор (см. §1.3), передают тот же общий презентационный слой, но со списком из 5 dimension (без `author`).
+**Уточнение по факту кода (важно):** `by_open_access` не унифицирован между источниками "из коробки" — `DimensionDrawer.getConfig()` для collection строит 2-элементный breakdown вручную из скалярных `open_access_count`/`total_articles`, тогда как `SearchStatsResponse.by_open_access` уже пришёл готовым массивом с лейблами `'true'`/`'false'` (конвенция `PivotDimension`, см. `postgres_catalog_repo._stringify_dim`). А `KpiRow` вычисляет ЗНАЧЕНИЯ тайлов из скалярных полей (`total_articles`/`total_countries`/`total_journals`/`total_authors`/`open_access_count`), которых в `SearchStatsResponse` нет вообще (там только `total` + `by_*`-массивы) — формулы вычисления value принципиально разные между режимами, унифицировать сами формулы не нужно и не стоит. Отсюда — раздельная стратегия для Drawer (данные унифицируемы) и KpiRow (унифицируем только презентационную оболочку, не вычисление):
+
+1. Ввести общий TS-интерфейс `DimensionStatsSource` (`by_year`/`by_country`/`by_doc_type`/`by_journal`: `LabelCount[]`; `by_open_access: LabelCount[]` — ровно 2 элемента, канонические лейблы `'true'`/`'false'`; `top_authors?: LabelCount[]` — опционально, только collection) в `types/api.ts`.
+2. `getConfig()` в `DimensionDrawer.tsx` — сузить тип параметра `stats: StatsResponse | null` → `stats: DimensionStatsSource | null`; ветку `open_access` переписать на чтение `stats.by_open_access.find(d => d.label === 'true'/'false')` вместо прямого вычитания скаляров (уже работает одинаково для обоих источников); ветку `author` — защитный `stats.top_authors ?? []` (для personal она физически недостижима — `author` не входит в список измерений personal-режима, см. п.4).
+3. `DimensionDrawer` — перевести на приём `source: DimensionStatsSource | null`/`isLoading`/`dimensions: Dimension[]` (допустимый список измерений — 6 для collection, 5 для personal) через props вместо прямого чтения `useStatsStore` внутри. Для сохранения нулевого риска регрессии в collection mode: оставить `<DimensionDrawer />` как есть внешне (обёртка без пропсов, читает `useStatsStore`, адаптирует `StatsResponse` → `DimensionStatsSource` — включая построение `by_open_access` из `open_access_count`/`total_articles` — и прокидывает вниз в общий презентационный компонент). Новый `PersonalDimensionDrawer` — аналогичная тонкая обёртка над personal-стором (см. §1.3), `SearchStatsResponse` уже структурно совместим с `DimensionStatsSource` (кроме `top_authors`, которого там нет и не нужно), `dimensions` — список из 5 (без `author`).
+4. `KpiRow` — иначе: значения тайлов не унифицируются в общий тип, т.к. формулы разные. Вместо этого выделить чисто презентационную `KpiTileRow` (принимает готовый `tiles: {dimension,label,value}[]` + `isLoading`/`drawerDimension`/`onTileClick` — без обращения к какому-либо стору). `KpiRow` (collection, поведение не меняется) — вычисляет свои 6 тайлов из `useStatsStore`, рендерит `<KpiTileRow tiles={...} .../>`. Новый `PersonalKpiRow` — вычисляет свои 5 тайлов (§1.1) из personal-стора, рендерит тот же `<KpiTileRow>`.
 5. `dashboardStore`: `drawerDimension`/`openDrawer`/`closeDrawer` — общий стор используется и коллекцией, и personal-обёрткой (single Sheet instance на весь `ExplorePage`, т.к. режимы взаимоисключающие — переключение между `mode=collection`/`mode=personal` уже закрывает предыдущий вид). Проверить: при смене `mode` drawer должен закрываться (`closeDrawer()` в `useEffect` на смену `mode`), иначе возможен edge-case открытого drawer с "залипшим" измерением после переключения.
 
 ### 1.3 Данные
 
-Новый лёгкий стор `personalStatsStore.ts` (или расширение существующего state в `ExplorePage.tsx` — на усмотрение реализации, не строгое требование) — оборачивает уже существующий `getPersonalStats()` (`/stats/personal`), без изменений бэкенда.
+Без нового стора. `ExplorePage.tsx` уже хранит `personalStats`/`personalLoading` (локальный `useState`, `getPersonalStats()`) — прокидывать этот же state пропсами в `PersonalKpiRow`/`PersonalDimensionDrawer` (`stats: SearchStatsResponse | null`, `isLoading: boolean`), без изменений бэкенда и без дублирующего фетча. `SearchStatsResponse` уже структурно satisfies `DimensionStatsSource` (см. §1.2) — адаптер не нужен, `stats` передаётся как есть.
 
 ### 1.4 Что удаляется
 
-`PublicationsByYearChart`/`DocumentTypesChart`/`TopCountriesChart`/`TopJournalsChart` — удалить вместе с `.test.tsx`, если после этой работы больше нигде не используются (проверить `components/charts/` на прочих потребителей перед удалением — по текущему коду единственный потребитель обоих — `ExplorePage.tsx` personal-ветка).
+`PublicationsByYearChart`/`DocumentTypesChart`/`TopCountriesChart`/`TopJournalsChart` — удалить вместе с `.test.tsx`. **Уточнение по факту (проверено при реализации):** помимо `ExplorePage.tsx`, все 4 использовал ещё и `SearchResultsDashboard.tsx` — но сам этот компонент оказался мёртвым кодом (не импортируется ни из одного живого route/родителя, только устаревший `vi.mock` в `HomePage.test.tsx`, сам `HomePage.tsx` его не рендерит). Удалён вместе с 4 чартами и осиротевшим mock'ом в `HomePage.test.tsx`.
 
 ### 1.5 Тесты
 

@@ -10,22 +10,13 @@ import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
 import { ErrorBoundary } from '../components/ui/ErrorBoundary';
 import { KpiRow } from '../components/explore/KpiRow';
-import { DimensionDrawer } from '../components/explore/DimensionDrawer';
+import { PersonalKpiRow } from '../components/explore/PersonalKpiRow';
+import { DimensionDrawer, PersonalDimensionDrawer } from '../components/explore/DimensionDrawer';
 import { ActiveFilterBanner } from '../components/explore/ActiveFilterBanner';
 
-// Charts — lazy-loaded: не попадают в основной чанк ExplorePage
-const PublicationsByYearChart = lazy(() =>
-  import('../components/charts/PublicationsByYearChart').then(m => ({ default: m.PublicationsByYearChart }))
-);
-const TopCountriesChart = lazy(() =>
-  import('../components/charts/TopCountriesChart').then(m => ({ default: m.TopCountriesChart }))
-);
-const DocumentTypesChart = lazy(() =>
-  import('../components/charts/DocumentTypesChart').then(m => ({ default: m.DocumentTypesChart }))
-);
-const TopJournalsChart = lazy(() =>
-  import('../components/charts/TopJournalsChart').then(m => ({ default: m.TopJournalsChart }))
-);
+// PublicationsByYearChart/DocumentTypesChart/TopCountriesChart/TopJournalsChart
+// удалены (docs/explore-personal-redesign/spec.md §1.4) — personal mode теперь
+// переиспользует KpiRow/DimensionDrawer вместо отдельного набора старых чартов.
 // OpenAccessChart/TopAuthorsChart удалены (docs/explore-cross-analytics/spec.md §1) —
 // не рендерились нигде (ни collection, ни personal mode), подтверждённый мёртвый код.
 // Их drawer-эквиваленты (DimensionDrawer) продолжают работать без изменений.
@@ -70,16 +61,6 @@ function CollectionSkeleton() {
   );
 }
 
-function PersonalSkeleton() {
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <Skeleton key={i} className="h-64 w-full rounded-xl" />
-      ))}
-    </div>
-  );
-}
-
 function ChartErrorFallback() {
   const { t } = useTranslation();
   return (
@@ -107,6 +88,7 @@ export default function ExplorePage() {
     activeSelection,
     fetchFilteredStats,
     clearFilteredStats,
+    closeDrawer,
   } = useDashboardStore();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -122,6 +104,15 @@ export default function ExplorePage() {
   const [personalLoading, setPersonalLoading] = useState(false);
 
   useEffect(() => { fetchStats(); }, [fetchStats]);
+
+  // Единственный Sheet-instance (dashboardStore.drawerDimension) используется обоими
+  // режимами (docs/explore-personal-redesign/spec.md §1.2 п.5) — при переключении
+  // mode закрываем drawer, иначе он может остаться открытым с "залипшим" измерением
+  // от предыдущего режима (напр. 'author' из collection недостижим в personal).
+  useEffect(() => {
+    closeDrawer();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
 
   // Cross-filter V2: при изменении выбора — запрашиваем отфильтрованные статистику
   useEffect(() => {
@@ -225,28 +216,22 @@ export default function ExplorePage() {
       )}
 
       {/* ================================================================ */}
-      {/* PERSONAL MODE — существующие чарты                               */}
+      {/* PERSONAL MODE — KPI + Drawer (docs/explore-personal-redesign/spec.md §1) */}
       {/* ================================================================ */}
       {mode === 'personal' && (
         <ErrorBoundary fallback={<ChartErrorFallback />}>
-          {personalLoading ? (
-            <PersonalSkeleton />
-          ) : personalStats && personalStats.total > 0 ? (
-            <Suspense fallback={<PersonalSkeleton />}>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <PublicationsByYearChart data={personalStats.by_year} isLoading={false} />
-                <DocumentTypesChart data={personalStats.by_doc_type} isLoading={false} />
-                <TopCountriesChart data={personalStats.by_country} isLoading={false} />
-                <TopJournalsChart data={personalStats.by_journal} isLoading={false} />
-              </div>
-            </Suspense>
-          ) : (
+          {!personalLoading && (!personalStats || personalStats.total === 0) ? (
             <p className="text-sm text-slate-500 dark:text-slate-400">
               <Trans
                 i18nKey="explore.emptyPersonal"
                 components={{ lnk: <Link to="/" className="underline underline-offset-2 hover:text-slate-700 dark:hover:text-slate-300" /> }}
               />
             </p>
+          ) : (
+            <>
+              <PersonalKpiRow stats={personalStats} isLoading={personalLoading} />
+              <PersonalDimensionDrawer stats={personalStats} />
+            </>
           )}
         </ErrorBoundary>
       )}

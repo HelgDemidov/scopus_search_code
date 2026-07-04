@@ -35,10 +35,6 @@ vi.mock('../components/search/SearchBar', () => ({
 vi.mock('../components/articles/ScopusQuotaBadge', () => ({
   ScopusQuotaBadge: () => <div data-testid="quota-badge" />,
 }));
-vi.mock('../components/search/SearchResultsDashboard', () => ({
-  SearchResultsDashboard: () => <div data-testid="results-dashboard" />,
-}));
-
 // react-router-dom: Link используется в AnonHero — заглушаем, чтобы не нужен был Router
 vi.mock('react-router-dom', () => ({
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
