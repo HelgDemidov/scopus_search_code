@@ -47,5 +47,5 @@ htmlcov/
 !.claude/commands/*.md
 CLAUDE.local.md
 
-# Личные заметки/фидбэк по проекту — не для публичного репо
-docs/project_context/
+# Рабочие спеки/ТЗ и заметки по проекту — не для публичного репо
+docs/
