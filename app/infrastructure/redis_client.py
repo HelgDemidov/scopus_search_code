@@ -31,6 +31,15 @@ class UpstashRedisClient:
                 return None
             return resp.json().get("result")
 
+    async def ping(self) -> bool:
+        """Проверка доступности Redis — используется в /health/redis и /seeder/health-check."""
+        try:
+            async with httpx.AsyncClient(timeout=2.0) as client:
+                resp = await client.get(f"{self._url}/ping", headers=self._headers)
+            return resp.status_code == 200 and resp.json().get("result") == "PONG"
+        except httpx.HTTPError:
+            return False
+
     async def setex(self, key: str, seconds: int, value: str) -> None:
         """Сохраняет значение с TTL через pipeline API (надежнее для JSON-значений)."""
         async with httpx.AsyncClient(timeout=2.0) as client:

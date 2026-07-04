@@ -1,10 +1,11 @@
 name: Frontend tests
 
-# Запускается при каждом push в ветку main
+# Запускается при каждом push в ветки main и feat/observability
 on:
   push:
     branches:
       - main
+      - feat/observability
     # Запускаем только когда меняется frontend или сам воркфлоу
     paths:
       - 'frontend/**'

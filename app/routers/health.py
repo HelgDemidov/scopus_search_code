@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_db_session
+from app.infrastructure.redis_client import redis_client
 
 router = APIRouter(prefix="/health", tags=["Health"])
 
@@ -27,4 +28,19 @@ async def health_db(session: AsyncSession = Depends(get_db_session)) -> dict[str
     # Легкая проверка доступности базы данных
     # Если база недоступна, здесь упадет исключение, и сервис вернет 5xx
     await session.execute(text("SELECT 1"))
+    return {"status": "ok"}
+
+
+@router.api_route(
+    "/redis",
+    methods=["GET"],
+    status_code=status.HTTP_200_OK,
+)
+async def health_redis() -> dict[str, str]:
+    # Redis не сконфигурирован — это graceful degradation (см. redis_client.py),
+    # а не ошибка, поэтому отдельный статус, а не 503
+    if redis_client is None:
+        return {"status": "not_configured"}
+    if not await redis_client.ping():
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="redis unavailable")
     return {"status": "ok"}
