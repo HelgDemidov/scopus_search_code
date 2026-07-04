@@ -26,8 +26,7 @@ rg "pattern" app/                    # ripgrep — не grep; -t py для .py; 
 Frontend: `cd frontend && npm run test / lint / build`
 
 ## MCP-серверы (Claude Code, user-scope, `claude mcp list`)
-Базовые: `github`, `supabase`, `railway`, `claude.ai Vercel`, `sequential-thinking`, `memory`.
-Добавлены 2026-07-02: `context7` (актуальная документация быстро меняющихся зависимостей), `chrome-devtools` (вождение/дебаг Chrome для фронтенд-QA; `--browserUrl` для подключения к уже открытому окну), `upstash` (управление Upstash Redis напрямую, нужен отдельный account-level ключ).
+Базовые: `github`, `supabase`, `railway`, `claude.ai Vercel`, `sequential-thinking`, `memory`. Добавлены 2026-07-02: `context7` (документация зависимостей), `chrome-devtools` (вождение/дебаг Chrome для фронтенд-QA; `--browserUrl` для подключения к уже открытому окну), `upstash` (управление Upstash Redis напрямую, нужен account-level ключ).
 
 ## Permissions allowlist (`.claude/settings.json`, добавлено 2026-07-02)
 Project-scope (не путать с личным `.claude/settings.local.json`). Read-only allowlist: `uv run ruff check *`, `uv run ruff format --check *`, `uv run mypy *`, `uv run pytest -m "not requires_pg"`, `cd frontend && npm run test/lint/build`. `rg`/`git status` уже в базовом auto-allow; `pytest -m requires_pg` намеренно не в списке — делает `drop_all` на PG-контейнере, не read-only.
@@ -50,8 +49,7 @@ Project-scope (не путать с личным `.claude/settings.local.json`).
 - Email: `IEmailService` ABC → `BrevoEmailService` (httpx, `api.brevo.com/v3/smtp/email`). **Railway блокирует SMTP порты 587/465 — никогда не использовать aiosmtplib/SMTP на Railway.** Env var: `BREVO_API_KEY` + `FROM_EMAIL`.
 
 ## Do NOT
-- Sync SQLAlchemy calls in async routes. Hardcoded secrets. CommonJS in frontend.
-- Bare `except:` — только конкретные типы. Pydantic v1 syntax в FastAPI схемах.
+- Sync SQLAlchemy calls in async routes. Hardcoded secrets. CommonJS in frontend. Bare `except:` — только конкретные типы. Pydantic v1 syntax в FastAPI схемах.
 - SMTP/aiosmtplib на Railway (порт 587 заблокирован). Использовать Brevo REST API (httpx).
 
 ## DB & env-var map (critical)
@@ -64,8 +62,8 @@ Cache-aside в `CatalogService.get_stats()` (TTL=60s, `redis_client.py` — си
 `SET LOCAL work_mem='32MB'` в `postgres_catalog_repo.get_stats()` — только `dialect=="postgresql"`. Тесты: `FakeRedis` in-memory дублёр, реальный Upstash в CI не используется.
 Публичные `/stats/journal-impact` и `/stats/pivot` (Table Builder/Journal Landscape, PR #44, merged 2026-07-03) — **не кэшируются** (runtime-параметризованные, в отличие от `/stats`); `_ALLOWED_PIVOT_PAIRS` whitelist в `app/routers/articles.py` — defense-in-depth от SQL-инъекции поверх Literal-типизации `PivotDimension`.
 
-## Personal search data (PR #45, merged 2026-07-04)
-`search_history` тримится до `SearchHistoryService.HISTORY_DEPTH_LIMIT=100`/юзер бесшовно внутри `SearchService.find_and_save` (`ISearchHistoryRepository.trim_to_last_n(user_id, n, keep_since)`, вызывается между `insert_row` и `save_results`, без блока/ошибки для клиента). `keep_since` обязателен в проде: `HISTORY_DEPTH_LIMIT(100) < QUOTA_LIMIT(200)` за то же 7-дневное окно — без него retention занижает `count_in_window()` и делает недельную квоту Scopus недостижимой. Migration `0015` — разовый бэкфилл. `GET /articles/stats/personal` (JWT, без кэша) — реальный источник `/explore?mode=personal` вместо клиентских `historyStore`-селекторов по параметрам фильтров (удалены как вводящие в заблуждение); `get_search_stats_for_user` дополнен `by_open_access`. `/profile` — просмотр статей прошлого поиска через уже существующий `GET /articles/history/{id}/results`.
+## Personal search data (PR #45, merged 2026-07-04; расширено PR #46, merged 2026-07-05)
+`search_history` тримится до `SearchHistoryService.HISTORY_DEPTH_LIMIT=100`/юзер бесшовно внутри `SearchService.find_and_save` (`ISearchHistoryRepository.trim_to_last_n(user_id, n, keep_since)`, между `insert_row` и `save_results`). `keep_since` обязателен: `HISTORY_DEPTH_LIMIT(100) < QUOTA_LIMIT(200)` за то же 7-дневное окно — без него retention занижает `count_in_window()`, недельная квота Scopus становится недостижимой. `find_and_save` пишет `search_history` (`result_count=0`) даже при 0 статьях от Scopus — раньше ранний `return []` до `insert_row` терял 0-result поиски из истории и квоты (баг с первого коммита, пофикшен 2026-07-06). `GET /articles/stats/personal` и `GET /articles/stats/personal/activity` (оба JWT, без кэша) — источники `/explore?mode=personal` (KPI/Drawer + `PersonalActivityChart`/`FilterFingerprintStrip`, авто-грануляция week/month по 70-дневному порогу). `/profile` — просмотр статей прошлого поиска через `GET /articles/history/{id}/results`.
 
 ## Test layers & CI
 ```
@@ -80,7 +78,7 @@ Advisory lock в DI-фабрике → новые тесты `GET /articles/find
 | Воркфлоу | Джобы | Триггер |
 |---|---|---|
 | `tests.yml` | `test` (SQLite), `test-pg` (PG16 + alembic check), `quality` (ruff/mypy/pip-audit), `coverage` (80%, после test+test-pg) | push+PR → main |
-| `frontend-tests.yml` | `typecheck`, `lint` (ESLint + npm audit), `unit`, `integration` (418 тестов, threshold 70%), `build` | push main (paths: frontend/**) |
+| `frontend-tests.yml` | `typecheck`, `lint` (ESLint + npm audit), `unit`, `integration` (threshold 70%), `build` | push main (paths: frontend/**) |
 | `e2e.yml` | `e2e` — smoke-тесты против Railway staging | push main |
 
 **Branch protection (main):** force push и удаление запрещены; required checks для PR: `test`, `test-pg`, `Code quality` (strict). enforce_admins=false — прямой пуш owner'а работает.

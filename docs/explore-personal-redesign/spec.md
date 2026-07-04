@@ -204,3 +204,17 @@ FilterFingerprintStrip (full-width, под активностью)
 - Горизонтальная прокрутка (оба графика, п.6 брифа): `FilterFingerprintStrip` уже имел нативный `overflow-x-auto` (браузерный скроллбар) — оставлен как есть, кастомный слайдер не добавлен (нет прецедента такого паттерна в проекте, `w-full` уже решает типичный случай 8–15 столбцов). `PersonalActivityChart` — Recharts `ResponsiveContainer` не имеет механизма скролла вообще, бары сжимаются под контейнер (как и все остальные графики дашборда); кол-во периодов физически ограничено `HISTORY_DEPTH_LIMIT=100`, отдельный скролл/слайдер не оправдан.
 
 **Тесты:** `FilterFingerprintStrip.test.tsx` (+3: заголовок "Date", zero-result маркер в шапке вместо строки), `PersonalActivityChart.test.tsx` — без изменений в структуре assertions (мок recharts не проверял конкретные fill/gradient значения). Полный фронтенд-прогон + lint + build — зелёные (детали в конце ТЗ/отчёте).
+
+---
+
+## 9. Статус выполнения
+
+**Смёрджено:** PR #46 → `main`, 2026-07-05 (`668719a`). Post-prod доработки — прямыми коммитами в `main` (без PR), 2026-07-06: `7a13b5f` (bar width/legend/fingerprint width+layout), `c6f2edf` (donut label size, fingerprint bottom spacing).
+
+**Сделано:** Work 1 (KPI+Drawer унификация personal↔collection, 5 тайлов без author) и Work 2 (PersonalActivityChart + FilterFingerprintStrip, автобиографический раздел) — полностью по чек-листу §6. Попутно найден и исправлен реальный pre-existing баг: `find_and_save` не писал `search_history` при 0-result поисках (см. §8, память `project-zero-result-search-not-recorded-bug`) — без этого фикса `zero_result_searches` был бы навсегда недостижим в проде. `docs/project_mask/`/`docs/project_tree/` (неиспользуемая инфраструктура для ручного экспорта контекста в LLM, устарела с переходом на Claude Code) удалены попутно в рамках того же PR.
+
+**Тесты:** 224 backend unit/SQLite + 21 PG-интеграционных, 580 frontend — все зелёные на момент финального прогона (2026-07-06).
+
+**Вне скоупа v1** — без изменений, см. §7 (cross-filter, кэширование activity, полная история за retention-окном, author-измерение).
+
+**Live-верификация:** Chrome DevTools против локального dev-сервера + прод-подключённой Supabase (реальный тестовый аккаунт `pxverify2026`) — KPI/Drawer, activity chart, fingerprint, обе темы, мобильный viewport (390×844) — подтверждены рабочими.

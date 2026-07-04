@@ -1,11 +1,10 @@
 name: Frontend tests
 
-# Запускается при каждом push в ветки main и feat/explore-personal-redesign
+# Запускается при каждом push в ветку main
 on:
   push:
     branches:
       - main
-      - feat/explore-personal-redesign
     # Запускаем только когда меняется frontend или сам воркфлоу
     paths:
       - 'frontend/**'
