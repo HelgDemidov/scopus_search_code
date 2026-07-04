@@ -373,18 +373,23 @@ async def test_find_and_save_uses_interface_build_query_not_private():
 
 
 @pytest.mark.asyncio
-async def test_find_and_save_empty_returns_empty_and_skips_pipeline():
-    """Если Scopus вернул 0 статей — никаких записей в БД, commit не вызван."""
+async def test_find_and_save_empty_writes_zero_result_history_row():
+    """Если Scopus вернул 0 статей — история всё равно пишется с result_count=0
+    (реальный вызов Scopus API уже израсходован и должен попасть в квоту/UI),
+    а upsert_many/save_results, для которых нет статей, не вызываются.
+    """
     svc, _, ar, hr, sr, sess = _mk_service(articles=[])
 
     result = await svc.find_and_save("AI", user_id=1)
 
     assert result == []
     assert ar.upsert_many_calls == []
-    assert hr.insert_calls == []
-    assert hr.trim_calls == []  # trim не вызывается, если история вообще не писалась
-    assert sr.save_results_calls == []
-    assert sess.commit_call_count == 0
+    assert len(hr.insert_calls) == 1
+    assert hr.insert_calls[0]["result_count"] == 0
+    assert len(hr.trim_calls) == 1  # retention применяется и к 0-result поискам
+    assert sr.save_results_calls == []  # нечего связывать — не вызывается
+    assert sess.commit_call_count == 1  # 0-result поиск теперь тоже коммитится
+    assert hr.call_order == ["insert_row", "trim_to_last_n"]
 
 
 # ================================================================ #
