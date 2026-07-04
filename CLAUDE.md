@@ -18,7 +18,7 @@ App config: `app/config.py` (Pydantic Settings).
 
 ## Commands (repo root, WSL2)
 ```bash
-uv run ruff check app tests && uv run mypy app
+uv run ruff check app tests && uv run ruff format --check app tests && uv run mypy app
 uv run pytest -m "not requires_pg"   # unit + SQLite integration (CI job 'test')
 uv run pytest -m requires_pg         # PG 16; нужен DATABASE_TEST_URL (throwaway, НЕ Supabase)
 rg "pattern" app/                    # ripgrep — не grep; -t py для .py; -l для имён файлов
@@ -30,7 +30,7 @@ Frontend: `cd frontend && npm run test / lint / build`
 Добавлены 2026-07-02: `context7` (актуальная документация быстро меняющихся зависимостей), `chrome-devtools` (вождение/дебаг Chrome для фронтенд-QA; `--browserUrl` для подключения к уже открытому окну), `upstash` (управление Upstash Redis напрямую, нужен отдельный account-level ключ).
 
 ## Permissions allowlist (`.claude/settings.json`, добавлено 2026-07-02)
-Project-scope (не путать с личным `.claude/settings.local.json`). Read-only allowlist: `uv run ruff check *`, `uv run mypy *`, `uv run pytest -m "not requires_pg"`, `cd frontend && npm run test/lint/build`. `rg`/`git status` уже в базовом auto-allow; `pytest -m requires_pg` намеренно не в списке — делает `drop_all` на PG-контейнере, не read-only.
+Project-scope (не путать с личным `.claude/settings.local.json`). Read-only allowlist: `uv run ruff check *`, `uv run ruff format --check *`, `uv run mypy *`, `uv run pytest -m "not requires_pg"`, `cd frontend && npm run test/lint/build`. `rg`/`git status` уже в базовом auto-allow; `pytest -m requires_pg` намеренно не в списке — делает `drop_all` на PG-контейнере, не read-only.
 
 ## Python conventions
 - Python 3.12; ruff E,F,I; line-length=115; target-version=py312; alembic/ excluded в pyproject.toml
