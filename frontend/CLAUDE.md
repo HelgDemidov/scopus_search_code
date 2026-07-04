@@ -26,7 +26,7 @@ i18n: react-i18next 17 + i18next 26 + i18next-browser-languagedetector 8.
 
 ## Tests (co-location pattern: тест рядом с источником)
 Unit: `src/**/*.test.{ts,tsx}` | Integration: `*.integration.test.*`
-Total (main, 2026-07-06): **580** тестов, все зелёные.
+Total (main, 2026-07-05): **618** тестов, все зелёные.
 Vitest patterns (Checkbox mock, fake timers, vi.hoisted) — см. память [[feedback-vitest-testing-patterns]]. jsdom mocks — [[feedback-jsdom-browser-api-mocks]].
 
 ### Coverage (2026-06-26)
@@ -45,6 +45,10 @@ npm run test / test:watch / test:coverage / lint / build
 ## Dark mode (feat/dark-mode, merged PR #33, 2026-06-28)
 `ThemeContext.ts` → `ThemeProvider.tsx` (overlay fade 3500/400ms) → `useTheme.ts` → `ThemeToggle.tsx`. `StarFieldCanvas.tsx` — Canvas звёздное небо (400/150 звёзд desktop/mobile, MAX_METEORS=50, HiDPI, prefers-reduced-motion).
 Фон `#0d1b2a`; поверхности (ChartCard/KpiTile/ChartTooltip) `#152236`. `useDimensionColors(dimension)` — theme-aware (dark → `darkDimmed` 900-shades). По умолчанию dark (первое посещение без localStorage). Логотип в Header → `articleStore.resetSearch()`.
+
+## Error UX — "No Signal" + чёрная дыра (PR #49, merged 2026-07-05)
+3-слойная архитектура: root `ErrorBoundary` (`main.tsx`, вне `<App/>` — ловит крэши ThemeProvider/StarFieldCanvas) → `errorElement` на корневом роуте + отдельный `path:'*'` → `NotFoundPage`/`RouteErrorPage` (`pages/error/`, общая `ErrorPanel` — панель `#152236`/`slate-700`, `font-mono` для телеметрии) → уже существовавший локальный `ErrorBoundary.tsx` вокруг чартов/списков (рестайлинг под текущие токены). `api/client.ts`: 5xx-toast теперь показывает `X-Request-ID` с copy-to-clipboard (issue #48). "Report this issue" — mailto на `VITE_SUPPORT_EMAIL` + breadcrumb последних ~10 навигаций (`utils/errorReport.ts`, `sessionStorage`).
+Сигнатурный эффект: `StarFieldCanvas` принимает опциональную чёрную дыру (`stores/blackHoleStore.ts` + `hooks/useBlackHole.ts`) — непрерывная (не дискретная) гравитационная линза для звёзд/метеоров/курсора мыши, математика вынесена в чистые тестируемые функции `utils/blackHoleLensing.ts` (3-зонная модель fade-start/outer/inner без разрыва на границах, гистерезис против мерцания курсора). Полная спецификация — `docs/error-experience/spec.md` (локально, не в репо).
 
 ## /explore analytics dashboard (merged 2026-06-27; рефакторинг PR #42, 2026-07-02)
 `ExplorePage` — collection mode: KpiRow (6 тайлов) → клик открывает `DimensionDrawer` (Sheet) с детальным видом. 6 старых стационарных чартов **отключены** в collection mode (компоненты не удалены, просто не рендерятся — дублировали DimensionDrawer); personal mode с PR #46 использует свои `PersonalKpiRow`/`PersonalDimensionDrawer` (см. ниже), старые 4 чарта personal mode удалены целиком.
