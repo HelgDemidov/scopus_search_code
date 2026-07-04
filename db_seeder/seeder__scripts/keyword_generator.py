@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 import httpx
 
@@ -23,7 +23,7 @@ def get_todays_cluster() -> str:
     Каждые 2 часа UTC выбирается новый кластер (cron 0 */2 * * *, 12 запусков в сутки).
     Формула даёт ровно 2 запуска на каждый из 6 кластеров в сутки.
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     # hour // 2 даёт 12 уникальных слотов в сутки; ordinal * 12 сдвигает начало каждый день
     slot = (now.toordinal() * 12 + now.hour // 2) % len(CLUSTERS)
     return CLUSTERS[slot]
@@ -33,7 +33,7 @@ def _build_prompt(cluster: str, used_keywords: list[str]) -> str:
     # Все фразы кластера передаются в блок исключений — модель не регенерирует уже известные.
     # При ~600 фразах × ~5 токенов ≈ 3 000 токенов; Mistral 32k держит легко.
     exclusion_block = (
-        f"\n\nDo NOT generate any of these already-used phrases:\n"
+        "\n\nDo NOT generate any of these already-used phrases:\n"
         + "\n".join(f"- {k}" for k in used_keywords)
         if used_keywords else ""
     )
@@ -98,7 +98,7 @@ async def generate_keywords(
         candidates: list[str] = json.loads(raw_content)
 
     except json.JSONDecodeError:
-        candidates: list[str] = []
+        candidates = []
 
         # Ищем начало JSON-массива — закрывающего ] может не быть (усечённый ответ)
         start = raw_content.find('[')
