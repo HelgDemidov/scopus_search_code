@@ -214,3 +214,33 @@ class PostgresArticleRepository(IArticleRepository):
 
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
+
+    # ------------------------------------------------------------------ #
+    #  delete_orphaned                                                     #
+    # ------------------------------------------------------------------ #
+
+    async def delete_orphaned(self) -> int:
+        """Garbage collection: статьи вне search_result_articles и catalog_articles.
+
+        До PR #45 (retention-trim search_history) сирот не возникало в принципе —
+        search_history/search_result_articles никогда не удалялись. Теперь
+        CASCADE-удаление старых search_result_articles при trim может оставить
+        статью без единой ссылки. articles.id при этом остаётся: строка нужна,
+        только если она НЕ в каталоге (иначе стёрли бы реальный каталожный контент —
+        catalog_articles.article_id имеет ondelete=CASCADE) И НЕ в активном поиске
+        (search_result_articles.article_id — ondelete=RESTRICT, СУБД и так не даст
+        удалить, но проверяем явно, а не полагаемся на исключение).
+        Портируемо на SQLite — коррелированный NOT EXISTS, без PG-специфики
+        (тот же принцип, что ISearchHistoryRepository.trim_to_last_n).
+        """
+        from app.models.catalog_article import CatalogArticle
+        from app.models.search_result_article import SearchResultArticle
+
+        referenced_by_search = select(sa.literal(1)).where(SearchResultArticle.article_id == Article.id).exists()
+        referenced_by_catalog = select(sa.literal(1)).where(CatalogArticle.article_id == Article.id).exists()
+
+        stmt = sa.delete(Article).where(~referenced_by_search, ~referenced_by_catalog)
+        result = await self.session.execute(stmt)
+        # CursorResult.rowcount доступен в рантайме для DML (DELETE), но Result[Any]
+        # в типах execute() его не объявляет (тот же паттерн, что trim_to_last_n)
+        return result.rowcount or 0  # type: ignore[attr-defined]

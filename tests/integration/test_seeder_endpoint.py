@@ -9,10 +9,13 @@ from datetime import date
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 import app.routers.seeder_router as seeder_module
 from app.infrastructure.scopus_client import ScopusHTTPClient
 from app.models.article import Article
+from app.models.catalog_article import CatalogArticle
 from app.services.catalog_service import CatalogService
 
 _TEST_SECRET = "test_seeder_secret_ci"
@@ -166,3 +169,46 @@ async def test_seed_with_articles_returns_correct_saved_count(client: AsyncClien
     assert data["saved"] == 3
     assert data["keyword"] == "large language model"
     assert data["start"] == 50
+
+
+# ================================================================ #
+#  GC статей-сирот (POST /seeder/gc)                               #
+# ================================================================ #
+
+
+@pytest.mark.asyncio
+async def test_gc_wrong_secret_returns_403(client: AsyncClient, monkeypatch):
+    monkeypatch.setattr(seeder_module, "_SEEDER_SECRET", _TEST_SECRET)
+
+    resp = await client.post("/seeder/gc", headers={"X-Seeder-Secret": "totally_wrong"})
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_gc_deletes_orphan_and_keeps_catalog_article(
+    client: AsyncClient, db_session: AsyncSession, monkeypatch
+):
+    monkeypatch.setattr(seeder_module, "_SEEDER_SECRET", _TEST_SECRET)
+
+    orphan = _mk_article(100)
+    catalog_article = _mk_article(101)
+    db_session.add_all([orphan, catalog_article])
+    await db_session.flush()
+    db_session.add(CatalogArticle(article_id=catalog_article.id, keyword="gc-test"))
+    await db_session.commit()
+
+    resp = await client.post("/seeder/gc", headers={"X-Seeder-Secret": _TEST_SECRET})
+    assert resp.status_code == 200
+    assert resp.json() == {"deleted": 1}
+
+    remaining_dois = {a.doi for a in (await db_session.execute(select(Article))).scalars().all()}
+    assert remaining_dois == {catalog_article.doi}
+
+
+@pytest.mark.asyncio
+async def test_gc_no_orphans_returns_zero(client: AsyncClient, monkeypatch):
+    monkeypatch.setattr(seeder_module, "_SEEDER_SECRET", _TEST_SECRET)
+
+    resp = await client.post("/seeder/gc", headers={"X-Seeder-Secret": _TEST_SECRET})
+    assert resp.status_code == 200
+    assert resp.json() == {"deleted": 0}

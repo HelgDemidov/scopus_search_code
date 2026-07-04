@@ -52,3 +52,19 @@ async def seed_keyword(
         "start": start,
         "rate_remaining": scopus.last_rate_remaining,
     }
+
+
+@router.post("/gc", dependencies=[Depends(_check_secret)])
+async def garbage_collect_articles(
+    session: AsyncSession = Depends(get_db_session),
+) -> dict[str, int]:
+    """Удаляет статьи-сироты (см. IArticleRepository.delete_orphaned).
+
+    Однотабличная операция, атомарность одного DELETE — коммит здесь же,
+    без выделения под неё отдельного сервиса (ArticleService — thin-сервис
+    только для GET /articles/{id}, см. его docstring).
+    """
+    repo = PostgresArticleRepository(session)
+    deleted = await repo.delete_orphaned()
+    await session.commit()
+    return {"deleted": deleted}

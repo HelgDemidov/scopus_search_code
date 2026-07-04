@@ -39,6 +39,9 @@ class FakeArticleRepository(IArticleRepository):
     async def get_by_id(self, article_id: int, user_id: int | None = None) -> Article | None:
         return None
 
+    async def delete_orphaned(self) -> int:
+        return 0
+
 
 class FakeCatalogRepository(ICatalogRepository):
     def __init__(self, articles: List[Article] | None = None, total: int = 0):
@@ -574,6 +577,9 @@ async def test_seed_upsert_failure_skips_save_seeded_and_commit():
 
         async def get_by_id(self, article_id, user_id=None):
             return None
+
+        async def delete_orphaned(self) -> int:
+            return 0
 
     cr = FakeCatalogRepository()
     sess = FakeSession()

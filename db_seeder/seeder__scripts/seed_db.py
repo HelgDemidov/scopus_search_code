@@ -99,6 +99,20 @@ async def _call_seed_endpoint(
     return data.get("saved", 0), data.get("rate_remaining")
 
 
+async def _call_gc_endpoint(client: httpx.AsyncClient, headers: dict) -> int | None:
+    """POST /seeder/gc — чистит статьи-сироты (см. IArticleRepository.delete_orphaned).
+
+    Раз в прогон, после обоих блоков — piggyback на существующий 2-часовой cron,
+    отдельная джоба/воркфлоу не заводится (garbage collection не срочная,
+    накопление сирот медленное).
+    """
+    response = await client.post(f"{BASE_URL}/seeder/gc", headers=headers)
+    if response.status_code != 200:
+        print(f"{Fore.RED}GC ошибка {response.status_code}: {response.text[:100]}")
+        return None
+    return response.json().get("deleted", 0)
+
+
 async def seed_database() -> None:
     print(f"{Fore.CYAN}===== Сидер Scopus запущен =====")
     print(f"BASE_URL: {BASE_URL}\n")
@@ -205,6 +219,12 @@ async def seed_database() -> None:
                 except Exception as e:
                     print(f"{Fore.RED}Непредвиденная ошибка: {e}")
                 await asyncio.sleep(DELAY_BETWEEN_REQUESTS)
+
+            # ── GC: статьи-сироты ────────────────────────────────────────
+            print(f"\n{Fore.CYAN}── Garbage collection: чистим статьи-сироты ──")
+            deleted = await _call_gc_endpoint(client, headers)
+            if deleted is not None:
+                print(f"{Fore.GREEN}Удалено статей-сирот: {deleted}")
 
     finally:
         await conn.close()

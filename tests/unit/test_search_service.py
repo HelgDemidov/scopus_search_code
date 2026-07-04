@@ -81,6 +81,9 @@ class FakeArticleRepository(IArticleRepository):
     async def get_by_id(self, article_id: int, user_id: int | None = None) -> Article | None:
         return None
 
+    async def delete_orphaned(self) -> int:
+        return 0
+
 
 class FakeSearchHistoryRepository(ISearchHistoryRepository):
     def __init__(self, call_order: list[str] | None = None):

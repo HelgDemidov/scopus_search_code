@@ -35,6 +35,10 @@ class FakeArticleRepository(IArticleRepository):
     ) -> Article | None:
         return self._store.get(article_id)
 
+    async def delete_orphaned(self) -> int:
+        # Не нужен для тестов ArticleService — просто заглушка
+        return 0
+
 
 # ================================================================ #
 #  Хелперы                                                         #
@@ -94,6 +98,9 @@ async def test_get_by_id_passes_user_id_to_repo():
             received["user_id"] = user_id
             return None
 
+        async def delete_orphaned(self) -> int:
+            return 0
+
     svc = ArticleService(article_repo=SpyRepo())
     await svc.get_by_id(article_id=5, user_id=42)
 
@@ -113,6 +120,9 @@ async def test_get_by_id_without_user_id_passes_none():
         async def get_by_id(self, article_id: int, user_id: int | None = None):
             received["user_id"] = user_id
             return None
+
+        async def delete_orphaned(self) -> int:
+            return 0
 
     svc = ArticleService(article_repo=SpyRepo())
     await svc.get_by_id(article_id=1)

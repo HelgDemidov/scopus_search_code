@@ -29,3 +29,13 @@ class IArticleRepository(ABC):
                  если None — возвращает статью без проверки владения.
         """
         pass
+
+    @abstractmethod
+    async def delete_orphaned(self) -> int:
+        """
+        Удаляет статьи, на которые не ссылается ни один активный поиск
+        (search_result_articles) и которые не входят в каталог сидера
+        (catalog_articles). Возвращает число удалённых строк.
+        Не вызывает commit() — управление транзакцией на стороне вызывающего кода.
+        """
+        pass
