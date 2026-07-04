@@ -8,7 +8,7 @@
  */
 
 import { render, act, screen } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import ExplorePage from './ExplorePage';
 import type { ActiveSelection } from '../stores/dashboardStore';
 
@@ -22,6 +22,7 @@ const {
   mockFetchStats,
   mockCloseDrawer,
   mockGetPersonalStats,
+  mockGetPersonalActivity,
   getDashboardState,
   getIsAuthenticated,
   setIsAuthenticated,
@@ -41,6 +42,10 @@ const {
     by_country: [],
     by_doc_type: [],
     by_open_access: [],
+  });
+  const mockGetPersonalActivity = vi.fn().mockResolvedValue({
+    granularity: 'week',
+    buckets: [],
   });
 
   let activeSelection: ActiveSelection | null = null;
@@ -72,6 +77,7 @@ const {
     mockFetchStats,
     mockCloseDrawer,
     mockGetPersonalStats,
+    mockGetPersonalActivity,
     getDashboardState,
     getIsAuthenticated: () => isAuthenticated,
     setIsAuthenticated: (v: boolean) => { isAuthenticated = v; },
@@ -107,6 +113,7 @@ vi.mock('../stores/authStore', () => ({
 // из historyStore-селекторов (docs/personal-search-data/spec.md §4)
 vi.mock('../api/articles', () => ({
   getPersonalStats: mockGetPersonalStats,
+  getPersonalActivity: mockGetPersonalActivity,
 }));
 
 vi.mock('react-router-dom', () => ({
@@ -139,6 +146,9 @@ vi.mock('../components/explore/DimensionDrawer', () => ({
   PersonalDimensionDrawer: () => <div data-testid="personal-dimension-drawer" />,
 }));
 vi.mock('../components/explore/ActiveFilterBanner', () => ({ ActiveFilterBanner: () => null }));
+vi.mock('../components/explore/PersonalActivityChart', () => ({
+  PersonalActivityChart: () => <div data-testid="personal-activity-chart" />,
+}));
 vi.mock('../components/explore/ChartBuilderPanel', () => ({ ChartBuilderPanel: () => null }));
 
 // ---------------------------------------------------------------------------
@@ -222,21 +232,23 @@ describe('ExplorePage — personal mode', () => {
     setUrlMode('personal');
   });
 
-  it('вызывает getPersonalStats при входе в personal mode', async () => {
+  it('вызывает getPersonalStats и getPersonalActivity при входе в personal mode', async () => {
     await act(async () => {
       render(<ExplorePage />);
     });
 
     expect(mockGetPersonalStats).toHaveBeenCalledOnce();
+    expect(mockGetPersonalActivity).toHaveBeenCalledOnce();
   });
 
-  it('PersonalKpiRow/PersonalDimensionDrawer рендерятся, когда total > 0 (docs/explore-personal-redesign/spec.md §1)', async () => {
+  it('PersonalKpiRow/PersonalDimensionDrawer/PersonalActivityChart рендерятся, когда total > 0 (docs/explore-personal-redesign/spec.md §1-2)', async () => {
     await act(async () => {
       render(<ExplorePage />);
     });
 
     expect(await screen.findByTestId('personal-kpi-row')).toBeInTheDocument();
     expect(await screen.findByTestId('personal-dimension-drawer')).toBeInTheDocument();
+    expect(await screen.findByTestId('personal-activity-chart')).toBeInTheDocument();
   });
 
   it('collection-scoped KpiRow/DimensionDrawer не рендерятся в personal mode', async () => {
@@ -265,6 +277,7 @@ describe('ExplorePage — personal mode', () => {
 
     expect(await screen.findByText(/No search history yet/)).toBeInTheDocument();
     expect(screen.queryByTestId('personal-kpi-row')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('personal-activity-chart')).not.toBeInTheDocument();
   });
 
   it('ошибка getPersonalStats → показывает emptyPersonal, не падает', async () => {
@@ -285,7 +298,23 @@ describe('ExplorePage — personal mode', () => {
 // ---------------------------------------------------------------------------
 
 describe('ExplorePage — единый drawer между режимами', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('переключение mode вызывает closeDrawer', async () => {
+    // Дополнительный await act(async () => {}) ниже даёт время резолвиться lazy-
+    // импорту стационарных collection-чартов (TopCountriesByYearChart и т.п.,
+    // не замоканы в этом файле) — им нужен window.matchMedia (useMediaQuery),
+    // которого нет в jsdom по умолчанию.
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }));
+
     setIsAuthenticated(true);
     const { rerender } = render(<ExplorePage />);
     await act(async () => {});

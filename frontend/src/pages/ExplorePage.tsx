@@ -4,8 +4,8 @@ import { Trans, useTranslation } from 'react-i18next';
 import { useStatsStore } from '../stores/statsStore';
 import { useAuthStore } from '../stores/authStore';
 import { useDashboardStore } from '../stores/dashboardStore';
-import { getPersonalStats } from '../api/articles';
-import type { SearchStatsResponse } from '../types/api';
+import { getPersonalStats, getPersonalActivity } from '../api/articles';
+import type { SearchStatsResponse, PersonalActivityResponse } from '../types/api';
 import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
 import { ErrorBoundary } from '../components/ui/ErrorBoundary';
@@ -41,6 +41,11 @@ const JournalLandscapeScatterChart = lazy(() =>
 // ChartBuilderPanel; тоже lazy, тот же принцип: не в основном чанке ExplorePage.
 const TableBuilderPanel = lazy(() =>
   import('../components/explore/TableBuilderPanel').then(m => ({ default: m.TableBuilderPanel }))
+);
+// Автобиографический раздел personal mode (docs/explore-personal-redesign/spec.md §2.1) —
+// тоже lazy, тот же принцип: новый Recharts-чанк не должен попадать в основной ExplorePage.
+const PersonalActivityChart = lazy(() =>
+  import('../components/explore/PersonalActivityChart').then(m => ({ default: m.PersonalActivityChart }))
 );
 
 // ---------------------------------------------------------------------------
@@ -102,6 +107,10 @@ export default function ExplorePage() {
   // фильтров, а не атрибуты фактически найденных статей.
   const [personalStats, setPersonalStats] = useState<SearchStatsResponse | null>(null);
   const [personalLoading, setPersonalLoading] = useState(false);
+  // Автобиографический раздел (docs/explore-personal-redesign/spec.md §2.1) —
+  // отдельный эндпоинт/state, фетчится параллельно с personalStats в том же эффекте.
+  const [personalActivity, setPersonalActivity] = useState<PersonalActivityResponse | null>(null);
+  const [personalActivityLoading, setPersonalActivityLoading] = useState(false);
 
   useEffect(() => { fetchStats(); }, [fetchStats]);
 
@@ -126,10 +135,15 @@ export default function ExplorePage() {
     let cancelled = false;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPersonalLoading(true);
+    setPersonalActivityLoading(true);
     getPersonalStats()
       .then((data) => { if (!cancelled) setPersonalStats(data); })
       .catch(() => { if (!cancelled) setPersonalStats(null); })
       .finally(() => { if (!cancelled) setPersonalLoading(false); });
+    getPersonalActivity()
+      .then((data) => { if (!cancelled) setPersonalActivity(data); })
+      .catch(() => { if (!cancelled) setPersonalActivity(null); })
+      .finally(() => { if (!cancelled) setPersonalActivityLoading(false); });
     return () => { cancelled = true; };
   }, [mode]);
 
@@ -231,6 +245,9 @@ export default function ExplorePage() {
             <>
               <PersonalKpiRow stats={personalStats} isLoading={personalLoading} />
               <PersonalDimensionDrawer stats={personalStats} />
+              <Suspense fallback={<Skeleton className="h-80 w-full rounded-xl" />}>
+                <PersonalActivityChart data={personalActivity} isLoading={personalActivityLoading} />
+              </Suspense>
             </>
           )}
         </ErrorBoundary>

@@ -186,6 +186,17 @@
       "authors_one": "Author",
       "authors_other": "Authors"
     },
+    "personal": {
+      "activity": {
+        "title": "Search activity",
+        "subtitleWeek": "By week",
+        "subtitleMonth": "By month",
+        "legendSuccessful": "Successful searches",
+        "legendZeroResult": "Zero-result searches",
+        "legendCumulative": "Articles collected",
+        "empty": "Not enough data yet."
+      }
+    },
     "dimensions": {
       "year": "Publications by Year",
       "country": "Top Countries",

@@ -204,6 +204,17 @@
       "authors_many": "авторов",
       "authors_other": "авторов"
     },
+    "personal": {
+      "activity": {
+        "title": "Поисковая активность",
+        "subtitleWeek": "По неделям",
+        "subtitleMonth": "По месяцам",
+        "legendSuccessful": "Успешные поиски",
+        "legendZeroResult": "Поиски без результата",
+        "legendCumulative": "Собрано статей",
+        "empty": "Пока недостаточно данных."
+      }
+    },
     "dimensions": {
       "year": "Публикации по годам",
       "country": "Ведущие страны",

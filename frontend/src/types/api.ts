@@ -142,6 +142,23 @@ export interface DimensionStatsSource {
 }
 
 // ---------------------------------------------------------------------------
+// Поисковая активность по времени (GET /articles/stats/personal/activity)
+// docs/explore-personal-redesign/spec.md §2.1
+// ---------------------------------------------------------------------------
+
+export interface PersonalActivityBucket {
+  period_start: string;               // 'YYYY-MM-DD' — начало периода (week/month)
+  successful_searches: number;        // result_count > 0
+  zero_result_searches: number;       // result_count == 0 — потраченная впустую квота
+  cumulative_unique_articles: number; // нарастающим итогом на конец периода
+}
+
+export interface PersonalActivityResponse {
+  granularity: 'week' | 'month';      // выбрано автоматически по разбросу истории
+  buckets: PersonalActivityBucket[];
+}
+
+// ---------------------------------------------------------------------------
 // Пользователь
 // ---------------------------------------------------------------------------
 

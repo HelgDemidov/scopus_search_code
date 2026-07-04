@@ -195,6 +195,17 @@
       "authors_few": "autora",
       "authors_other": "autora"
     },
+    "personal": {
+      "activity": {
+        "title": "Aktivnost pretrage",
+        "subtitleWeek": "Po sedmicama",
+        "subtitleMonth": "Po mjesecima",
+        "legendSuccessful": "Uspješne pretrage",
+        "legendZeroResult": "Pretrage bez rezultata",
+        "legendCumulative": "Prikupljeno članaka",
+        "empty": "Još uvijek nema dovoljno podataka."
+      }
+    },
     "dimensions": {
       "year": "Publikacije po godinama",
       "country": "Vodeće zemlje",

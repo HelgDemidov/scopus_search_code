@@ -12,6 +12,7 @@ import type {
   PaginatedArticleResponse,
   ArticleResponse,
   SearchStatsResponse,
+  PersonalActivityResponse,
   ScopusQuota,
   SearchHistoryItem,
   SearchHistoryResponse,
@@ -106,6 +107,16 @@ export async function getSearchStats(
 
 export async function getPersonalStats(): Promise<SearchStatsResponse> {
   const response = await apiClient.get<SearchStatsResponse>('/articles/stats/personal');
+  return response.data;
+}
+
+// ---------------------------------------------------------------------------
+// GET /articles/stats/personal/activity — поисковая активность по времени
+// (docs/explore-personal-redesign/spec.md §2.1)
+// ---------------------------------------------------------------------------
+
+export async function getPersonalActivity(): Promise<PersonalActivityResponse> {
+  const response = await apiClient.get<PersonalActivityResponse>('/articles/stats/personal/activity');
   return response.data;
 }
 
