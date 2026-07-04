@@ -170,6 +170,9 @@ class FakeSearchResultRepository(ISearchResultRepository):
     ) -> dict:
         return {}
 
+    async def get_personal_activity_for_user(self, user_id: int) -> dict:
+        return {"granularity": "week", "buckets": []}
+
 
 class FakeSession:
     """Минимальная заглушка AsyncSession — только commit()."""
