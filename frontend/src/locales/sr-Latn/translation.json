@@ -207,6 +207,7 @@
       },
       "fingerprint": {
         "title": "Otisak filtera",
+        "rowDate": "Datum",
         "rowOpenAccess": "Open Access filter",
         "rowDocTypes": "Tipovi dokumenata",
         "rowCountries": "Zemlje",

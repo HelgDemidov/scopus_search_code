@@ -9,6 +9,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+import type { Payload } from 'recharts/types/component/DefaultLegendContent';
 import { useTranslation } from 'react-i18next';
 import { ChartCard } from '../charts/ChartCard';
 import { useTheme } from '../../hooks/useTheme';
@@ -80,6 +81,31 @@ function ActivityTooltip({ active, payload, label }: ActivityTooltipProps) {
   );
 }
 
+// Кастомный Legend content — тот же приём, что JournalCountryLegend
+// (TopJournalsByCountryChart.tsx): Recharts DefaultLegendContent даёт
+// фиксированный ~10px зазор между пунктами (жёстко зашит инлайн-стилем), при
+// 3 пунктах на карточке средней ширины смотрелось тесно (post-prod fix, §14.2).
+function ActivityLegend({ payload }: { payload?: Payload[] }) {
+  const { t } = useTranslation();
+  if (!payload?.length) return null;
+  const labelFor = (key: string): string => {
+    if (key === 'successful_searches') return t('explore.personal.activity.legendSuccessful');
+    if (key === 'zero_result_searches') return t('explore.personal.activity.legendZeroResult');
+    if (key === 'cumulative_unique_articles') return t('explore.personal.activity.legendCumulative');
+    return key;
+  };
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1.5 text-xs text-slate-600 dark:text-slate-300 pt-2">
+      {payload.map((entry) => (
+        <span key={String(entry.value)} className="flex items-center gap-1.5 whitespace-nowrap">
+          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: entry.color }} />
+          {labelFor(String(entry.value))}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 interface PersonalActivityChartProps {
   data: PersonalActivityResponse | null;
   isLoading: boolean;
@@ -112,7 +138,7 @@ export function PersonalActivityChart({ data, isLoading }: PersonalActivityChart
         </p>
       ) : (
         <ResponsiveContainer width="100%" height={320}>
-          <ComposedChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+          <ComposedChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }} barCategoryGap="35%">
             <CartesianGrid strokeDasharray="3 3" stroke={axis.grid} vertical={false} />
             <XAxis
               dataKey="label"
@@ -141,17 +167,23 @@ export function PersonalActivityChart({ data, isLoading }: PersonalActivityChart
               tickFormatter={(v: number) => formatAxisTick(v, i18n.language)}
             />
             <Tooltip content={(p) => <ActivityTooltip {...p} />} cursor={{ fill: 'rgba(148,163,184,0.1)' }} />
-            <Legend
-              formatter={(value) => {
-                const key = String(value);
-                if (key === 'successful_searches') return t('explore.personal.activity.legendSuccessful');
-                if (key === 'zero_result_searches') return t('explore.personal.activity.legendZeroResult');
-                if (key === 'cumulative_unique_articles') return t('explore.personal.activity.legendCumulative');
-                return key;
-              }}
+            <Legend content={(props) => <ActivityLegend payload={props.payload} />} />
+            <Bar
+              yAxisId="left"
+              dataKey="successful_searches"
+              stackId="searches"
+              fill={SUCCESSFUL_COLOR}
+              radius={[0, 0, 0, 0]}
+              maxBarSize={32}
             />
-            <Bar yAxisId="left" dataKey="successful_searches" stackId="searches" fill={SUCCESSFUL_COLOR} radius={[0, 0, 0, 0]} />
-            <Bar yAxisId="left" dataKey="zero_result_searches" stackId="searches" fill={ZERO_RESULT_COLOR} radius={[4, 4, 0, 0]} />
+            <Bar
+              yAxisId="left"
+              dataKey="zero_result_searches"
+              stackId="searches"
+              fill={ZERO_RESULT_COLOR}
+              radius={[4, 4, 0, 0]}
+              maxBarSize={32}
+            />
             <Line
               yAxisId="right"
               type="monotone"

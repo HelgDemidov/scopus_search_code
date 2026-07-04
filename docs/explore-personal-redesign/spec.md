@@ -184,3 +184,23 @@ FilterFingerprintStrip (full-width, под активностью)
 - Кэширование `/stats/personal/activity` — без кэша, как и `/stats/personal`; пересмотреть только при реальной нагрузке.
 - Полная история за пределами retention-окна (100 записей) — недоступна по конструкции ретеншна PR #45, не переосмысливаем в этой работе.
 - `author`-измерение для personal KPI/drawer — не добавляется (см. §1.1).
+
+---
+
+## 8. Post-prod fix (2026-07-06, после мерджа PR #46 в main)
+
+Правки визуального полиша `PersonalActivityChart`/`FilterFingerprintStrip` по итогам живого просмотра прод-версии (`/explore?mode=personal`). Реализовано прямо в `main`, без отдельной ветки.
+
+**8.1 `PersonalActivityChart`**
+- Бары `successful_searches`/`zero_result_searches` были во всю ширину категории (Recharts default) — визуально "топорно" на малом числе периодов. Кап `maxBarSize={32}` + `barCategoryGap="35%"` на `ComposedChart`.
+- Пробовали (1) градиентную заливку баров (`<linearGradient>`, top opaque → bottom 0.6 opacity — по аналогии с `drawerYearGrad` в `DimensionDrawer`, единственным существующим прецедентом градиента в проекте, хоть и на Area, не Bar) и (2) цвет `DIMENSION_COLORS.author.base` (sky-600) вместо `year.base` (blue-600, конфликтовал с Publications by Year/KPI-тайлом на той же странице) — **откачено по правке пользователя**: оставлен плоский `year.base`, без градиента. Итог: только `maxBarSize`/`barCategoryGap`, цвет и заливка не менялись относительно исходной реализации.
+- Легенда (`Successful searches` / `Zero-result searches` / `Articles collected`): Recharts `DefaultLegendContent` даёт фиксированный ~10px зазор между пунктами (смотрелось тесно) — заменена на кастомный `content` (компонент `ActivityLegend`, тот же приём, что `JournalCountryLegend` в `TopJournalsByCountryChart.tsx`), `gap-x-6` (24px) между пунктами. Проверено эмпирически (Chrome DevTools `getComputedStyle`/`getBoundingClientRect`): размер шрифта легенды (`text-xs` = 12px) совпадает с шрифтом тиков осей (`fontSize: 12` в recharts), фактический зазор между пунктами — 24px. Оставлено без изменений.
+
+**8.2 `FilterFingerprintStrip`**
+- Угловая ячейка шапки была пустой — добавлен явный заголовок `explore.personal.fingerprint.rowDate` ("Date"/"Дата"/"Datum", новый i18n-ключ en/ru/sr-Latn).
+- Строка "Zero-result searches" убрана целиком (была визуально пустой на существующих прод-аккаунтах — вся история старше фикса `find_and_save`, см. память `project-zero-result-search-not-recorded-bug`, читалось как баг интерфейса, а не как "пока нет данных"). Сигнал перенесён в шапку даты: маленькая amber-точка (`ZERO_RESULT_COLOR`) под датой того столбца, где `isZeroResult`.
+- Таблица была left-clustered (colspan/ширина по контенту, много пустого места справа при малом числе поисков на широкой карточке) — `<table className="w-full ...">` заставляет auto-layout распределять свободную ширину карточки между столбцами. Кап `max-w-[112px]` на все ячейки данных (шапка + 4 строки) — иначе при 1-3 поисках (мало данных) те же 2-3 столбца растягивались бы на всю ширину карточки (пусто-широкие блоки под одну цифру); с капом лишняя ширина просто остаётся пустой справа, столбцы не раздуваются.
+- Вертикальная теснота (шапка стала визуально тяжелее с текстом "Date") — `mt-2` на scroll-обёртку (доп. отступ от заголовка карточки) + `border-b` под строкой шапки (визуально отделяет её от строк данных) + `py-2` вместо `py-1` в ячейках шапки.
+- Горизонтальная прокрутка (оба графика, п.6 брифа): `FilterFingerprintStrip` уже имел нативный `overflow-x-auto` (браузерный скроллбар) — оставлен как есть, кастомный слайдер не добавлен (нет прецедента такого паттерна в проекте, `w-full` уже решает типичный случай 8–15 столбцов). `PersonalActivityChart` — Recharts `ResponsiveContainer` не имеет механизма скролла вообще, бары сжимаются под контейнер (как и все остальные графики дашборда); кол-во периодов физически ограничено `HISTORY_DEPTH_LIMIT=100`, отдельный скролл/слайдер не оправдан.
+
+**Тесты:** `FilterFingerprintStrip.test.tsx` (+3: заголовок "Date", zero-result маркер в шапке вместо строки), `PersonalActivityChart.test.tsx` — без изменений в структуре assertions (мок recharts не проверял конкретные fill/gradient значения). Полный фронтенд-прогон + lint + build — зелёные (детали в конце ТЗ/отчёте).

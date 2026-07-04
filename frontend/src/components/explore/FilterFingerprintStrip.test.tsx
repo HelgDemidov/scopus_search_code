@@ -63,6 +63,15 @@ describe('FilterFingerprintStrip — responsive N (15 desktop / 8 mobile)', () =
   });
 });
 
+describe('FilterFingerprintStrip — заголовок строки дат (post-prod fix)', () => {
+  it('угловая ячейка шапки показывает явный заголовок "Date", а не пустую', () => {
+    stubMatchMedia(false);
+    const items = [item(1, '2024-01-01T00:00:00Z')];
+    render(<FilterFingerprintStrip items={items} isLoading={false} />);
+    expect(screen.getByRole('columnheader', { name: 'Date' })).toBeInTheDocument();
+  });
+});
+
 describe('FilterFingerprintStrip — данные', () => {
   it('open_access фильтр — точка присутствует только когда ключ задан в filters', () => {
     stubMatchMedia(false);
@@ -89,7 +98,7 @@ describe('FilterFingerprintStrip — данные', () => {
     expect(screen.getByText('—')).toBeInTheDocument();
   });
 
-  it('zero-result маркер отображается только для поисков с results_available=false', () => {
+  it('zero-result маркер (в заголовке даты, post-prod fix) отображается только для поисков с results_available=false', () => {
     stubMatchMedia(false);
     const items = [
       item(1, '2024-01-01T00:00:00Z', { results_available: true }),
@@ -97,6 +106,10 @@ describe('FilterFingerprintStrip — данные', () => {
     ];
     render(<FilterFingerprintStrip items={items} isLoading={false} />);
     expect(screen.getAllByLabelText('No results')).toHaveLength(1);
+    // Маркер теперь живёт в columnheader (шапка даты) — отдельной строки
+    // "Zero-result searches" больше нет, она всегда пустовала бы до накопления
+    // новых данных после фикса find_and_save и выглядела как баг (spec.md post-prod §14.2).
+    expect(screen.getByLabelText('No results').closest('thead')).not.toBeNull();
   });
 
   it('doc_types/countries — число совпадает с длиной массивов фильтров', () => {

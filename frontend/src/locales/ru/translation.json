@@ -216,6 +216,7 @@
       },
       "fingerprint": {
         "title": "Отпечаток фильтров",
+        "rowDate": "Дата",
         "rowOpenAccess": "Фильтр Open Access",
         "rowDocTypes": "Типы документов",
         "rowCountries": "Страны",

@@ -198,6 +198,7 @@
       },
       "fingerprint": {
         "title": "Filter fingerprint",
+        "rowDate": "Date",
         "rowOpenAccess": "Open Access filter",
         "rowDocTypes": "Document types",
         "rowCountries": "Countries",

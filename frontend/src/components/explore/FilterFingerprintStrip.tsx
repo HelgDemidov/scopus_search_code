@@ -35,6 +35,12 @@ function formatColumnLabel(iso: string, lang: string): string {
 const stickyHeaderCellClass =
   'px-2 py-1 text-left text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap sticky left-0 bg-white dark:bg-[#152236]';
 
+// Кап на ширину столбца данных: w-full распределяет свободное место карточки
+// между столбцами (решает "скученность" слева при 8-15 столбцах), но при
+// малом числе поисков (1-3 колонки) без капа те же 2-3 столбца растягивались
+// бы на всю ширину карточки — одна цифра в блоке ~600px (post-prod fix, §14.2).
+const dataCellMaxWidth = 'max-w-[112px]';
+
 interface FilterFingerprintStripProps {
   items: SearchHistoryItem[];
   isLoading: boolean;
@@ -57,17 +63,26 @@ export function FilterFingerprintStrip({ items, isLoading }: FilterFingerprintSt
           {t('explore.personal.fingerprint.empty')}
         </p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="text-sm border-collapse">
+        <div className="overflow-x-auto mt-2">
+          <table className="w-full text-sm border-collapse">
             <thead>
-              <tr>
-                <th className={stickyHeaderCellClass} />
+              <tr className="border-b border-slate-200 dark:border-slate-700">
+                <th className={stickyHeaderCellClass}>{t('explore.personal.fingerprint.rowDate')}</th>
                 {columns.map((c, i) => (
                   <th
                     key={i}
-                    className="px-2 py-1 text-center text-xs font-medium text-slate-400 tabular-nums whitespace-nowrap"
+                    className={`px-2 py-2 text-center text-xs font-medium text-slate-400 tabular-nums whitespace-nowrap align-bottom ${dataCellMaxWidth}`}
                   >
-                    {formatColumnLabel(c.createdAt, i18n.language)}
+                    <div className="flex flex-col items-center gap-1">
+                      <span>{formatColumnLabel(c.createdAt, i18n.language)}</span>
+                      {c.isZeroResult && (
+                        <span
+                          aria-label={t('explore.personal.fingerprint.zeroResultMarker')}
+                          className="inline-block w-1.5 h-1.5 rounded-full"
+                          style={{ backgroundColor: ZERO_RESULT_COLOR }}
+                        />
+                      )}
+                    </div>
                   </th>
                 ))}
               </tr>
@@ -78,7 +93,7 @@ export function FilterFingerprintStrip({ items, isLoading }: FilterFingerprintSt
                   {t('explore.personal.fingerprint.rowOpenAccess')}
                 </th>
                 {columns.map((c, i) => (
-                  <td key={i} className="px-2 py-1 text-center">
+                  <td key={i} className={`px-2 py-1 text-center ${dataCellMaxWidth}`}>
                     <span
                       className="inline-block w-2.5 h-2.5 rounded-full"
                       style={{
@@ -97,7 +112,7 @@ export function FilterFingerprintStrip({ items, isLoading }: FilterFingerprintSt
                 {columns.map((c, i) => (
                   <td
                     key={i}
-                    className="px-2 py-1 text-center tabular-nums text-slate-900 dark:text-slate-100"
+                    className={`px-2 py-1 text-center tabular-nums text-slate-900 dark:text-slate-100 ${dataCellMaxWidth}`}
                     style={{ backgroundColor: `${DOC_TYPES_COLOR}${alphaHex(docTypesIntensity[i])}` }}
                   >
                     {c.docTypesCount}
@@ -112,7 +127,7 @@ export function FilterFingerprintStrip({ items, isLoading }: FilterFingerprintSt
                 {columns.map((c, i) => (
                   <td
                     key={i}
-                    className="px-2 py-1 text-center tabular-nums text-slate-900 dark:text-slate-100"
+                    className={`px-2 py-1 text-center tabular-nums text-slate-900 dark:text-slate-100 ${dataCellMaxWidth}`}
                     style={{ backgroundColor: `${COUNTRIES_COLOR}${alphaHex(countriesIntensity[i])}` }}
                   >
                     {c.countriesCount}
@@ -127,7 +142,7 @@ export function FilterFingerprintStrip({ items, isLoading }: FilterFingerprintSt
                 {columns.map((c, i) => (
                   <td
                     key={i}
-                    className="px-2 py-1 text-center tabular-nums text-slate-900 dark:text-slate-100"
+                    className={`px-2 py-1 text-center tabular-nums text-slate-900 dark:text-slate-100 ${dataCellMaxWidth}`}
                     style={
                       c.yearRangeWidth !== null
                         ? { backgroundColor: `${YEAR_RANGE_COLOR}${alphaHex(yearRangeIntensity[i])}` }
@@ -135,25 +150,6 @@ export function FilterFingerprintStrip({ items, isLoading }: FilterFingerprintSt
                     }
                   >
                     {c.yearRangeWidth ?? '—'}
-                  </td>
-                ))}
-              </tr>
-
-              {/* Zero-result маркер — связывает fingerprint с PersonalActivityChart
-                  единым визуальным сигналом (тот же ZERO_RESULT_COLOR, spec.md §2.2) */}
-              <tr>
-                <th scope="row" className={stickyHeaderCellClass}>
-                  {t('explore.personal.activity.legendZeroResult')}
-                </th>
-                {columns.map((c, i) => (
-                  <td key={i} className="px-2 py-1 text-center">
-                    {c.isZeroResult && (
-                      <span
-                        aria-label={t('explore.personal.fingerprint.zeroResultMarker')}
-                        className="inline-block w-1.5 h-1.5 rounded-full"
-                        style={{ backgroundColor: ZERO_RESULT_COLOR }}
-                      />
-                    )}
                   </td>
                 ))}
               </tr>
