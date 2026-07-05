@@ -49,7 +49,7 @@ export class RootErrorBoundary extends Component<Props, State> {
           gap: '1rem',
           padding: '2rem',
           textAlign: 'center',
-          background: '#0d1b2a',
+          background: '#0c1927',
           color: '#e2e8f0',
           fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
         }}

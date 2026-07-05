@@ -19,6 +19,10 @@ import {
   INNER_ZONE_BRIGHTNESS_FACTOR,
   LENSING_FADE_START_DIAMETERS,
   METEOR_CAPTURE_DIAMETERS,
+  SECONDARY_NEBULA_BLOB_COUNT,
+  SECONDARY_NEBULA_RADIUS_RATIO,
+  SECONDARY_NEBULA_STAR_COUNT_MAX,
+  SECONDARY_NEBULA_STAR_COUNT_MIN,
   VORTEX_BLOB_COUNT,
   VORTEX_RADIUS_RATIO,
   VORTEX_STAR_COUNT,
@@ -79,6 +83,14 @@ const MTR_FRAME_MS  = 1000 / 60;    // 60 fps пока активен метео
 const MAX_METEORS   = 50;
 const MAX_DPR       = 2;
 
+// Метеорный поток (docs/error-experience/spec.md, п.5.6, раунд 5)
+const SHOWER_MAX_CLUSTERS         = 3; // обычный поток — было 4
+const SHOWER_CATCHUP_MAX_CLUSTERS = 2; // «догоняющий» поток при возврате из фона — п.5.6.3
+// Обычный кадр идёт раз в 16–66 мс — разрыв такого порядка означает, что
+// цикл только что вернулся из остановленного/троттлящегося состояния
+// (скрытая вкладка, фоновый троттлинг ОС/браузера), а не обычный тик.
+const RESUME_GAP_MS = 2000;
+
 // ---------------------------------------------------------------------------
 // Stars
 // ---------------------------------------------------------------------------
@@ -123,25 +135,18 @@ function generateStars(w: number, h: number): Star[] {
   }));
 }
 
-// Плотное, неправильной формы скопление звёзд вокруг чёрной дыры — фон для
-// эффекта воронки (docs/error-experience/spec.md, п.1.2), ~30% площади
-// экрана. Художественная аппроксимация через частицы, не пиксельное
-// линзирование фона (вне scope). Несколько смещённых друг от друга
-// «сгущений» (Box-Muller вокруг своего центра) вместо одного правильного
-// круга — даёт органичную, рваную форму. Масштаб считается от диагонали
-// экрана (VORTEX_RADIUS_RATIO), НЕ от радиуса дыры — иначе туманность была
-// бы жёстко привязана к крошечному размеру самой дыры и оставалась тонкой
-// каёмкой вокруг неё вместо полноценного фона.
-function generateVortexCluster(bh: BlackHoleGeometry, diagonal: number): Star[] {
-  const nebulaRadius = diagonal * VORTEX_RADIUS_RATIO;
-  // Якорь скопления смещён от центра дыры — дыра не строго в центре туманности
-  const anchorAngle = Math.random() * Math.PI * 2;
-  const anchorX = bh.x + Math.cos(anchorAngle) * nebulaRadius * 0.2;
-  const anchorY = bh.y + Math.sin(anchorAngle) * nebulaRadius * 0.2;
-  const perBlob = Math.ceil(VORTEX_STAR_COUNT / VORTEX_BLOB_COUNT);
+// Общая раскладка звёзд по нескольким смещённым друг от друга «сгущениям»
+// (Box-Muller вокруг своего центра у каждого) — даёт органичную, рваную
+// форму скопления вместо одного правильного круга. Используется и основной
+// туманностью-воронкой у горизонта, и независимой от чёрной дыры туманностью
+// в левом нижнем квадранте (docs/error-experience/spec.md, п.5.4, раунд 5).
+function generateStarClumps(
+  anchorX: number, anchorY: number, nebulaRadius: number, blobCount: number, totalStars: number,
+): Star[] {
+  const perBlob = Math.ceil(totalStars / blobCount);
   const stars: Star[] = [];
 
-  for (let b = 0; b < VORTEX_BLOB_COUNT; b++) {
+  for (let b = 0; b < blobCount; b++) {
     const blobAngle = Math.random() * Math.PI * 2;
     const blobDist  = nebulaRadius * (0.25 + Math.random() * 0.55);
     const blobX = anchorX + Math.cos(blobAngle) * blobDist;
@@ -160,6 +165,39 @@ function generateVortexCluster(bh: BlackHoleGeometry, diagonal: number): Star[] 
     }
   }
   return stars;
+}
+
+// Плотное, неправильной формы скопление звёзд вокруг чёрной дыры — фон для
+// эффекта воронки (docs/error-experience/spec.md, п.1.2), ~30% площади
+// экрана. Художественная аппроксимация через частицы, не пиксельное
+// линзирование фона (вне scope). Масштаб считается от диагонали экрана
+// (VORTEX_RADIUS_RATIO), НЕ от радиуса дыры — иначе туманность была бы
+// жёстко привязана к крошечному размеру самой дыры и оставалась тонкой
+// каёмкой вокруг неё вместо полноценного фона.
+function generateVortexCluster(bh: BlackHoleGeometry, diagonal: number): Star[] {
+  const nebulaRadius = diagonal * VORTEX_RADIUS_RATIO;
+  // Якорь скопления смещён от центра дыры — дыра не строго в центре туманности
+  const anchorAngle = Math.random() * Math.PI * 2;
+  const anchorX = bh.x + Math.cos(anchorAngle) * nebulaRadius * 0.2;
+  const anchorY = bh.y + Math.sin(anchorAngle) * nebulaRadius * 0.2;
+  return generateStarClumps(anchorX, anchorY, nebulaRadius, VORTEX_BLOB_COUNT, VORTEX_STAR_COUNT);
+}
+
+// Вторая, независимая от чёрной дыры туманность (docs/error-experience/
+// spec.md, п.5.4, раунд 5) — компенсирует визуальную пустоту нижнего левого
+// квадранта на error-страницах. Якорь держится уверенно внутри квадранта
+// (0.18–0.30 w, 0.68–0.80 h), а естественный разброс сгущений вокруг него
+// (generateStarClumps) даёт частичный заход в соседние квадранты без
+// декларативного обрезания по границе — неправильная форма получается сама.
+function generateSecondaryNebula(w: number, h: number): Star[] {
+  const diagonal = Math.hypot(w, h);
+  const nebulaRadius = diagonal * SECONDARY_NEBULA_RADIUS_RATIO;
+  const anchorX = w * (0.18 + Math.random() * 0.12);
+  const anchorY = h * (0.68 + Math.random() * 0.12);
+  const totalStars = Math.round(
+    SECONDARY_NEBULA_STAR_COUNT_MIN + Math.random() * (SECONDARY_NEBULA_STAR_COUNT_MAX - SECONDARY_NEBULA_STAR_COUNT_MIN),
+  );
+  return generateStarClumps(anchorX, anchorY, nebulaRadius, SECONDARY_NEBULA_BLOB_COUNT, totalStars);
 }
 
 // Позиция звезды с учётом орбитального вращения вихря (docs/error-experience/
@@ -462,13 +500,31 @@ function updateCursorDrift(
   }
 
   const pos = driftPosRef.current;
+
+  // Уже внутри диска — не интегрируем дальше (докритика раунд 5, п.5.3):
+  // без остановки накопленная скорость проносит курсор сквозь центр, и он
+  // вылетает с противоположной стороны, восстанавливая форму на глазах
+  // (эффект «пролёта через потенциальную яму»). Замораживаем позицию —
+  // курсор остаётся невидимым (renderCursorLensing уже ничего не рисует
+  // внутри диска), пока escape-флик в onMouseMove не сбросит driftPosRef.
+  if (isInsideBlackHoleDisk(pos.x, pos.y, blackHole.x, blackHole.y, blackHole.radius)) {
+    driftVelRef.current = { x: 0, y: 0 };
+    return pos;
+  }
+
   const { ax, ay } = gravitationalDriftAccel(pos.x, pos.y, blackHole.x, blackHole.y, blackHole.radius, CURSOR_DRIFT_BASE_ACCEL);
   driftVelRef.current = { x: driftVelRef.current.x + ax * dtSeconds, y: driftVelRef.current.y + ay * dtSeconds };
-  driftPosRef.current = {
+  const next = {
     x: pos.x + driftVelRef.current.x * dtSeconds,
     y: pos.y + driftVelRef.current.y * dtSeconds,
   };
-  return driftPosRef.current;
+  // Шаг интегрирования может перепрыгнуть диск целиком за один кадр —
+  // клэмпим сам переход, а не только уже случившееся попадание внутрь.
+  if (isInsideBlackHoleDisk(next.x, next.y, blackHole.x, blackHole.y, blackHole.radius)) {
+    driftVelRef.current = { x: 0, y: 0 };
+  }
+  driftPosRef.current = next;
+  return next;
 }
 
 function resolveBlackHoleGeometry(w: number, h: number): BlackHoleGeometry | null {
@@ -488,8 +544,12 @@ function resolveBlackHoleGeometry(w: number, h: number): BlackHoleGeometry | nul
 function randSoloMs():   number { return 20000  + (Math.random() * 20000 - 10000);  } // 20 ± 10 s
 function randShowerMs(): number { return 120000 + (Math.random() * 60000 - 30000);  } // 120 ± 30 s
 
-function buildShowerSpecs(now: number): ShowerSpec[] {
-  const numClusters = 1 + Math.floor(Math.random() * 4);           // 1–4 кластера
+// maxClusters параметризован (раунд 5, п.5.6.3) — обычный поток использует
+// SHOWER_MAX_CLUSTERS, но «догоняющий» поток при возврате из фона использует
+// более узкий предел (см. loop() ниже), чтобы не выглядеть максимально
+// нагруженным каждый раз, когда пользователь отсутствовал на вкладке.
+function buildShowerSpecs(now: number, maxClusters: number): ShowerSpec[] {
+  const numClusters = 1 + Math.floor(Math.random() * maxClusters);
   const angle       = (60 + Math.random() * 30) * (Math.PI / 180); // 60–90° от вертикали
   const direction   = Math.random() < 0.5 ? 1 : -1;
 
@@ -497,7 +557,7 @@ function buildShowerSpecs(now: number): ShowerSpec[] {
   let t = now;
 
   for (let c = 0; c < numClusters; c++) {
-    const n = 5 + Math.floor(Math.random() * 36); // 5–40 метеоров в кластере
+    const n = 5 + Math.floor(Math.random() * 28); // 5–32 метеора в кластере (раунд 5: было 5–40, −20%)
     for (let i = 0; i < n; i++) {
       if (i > 0) t += 50 + Math.random() * 50;   // кумулятивный стаггер 50–100 ms
       specs.push({ startAt: t, angle, direction });
@@ -567,7 +627,9 @@ function StarFieldCanvasInner() {
       // Пересоздаём звёзды для новых размеров (периоды и фазы хранятся в каждой Star)
       const stars = generateStars(w, h);
       const bh = resolveBlackHoleGeometry(w, h);
-      starsRef.current = bh ? stars.concat(generateVortexCluster(bh, Math.hypot(w, h))) : stars;
+      starsRef.current = bh
+        ? stars.concat(generateVortexCluster(bh, Math.hypot(w, h)), generateSecondaryNebula(w, h))
+        : stars;
     }
 
     resize();
@@ -626,7 +688,8 @@ function StarFieldCanvasInner() {
       // быстрое вращение выглядело бы дёргано (стробоскопический эффект),
       // поэтому канвас переключается на те же 60 fps, что и при метеорах.
       const targetMs = (hasMeteors || blackHole) ? MTR_FRAME_MS : STAR_FRAME_MS;
-      if (now - lastFrameRef.current < targetMs) return;
+      const frameGapMs = now - lastFrameRef.current;
+      if (frameGapMs < targetMs) return;
       lastFrameRef.current = now;
 
       const ctx = canvas.getContext('2d');
@@ -645,9 +708,14 @@ function StarFieldCanvasInner() {
         }
       }
 
-      // Start shower
+      // Start shower — «догоняющий» поток после долгого отсутствия на
+      // вкладке ограничен более узким числом кластеров (п.5.6.3, раунд 5),
+      // иначе он гарантированно получался бы максимально нагруженным каждый
+      // раз (случайный диапазон buildShowerSpecs не отличает обычное и
+      // догоняющее срабатывание сам по себе).
       if (specsRef.current.length === 0 && now >= nextShwRef.current) {
-        specsRef.current = buildShowerSpecs(now);
+        const maxClusters = frameGapMs > RESUME_GAP_MS ? SHOWER_CATCHUP_MAX_CLUSTERS : SHOWER_MAX_CLUSTERS;
+        specsRef.current = buildShowerSpecs(now, maxClusters);
         nextShwRef.current = now + randShowerMs();
         if (Math.abs(nextShwRef.current - nextSoloRef.current) < 8000) {
           nextSoloRef.current = nextShwRef.current + 8000;
@@ -693,7 +761,10 @@ function StarFieldCanvasInner() {
       if (document.hidden) {
         cancelAnimationFrame(rafRef.current);
       } else {
-        lastFrameRef.current = performance.now();
+        // lastFrameRef.current НЕ трогаем — loop() сам читает разрыв между
+        // этим (устаревшим) значением и текущим performance.now() как сигнал
+        // «только что вернулись из фона» (RESUME_GAP_MS, п.5.6.3, раунд 5),
+        // сброс здесь замаскировал бы этот разрыв ещё до первого тика.
         rafRef.current = requestAnimationFrame(loop);
       }
     }

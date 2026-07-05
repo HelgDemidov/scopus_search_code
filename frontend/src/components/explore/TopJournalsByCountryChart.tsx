@@ -126,7 +126,7 @@ function JournalCountryLegend({ payload }: { payload?: Payload[] }) {
   if (!payload?.length) return null;
   const rows = splitLegendRows(payload, i18n.language, t);
   // OTHER_BUCKET_COLOR (slate-500) — контрастный на белом фоне, но на тёмном
-  // навигационном #0d1b2a почти сливается; на тёмной теме подпись "Other"
+  // навигационном #0c1927 почти сливается; на тёмной теме подпись "Other"
   // (не сам кружок-swatch) берёт axis.tick — тот же светлый slate, что подписи осей.
   return (
     <div className="flex flex-col items-end gap-y-1 text-xs">

@@ -47,7 +47,7 @@ function getCountryHue(country: string): number {
 }
 
 // Насыщенность/светлота — единая пара на тему (не за страну), контрастная к фону
-// панели своей темы: dark — фон #0d1b2a/поверхность #152236 (см. project_dark_mode),
+// панели своей темы: dark — фон #0c1927/поверхность #152236 (см. project_dark_mode),
 // light — белый/slate-50. Та же логика "яркий на фоне своей темы", что и
 // DIMENSION_COLORS/getRankedBarColor в chartColors.ts.
 const SATURATION_LIGHTNESS: Record<'light' | 'dark', { s: number; l: number }> = {
