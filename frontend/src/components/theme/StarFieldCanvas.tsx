@@ -12,6 +12,8 @@ import {
 } from '../../utils/blackHoleLensing';
 import {
   BLACK_HOLE_DIAMETER_RATIO,
+  BLACK_HOLE_POSITION_MOBILE_X_RATIO,
+  BLACK_HOLE_POSITION_MOBILE_Y_PX,
   CAPTURED_METEOR_FADE_MS,
   CURSOR_DRIFT_BASE_ACCEL,
   CURSOR_DRIFT_ESCAPE_SPEED,
@@ -19,6 +21,7 @@ import {
   INNER_ZONE_BRIGHTNESS_FACTOR,
   LENSING_FADE_START_DIAMETERS,
   METEOR_CAPTURE_DIAMETERS,
+  MOBILE_BREAKPOINT_PX,
   SECONDARY_NEBULA_BLOB_COUNT,
   SECONDARY_NEBULA_RADIUS_RATIO,
   SECONDARY_NEBULA_STAR_COUNT_MAX,
@@ -127,7 +130,7 @@ function randomStarVisuals(): Pick<Star, 'radius' | 'baseBrightness' | 'twinkles
 }
 
 function generateStars(w: number, h: number): Star[] {
-  const count = w < 768 ? 150 : 400;
+  const count = w < MOBILE_BREAKPOINT_PX ? 150 : 400;
   return Array.from({ length: count }, () => ({
     x: Math.random() * w,
     y: Math.random() * h,
@@ -315,7 +318,14 @@ function spawnMeteor(
     length:   Math.random() < 0.95
       ? w * (0.10 + Math.random() * 0.40)           // 95%: 10–50% ширины
       : w * (0.50 + Math.random() * 0.20),           // 5%: 50–70% ширины
-    duration: (200 + Math.random() * 500) * 0.80,   // 160–560 ms (на 20% быстрее)
+    // Смесь двух равномерных распределений (докрутка раунд 6, п.1.2) —
+    // не единый диапазон: 95% случаев 160–400 мс (медиана 280 мс, попадает
+    // в целевые 250–400), 5% — редкий «исключительный» хвост 400–800 мс.
+    // Корреляция именно по вероятности (5%), не по жёсткому порогу — внутри
+    // каждой ветки сохраняется полный псевдорандомный разброс.
+    duration: Math.random() < 0.95
+      ? 160 + Math.random() * 240
+      : 400 + Math.random() * 400,
     startTime: now,
     maxAlpha: 0.60 + Math.random() * 0.25,          // 0.60–0.85
   };
@@ -527,12 +537,18 @@ function updateCursorDrift(
   return next;
 }
 
+// Мобильная ветка (docs/error-experience/spec.md, раунд 6, п.2) — не просто
+// другая пара ratio-координат, а другая МОДЕЛЬ: Y — абсолютный px, не доля
+// высоты окна, т.к. кнопка «Go home», от которой нужно держать дистанцию,
+// стоит на фиксированной абсолютной высоте независимо от высоты окна (см.
+// подробное обоснование у констант в constants/blackHole.ts).
 function resolveBlackHoleGeometry(w: number, h: number): BlackHoleGeometry | null {
   const pos = getBlackHole();
   if (!pos) return null;
+  const isMobile = w < MOBILE_BREAKPOINT_PX;
   return {
-    x: pos.xRatio * w,
-    y: pos.yRatio * h,
+    x: isMobile ? BLACK_HOLE_POSITION_MOBILE_X_RATIO * w : pos.xRatio * w,
+    y: isMobile ? BLACK_HOLE_POSITION_MOBILE_Y_PX : pos.yRatio * h,
     radius: blackHoleRadiusPx(w, h, BLACK_HOLE_DIAMETER_RATIO),
   };
 }
