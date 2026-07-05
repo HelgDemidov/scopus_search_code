@@ -222,7 +222,7 @@ export default function HomePage() {
                 'px-4 py-2 text-sm font-medium transition-colors ' +
                 (searchMode === 'scopus'
                   ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-[#0d1b2a] text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800')
+                  : 'bg-white dark:bg-[#0c1927] text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800')
               }
             >
               {t('home.modeScopus')}
@@ -234,7 +234,7 @@ export default function HomePage() {
                 'px-4 py-2 text-sm font-medium transition-colors border-l border-slate-200 dark:border-slate-700 ' +
                 (searchMode === 'catalog'
                   ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-[#0d1b2a] text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800')
+                  : 'bg-white dark:bg-[#0c1927] text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800')
               }
             >
               {t('home.modeCatalog')}

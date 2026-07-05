@@ -52,7 +52,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
 
     // Overlay цвета целевой темы накрывает экран → скрывает момент переключения
-    overlay.style.backgroundColor = targetDark ? '#0d1b2a' : '#ffffff';
+    overlay.style.backgroundColor = targetDark ? '#0c1927' : '#ffffff';
     overlay.style.transition = `opacity ${duration}ms ease-in`;
     overlay.style.opacity = '0';
     overlay.style.display = 'block';

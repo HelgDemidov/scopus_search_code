@@ -3,10 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import { ErrorPanel } from '../../components/error/ErrorPanel';
 import { useBlackHole } from '../../hooks/useBlackHole';
-
-// Тихий угол, вдали от кнопок панели (см. docs/error-experience/spec.md —
-// чёрная дыра никогда не пересекается с CTA)
-const BLACK_HOLE_POSITION = { xRatio: 0.86, yRatio: 0.82 };
+import { BLACK_HOLE_POSITION } from '../../constants/blackHole';
 
 export default function NotFoundPage() {
   const { t } = useTranslation();
