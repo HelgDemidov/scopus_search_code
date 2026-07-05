@@ -14,6 +14,7 @@ import {
   BLACK_HOLE_DIAMETER_RATIO,
   BLACK_HOLE_POSITION_MOBILE_X_RATIO,
   BLACK_HOLE_POSITION_MOBILE_Y_PX,
+  BLACK_HOLE_POSITION_Y_PX,
   CAPTURED_METEOR_FADE_MS,
   CURSOR_DRIFT_BASE_ACCEL,
   CURSOR_DRIFT_ESCAPE_SPEED,
@@ -46,6 +47,12 @@ interface Star {
   twinkles: boolean;
   twinklePeriod: number; // ms, индивидуальный для каждой звезды
   twinklePhase: number;  // radians [0, 2π], индивидуальный
+  // Дистанция до поверхности чёрной дыры (px) — считается ОДИН РАЗ при
+  // resize (tagBlackHoleDistance), не каждый кадр: радиус орбиты звезды не
+  // меняется (меняется только угол при вращении), поэтому это истинная
+  // константа для всего времени жизни массива звёзд (см. п.8.2.1,
+  // docs/error-experience/spec.md). undefined до первого resize/без дыры.
+  distFromBhSurface?: number;
 }
 
 interface Meteor {
@@ -96,6 +103,14 @@ const SHOWER_CATCHUP_MAX_CLUSTERS = 2; // «догоняющий» поток п
 // цикл только что вернулся из остановленного/троттлящегося состояния
 // (скрытая вкладка, фоновый троттлинг ОС/браузера), а не обычный тик.
 const RESUME_GAP_MS = 2000;
+
+// Клэмп шага интегрирования дрейфа курсора (п.8.3, docs/error-experience/
+// spec.md) — без него dt после скрытой вкладки/долгой паузы устройства
+// может быть счётом на секунды и уйти прямиком в интегрирование скорости
+// (driftVelRef += ax·dt), давая один кадр с непредсказуемым скачком.
+// 100мс — заведомо больше обычного джиттера кадра (16–66мс), но пресекает
+// патологические разрывы.
+const MAX_DRIFT_DT_SECONDS = 0.1;
 
 // ---------------------------------------------------------------------------
 // Stars
@@ -240,9 +255,26 @@ function drawOrbitArc(
   const halfSpan = angularSpanFraction * Math.PI; // fraction — доля полной окружности
   ctx.beginPath();
   ctx.arc(bh.x, bh.y, orbitRadius, centerAngle - halfSpan, centerAngle + halfSpan);
-  ctx.strokeStyle = `rgba(255,255,255,${Math.max(0, alpha).toFixed(3)})`;
+  // Цвет всегда белый — альфа через globalAlpha, а не rgba()-строку (п.8.2.2,
+  // docs/error-experience/spec.md): убирает аллокацию+парсинг цвета на
+  // каждый вызов (звёзды в кольцевой зоне, метеоры, курсор). Сбрасываем в 1
+  // сразу после — функция общая для нескольких вызывающих в одном кадре,
+  // не должна оставлять «протёкшее» состояние соседям.
+  ctx.strokeStyle = '#ffffff';
+  ctx.globalAlpha = Math.max(0, alpha);
   ctx.lineWidth = 1;
   ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+// Считается ОДИН РАЗ при resize (не каждый кадр) — см. Star.distFromBhSurface
+// и п.8.2.1 (docs/error-experience/spec.md). Дистанция звезды до дыры не
+// меняется от вращения (оно меняет только угол, не радиус орбиты), поэтому
+// кэшировать безопасно на весь срок жизни массива звёзд.
+function tagBlackHoleDistance(stars: Star[], bh: BlackHoleGeometry | null): void {
+  for (const s of stars) {
+    s.distFromBhSurface = bh ? Math.hypot(s.x - bh.x, s.y - bh.y) - bh.radius : Infinity;
+  }
 }
 
 function drawStars(
@@ -259,16 +291,30 @@ function drawStars(
   // «эллипс, чуть вращающийся → линия у горизонта, вращающаяся быстро».
   const outerBoundaryPx = blackHole ? blackHole.radius * 2 * LENSING_FADE_START_DIAMETERS : 0;
 
+  // Цвет звёзд всегда белый — альфа/мерцание идёт через globalAlpha, не
+  // через новую rgba()-строку на каждую звезду каждый кадр (п.8.2.2): на
+  // десктопе это ~2650 аллокаций строк/кадр × 60fps, заметный источник
+  // GC-пауз, которые и ощущаются как «рывками» при вращении вихря на слабых
+  // устройствах. save/restore — чтобы globalAlpha не «протёк» в отрисовку
+  // метеоров/дыры/курсора, которая идёт следом в том же кадре.
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+
   for (const s of stars) {
     let a = s.baseBrightness;
     if (animate && s.twinkles) {
       a = Math.max(0, Math.min(1, a * (1 + TWINKLE_AMP * Math.sin(2 * Math.PI * now / s.twinklePeriod + s.twinklePhase))));
     }
 
-    if (!blackHole) {
+    // Вне зоны эффекта (или дыры на странице нет вовсе) — координаты звезды
+    // не меняются (радиус орбиты постоянен, случай 'normal' гарантирован),
+    // пропускаем applyOrbitalRotation/computeLensing целиком, а не только
+    // их результат (п.8.2.1) — тригонометрия на статичное большинство
+    // звёзд иначе выполняется впустую каждый кадр.
+    if (!blackHole || (s.distFromBhSurface ?? Infinity) > outerBoundaryPx) {
+      ctx.globalAlpha = a;
       ctx.beginPath();
       ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255,255,255,${a.toFixed(3)})`;
       ctx.fill();
       continue;
     }
@@ -280,11 +326,12 @@ function drawStars(
     // на 25% радиуса эффекта, см. constants/blackHole.ts.
     const lensing = computeLensing(rx, ry, blackHole.x, blackHole.y, blackHole.radius);
     if (lensing.mode === 'normal') {
+      ctx.globalAlpha = a;
       ctx.beginPath();
       ctx.arc(rx, ry, s.radius, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255,255,255,${a.toFixed(3)})`;
       ctx.fill();
     } else if (lensing.mode === 'lensed') {
+      ctx.globalAlpha = a;
       ctx.beginPath();
       ctx.ellipse(
         rx, ry,
@@ -292,7 +339,6 @@ function drawStars(
         s.radius * lensing.scaleAcrossOrbit,
         lensing.angle, 0, Math.PI * 2,
       );
-      ctx.fillStyle = `rgba(255,255,255,${a.toFixed(3)})`;
       ctx.fill();
     } else {
       // ring — пересчитывается каждый кадр из текущей (повёрнутой) позиции,
@@ -303,6 +349,8 @@ function drawStars(
       drawOrbitArc(ctx, blackHole, lensing.ringRadius, angle, lensing.ringSpanFraction, a * INNER_ZONE_BRIGHTNESS_FACTOR);
     }
   }
+
+  ctx.restore();
 }
 
 // ---------------------------------------------------------------------------
@@ -547,18 +595,20 @@ function updateCursorDrift(
   return next;
 }
 
-// Мобильная ветка (docs/error-experience/spec.md, раунд 6, п.2) — не просто
-// другая пара ratio-координат, а другая МОДЕЛЬ: Y — абсолютный px, не доля
-// высоты окна, т.к. кнопка «Go home», от которой нужно держать дистанцию,
-// стоит на фиксированной абсолютной высоте независимо от высоты окна (см.
-// подробное обоснование у констант в constants/blackHole.ts).
+// И мобильная (раунд 6, п.2), и десктопная/планшетная (раунд 8, п.8.4/
+// 8.5.1) ветки резолвят Y из абсолютной px-константы, не из доли высоты
+// окна — в обоих случаях ориентир (кнопка «Go home» на мобильном, нижний
+// правый уголок ErrorPanel на десктопе/планшете) стоит на фиксированной
+// абсолютной высоте независимо от высоты окна (см. подробное обоснование у
+// констант в constants/blackHole.ts). xRatio, наоборот, ratio-based в обеих
+// ветках — сам ориентир тоже растёт пропорционально ширине окна.
 function resolveBlackHoleGeometry(w: number, h: number): BlackHoleGeometry | null {
   const pos = getBlackHole();
   if (!pos) return null;
   const isMobile = w < MOBILE_BREAKPOINT_PX;
   return {
     x: isMobile ? BLACK_HOLE_POSITION_MOBILE_X_RATIO * w : pos.xRatio * w,
-    y: isMobile ? BLACK_HOLE_POSITION_MOBILE_Y_PX : pos.yRatio * h,
+    y: isMobile ? BLACK_HOLE_POSITION_MOBILE_Y_PX : BLACK_HOLE_POSITION_Y_PX,
     radius: blackHoleRadiusPx(w, h, BLACK_HOLE_DIAMETER_RATIO),
   };
 }
@@ -614,6 +664,16 @@ function StarFieldCanvasInner() {
   const specsRef     = useRef<ShowerSpec[]>([]);
   const rafRef       = useRef<number>(0);
   const lastFrameRef = useRef<number>(0);
+  // Накопленное время в «скрытых» разрывах (RESUME_GAP_MS) — вычитается из
+  // now ТОЛЬКО для вращения вихря (п.8.3, docs/error-experience/spec.md):
+  // угол считается напрямую от performance.now(), которое идёт и при
+  // скрытой вкладке, поэтому без этого первый кадр после возврата рисовал
+  // бы звезду в позиции «по реальному прошедшему времени» — заметный
+  // скачок на случайный угол вместо продолжения с точки паузы. Метеорный
+  // планировщик (nextSoloRef/nextShwRef) НЕ использует это смещение —
+  // «догоняющий» поток при возврате осознанно сохранён (см. RESUME_GAP_MS
+  // выше), виртуальные часы затронули бы и его.
+  const hiddenTimeOffsetRef = useRef(0);
   const nextSoloRef  = useRef<number>(0);
   const nextShwRef   = useRef<number>(0);
   const sizeRef      = useRef({ w: 0, h: 0 });
@@ -653,9 +713,11 @@ function StarFieldCanvasInner() {
       // Пересоздаём звёзды для новых размеров (периоды и фазы хранятся в каждой Star)
       const stars = generateStars(w, h);
       const bh = resolveBlackHoleGeometry(w, h);
-      starsRef.current = bh
+      const allStars = bh
         ? stars.concat(generateVortexCluster(bh, Math.hypot(w, h), w), generateSecondaryNebula(w, h))
         : stars;
+      tagBlackHoleDistance(allStars, bh);
+      starsRef.current = allStars;
     }
 
     resize();
@@ -718,11 +780,21 @@ function StarFieldCanvasInner() {
       if (frameGapMs < targetMs) return;
       lastFrameRef.current = now;
 
+      // Разрыв такого порядка — пауза (скрытая вкладка/троттлинг), а не
+      // обычный тик; исключаем «лишнее» время из виртуальных часов вращения
+      // (п.8.3) — оставляем типичный кадровый интервал, чтобы после
+      // возврата вихрь продолжил вращение с той же точки, где остановился,
+      // а не прыгнул на угол, «положенный» по реальному прошедшему времени.
+      if (frameGapMs > RESUME_GAP_MS) {
+        hiddenTimeOffsetRef.current += frameGapMs - targetMs;
+      }
+      const rotationNow = now - hiddenTimeOffsetRef.current;
+
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
       ctx.clearRect(0, 0, w, h);
-      drawStars(ctx, starsRef.current, now, true, blackHole);
+      drawStars(ctx, starsRef.current, rotationNow, true, blackHole);
 
       // Solo meteor
       if (now >= nextSoloRef.current && meteorsRef.current.length < MAX_METEORS) {
@@ -771,8 +843,11 @@ function StarFieldCanvasInner() {
 
       // Дрейф к центру (п.3 доработки) — вычисляем позицию для рендера
       // (реальную либо дрейфующую) ДО renderCursorLensing, который её просто
-      // рисует, не зная о существовании дрейфа
-      const driftDtSeconds = lastDriftTimeRef.current ? (now - lastDriftTimeRef.current) / 1000 : 0;
+      // рисует, не зная о существовании дрейфа. Клэмп (п.8.3) — без него dt
+      // после скрытой вкладки может быть счётом на секунды и уйти прямиком
+      // в интегрирование скорости (см. MAX_DRIFT_DT_SECONDS выше).
+      const rawDriftDtSeconds = lastDriftTimeRef.current ? (now - lastDriftTimeRef.current) / 1000 : 0;
+      const driftDtSeconds = Math.min(rawDriftDtSeconds, MAX_DRIFT_DT_SECONDS);
       lastDriftTimeRef.current = now;
       const effectiveCursorPos = updateCursorDrift(
         cursorPosRef.current, blackHole, driftDtSeconds, driftPosRef, driftVelRef,

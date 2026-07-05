@@ -6,7 +6,12 @@
 
 export interface BlackHolePosition {
   xRatio: number; // 0..1 — доля ширины окна
-  yRatio: number; // 0..1 — доля высоты окна
+  // yRatio больше не используется (раунд 8, п.8.4/8.5.1, docs/error-
+  // experience/spec.md) — Y для обоих брейкпоинтов (десктоп/мобильный)
+  // резолвится из абсолютных px-констант в constants/blackHole.ts, не из
+  // стора: панель ErrorPanel зафиксирована на постоянной высоте от верха
+  // вьюпорта (position:fixed + top-14), доля высоты ОКНА для неё в принципе
+  // не подходит (тот же класс проблемы, что уже решён для мобильной X/Y).
 }
 
 let _blackHole: BlackHolePosition | null = null;

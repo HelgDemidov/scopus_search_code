@@ -111,7 +111,7 @@ describe('StarFieldCanvas', () => {
       return 42;
     }));
 
-    setBlackHole({ xRatio: 0.5, yRatio: 0.5 });
+    setBlackHole({ xRatio: 0.5 });
     render(
       <ThemeProvider>
         <StarFieldCanvas />
