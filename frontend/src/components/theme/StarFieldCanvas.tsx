@@ -25,10 +25,13 @@ import {
   SECONDARY_NEBULA_BLOB_COUNT,
   SECONDARY_NEBULA_RADIUS_RATIO,
   SECONDARY_NEBULA_STAR_COUNT_MAX,
+  SECONDARY_NEBULA_STAR_COUNT_MAX_MOBILE,
   SECONDARY_NEBULA_STAR_COUNT_MIN,
+  SECONDARY_NEBULA_STAR_COUNT_MIN_MOBILE,
   VORTEX_BLOB_COUNT,
   VORTEX_RADIUS_RATIO,
   VORTEX_STAR_COUNT,
+  VORTEX_STAR_COUNT_MOBILE,
 } from '../../constants/blackHole';
 
 // ---------------------------------------------------------------------------
@@ -177,13 +180,16 @@ function generateStarClumps(
 // (VORTEX_RADIUS_RATIO), НЕ от радиуса дыры — иначе туманность была бы
 // жёстко привязана к крошечному размеру самой дыры и оставалась тонкой
 // каёмкой вокруг неё вместо полноценного фона.
-function generateVortexCluster(bh: BlackHoleGeometry, diagonal: number): Star[] {
+function generateVortexCluster(bh: BlackHoleGeometry, diagonal: number, w: number): Star[] {
   const nebulaRadius = diagonal * VORTEX_RADIUS_RATIO;
   // Якорь скопления смещён от центра дыры — дыра не строго в центре туманности
   const anchorAngle = Math.random() * Math.PI * 2;
   const anchorX = bh.x + Math.cos(anchorAngle) * nebulaRadius * 0.2;
   const anchorY = bh.y + Math.sin(anchorAngle) * nebulaRadius * 0.2;
-  return generateStarClumps(anchorX, anchorY, nebulaRadius, VORTEX_BLOB_COUNT, VORTEX_STAR_COUNT);
+  // Мобильная плотность снижена (раунд 7, производительность) — см.
+  // комментарий у VORTEX_STAR_COUNT_MOBILE в constants/blackHole.ts.
+  const starCount = w < MOBILE_BREAKPOINT_PX ? VORTEX_STAR_COUNT_MOBILE : VORTEX_STAR_COUNT;
+  return generateStarClumps(anchorX, anchorY, nebulaRadius, VORTEX_BLOB_COUNT, starCount);
 }
 
 // Вторая, независимая от чёрной дыры туманность (docs/error-experience/
@@ -197,9 +203,13 @@ function generateSecondaryNebula(w: number, h: number): Star[] {
   const nebulaRadius = diagonal * SECONDARY_NEBULA_RADIUS_RATIO;
   const anchorX = w * (0.18 + Math.random() * 0.12);
   const anchorY = h * (0.68 + Math.random() * 0.12);
-  const totalStars = Math.round(
-    SECONDARY_NEBULA_STAR_COUNT_MIN + Math.random() * (SECONDARY_NEBULA_STAR_COUNT_MAX - SECONDARY_NEBULA_STAR_COUNT_MIN),
-  );
+  // Мобильная плотность снижена сильнее, чем у вихря (раунд 7) — эта
+  // туманность не участвует в орбитальном вращении (п.1.2), несёт большую
+  // долю сокращения, см. константы в constants/blackHole.ts.
+  const isMobile = w < MOBILE_BREAKPOINT_PX;
+  const min = isMobile ? SECONDARY_NEBULA_STAR_COUNT_MIN_MOBILE : SECONDARY_NEBULA_STAR_COUNT_MIN;
+  const max = isMobile ? SECONDARY_NEBULA_STAR_COUNT_MAX_MOBILE : SECONDARY_NEBULA_STAR_COUNT_MAX;
+  const totalStars = Math.round(min + Math.random() * (max - min));
   return generateStarClumps(anchorX, anchorY, nebulaRadius, SECONDARY_NEBULA_BLOB_COUNT, totalStars);
 }
 
@@ -644,7 +654,7 @@ function StarFieldCanvasInner() {
       const stars = generateStars(w, h);
       const bh = resolveBlackHoleGeometry(w, h);
       starsRef.current = bh
-        ? stars.concat(generateVortexCluster(bh, Math.hypot(w, h)), generateSecondaryNebula(w, h))
+        ? stars.concat(generateVortexCluster(bh, Math.hypot(w, h), w), generateSecondaryNebula(w, h))
         : stars;
     }
 
