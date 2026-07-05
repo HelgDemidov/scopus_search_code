@@ -19,9 +19,13 @@ describe('appRoutes error architecture', () => {
     expect(lastMatch('/a/b/c/d')?.route.path).toBe('*');
   });
 
-  it('defines an errorElement on the root route', () => {
+  it('defines an errorElement on a pathless child route, not the root layout route', () => {
+    // Не на appRoutes[0] (RootLayout/Header) — иначе при краше errorElement
+    // заменил бы весь родительский элемент целиком, стерев Header вместе с
+    // остальной хромом сайта. См. комментарий в router.tsx.
     const root = appRoutes[0];
-    expect(root.errorElement).toBeTruthy();
+    expect(root.errorElement).toBeUndefined();
+    expect(root.children?.[0]?.errorElement).toBeTruthy();
   });
 
   it('still resolves known routes normally (no regression)', () => {

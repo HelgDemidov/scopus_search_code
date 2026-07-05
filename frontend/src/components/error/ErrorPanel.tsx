@@ -15,6 +15,9 @@ interface ErrorPanelProps {
 // Общая «readout»-панель для error-страниц (404/route error) — см.
 // docs/error-experience/spec.md, раздел «Дизайн». Токены — те же, что и в
 // остальном тёмном режиме (#152236/slate-700), telemetry-строка — font-mono.
+// Панель всегда тёмная независимо от темы сайта (сигнатурный «космический»
+// вид не завязан на light/dark toggle) — только статус-лейбл ниже теперь
+// theme-aware (голубой кнопок дневной/ночной версии, см. п.3 доработки).
 export function ErrorPanel({
   statusLabel, monoLabel, monoValue, copyable, title, description, children,
 }: ErrorPanelProps) {
@@ -29,9 +32,21 @@ export function ErrorPanel({
   };
 
   return (
-    <div className="relative z-10 flex min-h-[70vh] items-center justify-center px-4">
-      <div className="w-full max-w-md rounded-lg border border-slate-700 bg-[#152236] p-6 text-center shadow-xl">
-        <p className="font-mono text-xs tracking-widest text-amber-400">{statusLabel}</p>
+    // pt-[38px] ≈ условный «1см» от нижней рамки шапки (header h-14+border,
+    // фиксированная высота на всех вьюпортах — единое значение уже даёт
+    // пропорциональный результат и на мобильном, отдельный брейкпоинт не нужен)
+    <div className="relative z-10 flex min-h-[70vh] items-start justify-center px-4 pt-[38px]">
+      {/*
+        70% прозрачности — ТОЛЬКО в dark: там за панелью реально есть что
+        показать (StarFieldCanvas рендерится исключительно в dark-теме).
+        В light фона-«под спектаклем» нет вообще (просто белая страница), а
+        текст (slate-100/slate-400) рассчитан на непрозрачную тёмную панель —
+        с прозрачностью в light он терял контраст почти до нечитаемости
+        (проверено: заголовок/описание становились еле видны на просвечивающем
+        белом). Поэтому light остаётся полностью непрозрачным, как было.
+      */}
+      <div className="w-full max-w-md rounded-lg border border-slate-700 bg-[#152236] p-6 text-center shadow-xl dark:bg-[#152236]/30">
+        <p className="text-lg font-bold tracking-widest text-blue-800 dark:text-blue-500">{statusLabel}</p>
 
         {monoLabel && monoValue && (
           <div className="mt-2 flex items-center justify-center gap-2 font-mono text-xs text-slate-400">

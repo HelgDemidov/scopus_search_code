@@ -5,8 +5,7 @@ import { Button } from '../../components/ui/button';
 import { ErrorPanel } from '../../components/error/ErrorPanel';
 import { useBlackHole } from '../../hooks/useBlackHole';
 import { buildReportMailto } from '../../utils/errorReport';
-
-const BLACK_HOLE_POSITION = { xRatio: 0.86, yRatio: 0.82 };
+import { BLACK_HOLE_POSITION } from '../../constants/blackHole';
 
 // Короткий client-side корреляционный код — НЕ X-Request-ID с бэкенда
 // (для этого нет соответствующего HTTP-запроса: ошибка — это упавший

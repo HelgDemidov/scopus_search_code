@@ -101,27 +101,38 @@ export const appRoutes: RouteObject[] = [
   {
     path: '/',
     element: <RootLayout />,
-    // errorElement ловит непойманные исключения из loader/action/render
-    // дочерних роутов (docs/error-experience/spec.md) — 404 обрабатывается
-    // ОТДЕЛЬНЫМ path:'*' роутом ниже, не через errorElement: «такой страницы
-    // нет» семантически не «ошибка».
-    errorElement: <RouteErrorPage />,
     children: [
-      { index: true,           element: HomePage },
-      { path: 'explore',       element: ExplorePage },
-      { path: 'auth',             element: AuthPage },
-      { path: 'auth/callback',   element: OAuthCallback },
-      { path: 'article/:id',     element: ArticlePage },
-      { path: 'forgot-password', element: ForgotPasswordPage },
-      { path: 'reset-password',  element: ResetPasswordPage },
       {
-        // Защищенные маршруты через PrivateRoute
-        element: <PrivateRoute />,
+        // errorElement — на ВЛОЖЕННОМ безпутевом (pathless) роуте, не на
+        // родительском '/' — известная особенность react-router: при краше
+        // errorElement заменяет элемент ТОГО ЖЕ роута целиком, т.е. на
+        // родительском роуте это стёрло бы RootLayout вместе с Header
+        // (RouteErrorPage рендерился бы «голым», без шапки сайта). На
+        // вложенном pathless-роуте errorElement подменяет только Outlet
+        // внутри RootLayout — Header остаётся смонтирован при краше.
+        // Ловит непойманные исключения из loader/action/render дочерних
+        // роутов (docs/error-experience/spec.md) — 404 обрабатывается
+        // ОТДЕЛЬНЫМ path:'*' роутом ниже, не через errorElement: «такой
+        // страницы нет» семантически не «ошибка».
+        errorElement: <RouteErrorPage />,
         children: [
-          { path: 'profile', element: ProfilePage },
+          { index: true,           element: HomePage },
+          { path: 'explore',       element: ExplorePage },
+          { path: 'auth',             element: AuthPage },
+          { path: 'auth/callback',   element: OAuthCallback },
+          { path: 'article/:id',     element: ArticlePage },
+          { path: 'forgot-password', element: ForgotPasswordPage },
+          { path: 'reset-password',  element: ResetPasswordPage },
+          {
+            // Защищенные маршруты через PrivateRoute
+            element: <PrivateRoute />,
+            children: [
+              { path: 'profile', element: ProfilePage },
+            ],
+          },
+          { path: '*', element: <NotFoundPage /> },
         ],
       },
-      { path: '*', element: <NotFoundPage /> },
     ],
   },
 ];

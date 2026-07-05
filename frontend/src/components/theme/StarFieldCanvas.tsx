@@ -4,15 +4,24 @@ import { getBlackHole } from '../../stores/blackHoleStore';
 import {
   blackHoleRadiusPx,
   computeLensing,
+  exceedsEscapeSpeed,
+  gravitationalDriftAccel,
   isInsideBlackHoleDisk,
+  orbitalAngularVelocity,
   shouldHideCursor,
 } from '../../utils/blackHoleLensing';
 import {
   BLACK_HOLE_DIAMETER_RATIO,
-  CAPTURED_CURSOR_ARC_SPAN,
-  CAPTURED_METEOR_ARC_SPAN,
   CAPTURED_METEOR_FADE_MS,
-  CAPTURED_STAR_ARC_SPAN,
+  CURSOR_DRIFT_BASE_ACCEL,
+  CURSOR_DRIFT_ESCAPE_SPEED,
+  CURSOR_RESISTANCE_POWER,
+  INNER_ZONE_BRIGHTNESS_FACTOR,
+  LENSING_FADE_START_DIAMETERS,
+  METEOR_CAPTURE_DIAMETERS,
+  VORTEX_BLOB_COUNT,
+  VORTEX_RADIUS_RATIO,
+  VORTEX_STAR_COUNT,
 } from '../../constants/blackHole';
 
 // ---------------------------------------------------------------------------
@@ -38,12 +47,14 @@ interface Meteor {
   duration: number;
   startTime: number;
   maxAlpha: number;
-  // Заполняются, если метеор пролетел ближе LENSING_INNER_DIAMETERS к чёрной
-  // дыре (docs/error-experience/spec.md) — вместо полосы по вектору скорости
-  // рендерится зафиксированная дуга по орбите, угасающая за CAPTURED_METEOR_FADE_MS
+  // Заполняются, если метеор вошёл в кольцевую зону чёрной дыры
+  // (docs/error-experience/spec.md) — вместо полосы по вектору скорости
+  // рендерится зафиксированная дуга по орбите, угасающая за CAPTURED_METEOR_FADE_MS.
+  // Радиус/охват дуги берутся из computeLensing() в момент захвата — не константы.
   capturedAt?: number;
   capturedAngle?: number;
-  capturedOrbitRadius?: number;
+  capturedRingRadius?: number;
+  capturedSpanFraction?: number;
 }
 
 interface BlackHoleGeometry {
@@ -72,50 +83,101 @@ const MAX_DPR       = 2;
 // Stars
 // ---------------------------------------------------------------------------
 
-function generateStars(w: number, h: number): Star[] {
-  const count = w < 768 ? 150 : 400;
-  return Array.from({ length: count }, () => {
-    const r = Math.random();
-    let baseBrightness: number;
-    let twinkles: boolean;
-    let radius: number;
-
-    let twinklePeriod: number;
-    let twinklePhase: number;
-    if (r < 0.6) {
-      baseBrightness = 0.085 + Math.random() * 0.102; // 0.085–0.187 (−15% от 0.10–0.22)
-      twinkles = false;
-      twinklePeriod = 0;
-      twinklePhase  = 0;
-      radius = 0.7;
-    } else if (r < 0.9) {
-      baseBrightness = 0.238 + Math.random() * 0.187; // 0.238–0.425 (−15% от 0.28–0.50)
-      twinkles = true;
-      twinklePeriod = 2000 + Math.random() * 7000;    // 2–9 s, индивидуальный
-      twinklePhase  = Math.random() * Math.PI * 2;
-      radius = 0.9;
-    } else {
-      baseBrightness = 0.398 + Math.random() * 0.093; // 0.398–0.491 (−15% от 0.468–0.578)
-      twinkles = true;
-      twinklePeriod = (2000 + Math.random() * 7000) / 2.5; // 0.8–3.6 s (2.5x быстрее Tier 2)
-      twinklePhase  = Math.random() * Math.PI * 2;
-      radius = 1.2;
-    }
-
+// Яркость/мерцание — общая логика для обычного фона и скопления вихря
+// (п.1.2), различается только пространственное распределение x/y.
+function randomStarVisuals(): Pick<Star, 'radius' | 'baseBrightness' | 'twinkles' | 'twinklePeriod' | 'twinklePhase'> {
+  const r = Math.random();
+  if (r < 0.6) {
     return {
-      x: Math.random() * w,
-      y: Math.random() * h,
-      radius,
-      baseBrightness,
-      twinkles,
-      twinklePeriod,
-      twinklePhase,
+      baseBrightness: 0.085 + Math.random() * 0.102, // 0.085–0.187 (−15% от 0.10–0.22)
+      twinkles: false,
+      twinklePeriod: 0,
+      twinklePhase: 0,
+      radius: 0.7,
     };
-  });
+  }
+  if (r < 0.9) {
+    return {
+      baseBrightness: 0.238 + Math.random() * 0.187, // 0.238–0.425 (−15% от 0.28–0.50)
+      twinkles: true,
+      twinklePeriod: 2000 + Math.random() * 7000,    // 2–9 s, индивидуальный
+      twinklePhase: Math.random() * Math.PI * 2,
+      radius: 0.9,
+    };
+  }
+  return {
+    baseBrightness: 0.398 + Math.random() * 0.093, // 0.398–0.491 (−15% от 0.468–0.578)
+    twinkles: true,
+    twinklePeriod: (2000 + Math.random() * 7000) / 2.5, // 0.8–3.6 s (2.5x быстрее Tier 2)
+    twinklePhase: Math.random() * Math.PI * 2,
+    radius: 1.2,
+  };
 }
 
-// Дуга по орбите вокруг чёрной дыры — общий рендер для «схлопнувшихся»
-// звёзд/метеоров (режим 'captured' из computeLensing).
+function generateStars(w: number, h: number): Star[] {
+  const count = w < 768 ? 150 : 400;
+  return Array.from({ length: count }, () => ({
+    x: Math.random() * w,
+    y: Math.random() * h,
+    ...randomStarVisuals(),
+  }));
+}
+
+// Плотное, неправильной формы скопление звёзд вокруг чёрной дыры — фон для
+// эффекта воронки (docs/error-experience/spec.md, п.1.2), ~30% площади
+// экрана. Художественная аппроксимация через частицы, не пиксельное
+// линзирование фона (вне scope). Несколько смещённых друг от друга
+// «сгущений» (Box-Muller вокруг своего центра) вместо одного правильного
+// круга — даёт органичную, рваную форму. Масштаб считается от диагонали
+// экрана (VORTEX_RADIUS_RATIO), НЕ от радиуса дыры — иначе туманность была
+// бы жёстко привязана к крошечному размеру самой дыры и оставалась тонкой
+// каёмкой вокруг неё вместо полноценного фона.
+function generateVortexCluster(bh: BlackHoleGeometry, diagonal: number): Star[] {
+  const nebulaRadius = diagonal * VORTEX_RADIUS_RATIO;
+  // Якорь скопления смещён от центра дыры — дыра не строго в центре туманности
+  const anchorAngle = Math.random() * Math.PI * 2;
+  const anchorX = bh.x + Math.cos(anchorAngle) * nebulaRadius * 0.2;
+  const anchorY = bh.y + Math.sin(anchorAngle) * nebulaRadius * 0.2;
+  const perBlob = Math.ceil(VORTEX_STAR_COUNT / VORTEX_BLOB_COUNT);
+  const stars: Star[] = [];
+
+  for (let b = 0; b < VORTEX_BLOB_COUNT; b++) {
+    const blobAngle = Math.random() * Math.PI * 2;
+    const blobDist  = nebulaRadius * (0.25 + Math.random() * 0.55);
+    const blobX = anchorX + Math.cos(blobAngle) * blobDist;
+    const blobY = anchorY + Math.sin(blobAngle) * blobDist;
+    const spread = nebulaRadius * (0.3 + Math.random() * 0.35);
+
+    for (let i = 0; i < perBlob; i++) {
+      const u1 = Math.random() || 1e-6; // избегаем log(0)
+      const u2 = Math.random();
+      const mag = Math.sqrt(-2 * Math.log(u1));
+      stars.push({
+        x: blobX + mag * Math.cos(2 * Math.PI * u2) * spread,
+        y: blobY + mag * Math.sin(2 * Math.PI * u2) * spread,
+        ...randomStarVisuals(),
+      });
+    }
+  }
+  return stars;
+}
+
+// Позиция звезды с учётом орбитального вращения вихря (docs/error-experience/
+// spec.md, п.1.2) — радиус орбиты неизменен (звёзды не падают на дыру),
+// меняется только угол; вне зоны действия (outerBoundaryPx) не делает
+// лишней работы, возвращает исходные координаты как есть.
+function applyOrbitalRotation(
+  x0: number, y0: number, bh: BlackHoleGeometry, outerBoundaryPx: number, nowMs: number,
+): { x: number; y: number } {
+  const r = Math.hypot(x0 - bh.x, y0 - bh.y);
+  const omega = orbitalAngularVelocity(r - bh.radius, outerBoundaryPx);
+  if (omega === 0) return { x: x0, y: y0 };
+  const theta = Math.atan2(y0 - bh.y, x0 - bh.x) + omega * (nowMs / 1000);
+  return { x: bh.x + r * Math.cos(theta), y: bh.y + r * Math.sin(theta) };
+}
+
+// Дуга по орбите вокруг чёрной дыры — общий рендер для звёзд/курсора/метеоров
+// в кольцевой зоне (режим 'ring' из computeLensing).
 function drawOrbitArc(
   ctx: CanvasRenderingContext2D,
   bh: BlackHoleGeometry,
@@ -139,6 +201,13 @@ function drawStars(
   animate: boolean,
   blackHole: BlackHoleGeometry | null,
 ): void {
+  // Вращение начинается там же, где стартует деформация формы (FADE_START) —
+  // не там, где начинается кольцевая зона (OUTER) — иначе звёзды сперва
+  // растягивались бы в эллипс без всякого движения, а вращение включалось
+  // бы отдельным резким порогом позже. Единый старт даёт плавный переход
+  // «эллипс, чуть вращающийся → линия у горизонта, вращающаяся быстро».
+  const outerBoundaryPx = blackHole ? blackHole.radius * 2 * LENSING_FADE_START_DIAMETERS : 0;
+
   for (const s of stars) {
     let a = s.baseBrightness;
     if (animate && s.twinkles) {
@@ -153,16 +222,21 @@ function drawStars(
       continue;
     }
 
-    const lensing = computeLensing(s.x, s.y, blackHole.x, blackHole.y, blackHole.radius);
+    // Вращение вихря (п.1.2) — применяется до расчёта деформации формы,
+    // оба эффекта независимы друг от друга на одной и той же звезде.
+    const { x: rx, y: ry } = applyOrbitalRotation(s.x, s.y, blackHole, outerBoundaryPx, now);
+    // Раунд 3: без resistancePower (p=1) — граница OUTER сама откалибрована
+    // на 25% радиуса эффекта, см. constants/blackHole.ts.
+    const lensing = computeLensing(rx, ry, blackHole.x, blackHole.y, blackHole.radius);
     if (lensing.mode === 'normal') {
       ctx.beginPath();
-      ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+      ctx.arc(rx, ry, s.radius, 0, Math.PI * 2);
       ctx.fillStyle = `rgba(255,255,255,${a.toFixed(3)})`;
       ctx.fill();
     } else if (lensing.mode === 'lensed') {
       ctx.beginPath();
       ctx.ellipse(
-        s.x, s.y,
+        rx, ry,
         s.radius * lensing.scaleAlongOrbit,
         s.radius * lensing.scaleAcrossOrbit,
         lensing.angle, 0, Math.PI * 2,
@@ -170,10 +244,12 @@ function drawStars(
       ctx.fillStyle = `rgba(255,255,255,${a.toFixed(3)})`;
       ctx.fill();
     } else {
-      // captured — статичная дуга (звёзды не двигаются, в отличие от метеоров)
-      const orbitRadius = Math.hypot(s.x - blackHole.x, s.y - blackHole.y);
-      const angle = Math.atan2(s.y - blackHole.y, s.x - blackHole.x);
-      drawOrbitArc(ctx, blackHole, orbitRadius, angle, CAPTURED_STAR_ARC_SPAN, a);
+      // ring — пересчитывается каждый кадр из текущей (повёрнутой) позиции,
+      // звёзды не «замораживаются» в отличие от метеоров. Внутренние 50%
+      // радиуса эффекта (вся кольцевая зона) приглушены — иначе плотность
+      // перекрывающихся дуг у горизонта выглядит слишком ярко (п.6).
+      const angle = Math.atan2(ry - blackHole.y, rx - blackHole.x);
+      drawOrbitArc(ctx, blackHole, lensing.ringRadius, angle, lensing.ringSpanFraction, a * INNER_ZONE_BRIGHTNESS_FACTOR);
     }
   }
 }
@@ -226,8 +302,8 @@ function drawAndFilterMeteors(
       alive.push(m);
       const alpha = m.maxAlpha * (1 - fadeProgress);
       drawOrbitArc(
-        ctx, blackHole, m.capturedOrbitRadius ?? 0, m.capturedAngle ?? 0,
-        CAPTURED_METEOR_ARC_SPAN, alpha,
+        ctx, blackHole, m.capturedRingRadius ?? 0, m.capturedAngle ?? 0,
+        m.capturedSpanFraction ?? 0, alpha,
       );
       continue;
     }
@@ -246,13 +322,20 @@ function drawAndFilterMeteors(
     const headX = m.x0 + m.dx * dist;
     const headY = m.y0 + m.dy * dist;
 
-    // Проверяем горизонт события — метеор мгновенно «схлопывается» в дугу
-    if (blackHole && computeLensing(headX, headY, blackHole.x, blackHole.y, blackHole.radius).mode === 'captured') {
+    // Проверяем горизонт события — метеор мгновенно «схлопывается» в дугу.
+    // Порог у метеоров свой, уже (METEOR_CAPTURE_DIAMETERS), не расширенная
+    // вместе со звёздами/курсором зона п.1.1 — см. комментарий у константы.
+    const meteorDistFromSurface = blackHole
+      ? Math.hypot(headX - blackHole.x, headY - blackHole.y) - blackHole.radius
+      : Infinity;
+    if (blackHole && meteorDistFromSurface <= METEOR_CAPTURE_DIAMETERS * blackHole.radius * 2) {
+      const lensing = computeLensing(headX, headY, blackHole.x, blackHole.y, blackHole.radius);
       m.capturedAt = now;
       m.capturedAngle = Math.atan2(headY - blackHole.y, headX - blackHole.x);
-      m.capturedOrbitRadius = Math.hypot(headX - blackHole.x, headY - blackHole.y);
+      m.capturedRingRadius = lensing.ringRadius;
+      m.capturedSpanFraction = lensing.ringSpanFraction;
       alive.push(m);
-      drawOrbitArc(ctx, blackHole, m.capturedOrbitRadius, m.capturedAngle, CAPTURED_METEOR_ARC_SPAN, a);
+      drawOrbitArc(ctx, blackHole, m.capturedRingRadius, m.capturedAngle, m.capturedSpanFraction, a);
       continue;
     }
 
@@ -321,11 +404,15 @@ function renderCursorLensing(
     return;
   }
 
-  const lensing = computeLensing(cursorPos.x, cursorPos.y, blackHole.x, blackHole.y, blackHole.radius);
-  if (lensing.mode === 'captured') {
-    const orbitRadius = Math.hypot(cursorPos.x - blackHole.x, cursorPos.y - blackHole.y);
+  // CURSOR_RESISTANCE_POWER — курсор на 50–60% устойчивее звёзд к деформации
+  // (тот же порог начала эффекта, shouldHideCursor выше не менялся), но
+  // превращается в линию/кольцо на орбите заметно ближе к горизонту (п.1).
+  const lensing = computeLensing(
+    cursorPos.x, cursorPos.y, blackHole.x, blackHole.y, blackHole.radius, CURSOR_RESISTANCE_POWER,
+  );
+  if (lensing.mode === 'ring') {
     const angle = Math.atan2(cursorPos.y - blackHole.y, cursorPos.x - blackHole.x);
-    drawOrbitArc(ctx, blackHole, orbitRadius, angle, CAPTURED_CURSOR_ARC_SPAN, CURSOR_ALPHA);
+    drawOrbitArc(ctx, blackHole, lensing.ringRadius, angle, lensing.ringSpanFraction, CURSOR_ALPHA);
     return;
   }
 
@@ -341,6 +428,47 @@ function renderCursorLensing(
   );
   ctx.fillStyle = `rgba(255,255,255,${CURSOR_ALPHA})`;
   ctx.fill();
+}
+
+// Дрейф синтетического курсора к центру дыры (docs/error-experience/spec.md,
+// п.3 доработки, раунд 3) — как только реальная мышь входит в зону
+// гравитационного эффекта (FADE_START), рендер отделяется от живой позиции
+// мыши и падает к центру с ускорением (см. gravitationalDriftAccel), пока
+// onMouseMove не увидит достаточно быстрое движение и не сбросит driftPosRef
+// в null. Возвращает позицию, которую нужно рисовать вместо cursorPosRef —
+// либо ту же реальную (вне зоны/нет дыры), либо дрейфующую.
+function updateCursorDrift(
+  real: { x: number; y: number } | null,
+  blackHole: BlackHoleGeometry | null,
+  dtSeconds: number,
+  driftPosRef: { current: { x: number; y: number } | null },
+  driftVelRef: { current: { x: number; y: number } },
+): { x: number; y: number } | null {
+  if (!real || !blackHole) {
+    driftPosRef.current = null;
+    return real;
+  }
+
+  const fadeStartPx = blackHole.radius * 2 * LENSING_FADE_START_DIAMETERS;
+  const distFromSurface = Math.hypot(real.x - blackHole.x, real.y - blackHole.y) - blackHole.radius;
+  if (distFromSurface >= fadeStartPx) {
+    driftPosRef.current = null;
+    return real;
+  }
+
+  // Только что вошли в зону — дрейф стартует с текущей реальной позиции
+  if (!driftPosRef.current) {
+    driftPosRef.current = { x: real.x, y: real.y };
+  }
+
+  const pos = driftPosRef.current;
+  const { ax, ay } = gravitationalDriftAccel(pos.x, pos.y, blackHole.x, blackHole.y, blackHole.radius, CURSOR_DRIFT_BASE_ACCEL);
+  driftVelRef.current = { x: driftVelRef.current.x + ax * dtSeconds, y: driftVelRef.current.y + ay * dtSeconds };
+  driftPosRef.current = {
+    x: pos.x + driftVelRef.current.x * dtSeconds,
+    y: pos.y + driftVelRef.current.y * dtSeconds,
+  };
+  return driftPosRef.current;
 }
 
 function resolveBlackHoleGeometry(w: number, h: number): BlackHoleGeometry | null {
@@ -406,6 +534,14 @@ function StarFieldCanvasInner() {
   // Экспериментальная курсорная деформация (docs/error-experience/spec.md, Reach)
   const cursorPosRef    = useRef<{ x: number; y: number } | null>(null);
   const cursorHiddenRef = useRef(false);
+  // Дрейф курсора к центру (раунд 3, п.3) — driftPosRef=null означает «не
+  // дрейфует, точно следует за реальной мышью»; ненулевой — синтетическая
+  // позиция, падающая к центру независимо от cursorPosRef, пока быстрое
+  // движение мыши (onMouseMove) не сбросит её обратно в null.
+  const driftPosRef        = useRef<{ x: number; y: number } | null>(null);
+  const driftVelRef        = useRef({ x: 0, y: 0 });
+  const lastMouseSampleRef = useRef<{ x: number; y: number; t: number } | null>(null);
+  const lastDriftTimeRef   = useRef(0);
 
   useEffect(() => {
     const canvasEl = canvasRef.current;
@@ -429,7 +565,9 @@ function StarFieldCanvasInner() {
       if (!ctx) return;
       ctx.scale(dpr, dpr);
       // Пересоздаём звёзды для новых размеров (периоды и фазы хранятся в каждой Star)
-      starsRef.current = generateStars(w, h);
+      const stars = generateStars(w, h);
+      const bh = resolveBlackHoleGeometry(w, h);
+      starsRef.current = bh ? stars.concat(generateVortexCluster(bh, Math.hypot(w, h))) : stars;
     }
 
     resize();
@@ -461,7 +599,19 @@ function StarFieldCanvasInner() {
 
     // ---- Курсор (Reach — только вне prefers-reduced-motion) ----
     function onMouseMove(e: MouseEvent) {
+      const now = performance.now();
+      const prevSample = lastMouseSampleRef.current;
       cursorPosRef.current = { x: e.clientX, y: e.clientY };
+      // Обычное быстрое движение мышью/тачпадом «вырывает» курсор из дрейфа
+      // (докидываем п.3 доработки) — сравниваем скорость с предыдущим сэмплом
+      if (
+        prevSample &&
+        exceedsEscapeSpeed(e.clientX - prevSample.x, e.clientY - prevSample.y, now - prevSample.t, CURSOR_DRIFT_ESCAPE_SPEED)
+      ) {
+        driftPosRef.current = null;
+        driftVelRef.current = { x: 0, y: 0 };
+      }
+      lastMouseSampleRef.current = { x: e.clientX, y: e.clientY, t: now };
     }
     window.addEventListener('mousemove', onMouseMove);
 
@@ -469,16 +619,19 @@ function StarFieldCanvasInner() {
     function loop(now: number) {
       rafRef.current = requestAnimationFrame(loop);
 
+      const { w, h } = sizeRef.current;
+      const blackHole = resolveBlackHoleGeometry(w, h);
       const hasMeteors = meteorsRef.current.length > 0 || specsRef.current.length > 0;
-      const targetMs   = hasMeteors ? MTR_FRAME_MS : STAR_FRAME_MS;
+      // Чёрная дыра держит активно вращающиеся звёзды (п.1.2/1.3 ТЗ) — на 15 fps
+      // быстрое вращение выглядело бы дёргано (стробоскопический эффект),
+      // поэтому канвас переключается на те же 60 fps, что и при метеорах.
+      const targetMs = (hasMeteors || blackHole) ? MTR_FRAME_MS : STAR_FRAME_MS;
       if (now - lastFrameRef.current < targetMs) return;
       lastFrameRef.current = now;
 
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      const { w, h } = sizeRef.current;
-      const blackHole = resolveBlackHoleGeometry(w, h);
       ctx.clearRect(0, 0, w, h);
       drawStars(ctx, starsRef.current, now, true, blackHole);
 
@@ -522,7 +675,15 @@ function StarFieldCanvasInner() {
       // Круг — поверх звёзд/метеоров (горизонт событий их «закрывает»)
       if (blackHole) drawBlackHole(ctx, blackHole);
 
-      renderCursorLensing(ctx, blackHole, cursorPosRef.current, cursorHiddenRef);
+      // Дрейф к центру (п.3 доработки) — вычисляем позицию для рендера
+      // (реальную либо дрейфующую) ДО renderCursorLensing, который её просто
+      // рисует, не зная о существовании дрейфа
+      const driftDtSeconds = lastDriftTimeRef.current ? (now - lastDriftTimeRef.current) / 1000 : 0;
+      lastDriftTimeRef.current = now;
+      const effectiveCursorPos = updateCursorDrift(
+        cursorPosRef.current, blackHole, driftDtSeconds, driftPosRef, driftVelRef,
+      );
+      renderCursorLensing(ctx, blackHole, effectiveCursorPos, cursorHiddenRef);
     }
 
     rafRef.current = requestAnimationFrame(loop);
