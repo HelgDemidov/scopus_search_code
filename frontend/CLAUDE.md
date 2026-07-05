@@ -26,7 +26,7 @@ i18n: react-i18next 17 + i18next 26 + i18next-browser-languagedetector 8.
 
 ## Tests (co-location pattern: тест рядом с источником)
 Unit: `src/**/*.test.{ts,tsx}` | Integration: `*.integration.test.*`
-Total (main, 2026-07-05): **618** тестов, все зелёные.
+Total (main, 2026-07-05): **635** тестов, все зелёные.
 Vitest patterns (Checkbox mock, fake timers, vi.hoisted) — см. память [[feedback-vitest-testing-patterns]]. jsdom mocks — [[feedback-jsdom-browser-api-mocks]].
 
 ### Coverage (2026-06-26)
@@ -44,11 +44,12 @@ npm run test / test:watch / test:coverage / lint / build
 
 ## Dark mode (feat/dark-mode, merged PR #33, 2026-06-28)
 `ThemeContext.ts` → `ThemeProvider.tsx` (overlay fade 3500/400ms) → `useTheme.ts` → `ThemeToggle.tsx`. `StarFieldCanvas.tsx` — Canvas звёздное небо (400/150 звёзд desktop/mobile, MAX_METEORS=50, HiDPI, prefers-reduced-motion).
-Фон `#0d1b2a`; поверхности (ChartCard/KpiTile/ChartTooltip) `#152236`. `useDimensionColors(dimension)` — theme-aware (dark → `darkDimmed` 900-shades). По умолчанию dark (первое посещение без localStorage). Логотип в Header → `articleStore.resetSearch()`.
+Фон `#0c1927` (было `#0d1b2a`, затемнено на ~7.5% в раунде доработки error-страниц); поверхности (ChartCard/KpiTile/ChartTooltip) `#152236`. `useDimensionColors(dimension)` — theme-aware (dark → `darkDimmed` 900-shades). По умолчанию dark (первое посещение без localStorage). Логотип в Header → `articleStore.resetSearch()`.
 
-## Error UX — "No Signal" + чёрная дыра (PR #49, merged 2026-07-05)
-3-слойная архитектура: root `ErrorBoundary` (`main.tsx`, вне `<App/>` — ловит крэши ThemeProvider/StarFieldCanvas) → `errorElement` на корневом роуте + отдельный `path:'*'` → `NotFoundPage`/`RouteErrorPage` (`pages/error/`, общая `ErrorPanel` — панель `#152236`/`slate-700`, `font-mono` для телеметрии) → уже существовавший локальный `ErrorBoundary.tsx` вокруг чартов/списков (рестайлинг под текущие токены). `api/client.ts`: 5xx-toast теперь показывает `X-Request-ID` с copy-to-clipboard (issue #48). "Report this issue" — mailto на `VITE_SUPPORT_EMAIL` + breadcrumb последних ~10 навигаций (`utils/errorReport.ts`, `sessionStorage`).
-Сигнатурный эффект: `StarFieldCanvas` принимает опциональную чёрную дыру (`stores/blackHoleStore.ts` + `hooks/useBlackHole.ts`) — непрерывная (не дискретная) гравитационная линза для звёзд/метеоров/курсора мыши, математика вынесена в чистые тестируемые функции `utils/blackHoleLensing.ts` (3-зонная модель fade-start/outer/inner без разрыва на границах, гистерезис против мерцания курсора). Полная спецификация — `docs/error-experience/spec.md` (локально, не в репо).
+## Error UX — "No Signal" + чёрная дыра (PR #49 merged 2026-07-05; доработка PR #50 merged 2026-07-05)
+3-слойная архитектура: root `ErrorBoundary` (`main.tsx`, вне `<App/>` — ловит крэши ThemeProvider/StarFieldCanvas) → `errorElement` на вложенном pathless child-роуте (не на роуте с `element:<RootLayout/>` — иначе краш заменял бы весь layout, включая Header) + отдельный `path:'*'` → `NotFoundPage`/`RouteErrorPage` (`pages/error/`, общая `ErrorPanel`) → уже существовавший локальный `ErrorBoundary.tsx` вокруг чартов/списков. `api/client.ts`: 5xx-toast показывает `X-Request-ID` с copy-to-clipboard (issue #48). "Report this issue" — mailto на `VITE_SUPPORT_EMAIL` + breadcrumb последних ~10 навигаций (`utils/errorReport.ts`, `sessionStorage`).
+`ErrorPanel` — без сплошной карточки в любой теме: light — текст прямо на странице + статичный line-art SVG «разорванного кольца орбиты»; dark — мягкое радиальное гало (на основе фона `#0c1927`) + угловые "риски" видоискателя (`border-blue-500/40`) вместо заливки, звёздное небо/чёрная дыра остаются видимыми сквозь панель.
+Сигнатурный эффект: `StarFieldCanvas` принимает опциональную чёрную дыру (`stores/blackHoleStore.ts` + `hooks/useBlackHole.ts`, координаты — `constants/blackHole.ts`) — непрерывная (не дискретная) гравитационная линза для звёзд/метеоров/курсора мыши, математика в чистых тестируемых функциях `utils/blackHoleLensing.ts` (2-зонная модель эллипс→кольцо фотонной сферы, орбитальное вращение с GR-профилем разгон/заморозка, дрейф курсора к центру с заморозкой интеграции внутри диска). Позиция дыры — раздельная модель для десктопа (ratio) и мобильных `<768px` (`MOBILE_BREAKPOINT_PX`): на мобильных Y — абсолютный px, не доля высоты окна, т.к. позиция CTA-кнопки на странице от высоты окна не зависит. Плотность декоративных туманностей вокруг дыры снижена на мобильных (~‑30%, несимметрично между вихрем и независимой второй туманностью) — производительность Canvas 2D. Полная спецификация с финальными параметрами — `docs/error-experience/spec.md` (локально, не в репо).
 
 ## /explore analytics dashboard (merged 2026-06-27; рефакторинг PR #42, 2026-07-02)
 `ExplorePage` — collection mode: KpiRow (6 тайлов) → клик открывает `DimensionDrawer` (Sheet) с детальным видом. 6 старых стационарных чартов **отключены** в collection mode (компоненты не удалены, просто не рендерятся — дублировали DimensionDrawer); personal mode с PR #46 использует свои `PersonalKpiRow`/`PersonalDimensionDrawer` (см. ниже), старые 4 чарта personal mode удалены целиком.
