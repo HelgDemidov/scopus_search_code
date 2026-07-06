@@ -23,6 +23,7 @@ import {
   LENSING_FADE_START_DIAMETERS,
   METEOR_CAPTURE_DIAMETERS,
   MOBILE_BREAKPOINT_PX,
+  ROTATION_ZONE_EXTRA_FACTOR,
   SECONDARY_NEBULA_BLOB_COUNT,
   SECONDARY_NEBULA_RADIUS_RATIO,
   SECONDARY_NEBULA_STAR_COUNT_MAX,
@@ -284,12 +285,20 @@ function drawStars(
   animate: boolean,
   blackHole: BlackHoleGeometry | null,
 ): void {
-  // Вращение начинается там же, где стартует деформация формы (FADE_START) —
-  // не там, где начинается кольцевая зона (OUTER) — иначе звёзды сперва
-  // растягивались бы в эллипс без всякого движения, а вращение включалось
-  // бы отдельным резким порогом позже. Единый старт даёт плавный переход
-  // «эллипс, чуть вращающийся → линия у горизонта, вращающаяся быстро».
+  // Деформация формы стартует на FADE_START — не на границе кольцевой зоны
+  // (OUTER) — иначе звёзды сперва растягивались бы в эллипс без всякого
+  // движения, а вращение включалось бы отдельным резким порогом позже.
   const outerBoundaryPx = blackHole ? blackHole.radius * 2 * LENSING_FADE_START_DIAMETERS : 0;
+  // Раунд 12: у вращения СВОЯ, на 7% более широкая граница (ROTATION_ZONE_
+  // EXTRA_FACTOR, constants/blackHole.ts) — это НЕ тот же баг «эллипс без
+  // движения» в обратную сторону: на новых внешних процентах звезда просто
+  // ещё круглая (деформация не включилась) и только-только начинает едва
+  // заметно вращаться — обе величины по-прежнему стартуют строго с нуля.
+  // computeLensing вычисляет свой порог самостоятельно из bh.radius и не
+  // получает outerBoundaryPx извне — расширение физически не может задеть
+  // деформацию формы, а курсор/метеоры читают LENSING_FADE_START_DIAMETERS
+  // напрямую в других функциях, тоже не связаны с этой переменной.
+  const rotationBoundaryPx = outerBoundaryPx * ROTATION_ZONE_EXTRA_FACTOR;
 
   // Цвет звёзд всегда белый — альфа/мерцание идёт через globalAlpha, не
   // через новую rgba()-строку на каждую звезду каждый кадр (п.8.2.2): на
@@ -310,8 +319,10 @@ function drawStars(
     // не меняются (радиус орбиты постоянен, случай 'normal' гарантирован),
     // пропускаем applyOrbitalRotation/computeLensing целиком, а не только
     // их результат (п.8.2.1) — тригонометрия на статичное большинство
-    // звёзд иначе выполняется впустую каждый кадр.
-    if (!blackHole || (s.distFromBhSurface ?? Infinity) > outerBoundaryPx) {
+    // звёзд иначе выполняется впустую каждый кадр. Порог — rotationBoundaryPx
+    // (шире, чем outerBoundaryPx деформации, раунд 12), иначе звёзды в новых
+    // 7% отбрасывались бы здесь ещё ДО применения вращения.
+    if (!blackHole || (s.distFromBhSurface ?? Infinity) > rotationBoundaryPx) {
       ctx.globalAlpha = a;
       ctx.beginPath();
       ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
@@ -321,7 +332,7 @@ function drawStars(
 
     // Вращение вихря (п.1.2) — применяется до расчёта деформации формы,
     // оба эффекта независимы друг от друга на одной и той же звезде.
-    const { x: rx, y: ry } = applyOrbitalRotation(s.x, s.y, blackHole, outerBoundaryPx, now);
+    const { x: rx, y: ry } = applyOrbitalRotation(s.x, s.y, blackHole, rotationBoundaryPx, now);
     // Раунд 3: без resistancePower (p=1) — граница OUTER сама откалибрована
     // на 25% радиуса эффекта, см. constants/blackHole.ts.
     const lensing = computeLensing(rx, ry, blackHole.x, blackHole.y, blackHole.radius);
