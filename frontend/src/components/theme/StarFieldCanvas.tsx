@@ -19,27 +19,24 @@ import {
   CURSOR_DRIFT_BASE_ACCEL,
   CURSOR_DRIFT_ESCAPE_SPEED,
   CURSOR_RESISTANCE_POWER,
+  DISK_ARC_INNER_OVERLAP_PX,
   DISK_BASE_COLOR,
   DISK_BELT_HALF_THICKNESS_FACTOR,
   DISK_CONTOUR_POINT_COUNT,
-  DISK_JOINT_OVERSHOOT_PX,
-  DISK_LOWER_ARC_DOME_HALF_WIDTH_FACTOR,
-  DISK_LOWER_ARC_OVERSHOOT_FACTOR,
-  DISK_LOWER_ARC_POLE_RIBBON_FACTOR,
+  DISK_LOWER_ARC_OUTER_RADIUS_FACTOR,
   DISK_RX_FACTOR,
   DISK_TILT_RAD,
-  DISK_TIP_MEET_FRACTION_FROM_TOP,
-  DISK_TIP_TAPER_WIDTH_FACTOR,
-  DISK_UPPER_ARC_DOME_HALF_WIDTH_FACTOR,
-  DISK_UPPER_ARC_OVERSHOOT_PX,
-  DISK_UPPER_ARC_POLE_RIBBON_FACTOR,
+  DISK_UPPER_ARC_OUTER_RADIUS_FACTOR,
   INNER_ZONE_BRIGHTNESS_FACTOR,
   LENSING_FADE_START_DIAMETERS,
   METEOR_CAPTURE_DIAMETERS,
   MOBILE_BREAKPOINT_PX,
+  PHOTON_RING_CENTER_OFFSET_FACTOR,
   PHOTON_RING_COLOR,
   PHOTON_RING_LINE_WIDTH,
+  PHOTON_RING_MIN_LINE_WIDTH,
   PHOTON_RING_RADIUS_FACTOR,
+  PHOTON_RING_SEGMENT_COUNT,
   ROTATION_ZONE_EXTRA_FACTOR,
   SECONDARY_NEBULA_BLOB_COUNT,
   SECONDARY_NEBULA_RADIUS_RATIO,
@@ -515,78 +512,40 @@ function drawBlackHole(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): vo
 
 // ---------------------------------------------------------------------------
 // Аккреционный диск с нуля (docs/error-experience/spec.md, раунд 13, план,
-// коммит 1 — статичная геометрия). Термины/обоснование механизма стыков —
-// см. ТЗ, не дублируем в коде. Дисциплина рендера — та же, что у звёзд/
-// метеоров: НИ ОДНОЙ per-frame аллокации (ни массивов точек, ни замыканий) —
-// только числа и прямые вызовы ctx в одном проходе цикла.
+// коммит 1 — статичная геометрия). Три НЕЗАВИСИМЫЕ фигуры вместо одной
+// параметрической формулы (см. обоснование — constants/blackHole.ts, блок
+// DISK_*) — обе дуги построены на концентричных окружностях вокруг тени, а
+// не на купол-функции, поэтому не нужны tip-taper/ribbon-thickness/yMeet.
+// Дисциплина рендера — та же, что у звёзд/метеоров: НИ ОДНОЙ per-frame
+// аллокации (ни массивов точек, ни замыканий) — только числа и прямые
+// вызовы ctx в одном проходе цикла.
 // ---------------------------------------------------------------------------
 
-// Купол-функция контура (пояс↔дуга): smoothstep, а не raised-cosine — ноль
-// ПРОИЗВОДНОЙ на обоих концах (t=0 и t=1), не только нулевое значение на
-// конце. Для верхней дуги это даёт настоящее касательное слияние с плоским
-// поясом (без излома). Для нижней дуги это не требуется (угол там даёт
-// occlusion, не сама кривая — см. ТЗ), но использовать другую, несглаженную
-// функцию не было причины: одна и та же кривая с разными шириной/высотой
-// подходит обеим.
-function domeBump(x: number, halfWidthX: number): number {
-  const t = Math.min(1, Math.abs(x) / halfWidthX);
-  return 1 - t * t * (3 - 2 * t);
-}
-
-// Сужение боковых концов пояса к остриям (не прямоугольный обрез) — 1
-// вдали от края (толщина не тронута), гладко к 0 ровно в x=±rx (см. ТЗ,
-// правка по скриншоту: два прямых угла среза → одно остриё с каждой
-// стороны). Та же smoothstep-форма, что у domeBump, не пересекается с ней
-// по X (зона купола у центра и зона сужения у края не перекрываются).
-function tipTaper(x: number, rx: number, taperWidth: number): number {
-  const distFromTip = rx - Math.abs(x);
-  const t = Math.min(1, Math.max(0, distFromTip) / taperWidth);
-  return t * t * (3 - 2 * t);
-}
-
-// Нижняя дуга — ОТДЕЛЬНАЯ фигура (не часть одной кривой с поясом, см. ТЗ
-// «Раунд 13»): рисуется ДО пояса в z-порядке (вызывающий код), пояс поверх
-// неё перекрывает её верхнюю часть — видимый угол получается из пересечения
-// разных кривых семейств, а не из искусственного излома одной кривой.
-// Толщина ленты («ремешок») НЕ постоянна: полная толщина пояса вдали от
-// полюса, тонкая (DISK_LOWER_ARC_POLE_RIBBON_FACTOR) у самого полюса —
-// правка после живой проверки коммита 1, где внутренняя граница оставалась
-// плоской на уровне центра пояса, и фигура была сплошным клином («толстая
-// точка»), а не дугой, обрамляющей полусферу сбоку. Внутренняя граница у
-// полюса намеренно чуть заходит ВНУТРЬ тени (безопасный нахлёст, не зазор —
-// тот же принцип, что и DISK_JOINT_OVERSHOOT_PX вдали от полюса).
-// К остриям обе границы сходятся в yMeet (см. drawDiskBeltAndUpperArc —
-// ТА ЖЕ точка схождения, иначе шов на стыке фигур).
+// Нижняя дуга — полукольцо между окружностью тени (R, внутренняя граница,
+// с нахлёстом DISK_ARC_INNER_OVERLAP_PX ВНУТРЬ тени) и меньшей концентричной
+// окружностью Rlow (внешняя граница) — тонкая "подкова" вплотную к тени.
+// max(0, …) в обеих sqrt — единственный трюк: для |x|>R внутренняя граница
+// автоматически схлопывается к 0 (уровень пояса), для |x|>Rlow фигура
+// естественно вырождается в нулевую толщину — швы по бокам прячутся под
+// поясом (рисуется позже, поверх, см. вызывающий код).
 function drawDiskLowerArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): void {
-  const rx = bh.radius * DISK_RX_FACTOR;
-  const beltHalf = bh.radius * DISK_BELT_HALF_THICKNESS_FACTOR;
-  const bottomPeak = bh.radius * DISK_LOWER_ARC_OVERSHOOT_FACTOR;
-  const domeHalfWidthX = bh.radius * DISK_LOWER_ARC_DOME_HALF_WIDTH_FACTOR;
-  const poleRibbon = bh.radius * DISK_LOWER_ARC_POLE_RIBBON_FACTOR;
-  const taperWidth = bh.radius * DISK_TIP_TAPER_WIDTH_FACTOR;
-  const yMeet = -beltHalf + 2 * beltHalf * DISK_TIP_MEET_FRACTION_FROM_TOP;
+  const R = bh.radius;
+  const rLow = R * DISK_LOWER_ARC_OUTER_RADIUS_FACTOR;
   const n = DISK_CONTOUR_POINT_COUNT;
   const cos = Math.cos(DISK_TILT_RAD);
   const sin = Math.sin(DISK_TILT_RAD);
 
   ctx.beginPath();
   for (let i = 0; i <= n; i++) {
-    const x = -rx + (2 * rx * i) / n;
-    const dome = domeBump(x, domeHalfWidthX);
-    const rawOuterBottom = beltHalf + (bottomPeak - beltHalf) * dome;
-    const ribbonThickness = 2 * beltHalf + (poleRibbon - 2 * beltHalf) * dome;
-    const rawInnerTop = rawOuterBottom - ribbonThickness + DISK_JOINT_OVERSHOOT_PX;
-    const taper = tipTaper(x, rx, taperWidth);
-    const y = yMeet + (rawInnerTop - yMeet) * taper;
+    const x = -rLow + (2 * rLow * i) / n;
+    const y = Math.sqrt(Math.max(0, R * R - x * x)) - DISK_ARC_INNER_OVERLAP_PX;
     const px = bh.x + x * cos - y * sin;
     const py = bh.y + x * sin + y * cos;
     if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
   }
   for (let i = n; i >= 0; i--) {
-    const x = -rx + (2 * rx * i) / n;
-    const rawOuterBottom = beltHalf + (bottomPeak - beltHalf) * domeBump(x, domeHalfWidthX);
-    const taper = tipTaper(x, rx, taperWidth);
-    const y = yMeet + (rawOuterBottom - yMeet) * taper;
+    const x = -rLow + (2 * rLow * i) / n;
+    const y = Math.sqrt(Math.max(0, rLow * rLow - x * x));
     const px = bh.x + x * cos - y * sin;
     const py = bh.y + x * sin + y * cos;
     ctx.lineTo(px, py);
@@ -596,50 +555,28 @@ function drawDiskLowerArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry):
   ctx.fill();
 }
 
-// Пояс + верхняя дуга — ОДНА непрерывная фигура (см. ТЗ «Раунд 13»):
-// внешняя (верхняя) граница гладко вспухает к полюсу (тангенциальное
-// слияние купола с плоским поясом — «шляпка»). Внутренняя граница — НЕ
-// плоская (правка после живой проверки коммита 1: плоская внутренняя
-// граница красила сплошным цветом всё пространство между поясом и пиком
-// купола, закрашивая всю видимую верхнюю полусферу тени). Толщина ленты
-// схлопывается к тонкой у полюса (DISK_UPPER_ARC_POLE_RIBBON_FACTOR) и
-// равна полной толщине пояса вдали от него — тень должна быть видна МЕЖДУ
-// поясом (пересекает снизу) и этой тонкой лентой (обрамляет сверху).
-// Рисуется ПОСЛЕ нижней дуги и ПОСЛЕ тени (вызывающий код) — перекрывает
-// нижнюю дугу в месте стыка. К остриям (см. tipTaper) обе границы сходятся
-// в yMeet — смещена от центра пояса: верхняя граница проходит
-// DISK_TIP_MEET_FRACTION_FROM_TOP (40%) общего зазора, нижняя — оставшиеся
-// 60% (еле заметная асимметрия, не строго посередине — см. ТЗ).
-function drawDiskBeltAndUpperArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): void {
-  const rx = bh.radius * DISK_RX_FACTOR;
-  const beltHalf = bh.radius * DISK_BELT_HALF_THICKNESS_FACTOR;
-  const topPeak = bh.radius + DISK_UPPER_ARC_OVERSHOOT_PX;
-  const domeHalfWidthX = bh.radius * DISK_UPPER_ARC_DOME_HALF_WIDTH_FACTOR;
-  const poleRibbon = bh.radius * DISK_UPPER_ARC_POLE_RIBBON_FACTOR;
-  const taperWidth = bh.radius * DISK_TIP_TAPER_WIDTH_FACTOR;
-  const yMeet = -beltHalf + 2 * beltHalf * DISK_TIP_MEET_FRACTION_FROM_TOP;
+// Верхняя дуга — тот же принцип, что нижняя (см. drawDiskLowerArc), но с
+// намного большим внешним радиусом Rup (~1.4×R вместо ~1.15×R) — настоящий
+// высокий купол, а не пожатие в пару пикселей. Рисуется ПОСЛЕ нижней дуги и
+// ПОСЛЕ тени (вызывающий код).
+function drawDiskUpperArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): void {
+  const R = bh.radius;
+  const rUp = R * DISK_UPPER_ARC_OUTER_RADIUS_FACTOR;
   const n = DISK_CONTOUR_POINT_COUNT;
   const cos = Math.cos(DISK_TILT_RAD);
   const sin = Math.sin(DISK_TILT_RAD);
 
   ctx.beginPath();
   for (let i = 0; i <= n; i++) {
-    const x = -rx + (2 * rx * i) / n;
-    const rawOuterTop = -beltHalf - (topPeak - beltHalf) * domeBump(x, domeHalfWidthX);
-    const taper = tipTaper(x, rx, taperWidth);
-    const y = yMeet + (rawOuterTop - yMeet) * taper;
+    const x = -rUp + (2 * rUp * i) / n;
+    const y = -Math.sqrt(Math.max(0, rUp * rUp - x * x));
     const px = bh.x + x * cos - y * sin;
     const py = bh.y + x * sin + y * cos;
     if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
   }
   for (let i = n; i >= 0; i--) {
-    const x = -rx + (2 * rx * i) / n;
-    const dome = domeBump(x, domeHalfWidthX);
-    const rawOuterTop = -beltHalf - (topPeak - beltHalf) * dome;
-    const ribbonThickness = 2 * beltHalf + (poleRibbon - 2 * beltHalf) * dome;
-    const rawInnerBottom = rawOuterTop + ribbonThickness;
-    const taper = tipTaper(x, rx, taperWidth);
-    const y = yMeet + (rawInnerBottom - yMeet) * taper;
+    const x = -rUp + (2 * rUp * i) / n;
+    const y = -Math.sqrt(Math.max(0, R * R - x * x)) + DISK_ARC_INNER_OVERLAP_PX;
     const px = bh.x + x * cos - y * sin;
     const py = bh.y + x * sin + y * cos;
     ctx.lineTo(px, py);
@@ -649,20 +586,70 @@ function drawDiskBeltAndUpperArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeo
   ctx.fill();
 }
 
-// Фотонное кольцо — тонкая нить вплотную к границе тени, ПОЛНОЕ (вся
-// окружность, не только видимая на референсе часть — см. ТЗ), не участвует
-// в наклоне сборки (окружность вокруг своего центра инвариантна к повороту).
-// Радиус — НЕМНОГО меньше bh.radius (PHOTON_RING_RADIUS_FACTOR): на
-// референсе кольцо чуть внутри тени, вплотную к поверхности, а не ровно на
-// горизонте событий (правка после живой проверки). Рисуется ПОСЛЕДНИМ
-// (поверх пояса/дуг) — тонкая нить должна быть видна целиком, не
-// перекрытой ничем.
+// Пояс — отдельная линза (профиль sqrt(1-(x/rx)²), половина эллипса,
+// естественно сужается к острию ровно в x=±rx — без отдельной tip-taper
+// функции). Рисуется ПОСЛЕДНИМ из трёх (вызывающий код) — пересекает тень
+// поперёк по центру (x=0 внутри диапазона ±rx) и перекрывает боковые швы
+// обеих дуг сверху, "нагло" (см. ТЗ), без точной геометрической стыковки.
+function drawDiskBelt(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): void {
+  const rx = bh.radius * DISK_RX_FACTOR;
+  const beltHalf = bh.radius * DISK_BELT_HALF_THICKNESS_FACTOR;
+  const n = DISK_CONTOUR_POINT_COUNT;
+  const cos = Math.cos(DISK_TILT_RAD);
+  const sin = Math.sin(DISK_TILT_RAD);
+
+  ctx.beginPath();
+  for (let i = 0; i <= n; i++) {
+    const x = -rx + (2 * rx * i) / n;
+    const y = -beltHalf * Math.sqrt(Math.max(0, 1 - (x * x) / (rx * rx)));
+    const px = bh.x + x * cos - y * sin;
+    const py = bh.y + x * sin + y * cos;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  for (let i = n; i >= 0; i--) {
+    const x = -rx + (2 * rx * i) / n;
+    const y = beltHalf * Math.sqrt(Math.max(0, 1 - (x * x) / (rx * rx)));
+    const px = bh.x + x * cos - y * sin;
+    const py = bh.y + x * sin + y * cos;
+    ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fillStyle = DISK_BASE_COLOR;
+  ctx.fill();
+}
+
+// Фотонное кольцо — тонкая нить чуть внутри границы тени (PHOTON_RING_
+// RADIUS_FACTOR), ПОЛНАЯ окружность, не участвует в наклоне сборки
+// (окружность вокруг своего центра инвариантна к повороту). Две правки по
+// вводной пользователя (после раунда 13.2):
+// 1. Центр кольца смещён вправо от центра тени (PHOTON_RING_CENTER_OFFSET_
+//    FACTOR) — на референсе кольцо не концентрично тени.
+// 2. Толщина линии асимметрична по дуге: максимум (PHOTON_RING_LINE_WIDTH)
+//    у левого полюса тени, плавно убывает до минимума (PHOTON_RING_MIN_
+//    LINE_WIDTH, "на грани видимости") у правого полюса — cos(угол) даёт
+//    гладкую (не ступенчатую) интерполяцию, симметричную сверху/снизу.
+// Canvas не поддерживает переменную толщину линии в одном stroke() —
+// кольцо рисуется PHOTON_RING_SEGMENT_COUNT короткими дугами, каждая со
+// своим lineWidth (только числа в цикле, без аллокаций). round-колпачки —
+// чтобы стыки сегментов не были видны как ступеньки.
 function drawPhotonRing(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): void {
-  ctx.beginPath();
-  ctx.arc(bh.x, bh.y, bh.radius * PHOTON_RING_RADIUS_FACTOR, 0, Math.PI * 2);
+  const r = bh.radius * PHOTON_RING_RADIUS_FACTOR;
+  const cx = bh.x + bh.radius * PHOTON_RING_CENTER_OFFSET_FACTOR;
+  const cy = bh.y;
+  const n = PHOTON_RING_SEGMENT_COUNT;
   ctx.strokeStyle = PHOTON_RING_COLOR;
-  ctx.lineWidth = PHOTON_RING_LINE_WIDTH;
-  ctx.stroke();
+  ctx.lineCap = 'round';
+  for (let i = 0; i < n; i++) {
+    const a0 = (i / n) * Math.PI * 2;
+    const a1 = ((i + 1) / n) * Math.PI * 2;
+    const aMid = (a0 + a1) / 2;
+    // t: 0 у правого полюса (угол 0, cos=1), 1 у левого полюса (угол π, cos=-1)
+    const t = (1 - Math.cos(aMid)) / 2;
+    ctx.lineWidth = PHOTON_RING_MIN_LINE_WIDTH + (PHOTON_RING_LINE_WIDTH - PHOTON_RING_MIN_LINE_WIDTH) * t;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, a0, a1);
+    ctx.stroke();
+  }
 }
 
 const CURSOR_BASE_RADIUS = 3; // px — базовый размер синтетического «курсора» на канвасе
@@ -931,9 +918,10 @@ function StarFieldCanvasInner() {
         drawStars(ctx, starsRef.current, 0, false, null);
         const bh = resolveBlackHoleGeometry(w, h);
         if (bh) {
-          drawDiskLowerArc(ctx, bh);
           drawBlackHole(ctx, bh);
-          drawDiskBeltAndUpperArc(ctx, bh);
+          drawDiskLowerArc(ctx, bh);
+          drawDiskUpperArc(ctx, bh);
+          drawDiskBelt(ctx, bh);
           drawPhotonRing(ctx, bh);
         }
       }
@@ -1032,13 +1020,14 @@ function StarFieldCanvasInner() {
       }
 
       // Круг — поверх звёзд/метеоров (горизонт событий их «закрывает»).
-      // Аккреционный диск (раунд 13, коммит 1 — статичная геометрия):
-      // нижняя дуга ДО тени (occlusion), пояс+верхняя дуга и фотонное
-      // кольцо ПОСЛЕ (см. drawDiskLowerArc/drawDiskBeltAndUpperArc выше).
+      // Аккреционный диск (раунд 13, коммит 1 — статичная геометрия): тень
+      // → нижняя дуга → верхняя дуга → пояс (перекрывает швы дуг по бокам)
+      // → фотонное кольцо (см. функции выше).
       if (blackHole) {
-        drawDiskLowerArc(ctx, blackHole);
         drawBlackHole(ctx, blackHole);
-        drawDiskBeltAndUpperArc(ctx, blackHole);
+        drawDiskLowerArc(ctx, blackHole);
+        drawDiskUpperArc(ctx, blackHole);
+        drawDiskBelt(ctx, blackHole);
         drawPhotonRing(ctx, blackHole);
       }
 
