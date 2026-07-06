@@ -11,6 +11,28 @@ import {
   shouldHideCursor,
 } from '../../utils/blackHoleLensing';
 import {
+  ACCRETION_BAND_BOTTOM_OVERSHOOT_FACTOR,
+  ACCRETION_BAND_BOTTOM_SHARPNESS,
+  ACCRETION_BAND_CONTOUR_JITTER_PX,
+  ACCRETION_BAND_POINT_COUNT,
+  ACCRETION_BAND_POLAR_RIBBON_FACTOR,
+  ACCRETION_BAND_RX_FACTOR,
+  ACCRETION_BAND_RY_FACTOR,
+  ACCRETION_BAND_TOP_OVERSHOOT_PX_FACTOR,
+  ACCRETION_BAND_TOP_SHARPNESS,
+  ACCRETION_FLAME_COLOR,
+  ACCRETION_FLECK_CLUSTER_MAX,
+  ACCRETION_FLECK_CLUSTER_MIN,
+  ACCRETION_FLECK_COUNT,
+  ACCRETION_FLECK_MICRO_SPREAD_FACTOR,
+  ACCRETION_FLECK_RADIUS_FACTOR,
+  ACCRETION_FLICKER_FREQ_1,
+  ACCRETION_FLICKER_FREQ_2,
+  ACCRETION_FLICKER_RANDOM_AMP,
+  ACCRETION_RIM_JITTER_PX,
+  ACCRETION_RIM_LINE_WIDTH,
+  ACCRETION_RIM_POINT_COUNT,
+  ACCRETION_WARM_WHITE_COLOR,
   BLACK_HOLE_DIAMETER_RATIO,
   BLACK_HOLE_POSITION_MOBILE_X_RATIO,
   BLACK_HOLE_POSITION_MOBILE_Y_PX,
@@ -450,18 +472,26 @@ function drawAndFilterMeteors(
     const tailX = headX - m.dx * tail;
     const tailY = headY - m.dy * tail;
 
+    // Градиент-объект пересоздаётся каждый раз (геометрия головы/хвоста
+    // движется, кэшировать нечем) — но обе цветовые точки и shadowColor
+    // теперь статичные литералы, не `rgba(...)`-строка на метеор/кадр (п.9.1,
+    // docs/error-experience/spec.md, тот же приём, что у звёзд в раунде 8):
+    // globalAlpha умножает альфу И градиента, И тени одновременно, поэтому
+    // «а»-затухание метеора по-прежнему полностью сохраняется.
     const grad = ctx.createLinearGradient(tailX, tailY, headX, headY);
     grad.addColorStop(0, 'rgba(255,255,255,0)');
-    grad.addColorStop(1, `rgba(255,255,255,${a.toFixed(3)})`);
+    grad.addColorStop(1, '#ffffff');
 
     ctx.strokeStyle = grad;
+    ctx.globalAlpha = a;
     ctx.lineWidth   = 1.5;
     ctx.shadowBlur  = 3;
-    ctx.shadowColor = `rgba(255,255,255,${(a * 0.4).toFixed(3)})`;
+    ctx.shadowColor = 'rgba(255,255,255,0.4)';
     ctx.beginPath();
     ctx.moveTo(tailX, tailY);
     ctx.lineTo(headX, headY);
     ctx.stroke();
+    ctx.globalAlpha = 1;
   }
 
   ctx.restore();
@@ -475,6 +505,194 @@ function drawBlackHole(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): vo
   ctx.arc(bh.x, bh.y, bh.radius, 0, Math.PI * 2);
   ctx.fillStyle = '#000000';
   ctx.fill();
+}
+
+// ---------------------------------------------------------------------------
+// Аккреционный диск (docs/error-experience/spec.md, раунд 9, п.9.2)
+// ---------------------------------------------------------------------------
+// Художественная аппроксимация (EHT M87*/Interstellar-стиль), не физическая
+// симуляция. Рисуется ПОСЛЕ drawBlackHole — окаёмка/полоса/вкрапления должны
+// быть видны поверх чёрного диска, дуги "через полюса" целиком снаружи
+// bh.radius и не пересекаются с ним ни при каких параметрах ниже.
+//
+// Дисциплина рендера — та же, что у звёзд/метеоров (п.8.2/9.1): НИ ОДНОЙ
+// per-frame аллокации. Оба цвета — статичные литералы (`#ffffff`,
+// ACCRETION_FLAME_COLOR), яркость/мерцание — через globalAlpha и числовой
+// scalar `alpha`, не через новый градиент/строку на кадр. Хаос формы — на
+// голых числах (jitter), не объектах.
+
+// Вспышки цвета пламени вдоль контура (rx=ry — окружность окаёмки; rx≠ry —
+// эллипс полосы) — каждая вспышка не одна точка, а кластер из нескольких
+// микро-точек неправильной формы (docs/error-experience/spec.md, раунд 9,
+// вторая живая правка), с "протуберанцем" — анкер кластера смещён от
+// идеальной геометрии на deviationPx. Persistence сознательно не нужна
+// (см. чат) — позиция/альфа/состав кластера пересчитываются с нуля каждый
+// кадр. animate=false (prefers-reduced-motion) — фиксированная раскладка,
+// ровно одна точка на вспышку, без смещения/кластера, детерминировано.
+// Радиус/разброс — доля bhRadius (третья живая правка, п.9.2): в фикс. px
+// кластер был почти той же ширины, что и сам (тонкий) ремешок — визуально
+// съедал заливку целиком, читалось как "ремешок рассыпался на пиксели".
+function scatterFlameFlecks(
+  ctx: CanvasRenderingContext2D, cx: number, cy: number, rx: number, ry: number,
+  count: number, alpha: number, animate: boolean, deviationPx: number, bhRadius: number,
+): void {
+  const fleckRadius = bhRadius * ACCRETION_FLECK_RADIUS_FACTOR;
+  const microSpread = bhRadius * ACCRETION_FLECK_MICRO_SPREAD_FACTOR;
+  ctx.fillStyle = ACCRETION_FLAME_COLOR;
+  for (let i = 0; i < count; i++) {
+    const theta = animate ? Math.random() * Math.PI * 2 : (i / count) * Math.PI * 2;
+    const dev = animate ? (Math.random() * 2 - 1) * deviationPx : 0;
+    const anchorX = cx + Math.cos(theta) * (rx + dev);
+    const anchorY = cy + Math.sin(theta) * (ry + dev);
+    const clusterSize = animate
+      ? ACCRETION_FLECK_CLUSTER_MIN + Math.floor(Math.random() * (ACCRETION_FLECK_CLUSTER_MAX - ACCRETION_FLECK_CLUSTER_MIN + 1))
+      : 1;
+    for (let k = 0; k < clusterSize; k++) {
+      const mx = animate ? (Math.random() * 2 - 1) * microSpread : 0;
+      const my = animate ? (Math.random() * 2 - 1) * microSpread : 0;
+      ctx.globalAlpha = alpha * (animate ? 0.5 + Math.random() * 0.5 : 0.75);
+      ctx.beginPath();
+      ctx.arc(anchorX + mx, anchorY + my, fleckRadius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+// Тонкая окаёмка ровно по краю горизонта — калибровочная точка ТЗ раунда 9
+// (п.3.1): "тонкая яркая окаёмка по внешней поверхности чёрной дыры".
+// Джиттер точек контура (не готовый ctx.arc) — те самые "протуберанцы
+// толщиной 1-2px", пересчитываются заново каждый кадр при animate=true.
+function drawAccretionRim(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, alpha: number, animate: boolean): void {
+  const n = ACCRETION_RIM_POINT_COUNT;
+  ctx.beginPath();
+  for (let i = 0; i <= n; i++) {
+    const theta = (i / n) * Math.PI * 2;
+    const r = bh.radius + (animate ? (Math.random() * 2 - 1) * ACCRETION_RIM_JITTER_PX : 0);
+    const x = bh.x + Math.cos(theta) * r;
+    const y = bh.y + Math.sin(theta) * r;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.strokeStyle = ACCRETION_WARM_WHITE_COLOR;
+  ctx.lineWidth = ACCRETION_RIM_LINE_WIDTH;
+  ctx.globalAlpha = alpha;
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+// Кратчайшее угловое расстояние между двумя углами (0..π) — используется,
+// чтобы "вспухание" полосы у полюса не зависело от направления обхода.
+function angularDistance(a: number, b: number): number {
+  const d = Math.abs(a - b) % (Math.PI * 2);
+  return d > Math.PI ? Math.PI * 2 - d : d;
+}
+
+// "Полюсность" точки θ — насколько она близка к верхнему/нижнему полюсу,
+// раздельно (0..1, локализовано за счёт степени ACCRETION_BAND_*_SHARPNESS).
+// θ=3π/2 (canvas Y вниз ⇒ sin<0) — верхний полюс; θ=π/2 — нижний.
+function poleBumps(theta: number): { top: number; bottom: number } {
+  return {
+    top: Math.max(0, Math.cos(angularDistance(theta, (3 * Math.PI) / 2))) ** ACCRETION_BAND_TOP_SHARPNESS,
+    bottom: Math.max(0, Math.cos(angularDistance(theta, Math.PI / 2))) ** ACCRETION_BAND_BOTTOM_SHARPNESS,
+  };
+}
+
+// Внешняя граница полосы в точке θ (docs/error-experience/spec.md, раунд 9,
+// живая сверка со скриншотом Interstellar/Gargantua) — НЕ константа по
+// углу: у полюсов граница "вспухает" навстречу окаёмке, асимметрично сверху
+// и снизу (см. комментарий у ACCRETION_BAND_* в constants/blackHole.ts).
+// Верхний полюс: цель — bh.radius + line width окаёмки (третья живая
+// правка — было ровно bh.radius, касание в одной точке между ДВУМЯ
+// независимо джиттерящимися фигурами почти всегда оставляло щель с фоном,
+// живьём подтверждено скриншотом со звёздами сквозь просвет). Заведомый
+// нахлёст поверх окаёмки убирает щель структурно, а не подгонкой чисел.
+// Нижний: цель НЕМНОГО БОЛЬШЕ bh.radius (overshoot), более узкий bump ⇒
+// полоса выходит за окаёмку и пересекает её под видимым углом.
+function bandOuterRadiusAt(bh: BlackHoleGeometry, bumps: { top: number; bottom: number }): number {
+  const flat = bh.radius * ACCRETION_BAND_RY_FACTOR;
+  const topTarget = bh.radius + ACCRETION_BAND_TOP_OVERSHOOT_PX_FACTOR;
+  const bottomTarget = bh.radius * ACCRETION_BAND_BOTTOM_OVERSHOOT_FACTOR;
+  return flat + (topTarget - flat) * bumps.top + (bottomTarget - flat) * bumps.bottom;
+}
+
+// Внутренняя граница полосы — 0 (т.е. вдоль центра) вдали от полюсов, где
+// полоса — СПЛОШНОЙ тонкий пересекающий диск лист (как в исходной версии);
+// у полюсов внутренняя граница подтягивается ПОЧТИ К ВНЕШНЕЙ, оставляя
+// только тонкий РЕМЕШОК (не растущий клин!) — то, что и должно "вливаться"
+// в окаёмку, а не закрашивать собой весь диск (баг первой версии раунда 9,
+// живьём подтверждено скриншотом: заливка от центра до bh.radius у полюса
+// закрашивала диск почти целиком).
+function bandInnerRadiusAt(outer: number, bh: BlackHoleGeometry, bumps: { top: number; bottom: number }): number {
+  const flat = bh.radius * ACCRETION_BAND_RY_FACTOR;
+  const poleness = Math.min(1, bumps.top + bumps.bottom);
+  const ribbonThickness = bh.radius * ACCRETION_BAND_POLAR_RIBBON_FACTOR;
+  const thickness = flat + (ribbonThickness - flat) * poleness; // flat→ribbon по мере приближения к полюсу
+  return Math.max(0, outer - thickness);
+}
+
+// Пересекающая полоса диска — рисуется ПОСЛЕ чёрного диска, поэтому целиком
+// видна пересекающей его (п.3.1: "тонкая поперечная ярко-белая полоса"), с
+// асимметричным слиянием у полюсов — см. bandOuterRadiusAt/bandInnerRadiusAt
+// выше. Путь — внешняя граница по кругу, затем внутренняя в обратном
+// направлении: сплошной лист там, где внутренняя граница = 0 (совпадает с
+// центром), тонкий ремешок там, где обе границы близки друг к другу.
+function drawAccretionBand(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, alpha: number, animate: boolean): void {
+  const rx = bh.radius * ACCRETION_BAND_RX_FACTOR;
+  const n = ACCRETION_BAND_POINT_COUNT;
+  const outerPts: [number, number][] = [];
+  const innerPts: [number, number][] = [];
+  for (let i = 0; i <= n; i++) {
+    const theta = (i / n) * Math.PI * 2;
+    const bumps = poleBumps(theta);
+    const outer = bandOuterRadiusAt(bh, bumps);
+    const inner = bandInnerRadiusAt(outer, bh, bumps);
+    // ОДИН И ТОТ ЖЕ jx/jy для внешней И внутренней точки в этой θ — толщина
+    // ремешка в этой точке не меняется, колышется вся точка целиком (не
+    // рвёт заливку, см. ACCRETION_BAND_CONTOUR_JITTER_PX в constants/blackHole.ts).
+    const jx = animate ? (Math.random() * 2 - 1) * ACCRETION_BAND_CONTOUR_JITTER_PX : 0;
+    const jy = animate ? (Math.random() * 2 - 1) * ACCRETION_BAND_CONTOUR_JITTER_PX : 0;
+    const x = bh.x + Math.cos(theta) * rx + jx;
+    outerPts.push([x, bh.y + Math.sin(theta) * outer + jy]);
+    innerPts.push([x, bh.y + Math.sin(theta) * inner + jy]);
+  }
+
+  ctx.beginPath();
+  outerPts.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
+  for (let i = innerPts.length - 1; i >= 0; i--) ctx.lineTo(innerPts[i][0], innerPts[i][1]);
+  ctx.closePath();
+  ctx.fillStyle = ACCRETION_WARM_WHITE_COLOR;
+  ctx.globalAlpha = alpha;
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  const flatThicknessPx = bh.radius * ACCRETION_BAND_RY_FACTOR;
+  scatterFlameFlecks(
+    ctx, bh.x, bh.y, rx, flatThicknessPx, ACCRETION_FLECK_COUNT, alpha, animate, flatThicknessPx * 0.25, bh.radius,
+  );
+}
+
+// Сумма 2 несоизмеримых по частоте синусоид от `now` (без состояния/
+// аллокаций, тот же приём, что твинкл звёзд) даёт "дышащий", не строго
+// периодичный паттерн; += Math.random() поверх — лёгкое сверкание без
+// ощущения чистого шума на каждый кадр. prefers-reduced-motion — фикс на
+// среднем значении, без Math.random(), кадр детерминирован.
+function drawAccretionDisk(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, now: number, animate: boolean): void {
+  const flicker = animate
+    ? 0.65 + 0.2 * Math.sin(now * ACCRETION_FLICKER_FREQ_1) * Math.cos(now * ACCRETION_FLICKER_FREQ_2 + 1.7)
+      + (Math.random() * 2 - 1) * ACCRETION_FLICKER_RANDOM_AMP
+    : 0.7;
+  const alpha = Math.max(0.35, Math.min(0.95, flicker));
+
+  ctx.save();
+  drawAccretionBand(ctx, bh, alpha, animate);
+  drawAccretionRim(ctx, bh, alpha, animate);
+  // Отклонение вкраплений окаёмки — 25% её line width, аналог "25% толщины
+  // ремешка" для полосы (свой характерный масштаб толщины для этого элемента)
+  scatterFlameFlecks(
+    ctx, bh.x, bh.y, bh.radius, bh.radius, ACCRETION_FLECK_COUNT, alpha, animate,
+    ACCRETION_RIM_LINE_WIDTH * 0.25, bh.radius,
+  );
+  ctx.restore();
 }
 
 const CURSOR_BASE_RADIUS = 3; // px — базовый размер синтетического «курсора» на канвасе
@@ -742,7 +960,10 @@ function StarFieldCanvasInner() {
         // а круг просто накладывается поверх
         drawStars(ctx, starsRef.current, 0, false, null);
         const bh = resolveBlackHoleGeometry(w, h);
-        if (bh) drawBlackHole(ctx, bh);
+        if (bh) {
+          drawBlackHole(ctx, bh);
+          drawAccretionDisk(ctx, bh, 0, false);
+        }
       }
       return;
     }
@@ -839,7 +1060,15 @@ function StarFieldCanvasInner() {
       }
 
       // Круг — поверх звёзд/метеоров (горизонт событий их «закрывает»)
-      if (blackHole) drawBlackHole(ctx, blackHole);
+      if (blackHole) {
+        drawBlackHole(ctx, blackHole);
+        // `now` (не rotationNow) — мерцание ограничено (saturating), скачок
+        // после скрытой вкладки даёт максимум один "прыжок" по мерцанию
+        // между кадрами, а не заметный "телепорт", как у угла вращения
+        // (п.9.2, docs/error-experience/spec.md); тот же выбор, что и у
+        // твинкла звёзд (тоже raw `now`, не rotationNow).
+        drawAccretionDisk(ctx, blackHole, now, true);
+      }
 
       // Дрейф к центру (п.3 доработки) — вычисляем позицию для рендера
       // (реальную либо дрейфующую) ДО renderCursorLensing, который её просто

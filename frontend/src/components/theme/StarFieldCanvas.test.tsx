@@ -4,10 +4,19 @@ import { StarFieldCanvas } from './StarFieldCanvas';
 import { ThemeProvider } from './ThemeProvider';
 import { setBlackHole } from '../../stores/blackHoleStore';
 
+// Каждое присвоение fillStyle пишется сюда — раньше "последнее значение"
+// однозначно указывало на drawBlackHole (рисовался последним в кадре), но
+// после аккреционного диска (раунд 9, п.9.2) последним снова красится
+// #ffffff/flame-цвет поверх диска, поэтому тесту нужна вся история, а не
+// только финальное значение.
+let fillStyleHistory: string[] = [];
+let _fillStyle = '';
+
 // Canvas rendering context stub — достаточно для утверждений о монтировании
 const stubCtx = {
   clearRect: vi.fn(),
   beginPath: vi.fn(),
+  closePath: vi.fn(),
   arc: vi.fn(),
   ellipse: vi.fn(),
   fill: vi.fn(),
@@ -18,7 +27,8 @@ const stubCtx = {
   restore: vi.fn(),
   scale: vi.fn(),
   createLinearGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
-  fillStyle: '',
+  get fillStyle() { return _fillStyle; },
+  set fillStyle(v: string) { _fillStyle = v; fillStyleHistory.push(v); },
   strokeStyle: '',
   lineWidth: 0,
   lineCap: 'butt',
@@ -48,6 +58,7 @@ afterEach(() => {
   localStorage.clear();
   document.documentElement.classList.remove('dark');
   vi.clearAllMocks();
+  fillStyleHistory = [];
 });
 
 afterAll(() => {
@@ -121,9 +132,10 @@ describe('StarFieldCanvas', () => {
     expect(captured.loop).not.toBeNull();
     captured.loop?.(1000);
 
-    // drawBlackHole рисуется последним в кадре — абсолютно чёрный fillStyle
-    // на конец кадра означает, что круг реально отрисовался (не просто no-op)
-    expect(stubCtx.fillStyle).toBe('#000000');
+    // drawBlackHole красит #000000 до аккреционного диска (раунд 9, п.9.2,
+    // рисуется поверх) — проверяем по истории присвоений, не по последнему
+    // значению, что круг реально отрисовался (не просто no-op)
+    expect(fillStyleHistory).toContain('#000000');
 
     setBlackHole(null);
   });

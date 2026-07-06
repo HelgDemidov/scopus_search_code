@@ -21,6 +21,12 @@ describe('NotFoundPage', () => {
     expect(screen.getByRole('button', { name: 'Go home' })).toBeInTheDocument();
   });
 
+  it('shows an Explore collection link pointing to /explore', () => {
+    renderPage('/mamba');
+    const link = screen.getByRole('link', { name: 'Explore collection' });
+    expect(link).toHaveAttribute('href', '/explore');
+  });
+
   it('registers a black hole position on mount and clears it on unmount', () => {
     const { unmount } = renderPage();
     expect(getBlackHole()).not.toBeNull();

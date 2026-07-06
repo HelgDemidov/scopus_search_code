@@ -298,7 +298,8 @@
       "queryLabel": "QUERY:",
       "title": "Page not found",
       "description": "This link may be outdated, or the page may have moved.",
-      "home": "Go home"
+      "home": "Go home",
+      "exploreCollection": "Explore collection"
     },
     "routeError": {
       "status": "TRANSMISSION INTERRUPTED",

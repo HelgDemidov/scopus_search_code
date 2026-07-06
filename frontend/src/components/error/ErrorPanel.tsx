@@ -1,6 +1,7 @@
-import { useState, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { cn } from '../../lib/utils';
 
 interface ErrorPanelProps {
   statusLabel: string;
@@ -10,6 +11,11 @@ interface ErrorPanelProps {
   title: string;
   description: string;
   children?: ReactNode; // кнопки действий
+  // Переопределяет layout ряда кнопок (по умолчанию — по центру).
+  // NotFoundPage (п.9.4, docs/error-experience/spec.md) выравнивает кнопки
+  // по краям того же `max-w-sm`-блока, что и description — RouteErrorPage
+  // с его 3 кнопками остаётся на дефолтном центрировании без изменений.
+  actionsClassName?: string;
 }
 
 // Панель error-страниц (404/route error) — см. docs/error-experience/spec.md,
@@ -25,10 +31,12 @@ interface ErrorPanelProps {
 // статус-лейблом; dark — мягкое гало (радиальный градиент на основе цвета
 // фона, без острой границы) + угловые риски видоискателя вокруг всего блока.
 export function ErrorPanel({
-  statusLabel, monoLabel, monoValue, copyable, title, description, children,
+  statusLabel, monoLabel, monoValue, copyable, title, description, children, actionsClassName,
 }: ErrorPanelProps) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
+  const descRef = useRef<HTMLParagraphElement>(null);
+  const [actionsWidth, setActionsWidth] = useState<number | null>(null);
 
   const handleCopy = async () => {
     if (!monoValue) return;
@@ -36,6 +44,47 @@ export function ErrorPanel({
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  // Ряд кнопок выравнивается по фактической ширине ОТРИСОВАННОГО текста
+  // description (п.9.4, docs/error-experience/spec.md), не по ширине его
+  // max-w-sm блока — текст центрирован внутри блока и почти всегда УЖЕ
+  // самого блока (в EN — на ~16.5px с каждой стороны), поэтому выравнивание
+  // по границам блока визуально «разъезжалось» с видимым текстом. Меряем
+  // через Range.getClientRects() (не getBoundingClientRect самого <p> — тот
+  // отдаёт ширину БЛОКА, не текста); берём максимум среди строк на случай
+  // переноса (RU переносится на 2 строки на типичных вьюпортах) — все
+  // строки центрируются в одном и том же блоке, поэтому у самой широкой
+  // строки те же левая/правая границы, что нужны и для более коротких. Включено
+  // только когда передан actionsClassName (сейчас — только NotFoundPage);
+  // RouteErrorPage с его 3 кнопками под другим текстом не должен ужиматься.
+  useLayoutEffect(() => {
+    if (!actionsClassName) return;
+    function measure() {
+      const el = descRef.current;
+      const textNode = el?.firstChild;
+      if (!el || !textNode) return;
+      const range = document.createRange();
+      range.selectNodeContents(textNode);
+      // jsdom (юнит-тесты) не реализует лэйаут — getClientRects там либо
+      // отсутствует, либо возвращает не-итерируемое значение; в реальном
+      // браузере всегда доступен и итерируем. Тихо пропускаем измерение
+      // вместо падения — actionsWidth остаётся null, ряд кнопок просто не
+      // получает style-ограничение по ширине.
+      let rects: ArrayLike<{ width: number }> | undefined;
+      try {
+        rects = range.getClientRects();
+      } catch {
+        return;
+      }
+      if (!rects || typeof rects.length !== 'number') return;
+      let max = 0;
+      for (let i = 0; i < rects.length; i++) max = Math.max(max, rects[i].width);
+      if (max > 0) setActionsWidth(max);
+    }
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [actionsClassName, description]);
 
   return (
     // fixed + top-14 (=header h-14) + h-[calc(100dvh-3.5rem)] (п.8.5.2,
@@ -77,13 +126,30 @@ export function ErrorPanel({
               («TRANSMISSION INTERRUPTED», ~115px по замеру), не только под
               короткий «NO SIGNAL»: кольцо декоративное, но должно оставаться
               заметно больше текста в любом варианте, а не наполовину скрытым
-              под ним (проверено вживую на обоих текстах) */}
-          <div className="relative mx-auto mb-2 flex h-32 w-32 items-center justify-center">
+              под ним (проверено вживую на обоих текстах). Только в light —
+              в dark этот резерв держит место под light-only SVG-кольцо ниже,
+              которого в dark нет вообще, поэтому статус-лейбл «висел» в
+              пустом круге (п.9.3, docs/error-experience/spec.md, вариант А):
+              dark:h-auto/w-auto убирает фиксированный резерв, текст занимает
+              только свою естественную высоту — панель и её нижние угловые
+              риски (позиционированы от той же обёртки) подтягиваются вверх
+              сами, без отдельной правки */}
+          <div className="relative mx-auto mb-2 flex h-32 w-32 items-center justify-center dark:h-auto dark:w-auto dark:py-1">
             {/* light-only: разорванное кольцо орбиты — «сигнал потерян с орбиты» */}
             <svg aria-hidden="true" viewBox="0 0 100 100" className="absolute inset-0 text-slate-200 dark:hidden">
               <path d="M 50 6 A 44 44 0 1 1 6 50" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
-            <p className="relative px-2 font-mono text-xs font-bold tracking-[0.2em] text-blue-800 dark:text-blue-400">
+            {/* whitespace-pre-line — только RU статус-лейбл содержит явный
+                \n (п.9.5, docs/error-experience/spec.md): "НЕТ СИГНАЛА"
+                помещалось в одну строку впритык к light-only кольцу, в
+                отличие от sr-Latn "NEMA SIGNALA", который переносится сам
+                по себе на узком w-32 (128px). dark:whitespace-normal —
+                разбивка нужна ТОЛЬКО в light: кольца там нет, упираться не
+                во что, а после dark:w-auto (см. обёртку выше) на широком
+                инертном блоке "NEMA SIGNALA" тоже сама умещается в одну
+                строку — обе локали ведут себя одинаково в dark без доп.
+                правок именно для sr-Latn */}
+            <p className="relative whitespace-pre-line px-2 font-mono text-xs font-bold tracking-[0.2em] text-blue-800 dark:whitespace-normal dark:text-blue-400">
               {statusLabel}
             </p>
           </div>
@@ -105,9 +171,12 @@ export function ErrorPanel({
           )}
 
           <h1 className="mt-4 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">{title}</h1>
-          <p className="mx-auto mt-2 max-w-sm text-sm text-slate-500 dark:text-slate-400">{description}</p>
+          <p ref={descRef} className="mx-auto mt-2 max-w-sm text-sm text-slate-500 dark:text-slate-400">{description}</p>
 
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <div
+            className={cn('mt-6 flex flex-wrap items-center gap-3', actionsClassName ?? 'justify-center')}
+            style={actionsWidth ? { maxWidth: actionsWidth } : undefined}
+          >
             {children}
           </div>
         </div>
