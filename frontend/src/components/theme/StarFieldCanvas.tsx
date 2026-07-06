@@ -30,8 +30,8 @@ import {
   DISK_LOWER_ARC_SIDE_THICKNESS_FACTOR,
   DISK_RX_FACTOR,
   DISK_TILT_RAD,
-  DISK_UPPER_ARC_FILLET_RADIUS_FACTOR,
-  DISK_UPPER_ARC_RENDER_HALF_SPAN_FACTOR,
+  DISK_UPPER_ARC_FILLET_END_FACTOR,
+  DISK_UPPER_ARC_FILLET_START_FACTOR,
   DISK_UPPER_ARC_THICKNESS_FACTOR,
   INNER_ZONE_BRIGHTNESS_FACTOR,
   LENSING_FADE_START_DIAMETERS,
@@ -541,31 +541,26 @@ function beltHalfThicknessAt(x: number, rx: number, beltHalf: number): number {
   return beltHalf * Math.sqrt(Math.max(0, 1 - (x * x) / (rx * rx)));
 }
 
-// Экспоненциальный smooth-min (LogSumExp) — сглаживает угол ровно там, где
-// две независимые кривые пересекаются (a≈b), НЕ трогая форму нигде больше
-// (там, где a и b далеки друг от друга, результат неотличим от обычного
-// min). Правка 13.4: верхняя дуга константной толщины (простое кольцо,
-// окружность Rup вокруг тени) неизбежно пересекает верхний край пояса ПОД
-// УГЛОМ — по вводной пользователя, этот угол "закрашивается" плавным
-// скруглением (добавляет материала ровно в точке пересечения), а не
-// гладким слиянием по всей длине дуги (то, что делал прежний domeBump, — и
-// именно это схлопывало толщину дуги в шип, см. правку в constants/
-// blackHole.ts).
-// Правка 13.5 — заменили полиномиальный smooth-min на экспоненциальный
-// (вводная пользователя: угол всё ещё читался чётким) — при сопоставимом k
-// экспоненциальный вариант даёт заметно более широкую и глубокую зону
-// смешения (полиномиальный обнуляется РОВНО на |a-b|=k, у экспоненциального
-// влияние спадает плавно и за пределами k). ВАЖНО про направление k: здесь
-// k стоит в ЗНАМЕНАТЕЛЕ (a/k, не k*a, как в канонической формуле IQ) —
-// поэтому у нас, в отличие от канонической записи, БОЛЬШЕ k = ПЛАВНЕЕ
-// переход (не наоборот) — проверено прямым вычислением на нашем диапазоне
-// значений, см. constants/blackHole.ts.
-// Знак: "северное" (верхнее) направление — МЕНЬШИЙ y (canvas y растёт вниз)
-// — обычный min(a,b) уже выбирает более выступающую границу, smoothMinNorth
-// лишь скругляет стык.
-function smoothMinNorth(a: number, b: number, k: number): number {
-  const sum = Math.exp(-a / k) + Math.exp(-b / k);
-  return -Math.log(sum) * k;
+// Правка 13.6 (по вводной пользователя) — ни полиномиальный, ни
+// экспоненциальный smooth-min не убрали видимый угол на стыке верхней дуги
+// с поясом: оба сглаживают только ЗНАЧЕНИЯ (a≈b), но не НАКЛОН — а у
+// окружности купола наклон у её собственного края стремится к вертикали
+// (стандартное свойство окружности у экватора), у почти плоского пояса
+// наклон близок к нулю. Резкая смена наклона на коротком отрезке всегда
+// читается как излом, даже если сами значения сблендены гладко.
+// Кубический Hermite-сплайн — единственный инструмент здесь, который явно
+// сопрягает НАКЛОН на обоих концах зоны слияния (не только значение),
+// поэтому кривизна переходит непрерывно. p0/m0 — значение и (уже
+// смасштабированный на длину отрезка) наклон в начале блока, p1/m1 — в
+// конце; t — доля пройденного пути (0..1).
+function hermiteBlend(p0: number, m0: number, p1: number, m1: number, t: number): number {
+  const t2 = t * t;
+  const t3 = t2 * t;
+  const h00 = 2 * t3 - 3 * t2 + 1;
+  const h10 = t3 - 2 * t2 + t;
+  const h01 = -2 * t3 + 3 * t2;
+  const h11 = t3 - t2;
+  return h00 * p0 + h10 * m0 + h01 * p1 + h11 * m1;
 }
 
 // Нижняя дуга — толщина (не радиус) задаётся напрямую как функция x:
@@ -618,37 +613,56 @@ function drawDiskLowerArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry):
   ctx.fill();
 }
 
-// Верхняя дуга — правка 13.4 (по вводной пользователя, живая проверка
-// правки 13.3): толщина СТАБИЛЬНА по всей длине (кольцо между концентричной
-// тени окружностью Rup=R+DISK_UPPER_ARC_THICKNESS_FACTOR и самой тенью —
-// толщина постоянна по построению, никакого купол-спада). Внутренняя
-// граница — окружность тени БЕЗ сдвига (не +overlapPx, в отличие от нижней
-// дуги) — по вводной пользователя, эта граница нигде не должна перекрывать
-// тень; безопасно, т.к. обе кривые статичны и совпадают точно (не два
-// независимо джиттерящих контура, которым нужен запас).
-// Внешняя граница = smoothMinNorth(окружность Rup, верхний край пояса) —
-// min гарантирует отсутствие зазора (дуга не короче пояса нигде), а
-// smooth-часть закрашивает угол на пересечении плавным скруглением
-// (буквально "добавляет толщины" ровно в этой точке — вводная
-// пользователя), не трогая форму дуги нигде, где она далеко от пояса.
+// Верхняя дуга — толщина СТАБИЛЬНА по всей длине (кольцо между
+// концентричной тени окружностью Rup=R+DISK_UPPER_ARC_THICKNESS_FACTOR и
+// самой тенью). Внутренняя граница — окружность тени БЕЗ сдвига (в отличие
+// от нижней дуги) — по вводной пользователя, эта граница нигде не должна
+// перекрывать тень; безопасно, т.к. обе кривые статичны и совпадают точно.
+// Внешняя граница, правка 13.6 (см. hermiteBlend выше) — ТРИ зоны, не
+// smooth-min двух формул целиком:
+//  1. |x| ≤ FILLET_START — чистая окружность Rup (толщина постоянна).
+//  2. FILLET_START < |x| < FILLET_END — Hermite-сплайн от (значение,
+//     наклон) окружности в начале до (значение, наклон) верхнего края
+//     пояса в конце — гладкое сопряжение и по значению, и по наклону.
+//  3. |x| ≥ FILLET_END — чистый верхний край пояса (с учётом его прогиба).
 function drawDiskUpperArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): void {
   const R = bh.radius;
   const rx = R * DISK_RX_FACTOR;
   const beltHalf = R * DISK_BELT_HALF_THICKNESS_FACTOR;
   const sag = R * DISK_BELT_SAG_FACTOR;
   const Rup = R + R * DISK_UPPER_ARC_THICKNESS_FACTOR;
-  const filletRadius = R * DISK_UPPER_ARC_FILLET_RADIUS_FACTOR;
-  const halfSpan = R * DISK_UPPER_ARC_RENDER_HALF_SPAN_FACTOR;
+  const x1 = R * DISK_UPPER_ARC_FILLET_START_FACTOR;
+  const x2 = R * DISK_UPPER_ARC_FILLET_END_FACTOR;
+  const halfSpan = x2;
   const n = DISK_CONTOUR_POINT_COUNT;
   const cos = Math.cos(DISK_TILT_RAD);
   const sin = Math.sin(DISK_TILT_RAD);
 
+  // Опорные значения/наклоны на границах зоны слияния — считаются один раз
+  // (не per-point): аналитические производные обеих формул (окружность,
+  // верхний край пояса), не численное приближение.
+  const y1 = -Math.sqrt(Math.max(0, Rup * Rup - x1 * x1));
+  const slope1 = x1 / Math.sqrt(Math.max(1e-6, Rup * Rup - x1 * x1));
+  const beltAmplitude = sag - beltHalf; // амплитуда верхнего края пояса (обычно отрицательна)
+  const beltTaper2 = Math.sqrt(Math.max(0, 1 - (x2 * x2) / (rx * rx)));
+  const y2 = beltAmplitude * beltTaper2;
+  const slope2 = beltTaper2 > 1e-6 ? (-beltAmplitude * x2) / (rx * rx * beltTaper2) : 0;
+  const dx = x2 - x1;
+  const m0 = slope1 * dx;
+  const m1 = slope2 * dx;
+
   ctx.beginPath();
   for (let i = 0; i <= n; i++) {
     const x = -halfSpan + (2 * halfSpan * i) / n;
-    const circleY = -Math.sqrt(Math.max(0, Rup * Rup - x * x));
-    const beltTopY = beltCenterlineY(x, rx, sag) - beltHalfThicknessAt(x, rx, beltHalf);
-    const y = smoothMinNorth(circleY, beltTopY, filletRadius);
+    const absX = Math.abs(x);
+    let y: number;
+    if (absX <= x1) {
+      y = -Math.sqrt(Math.max(0, Rup * Rup - x * x));
+    } else if (absX >= x2) {
+      y = beltCenterlineY(x, rx, sag) - beltHalfThicknessAt(x, rx, beltHalf);
+    } else {
+      y = hermiteBlend(y1, m0, y2, m1, (absX - x1) / dx);
+    }
     const px = bh.x + x * cos - y * sin;
     const py = bh.y + x * sin + y * cos;
     if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
