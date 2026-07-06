@@ -30,8 +30,9 @@ import {
   DISK_LOWER_ARC_SIDE_THICKNESS_FACTOR,
   DISK_RX_FACTOR,
   DISK_TILT_RAD,
-  DISK_UPPER_ARC_DOME_HALF_WIDTH_FACTOR,
-  DISK_UPPER_ARC_POLE_THICKNESS_FACTOR,
+  DISK_UPPER_ARC_FILLET_RADIUS_FACTOR,
+  DISK_UPPER_ARC_RENDER_HALF_SPAN_FACTOR,
+  DISK_UPPER_ARC_THICKNESS_FACTOR,
   INNER_ZONE_BRIGHTNESS_FACTOR,
   LENSING_FADE_START_DIAMETERS,
   METEOR_CAPTURE_DIAMETERS,
@@ -540,13 +541,21 @@ function beltHalfThicknessAt(x: number, rx: number, beltHalf: number): number {
   return beltHalf * Math.sqrt(Math.max(0, 1 - (x * x) / (rx * rx)));
 }
 
-// Купол-функция (пояс↔верхняя дуга): smoothstep — ноль ПРОИЗВОДНОЙ на
-// обоих концах, даёт настоящее касательное (закруглённое) слияние с краем
-// пояса, без излома. Только для верхней дуги — нижняя сливается резко, под
-// углом (см. drawDiskLowerArc) — так и задумано (см. ТЗ, «Раунд 13»).
-function domeBump(x: number, halfWidthX: number): number {
-  const t = Math.min(1, Math.abs(x) / halfWidthX);
-  return 1 - t * t * (3 - 2 * t);
+// Полиномиальный smooth-min (IQ) — сглаживает угол ровно там, где две
+// независимые кривые пересекаются (a≈b), НЕ трогая форму нигде больше, где
+// они далеки друг от друга (там результат неотличим от обычного min).
+// Правка 13.4: верхняя дуга константной толщины (простое кольцо, окружность
+// Rup вокруг тени) неизбежно пересекает верхний край пояса ПОД УГЛОМ — по
+// вводной пользователя, этот угол "закрашивается" плавным скруглением
+// (добавляет материала ровно в точке пересечения), а не гладким слиянием
+// по всей длине дуги (то, что делал прежний domeBump, — и именно это
+// схлопывало толщину дуги в шип, см. правку в constants/blackHole.ts).
+// Знак: "северное" (верхнее) направление — МЕНЬШИЙ y (canvas y растёт вниз)
+// — обычный min(a,b) уже выбирает более выступающую границу, smoothMinNorth
+// лишь скругляет стык.
+function smoothMinNorth(a: number, b: number, k: number): number {
+  const h = Math.max(0, k - Math.abs(a - b)) / k;
+  return Math.min(a, b) - h * h * k * 0.25;
 }
 
 // Нижняя дуга — толщина (не радиус) задаётся напрямую как функция x:
@@ -599,34 +608,44 @@ function drawDiskLowerArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry):
   ctx.fill();
 }
 
-// Верхняя дуга — толщина (не радиус) как явная функция: полная
-// DISK_UPPER_ARC_POLE_THICKNESS_FACTOR у полюса (x=0), ГЛАДКО (domeBump,
-// нулевая производная) убывающая к ВЕРХНЕМУ краю пояса (с учётом его
-// прогиба) на границе DISK_UPPER_ARC_DOME_HALF_WIDTH_FACTOR × R —
-// касательное, закруглённое слияние без излома (в отличие от нижней дуги).
+// Верхняя дуга — правка 13.4 (по вводной пользователя, живая проверка
+// правки 13.3): толщина СТАБИЛЬНА по всей длине (кольцо между концентричной
+// тени окружностью Rup=R+DISK_UPPER_ARC_THICKNESS_FACTOR и самой тенью —
+// толщина постоянна по построению, никакого купол-спада). Внутренняя
+// граница — окружность тени БЕЗ сдвига (не +overlapPx, в отличие от нижней
+// дуги) — по вводной пользователя, эта граница нигде не должна перекрывать
+// тень; безопасно, т.к. обе кривые статичны и совпадают точно (не два
+// независимо джиттерящих контура, которым нужен запас).
+// Внешняя граница = smoothMinNorth(окружность Rup, верхний край пояса) —
+// min гарантирует отсутствие зазора (дуга не короче пояса нигде), а
+// smooth-часть закрашивает угол на пересечении плавным скруглением
+// (буквально "добавляет толщины" ровно в этой точке — вводная
+// пользователя), не трогая форму дуги нигде, где она далеко от пояса.
 function drawDiskUpperArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): void {
   const R = bh.radius;
   const rx = R * DISK_RX_FACTOR;
   const beltHalf = R * DISK_BELT_HALF_THICKNESS_FACTOR;
   const sag = R * DISK_BELT_SAG_FACTOR;
-  const domeHalfWidthX = R * DISK_UPPER_ARC_DOME_HALF_WIDTH_FACTOR;
-  const poleOuterY = -(R + R * DISK_UPPER_ARC_POLE_THICKNESS_FACTOR);
+  const Rup = R + R * DISK_UPPER_ARC_THICKNESS_FACTOR;
+  const filletRadius = R * DISK_UPPER_ARC_FILLET_RADIUS_FACTOR;
+  const halfSpan = R * DISK_UPPER_ARC_RENDER_HALF_SPAN_FACTOR;
   const n = DISK_CONTOUR_POINT_COUNT;
   const cos = Math.cos(DISK_TILT_RAD);
   const sin = Math.sin(DISK_TILT_RAD);
 
   ctx.beginPath();
   for (let i = 0; i <= n; i++) {
-    const x = -domeHalfWidthX + (2 * domeHalfWidthX * i) / n;
+    const x = -halfSpan + (2 * halfSpan * i) / n;
+    const circleY = -Math.sqrt(Math.max(0, Rup * Rup - x * x));
     const beltTopY = beltCenterlineY(x, rx, sag) - beltHalfThicknessAt(x, rx, beltHalf);
-    const y = beltTopY + (poleOuterY - beltTopY) * domeBump(x, domeHalfWidthX);
+    const y = smoothMinNorth(circleY, beltTopY, filletRadius);
     const px = bh.x + x * cos - y * sin;
     const py = bh.y + x * sin + y * cos;
     if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
   }
   for (let i = n; i >= 0; i--) {
-    const x = -domeHalfWidthX + (2 * domeHalfWidthX * i) / n;
-    const y = -Math.sqrt(Math.max(0, R * R - x * x)) + DISK_ARC_INNER_OVERLAP_PX;
+    const x = -halfSpan + (2 * halfSpan * i) / n;
+    const y = -Math.sqrt(Math.max(0, R * R - x * x));
     const px = bh.x + x * cos - y * sin;
     const py = bh.y + x * sin + y * cos;
     ctx.lineTo(px, py);
