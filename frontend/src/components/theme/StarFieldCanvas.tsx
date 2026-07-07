@@ -11,34 +11,6 @@ import {
   shouldHideCursor,
 } from '../../utils/blackHoleLensing';
 import {
-  ACCRETION_BAND_BOTTOM_HALF_WIDTH_RAD,
-  ACCRETION_BAND_BOTTOM_OVERSHOOT_FACTOR,
-  ACCRETION_BAND_CONTOUR_JITTER_PX,
-  ACCRETION_BAND_POINT_COUNT,
-  ACCRETION_BAND_POLAR_RIBBON_FACTOR,
-  ACCRETION_BAND_RX_FACTOR,
-  ACCRETION_BAND_RY_FACTOR,
-  ACCRETION_BAND_TOP_OVERSHOOT_PX_FACTOR,
-  ACCRETION_BAND_TOP_SHARPNESS,
-  ACCRETION_CHAOS_ANGULAR_FREQ_1,
-  ACCRETION_CHAOS_ANGULAR_FREQ_2,
-  ACCRETION_CHAOS_ANGULAR_FREQ_3,
-  ACCRETION_CHAOS_TIME_FREQ_1,
-  ACCRETION_CHAOS_TIME_FREQ_2,
-  ACCRETION_CHAOS_TIME_FREQ_3,
-  ACCRETION_FLAME_COLOR,
-  ACCRETION_FLECK_CLUSTER_MAX,
-  ACCRETION_FLECK_CLUSTER_MIN,
-  ACCRETION_FLECK_COUNT,
-  ACCRETION_FLECK_MICRO_SPREAD_FACTOR,
-  ACCRETION_FLECK_RADIUS_FACTOR,
-  ACCRETION_FLICKER_FREQ_1,
-  ACCRETION_FLICKER_FREQ_2,
-  ACCRETION_FLICKER_RANDOM_AMP,
-  ACCRETION_RIM_JITTER_PX,
-  ACCRETION_RIM_LINE_WIDTH,
-  ACCRETION_RIM_POINT_COUNT,
-  ACCRETION_WARM_WHITE_COLOR,
   BLACK_HOLE_DIAMETER_RATIO,
   BLACK_HOLE_POSITION_MOBILE_X_RATIO,
   BLACK_HOLE_POSITION_MOBILE_Y_PX,
@@ -47,10 +19,31 @@ import {
   CURSOR_DRIFT_BASE_ACCEL,
   CURSOR_DRIFT_ESCAPE_SPEED,
   CURSOR_RESISTANCE_POWER,
+  DISK_ARC_INNER_OVERLAP_PX,
+  DISK_BASE_COLOR,
+  DISK_BELT_HALF_THICKNESS_FACTOR,
+  DISK_BELT_SAG_FACTOR,
+  DISK_CONTOUR_POINT_COUNT,
+  DISK_LOWER_ARC_CUTOFF_ANGLE_DEG,
+  DISK_LOWER_ARC_MERGE_X_FACTOR,
+  DISK_LOWER_ARC_POLE_THICKNESS_FACTOR,
+  DISK_LOWER_ARC_SIDE_THICKNESS_FACTOR,
+  DISK_RX_FACTOR,
+  DISK_TILT_RAD,
+  DISK_UPPER_ARC_FILLET_END_FACTOR,
+  DISK_UPPER_ARC_FILLET_START_FACTOR,
+  DISK_UPPER_ARC_THICKNESS_FACTOR,
   INNER_ZONE_BRIGHTNESS_FACTOR,
   LENSING_FADE_START_DIAMETERS,
   METEOR_CAPTURE_DIAMETERS,
   MOBILE_BREAKPOINT_PX,
+  PHOTON_RING_CENTER_OFFSET_FACTOR,
+  PHOTON_RING_COLOR,
+  PHOTON_RING_LINE_WIDTH,
+  PHOTON_RING_MIN_LINE_WIDTH,
+  PHOTON_RING_RADIUS_FACTOR,
+  PHOTON_RING_SEGMENT_COUNT,
+  ROTATION_ZONE_EXTRA_FACTOR,
   SECONDARY_NEBULA_BLOB_COUNT,
   SECONDARY_NEBULA_RADIUS_RATIO,
   SECONDARY_NEBULA_STAR_COUNT_MAX,
@@ -312,12 +305,20 @@ function drawStars(
   animate: boolean,
   blackHole: BlackHoleGeometry | null,
 ): void {
-  // Вращение начинается там же, где стартует деформация формы (FADE_START) —
-  // не там, где начинается кольцевая зона (OUTER) — иначе звёзды сперва
-  // растягивались бы в эллипс без всякого движения, а вращение включалось
-  // бы отдельным резким порогом позже. Единый старт даёт плавный переход
-  // «эллипс, чуть вращающийся → линия у горизонта, вращающаяся быстро».
+  // Деформация формы стартует на FADE_START — не на границе кольцевой зоны
+  // (OUTER) — иначе звёзды сперва растягивались бы в эллипс без всякого
+  // движения, а вращение включалось бы отдельным резким порогом позже.
   const outerBoundaryPx = blackHole ? blackHole.radius * 2 * LENSING_FADE_START_DIAMETERS : 0;
+  // Раунд 12: у вращения СВОЯ, на 7% более широкая граница (ROTATION_ZONE_
+  // EXTRA_FACTOR, constants/blackHole.ts) — это НЕ тот же баг «эллипс без
+  // движения» в обратную сторону: на новых внешних процентах звезда просто
+  // ещё круглая (деформация не включилась) и только-только начинает едва
+  // заметно вращаться — обе величины по-прежнему стартуют строго с нуля.
+  // computeLensing вычисляет свой порог самостоятельно из bh.radius и не
+  // получает outerBoundaryPx извне — расширение физически не может задеть
+  // деформацию формы, а курсор/метеоры читают LENSING_FADE_START_DIAMETERS
+  // напрямую в других функциях, тоже не связаны с этой переменной.
+  const rotationBoundaryPx = outerBoundaryPx * ROTATION_ZONE_EXTRA_FACTOR;
 
   // Цвет звёзд всегда белый — альфа/мерцание идёт через globalAlpha, не
   // через новую rgba()-строку на каждую звезду каждый кадр (п.8.2.2): на
@@ -338,8 +339,10 @@ function drawStars(
     // не меняются (радиус орбиты постоянен, случай 'normal' гарантирован),
     // пропускаем applyOrbitalRotation/computeLensing целиком, а не только
     // их результат (п.8.2.1) — тригонометрия на статичное большинство
-    // звёзд иначе выполняется впустую каждый кадр.
-    if (!blackHole || (s.distFromBhSurface ?? Infinity) > outerBoundaryPx) {
+    // звёзд иначе выполняется впустую каждый кадр. Порог — rotationBoundaryPx
+    // (шире, чем outerBoundaryPx деформации, раунд 12), иначе звёзды в новых
+    // 7% отбрасывались бы здесь ещё ДО применения вращения.
+    if (!blackHole || (s.distFromBhSurface ?? Infinity) > rotationBoundaryPx) {
       ctx.globalAlpha = a;
       ctx.beginPath();
       ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
@@ -349,7 +352,7 @@ function drawStars(
 
     // Вращение вихря (п.1.2) — применяется до расчёта деформации формы,
     // оба эффекта независимы друг от друга на одной и той же звезде.
-    const { x: rx, y: ry } = applyOrbitalRotation(s.x, s.y, blackHole, outerBoundaryPx, now);
+    const { x: rx, y: ry } = applyOrbitalRotation(s.x, s.y, blackHole, rotationBoundaryPx, now);
     // Раунд 3: без resistancePower (p=1) — граница OUTER сама откалибрована
     // на 25% радиуса эффекта, см. constants/blackHole.ts.
     const lensing = computeLensing(rx, ry, blackHole.x, blackHole.y, blackHole.radius);
@@ -514,261 +517,234 @@ function drawBlackHole(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): vo
 }
 
 // ---------------------------------------------------------------------------
-// Аккреционный диск (docs/error-experience/spec.md, раунд 9, п.9.2)
+// Аккреционный диск с нуля (docs/error-experience/spec.md, раунд 13, план,
+// коммит 1 — статичная геометрия). Три НЕЗАВИСИМЫЕ фигуры вместо одной
+// параметрической формулы (см. обоснование — constants/blackHole.ts, блок
+// DISK_*). Дисциплина рендера — та же, что у звёзд/метеоров: НИ ОДНОЙ
+// per-frame аллокации (ни массивов точек, ни замыканий) — только числа и
+// прямые вызовы ctx в одном проходе цикла.
 // ---------------------------------------------------------------------------
-// Художественная аппроксимация (EHT M87*/Interstellar-стиль), не физическая
-// симуляция. Рисуется ПОСЛЕ drawBlackHole — окаёмка/полоса/вкрапления должны
-// быть видны поверх чёрного диска, дуги "через полюса" целиком снаружи
-// bh.radius и не пересекаются с ним ни при каких параметрах ниже.
-//
-// Дисциплина рендера — та же, что у звёзд/метеоров (п.8.2/9.1): НИ ОДНОЙ
-// per-frame аллокации. Оба цвета — статичные литералы (`#ffffff`,
-// ACCRETION_FLAME_COLOR), яркость/мерцание — через globalAlpha и числовой
-// scalar `alpha`, не через новый градиент/строку на кадр. Хаос формы — на
-// голых числах (jitter), не объектах.
 
-// Вспышки цвета пламени вдоль контура (rx=ry — окружность окаёмки; rx≠ry —
-// эллипс полосы) — каждая вспышка не одна точка, а кластер из нескольких
-// микро-точек неправильной формы (docs/error-experience/spec.md, раунд 9,
-// вторая живая правка), с "протуберанцем" — анкер кластера смещён от
-// идеальной геометрии на deviationPx. Persistence сознательно не нужна
-// (см. чат) — позиция/альфа/состав кластера пересчитываются с нуля каждый
-// кадр. animate=false (prefers-reduced-motion) — фиксированная раскладка,
-// ровно одна точка на вспышку, без смещения/кластера, детерминировано.
-// Радиус/разброс — доля bhRadius (третья живая правка, п.9.2): в фикс. px
-// кластер был почти той же ширины, что и сам (тонкий) ремешок — визуально
-// съедал заливку целиком, читалось как "ремешок рассыпался на пиксели".
-function scatterFlameFlecks(
-  ctx: CanvasRenderingContext2D, cx: number, cy: number, rx: number, ry: number,
-  count: number, alpha: number, animate: boolean, deviationPx: number, bhRadius: number,
-): void {
-  const fleckRadius = bhRadius * ACCRETION_FLECK_RADIUS_FACTOR;
-  const microSpread = bhRadius * ACCRETION_FLECK_MICRO_SPREAD_FACTOR;
-  ctx.fillStyle = ACCRETION_FLAME_COLOR;
-  for (let i = 0; i < count; i++) {
-    const theta = animate ? Math.random() * Math.PI * 2 : (i / count) * Math.PI * 2;
-    const dev = animate ? (Math.random() * 2 - 1) * deviationPx : 0;
-    const anchorX = cx + Math.cos(theta) * (rx + dev);
-    const anchorY = cy + Math.sin(theta) * (ry + dev);
-    const clusterSize = animate
-      ? ACCRETION_FLECK_CLUSTER_MIN + Math.floor(Math.random() * (ACCRETION_FLECK_CLUSTER_MAX - ACCRETION_FLECK_CLUSTER_MIN + 1))
-      : 1;
-    for (let k = 0; k < clusterSize; k++) {
-      const mx = animate ? (Math.random() * 2 - 1) * microSpread : 0;
-      const my = animate ? (Math.random() * 2 - 1) * microSpread : 0;
-      ctx.globalAlpha = alpha * (animate ? 0.5 + Math.random() * 0.5 : 0.75);
-      ctx.beginPath();
-      ctx.arc(anchorX + mx, anchorY + my, fleckRadius, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-  ctx.globalAlpha = 1;
+// Центральная линия пояса — не строго горизонтальная (правка 13.3, вводная
+// пользователя): гладкий симметричный прогиб вниз, тот же профиль
+// sqrt(1-(x/rx)²), что и толщина пояса — ноль на остриях, максимум в
+// центре. Именно "полуэллипс", не излом/"чайка" — уточнено у пользователя
+// явно двумя раундами вопросов.
+function beltCenterlineY(x: number, rx: number, sag: number): number {
+  return sag * Math.sqrt(Math.max(0, 1 - (x * x) / (rx * rx)));
 }
 
-// Непрерывный по углу И по времени "хаос формы" (раунд 10, п.4) — заменяет
-// независимый Math.random() на каждой из N ФИКСИРОВАННЫХ равномерно
-// расположенных точек контура. Число и угол точек — были и остаются
-// неизменной решёткой, но раньше именно они и определяли видимый узор
-// (только величина смещения "плясала" внутри узкого диапазона, пересчитываясь
-// заново каждый кадр без связи с предыдущим) — глаз считывает жёсткую
-// N-кратную периодическую структуру как "шестерёнки", а несвязанный re-roll
-// на 60 кадров/сек даёт дребезжащий, а не органичный характер (диагноз
-// подтверждён живым разбором, spec.md раунд 10). Сумма 3 несоизмеримых по
-// УГЛОВОЙ частоте гармоник — функция гладкая и определена для ЛЮБОГО θ, не
-// только для точек решётки, поэтому не привязана к её периоду; несоизмеримые
-// ВРЕМЕННЫ́Е частоты — тот же приём, что уже работает для alpha-мерцания
-// (ACCRETION_FLICKER_FREQ_1/2) — дают плавное "дыхание" формы кадр к кадру
-// вместо рывка. `phase` разводит несколько независимых применений (окаёмка/
-// полоса-X/полоса-Y), чтобы они не двигались синхронно как одна ось.
-function chaosOffset(theta: number, now: number, ampPx: number, phase: number): number {
-  return ampPx * (
-    0.5 * Math.sin(theta * ACCRETION_CHAOS_ANGULAR_FREQ_1 + now * ACCRETION_CHAOS_TIME_FREQ_1 + phase)
-    + 0.3 * Math.sin(theta * ACCRETION_CHAOS_ANGULAR_FREQ_2 + now * ACCRETION_CHAOS_TIME_FREQ_2 + phase * 1.7 + 1.7)
-    + 0.2 * Math.sin(theta * ACCRETION_CHAOS_ANGULAR_FREQ_3 + now * ACCRETION_CHAOS_TIME_FREQ_3 + phase * 2.3 + 3.1)
-  );
+// Половина толщины пояса в точке x — тот же профиль, симметично вокруг
+// центральной линии (прогиб не меняет толщину диска — явное условие
+// пользователя).
+function beltHalfThicknessAt(x: number, rx: number, beltHalf: number): number {
+  return beltHalf * Math.sqrt(Math.max(0, 1 - (x * x) / (rx * rx)));
 }
 
-// Тонкая окаёмка ровно по краю горизонта — калибровочная точка ТЗ раунда 9
-// (п.3.1): "тонкая яркая окаёмка по внешней поверхности чёрной дыры".
-// Джиттер точек контура (не готовый ctx.arc) — те самые "протуберанцы
-// толщиной 1-2px", непрерывная функция θ+now (chaosOffset), не независимый
-// per-frame random (раунд 10, п.4 — см. комментарий выше).
-function drawAccretionRim(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, alpha: number, animate: boolean, now: number): void {
-  const n = ACCRETION_RIM_POINT_COUNT;
+// Правка 13.6 (по вводной пользователя) — ни полиномиальный, ни
+// экспоненциальный smooth-min не убрали видимый угол на стыке верхней дуги
+// с поясом: оба сглаживают только ЗНАЧЕНИЯ (a≈b), но не НАКЛОН — а у
+// окружности купола наклон у её собственного края стремится к вертикали
+// (стандартное свойство окружности у экватора), у почти плоского пояса
+// наклон близок к нулю. Резкая смена наклона на коротком отрезке всегда
+// читается как излом, даже если сами значения сблендены гладко.
+// Кубический Hermite-сплайн — единственный инструмент здесь, который явно
+// сопрягает НАКЛОН на обоих концах зоны слияния (не только значение),
+// поэтому кривизна переходит непрерывно. p0/m0 — значение и (уже
+// смасштабированный на длину отрезка) наклон в начале блока, p1/m1 — в
+// конце; t — доля пройденного пути (0..1).
+function hermiteBlend(p0: number, m0: number, p1: number, m1: number, t: number): number {
+  const t2 = t * t;
+  const t3 = t2 * t;
+  const h00 = 2 * t3 - 3 * t2 + 1;
+  const h10 = t3 - 2 * t2 + t;
+  const h01 = -2 * t3 + 3 * t2;
+  const h11 = t3 - t2;
+  return h00 * p0 + h10 * m0 + h01 * p1 + h11 * m1;
+}
+
+// Нижняя дуга — толщина (не радиус) задаётся напрямую как функция x:
+// полная DISK_LOWER_ARC_POLE_THICKNESS_FACTOR у полюса (x=0), затем
+// ЛИНЕЙНО (не smoothstep — угол на стыке здесь желателен, не баг) убывает
+// до DISK_LOWER_ARC_SIDE_THICKNESS_FACTOR ровно в точке слияния с поясом
+// (DISK_LOWER_ARC_MERGE_X_FACTOR × R), под углом DISK_LOWER_ARC_CUTOFF_
+// ANGLE_DEG — ширина зоны обреза выводится из перепада толщины и угла.
+// Внешняя граница — max(линейный обрез, нижний край ПРОГНУВШЕГОСЯ пояса) —
+// гарантия от зазора: без этой подстраховки прогиб пояса (пусть и малый)
+// мог бы у самого края тени уйти ниже, чем успевает опуститься дуга по
+// своей собственной (не знающей о поясе) формуле толщины.
+function drawDiskLowerArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): void {
+  const R = bh.radius;
+  const rx = R * DISK_RX_FACTOR;
+  const beltHalf = R * DISK_BELT_HALF_THICKNESS_FACTOR;
+  const sag = R * DISK_BELT_SAG_FACTOR;
+  const poleT = R * DISK_LOWER_ARC_POLE_THICKNESS_FACTOR;
+  const sideT = R * DISK_LOWER_ARC_SIDE_THICKNESS_FACTOR;
+  const mergeX = R * DISK_LOWER_ARC_MERGE_X_FACTOR;
+  const slope = Math.tan((DISK_LOWER_ARC_CUTOFF_ANGLE_DEG * Math.PI) / 180);
+  const rampWidth = (poleT - sideT) / slope;
+  const xFlat = mergeX - rampWidth;
+  const n = DISK_CONTOUR_POINT_COUNT;
+  const cos = Math.cos(DISK_TILT_RAD);
+  const sin = Math.sin(DISK_TILT_RAD);
+
   ctx.beginPath();
   for (let i = 0; i <= n; i++) {
-    const theta = (i / n) * Math.PI * 2;
-    const r = bh.radius + (animate ? chaosOffset(theta, now, ACCRETION_RIM_JITTER_PX, 0) : 0);
-    const x = bh.x + Math.cos(theta) * r;
-    const y = bh.y + Math.sin(theta) * r;
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    const x = -rx + (2 * rx * i) / n;
+    const y = Math.sqrt(Math.max(0, R * R - x * x)) - DISK_ARC_INNER_OVERLAP_PX;
+    const px = bh.x + x * cos - y * sin;
+    const py = bh.y + x * sin + y * cos;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  for (let i = n; i >= 0; i--) {
+    const x = -rx + (2 * rx * i) / n;
+    const absX = Math.abs(x);
+    const innerY = Math.sqrt(Math.max(0, R * R - x * x)) - DISK_ARC_INNER_OVERLAP_PX;
+    const thickness = absX <= xFlat ? poleT : Math.max(0, poleT - slope * (absX - xFlat));
+    const rampY = innerY + thickness;
+    const beltBottomY = beltCenterlineY(x, rx, sag) + beltHalfThicknessAt(x, rx, beltHalf);
+    const y = Math.max(rampY, beltBottomY);
+    const px = bh.x + x * cos - y * sin;
+    const py = bh.y + x * sin + y * cos;
+    ctx.lineTo(px, py);
   }
   ctx.closePath();
-  ctx.strokeStyle = ACCRETION_WARM_WHITE_COLOR;
-  ctx.lineWidth = ACCRETION_RIM_LINE_WIDTH;
-  ctx.globalAlpha = alpha;
-  ctx.stroke();
-  ctx.globalAlpha = 1;
-}
-
-// Кратчайшее угловое расстояние между двумя углами (0..π) — используется,
-// чтобы "вспухание" полосы у полюса не зависело от направления обхода.
-function angularDistance(a: number, b: number): number {
-  const d = Math.abs(a - b) % (Math.PI * 2);
-  return d > Math.PI ? Math.PI * 2 - d : d;
-}
-
-// "Полюсность" точки θ — насколько она близка к верхнему/нижнему полюсу,
-// раздельно (0..1). θ=3π/2 (canvas Y вниз ⇒ sin<0) — верхний полюс; θ=π/2 —
-// нижний. Верх и низ — НАМЕРЕННО разные семейства кривых (раунд 10, не
-// просто разные числа одной формулы — см. ACCRETION_BAND_BOTTOM_HALF_WIDTH_RAD
-// в constants/blackHole.ts, почему гладкая cos^N в принципе не могла дать
-// низу видимый угол ни при каком N): верх — гладкая cos^N (купол без
-// излома, C¹ везде включая пик и точку выхода в 0), низ — кусочно-линейная
-// "палатка" (Math.max(0, 1 − Δθ/halfWidth)) с настоящим изломом производной
-// ровно в пике — острая, не круглая вершина.
-function poleBumps(theta: number): { top: number; bottom: number } {
-  return {
-    top: Math.max(0, Math.cos(angularDistance(theta, (3 * Math.PI) / 2))) ** ACCRETION_BAND_TOP_SHARPNESS,
-    bottom: Math.max(0, 1 - angularDistance(theta, Math.PI / 2) / ACCRETION_BAND_BOTTOM_HALF_WIDTH_RAD),
-  };
-}
-
-// Внешняя граница полосы в точке θ (docs/error-experience/spec.md, раунд 9,
-// живая сверка со скриншотом Interstellar/Gargantua) — НЕ константа по
-// углу: у полюсов граница "вспухает" навстречу окаёмке, асимметрично сверху
-// и снизу (см. комментарий у ACCRETION_BAND_* в constants/blackHole.ts).
-// Верхний полюс: цель — bh.radius + line width окаёмки (третья живая
-// правка — было ровно bh.radius, касание в одной точке между ДВУМЯ
-// независимо джиттерящимися фигурами почти всегда оставляло щель с фоном,
-// живьём подтверждено скриншотом со звёздами сквозь просвет). Заведомый
-// нахлёст поверх окаёмки убирает щель структурно, а не подгонкой чисел.
-// Нижний: цель НЕМНОГО БОЛЬШЕ bh.radius (overshoot), более узкий bump ⇒
-// полоса выходит за окаёмку и пересекает её под видимым углом.
-function bandOuterRadiusAt(bh: BlackHoleGeometry, bumps: { top: number; bottom: number }): number {
-  const flat = bh.radius * ACCRETION_BAND_RY_FACTOR;
-  const topTarget = bh.radius + ACCRETION_BAND_TOP_OVERSHOOT_PX_FACTOR;
-  const bottomTarget = bh.radius * ACCRETION_BAND_BOTTOM_OVERSHOOT_FACTOR;
-  return flat + (topTarget - flat) * bumps.top + (bottomTarget - flat) * bumps.bottom;
-}
-
-// Толщина ремешка (расстояние между внешней и внутренней границей) — 0 не
-// возвращаем: сплошной лист вдали от полюсов задаётся толщиной `flat` (не
-// нулевой шириной до центра — см. bandInwardNormalAt ниже про то, почему
-// это должно быть именно СМЕЩЕНИЕ толщины, а не абсолютный радиус). У
-// полюсов толщина подтягивается к более тонкому РЕМЕШКУ (не растущий
-// клин!) — то, что и должно "вливаться" в окаёмку, а не закрашивать собой
-// весь диск (баг первой версии раунда 9).
-function bandRibbonThicknessAt(bh: BlackHoleGeometry, bumps: { top: number; bottom: number }): number {
-  const flat = bh.radius * ACCRETION_BAND_RY_FACTOR;
-  const poleness = Math.min(1, bumps.top + bumps.bottom);
-  const ribbonThickness = bh.radius * ACCRETION_BAND_POLAR_RIBBON_FACTOR;
-  return flat + (ribbonThickness - flat) * poleness; // flat→ribbon по мере приближения к полюсу
-}
-
-// Внешняя граница полосы в декартовых координатах (не просто радиус) —
-// нужна как точка, чтобы посчитать касательную/нормаль кривой в этом угле
-// (bandInwardNormalAt). rx — половина ширины полосы (ACCRETION_BAND_RX_
-// FACTOR × bh.radius), общая для всех θ (сама лента — не растяжимый эллипс,
-// а сплюснутый эллипс с фиксированной шириной и переменной высотой).
-function bandOuterXY(theta: number, bh: BlackHoleGeometry, rx: number, bumps: { top: number; bottom: number }): [number, number] {
-  const outerR = bandOuterRadiusAt(bh, bumps);
-  return [bh.x + Math.cos(theta) * rx, bh.y + Math.sin(theta) * outerR];
-}
-
-const BAND_TANGENT_EPS_RAD = 0.01; // шаг конечной разности для касательной внешней границы
-
-// Внутренняя нормаль внешней границы в точке θ (раунд 10 — заменяет старое
-// смещение внутренней границы ЧИСТО по Y). У полюсов (θ=π/2, 3π/2)
-// касательная кривой горизонтальна — сдвиг по Y там СОВПАДАЕТ с нормалью,
-// давал верный результат. Но у "крыльев" (θ=0, π — там, где полоса выходит
-// за пределы окаёмки) касательная почти ВЕРТИКАЛЬНА — сдвиг по Y там
-// ОРТОГОНАЛЕН нормали, и эффективная толщина ленты стремится к нулю
-// (~flat·sinΔθ) вместо задуманной константы `flat`: полоса схлопывалась в
-// острый клин вместо сплошной ленты именно там, где жаловались на "полый
-// контур/просвечивает фон" (доказано пиксельным замером живой страницы +
-// подтверждено крупным скриншотом, spec.md раунд 10). Смещение вдоль
-// НАСТОЯЩЕЙ нормали (не вдоль оси Y) снимает проблему для любого угла
-// разом, без частных случаев по θ.
-function bandInwardNormalAt(theta: number, bh: BlackHoleGeometry, rx: number, ox: number, oy: number): [number, number] {
-  const [px0, py0] = bandOuterXY(theta - BAND_TANGENT_EPS_RAD, bh, rx, poleBumps(theta - BAND_TANGENT_EPS_RAD));
-  const [px1, py1] = bandOuterXY(theta + BAND_TANGENT_EPS_RAD, bh, rx, poleBumps(theta + BAND_TANGENT_EPS_RAD));
-  const tLen = Math.hypot(px1 - px0, py1 - py0) || 1;
-  let nx = -(py1 - py0) / tLen;
-  let ny = (px1 - px0) / tLen;
-  // Знак нормали от конечной разности зависит от направления обхода —
-  // проверяем, что она указывает К центру диска, а не полагаемся на
-  // фиксированный знак поворота касательной.
-  if (nx * (bh.x - ox) + ny * (bh.y - oy) < 0) {
-    nx = -nx;
-    ny = -ny;
-  }
-  return [nx, ny];
-}
-
-// Пересекающая полоса диска — рисуется ПОСЛЕ чёрного диска, поэтому целиком
-// видна пересекающей его (п.3.1: "тонкая поперечная ярко-белая полоса"), с
-// асимметричным слиянием у полюсов — см. bandOuterRadiusAt выше. Путь —
-// внешняя граница по кругу, затем внутренняя (смещённая вдоль нормали на
-// bandRibbonThicknessAt) в обратном направлении.
-function drawAccretionBand(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, alpha: number, animate: boolean, now: number): void {
-  const rx = bh.radius * ACCRETION_BAND_RX_FACTOR;
-  const n = ACCRETION_BAND_POINT_COUNT;
-  const outerPts: [number, number][] = [];
-  const innerPts: [number, number][] = [];
-  for (let i = 0; i <= n; i++) {
-    const theta = (i / n) * Math.PI * 2;
-    const bumps = poleBumps(theta);
-    const [ox, oy] = bandOuterXY(theta, bh, rx, bumps);
-    const [nx, ny] = bandInwardNormalAt(theta, bh, rx, ox, oy);
-    const thickness = bandRibbonThicknessAt(bh, bumps);
-    // ОДИН И ТОТ ЖЕ jx/jy для внешней И внутренней точки в этой θ — толщина
-    // ремешка в этой точке не меняется, колышется вся точка целиком (не
-    // рвёт заливку, см. ACCRETION_BAND_CONTOUR_JITTER_PX в constants/blackHole.ts).
-    // Разные `phase` у jx/jy (раунд 10, п.4) — иначе обе оси двигались бы
-    // синхронно (чистое радиальное пульсирование), а не органичное 2D-колыхание.
-    const jx = animate ? chaosOffset(theta, now, ACCRETION_BAND_CONTOUR_JITTER_PX, 5) : 0;
-    const jy = animate ? chaosOffset(theta, now, ACCRETION_BAND_CONTOUR_JITTER_PX, 11) : 0;
-    outerPts.push([ox + jx, oy + jy]);
-    innerPts.push([ox + nx * thickness + jx, oy + ny * thickness + jy]);
-  }
-
-  ctx.beginPath();
-  outerPts.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
-  for (let i = innerPts.length - 1; i >= 0; i--) ctx.lineTo(innerPts[i][0], innerPts[i][1]);
-  ctx.closePath();
-  ctx.fillStyle = ACCRETION_WARM_WHITE_COLOR;
-  ctx.globalAlpha = alpha;
+  ctx.fillStyle = DISK_BASE_COLOR;
   ctx.fill();
-  ctx.globalAlpha = 1;
-  const flatThicknessPx = bh.radius * ACCRETION_BAND_RY_FACTOR;
-  scatterFlameFlecks(
-    ctx, bh.x, bh.y, rx, flatThicknessPx, ACCRETION_FLECK_COUNT, alpha, animate, flatThicknessPx * 0.25, bh.radius,
-  );
 }
 
-// Сумма 2 несоизмеримых по частоте синусоид от `now` (без состояния/
-// аллокаций, тот же приём, что твинкл звёзд) даёт "дышащий", не строго
-// периодичный паттерн; += Math.random() поверх — лёгкое сверкание без
-// ощущения чистого шума на каждый кадр. prefers-reduced-motion — фикс на
-// среднем значении, без Math.random(), кадр детерминирован.
-function drawAccretionDisk(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, now: number, animate: boolean): void {
-  const flicker = animate
-    ? 0.65 + 0.2 * Math.sin(now * ACCRETION_FLICKER_FREQ_1) * Math.cos(now * ACCRETION_FLICKER_FREQ_2 + 1.7)
-      + (Math.random() * 2 - 1) * ACCRETION_FLICKER_RANDOM_AMP
-    : 0.7;
-  const alpha = Math.max(0.35, Math.min(0.95, flicker));
+// Верхняя дуга — толщина СТАБИЛЬНА по всей длине (кольцо между
+// концентричной тени окружностью Rup=R+DISK_UPPER_ARC_THICKNESS_FACTOR и
+// самой тенью). Внутренняя граница — окружность тени БЕЗ сдвига (в отличие
+// от нижней дуги) — по вводной пользователя, эта граница нигде не должна
+// перекрывать тень; безопасно, т.к. обе кривые статичны и совпадают точно.
+// Внешняя граница, правка 13.6 (см. hermiteBlend выше) — ТРИ зоны, не
+// smooth-min двух формул целиком:
+//  1. |x| ≤ FILLET_START — чистая окружность Rup (толщина постоянна).
+//  2. FILLET_START < |x| < FILLET_END — Hermite-сплайн от (значение,
+//     наклон) окружности в начале до (значение, наклон) верхнего края
+//     пояса в конце — гладкое сопряжение и по значению, и по наклону.
+//  3. |x| ≥ FILLET_END — чистый верхний край пояса (с учётом его прогиба).
+function drawDiskUpperArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): void {
+  const R = bh.radius;
+  const rx = R * DISK_RX_FACTOR;
+  const beltHalf = R * DISK_BELT_HALF_THICKNESS_FACTOR;
+  const sag = R * DISK_BELT_SAG_FACTOR;
+  const Rup = R + R * DISK_UPPER_ARC_THICKNESS_FACTOR;
+  const x1 = R * DISK_UPPER_ARC_FILLET_START_FACTOR;
+  const x2 = R * DISK_UPPER_ARC_FILLET_END_FACTOR;
+  const halfSpan = x2;
+  const n = DISK_CONTOUR_POINT_COUNT;
+  const cos = Math.cos(DISK_TILT_RAD);
+  const sin = Math.sin(DISK_TILT_RAD);
 
-  ctx.save();
-  drawAccretionBand(ctx, bh, alpha, animate, now);
-  drawAccretionRim(ctx, bh, alpha, animate, now);
-  // Отклонение вкраплений окаёмки — 25% её line width, аналог "25% толщины
-  // ремешка" для полосы (свой характерный масштаб толщины для этого элемента)
-  scatterFlameFlecks(
-    ctx, bh.x, bh.y, bh.radius, bh.radius, ACCRETION_FLECK_COUNT, alpha, animate,
-    ACCRETION_RIM_LINE_WIDTH * 0.25, bh.radius,
-  );
-  ctx.restore();
+  // Опорные значения/наклоны на границах зоны слияния — считаются один раз
+  // (не per-point): аналитические производные обеих формул (окружность,
+  // верхний край пояса), не численное приближение.
+  const y1 = -Math.sqrt(Math.max(0, Rup * Rup - x1 * x1));
+  const slope1 = x1 / Math.sqrt(Math.max(1e-6, Rup * Rup - x1 * x1));
+  const beltAmplitude = sag - beltHalf; // амплитуда верхнего края пояса (обычно отрицательна)
+  const beltTaper2 = Math.sqrt(Math.max(0, 1 - (x2 * x2) / (rx * rx)));
+  const y2 = beltAmplitude * beltTaper2;
+  const slope2 = beltTaper2 > 1e-6 ? (-beltAmplitude * x2) / (rx * rx * beltTaper2) : 0;
+  const dx = x2 - x1;
+  const m0 = slope1 * dx;
+  const m1 = slope2 * dx;
+
+  ctx.beginPath();
+  for (let i = 0; i <= n; i++) {
+    const x = -halfSpan + (2 * halfSpan * i) / n;
+    const absX = Math.abs(x);
+    let y: number;
+    if (absX <= x1) {
+      y = -Math.sqrt(Math.max(0, Rup * Rup - x * x));
+    } else if (absX >= x2) {
+      y = beltCenterlineY(x, rx, sag) - beltHalfThicknessAt(x, rx, beltHalf);
+    } else {
+      y = hermiteBlend(y1, m0, y2, m1, (absX - x1) / dx);
+    }
+    const px = bh.x + x * cos - y * sin;
+    const py = bh.y + x * sin + y * cos;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  for (let i = n; i >= 0; i--) {
+    const x = -halfSpan + (2 * halfSpan * i) / n;
+    const y = -Math.sqrt(Math.max(0, R * R - x * x));
+    const px = bh.x + x * cos - y * sin;
+    const py = bh.y + x * sin + y * cos;
+    ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fillStyle = DISK_BASE_COLOR;
+  ctx.fill();
+}
+
+// Пояс — отдельная линза (профиль sqrt(1-(x/rx)²), половина эллипса,
+// естественно сужается к острию ровно в x=±rx), с прогнутой вниз
+// центральной линией (beltCenterlineY, правка 13.3). Рисуется ПОСЛЕДНИМ из
+// трёх (вызывающий код) — пересекает тень поперёк по центру и перекрывает
+// боковые швы обеих дуг сверху, "нагло" (см. ТЗ), без точной геометрической
+// стыковки.
+function drawDiskBelt(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): void {
+  const rx = bh.radius * DISK_RX_FACTOR;
+  const beltHalf = bh.radius * DISK_BELT_HALF_THICKNESS_FACTOR;
+  const sag = bh.radius * DISK_BELT_SAG_FACTOR;
+  const n = DISK_CONTOUR_POINT_COUNT;
+  const cos = Math.cos(DISK_TILT_RAD);
+  const sin = Math.sin(DISK_TILT_RAD);
+
+  ctx.beginPath();
+  for (let i = 0; i <= n; i++) {
+    const x = -rx + (2 * rx * i) / n;
+    const y = beltCenterlineY(x, rx, sag) - beltHalfThicknessAt(x, rx, beltHalf);
+    const px = bh.x + x * cos - y * sin;
+    const py = bh.y + x * sin + y * cos;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  for (let i = n; i >= 0; i--) {
+    const x = -rx + (2 * rx * i) / n;
+    const y = beltCenterlineY(x, rx, sag) + beltHalfThicknessAt(x, rx, beltHalf);
+    const px = bh.x + x * cos - y * sin;
+    const py = bh.y + x * sin + y * cos;
+    ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fillStyle = DISK_BASE_COLOR;
+  ctx.fill();
+}
+
+// Фотонное кольцо — тонкая нить чуть внутри границы тени (PHOTON_RING_
+// RADIUS_FACTOR), ПОЛНАЯ окружность, не участвует в наклоне сборки
+// (окружность вокруг своего центра инвариантна к повороту). Две правки по
+// вводной пользователя (после раунда 13.2):
+// 1. Центр кольца смещён вправо от центра тени (PHOTON_RING_CENTER_OFFSET_
+//    FACTOR) — на референсе кольцо не концентрично тени.
+// 2. Толщина линии асимметрична по дуге: максимум (PHOTON_RING_LINE_WIDTH)
+//    у левого полюса тени, плавно убывает до минимума (PHOTON_RING_MIN_
+//    LINE_WIDTH, "на грани видимости") у правого полюса — cos(угол) даёт
+//    гладкую (не ступенчатую) интерполяцию, симметричную сверху/снизу.
+// Canvas не поддерживает переменную толщину линии в одном stroke() —
+// кольцо рисуется PHOTON_RING_SEGMENT_COUNT короткими дугами, каждая со
+// своим lineWidth (только числа в цикле, без аллокаций). round-колпачки —
+// чтобы стыки сегментов не были видны как ступеньки.
+function drawPhotonRing(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): void {
+  const r = bh.radius * PHOTON_RING_RADIUS_FACTOR;
+  const cx = bh.x + bh.radius * PHOTON_RING_CENTER_OFFSET_FACTOR;
+  const cy = bh.y;
+  const n = PHOTON_RING_SEGMENT_COUNT;
+  ctx.strokeStyle = PHOTON_RING_COLOR;
+  ctx.lineCap = 'round';
+  for (let i = 0; i < n; i++) {
+    const a0 = (i / n) * Math.PI * 2;
+    const a1 = ((i + 1) / n) * Math.PI * 2;
+    const aMid = (a0 + a1) / 2;
+    // t: 0 у правого полюса (угол 0, cos=1), 1 у левого полюса (угол π, cos=-1)
+    const t = (1 - Math.cos(aMid)) / 2;
+    ctx.lineWidth = PHOTON_RING_MIN_LINE_WIDTH + (PHOTON_RING_LINE_WIDTH - PHOTON_RING_MIN_LINE_WIDTH) * t;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, a0, a1);
+    ctx.stroke();
+  }
 }
 
 const CURSOR_BASE_RADIUS = 3; // px — базовый размер синтетического «курсора» на канвасе
@@ -1038,7 +1014,10 @@ function StarFieldCanvasInner() {
         const bh = resolveBlackHoleGeometry(w, h);
         if (bh) {
           drawBlackHole(ctx, bh);
-          drawAccretionDisk(ctx, bh, 0, false);
+          drawDiskLowerArc(ctx, bh);
+          drawDiskUpperArc(ctx, bh);
+          drawDiskBelt(ctx, bh);
+          drawPhotonRing(ctx, bh);
         }
       }
       return;
@@ -1135,15 +1114,16 @@ function StarFieldCanvasInner() {
         meteorsRef.current = drawAndFilterMeteors(ctx, meteorsRef.current, now, blackHole);
       }
 
-      // Круг — поверх звёзд/метеоров (горизонт событий их «закрывает»)
+      // Круг — поверх звёзд/метеоров (горизонт событий их «закрывает»).
+      // Аккреционный диск (раунд 13, коммит 1 — статичная геометрия): тень
+      // → нижняя дуга → верхняя дуга → пояс (перекрывает швы дуг по бокам)
+      // → фотонное кольцо (см. функции выше).
       if (blackHole) {
         drawBlackHole(ctx, blackHole);
-        // `now` (не rotationNow) — мерцание ограничено (saturating), скачок
-        // после скрытой вкладки даёт максимум один "прыжок" по мерцанию
-        // между кадрами, а не заметный "телепорт", как у угла вращения
-        // (п.9.2, docs/error-experience/spec.md); тот же выбор, что и у
-        // твинкла звёзд (тоже raw `now`, не rotationNow).
-        drawAccretionDisk(ctx, blackHole, now, true);
+        drawDiskLowerArc(ctx, blackHole);
+        drawDiskUpperArc(ctx, blackHole);
+        drawDiskBelt(ctx, blackHole);
+        drawPhotonRing(ctx, blackHole);
       }
 
       // Дрейф к центру (п.3 доработки) — вычисляем позицию для рендера

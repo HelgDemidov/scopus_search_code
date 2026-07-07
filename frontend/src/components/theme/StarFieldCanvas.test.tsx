@@ -4,11 +4,10 @@ import { StarFieldCanvas } from './StarFieldCanvas';
 import { ThemeProvider } from './ThemeProvider';
 import { setBlackHole } from '../../stores/blackHoleStore';
 
-// Каждое присвоение fillStyle пишется сюда — раньше "последнее значение"
-// однозначно указывало на drawBlackHole (рисовался последним в кадре), но
-// после аккреционного диска (раунд 9, п.9.2) последним снова красится
-// #ffffff/flame-цвет поверх диска, поэтому тесту нужна вся история, а не
-// только финальное значение.
+// Каждое присвоение fillStyle пишется сюда, а не только финальное значение —
+// renderCursorLensing тоже красит fillStyle (курсор), если он зарегистрирован
+// последним в кадре, поэтому тест ищет '#000000' по всей истории, а не
+// полагается на порядок отрисовки.
 let fillStyleHistory: string[] = [];
 let _fillStyle = '';
 
@@ -132,9 +131,8 @@ describe('StarFieldCanvas', () => {
     expect(captured.loop).not.toBeNull();
     captured.loop?.(1000);
 
-    // drawBlackHole красит #000000 до аккреционного диска (раунд 9, п.9.2,
-    // рисуется поверх) — проверяем по истории присвоений, не по последнему
-    // значению, что круг реально отрисовался (не просто no-op)
+    // проверяем по истории присвоений, не по последнему значению (см.
+    // комментарий у fillStyleHistory выше), что круг реально отрисовался
     expect(fillStyleHistory).toContain('#000000');
 
     setBlackHole(null);
