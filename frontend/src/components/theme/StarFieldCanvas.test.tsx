@@ -26,6 +26,7 @@ const stubCtx = {
   restore: vi.fn(),
   scale: vi.fn(),
   createLinearGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
+  createRadialGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
   get fillStyle() { return _fillStyle; },
   set fillStyle(v: string) { _fillStyle = v; fillStyleHistory.push(v); },
   strokeStyle: '',
