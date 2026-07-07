@@ -585,11 +585,12 @@ function getEdgeDisplacement(x: number, rx: number, R: number, now: number, dire
   const t1 = now * 0.012 + seed;
   const t2 = now * 0.018 - seed;
   
+  // Частота увеличена в 1.5 раза
   const envelope = Math.max(0, 
-    Math.sin(t * 25 - t1) + 
-    Math.cos(t * 43 + t2) - 
-    1.4 // Пороговое значение: только сильные пики становятся протуберанцами
-  ); // Максимум envelope: ~0.6
+    Math.sin(t * 19.5 - t1) + 
+    Math.cos(t * 33 + t2) - 
+    1.80 
+  ); // Максимум envelope: ~0.20
   
   let flameDx = 0;
   let flameDy = 0;
@@ -597,11 +598,19 @@ function getEdgeDisplacement(x: number, rx: number, R: number, now: number, dire
   if (envelope > 0) {
     // Высокочастотная структура ("рваность") языка пламени
     const jagged = Math.sin(t * 180 - now * 0.04) * 0.5 + Math.sin(t * 310 + now * 0.05) * 0.5;
-    const height = envelope * (1 + jagged) * 6.0; // Высота выброса до 6-7px
+    // Слегка сглаживаем саму форму (pow 0.7 делает верхушку еще более округлой)
+    const shape = Math.pow(envelope, 0.7);
+    const height = shape * (1 + jagged) * 2.3; // Выверено для высоты ~1.5px (0.20^0.7 ≈ 0.324; 0.324 * 2 * 2.3 ≈ 1.5)
     flameDy = height;
     
-    // Эффект закручивания: протуберанец сносится по касательной из-за вращения диска.
-    flameDx = height * 1.8; 
+    // Эффект закручивания: протуберанец сносится по касательной. Базовый наклон ~61 град (tan=1.8).
+    // Добавляем псевдорандомное отклонение 0-15 градусов, делая привязку к вращению менее строгой
+    const baseAngle = Math.atan(1.8);
+    const rand = Math.abs(Math.sin(t * 13.45 + seed * 9.87));
+    const angleDeviation = rand * (15 * Math.PI / 180);
+    const finalAngle = baseAngle - angleDeviation;
+    
+    flameDx = height * Math.tan(finalAngle); 
   }
   
   // direction: -1 (внешняя граница идет ВВЕРХ, в отрицательный y), 1 (ВНИЗ, в положительный y)
@@ -726,7 +735,7 @@ function drawDiskLowerArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, 
     if (i === n) ctx.moveTo(px, py); else ctx.lineTo(px, py);
   }
   ctx.lineWidth = 3;
-  ctx.strokeStyle = `rgba(255, 180, 100, ${(0.4 + 0.4 * Math.sin(now * 0.27)).toFixed(2)})`;
+  ctx.strokeStyle = `rgba(255, 180, 100, ${Math.max(0, 0.2 + 0.6 * Math.sin(now * 0.27)).toFixed(2)})`;
   ctx.stroke();
 }
 
@@ -831,7 +840,7 @@ function drawDiskUpperArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, 
     if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
   }
   ctx.lineWidth = 3;
-  ctx.strokeStyle = `rgba(255, 180, 100, ${(0.4 + 0.4 * Math.sin(now * 0.28)).toFixed(2)})`;
+  ctx.strokeStyle = `rgba(255, 180, 100, ${Math.max(0, 0.2 + 0.6 * Math.sin(now * 0.28)).toFixed(2)})`;
   ctx.stroke();
 }
 
@@ -905,7 +914,7 @@ function drawDiskBelt(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, now:
   }
   ctx.closePath();
   ctx.lineWidth = 3;
-  ctx.strokeStyle = `rgba(255, 180, 100, ${(0.4 + 0.4 * Math.sin(now * 0.29)).toFixed(2)})`;
+  ctx.strokeStyle = `rgba(255, 180, 100, ${Math.max(0, 0.2 + 0.6 * Math.sin(now * 0.29)).toFixed(2)})`;
   ctx.stroke();
 }
 
