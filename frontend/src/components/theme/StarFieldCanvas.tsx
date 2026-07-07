@@ -535,14 +535,16 @@ function drawBlackHole(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): vo
 // центре. Именно "полуэллипс", не излом/"чайка" — уточнено у пользователя
 // явно двумя раундами вопросов.
 function beltCenterlineY(x: number, rx: number, sag: number): number {
-  return sag * Math.sqrt(Math.max(0, 1 - (x * x) / (rx * rx)));
+  const t = Math.max(0, Math.min(1, Math.abs(x) / rx));
+  return sag * Math.pow(Math.cos(t * Math.PI / 2), 1.5);
 }
 
 // Половина толщины пояса в точке x — тот же профиль, симметично вокруг
 // центральной линии (прогиб не меняет толщину диска — явное условие
 // пользователя).
 function beltHalfThicknessAt(x: number, rx: number, beltHalf: number): number {
-  return beltHalf * Math.sqrt(Math.max(0, 1 - (x * x) / (rx * rx)));
+  const t = Math.max(0, Math.min(1, Math.abs(x) / rx));
+  return beltHalf * Math.pow(Math.cos(t * Math.PI / 2), 1.5);
 }
 
 // Правка 13.6 (по вводной пользователя) — ни полиномиальный, ни
@@ -571,11 +573,11 @@ function hermiteBlend(p0: number, m0: number, p1: number, m1: number, t: number)
 function getEdgeJitter(x: number, rx: number, R: number, now: number): number {
   const t = x / rx; // -1 to 1
   const jitterNorm = (
-    Math.sin(t * 13 + now * 0.005) * 0.5 +
-    Math.sin(t * 23 - now * 0.007) * 0.3 +
-    Math.sin(t * 37 + now * 0.011) * 0.2
+    Math.sin(t * 13 + now * 0.15) * 0.5 +
+    Math.sin(t * 23 - now * 0.21) * 0.3 +
+    Math.sin(t * 37 + now * 0.33) * 0.2
   );
-  return jitterNorm * (R * 0.05); // +/- 5% of radius jitter
+  return jitterNorm * (R * 0.1); // +/- 10% of radius jitter
 }
 
 // Наложение доплеровского свечения с цветовой температурой (сине-белый край) и хаотичным фликером
@@ -593,18 +595,24 @@ function applyDopplerGlow(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, 
     // Base alpha decays steeply from left (0) to right (1)
     const baseAlpha = 0.8 * Math.pow(1 - t, 1.5);
     
-    // High-frequency, non-synchronous flicker
+    // High-frequency, non-synchronous flicker (tens of Hz)
     const flicker = (
-      Math.sin(t * 15 + now * 0.011) * 0.5 +
-      Math.sin(t * 27 - now * 0.017) * 0.3 +
-      Math.sin(t * 43 + now * 0.023) * 0.2
+      Math.sin(t * 15 + now * 0.11) * 0.5 +
+      Math.sin(t * 27 - now * 0.17) * 0.3 +
+      Math.sin(t * 43 + now * 0.23) * 0.2
     );
     
     // Modulate alpha (up to +/- 40%)
     const a = Math.max(0, Math.min(1, baseAlpha * (1 + 0.4 * flicker)));
     
     // Bright blue-white on the approaching side!
-    dopplerGrad.addColorStop(t, `rgba(210, 235, 255, ${a.toFixed(3)})`);
+    if (i === 0) {
+      // 0.0 stop: pure white -> neon blue transition
+      dopplerGrad.addColorStop(0, `rgba(255, 255, 255, ${Math.min(1, a * 1.5).toFixed(3)})`);
+      dopplerGrad.addColorStop(0.1, `rgba(100, 200, 255, ${a.toFixed(3)})`);
+    } else {
+      dopplerGrad.addColorStop(t, `rgba(100, 200, 255, ${a.toFixed(3)})`);
+    }
   }
   
   ctx.globalCompositeOperation = 'lighter';
@@ -665,6 +673,25 @@ function drawDiskLowerArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, 
   ctx.fill();
 
   applyDopplerGlow(ctx, bh, rx, now);
+
+  // Alpha-fading stroke with independent jitter
+  ctx.beginPath();
+  for (let i = n; i >= 0; i--) {
+    const x = -rx + (2 * rx * i) / n;
+    const absX = Math.abs(x);
+    const innerY = Math.sqrt(Math.max(0, R * R - x * x)) - DISK_ARC_INNER_OVERLAP_PX;
+    const thickness = absX <= xFlat ? poleT : Math.max(0, poleT - slope * (absX - xFlat));
+    const rampY = innerY + thickness;
+    const beltBottomY = beltCenterlineY(x, rx, sag) + beltHalfThicknessAt(x, rx, beltHalf);
+    let y = Math.max(rampY, beltBottomY);
+    y += Math.abs(getEdgeJitter(x, rx, R, now + 11000));
+    const px = bh.x + x * cos - y * sin;
+    const py = bh.y + x * sin + y * cos;
+    if (i === n) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = `rgba(255, 180, 100, ${(0.4 + 0.4 * Math.sin(now * 0.27)).toFixed(2)})`;
+  ctx.stroke();
 }
 
 // Верхняя дуга — толщина СТАБИЛЬНА по всей длине (кольцо между
@@ -744,6 +771,28 @@ function drawDiskUpperArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, 
   ctx.fill();
 
   applyDopplerGlow(ctx, bh, rx, now);
+
+  // Alpha-fading stroke with independent jitter
+  ctx.beginPath();
+  for (let i = 0; i <= n; i++) {
+    const x = -halfSpan + (2 * halfSpan * i) / n;
+    const absX = Math.abs(x);
+    let y: number;
+    if (absX <= x1) {
+      y = -Math.sqrt(Math.max(0, Rup * Rup - x * x));
+    } else if (absX >= x2) {
+      y = beltCenterlineY(x, rx, sag) - beltHalfThicknessAt(x, rx, beltHalf);
+    } else {
+      y = hermiteBlend(y1, m0, y2, m1, (absX - x1) / dx);
+    }
+    y -= Math.abs(getEdgeJitter(x, rx, R, now + 12000));
+    const px = bh.x + x * cos - y * sin;
+    const py = bh.y + x * sin + y * cos;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = `rgba(255, 180, 100, ${(0.4 + 0.4 * Math.sin(now * 0.28)).toFixed(2)})`;
+  ctx.stroke();
 }
 
 // Пояс — отдельная линза (профиль sqrt(1-(x/rx)²), половина эллипса,
@@ -791,6 +840,27 @@ function drawDiskBelt(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, now:
   ctx.fill();
 
   applyDopplerGlow(ctx, bh, rx, now);
+
+  // Alpha-fading stroke with independent jitter
+  ctx.beginPath();
+  for (let i = 0; i <= n; i++) {
+    const x = -rx + (2 * rx * i) / n;
+    const y = beltCenterlineY(x, rx, sag) - beltHalfThicknessAt(x, rx, beltHalf) - Math.abs(getEdgeJitter(x, rx, bh.radius, now + 14000));
+    const px = bh.x + x * cos - y * sin;
+    const py = bh.y + x * sin + y * cos;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  for (let i = n; i >= 0; i--) {
+    const x = -rx + (2 * rx * i) / n;
+    const y = beltCenterlineY(x, rx, sag) + beltHalfThicknessAt(x, rx, beltHalf) + Math.abs(getEdgeJitter(x, rx, bh.radius, now + 15000));
+    const px = bh.x + x * cos - y * sin;
+    const py = bh.y + x * sin + y * cos;
+    ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = `rgba(255, 180, 100, ${(0.4 + 0.4 * Math.sin(now * 0.29)).toFixed(2)})`;
+  ctx.stroke();
 }
 
 // Фотонное кольцо — тонкая нить чуть внутри границы тени (PHOTON_RING_
