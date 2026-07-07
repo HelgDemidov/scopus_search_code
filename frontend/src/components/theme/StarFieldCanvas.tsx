@@ -20,10 +20,12 @@ import {
   CURSOR_DRIFT_ESCAPE_SPEED,
   CURSOR_RESISTANCE_POWER,
   DISK_ARC_INNER_OVERLAP_PX,
-  DISK_BASE_COLOR,
+  DISK_BELT_CENTER_COLOR,
+  DISK_BELT_EDGE_COLOR,
   DISK_BELT_HALF_THICKNESS_FACTOR,
   DISK_BELT_SAG_FACTOR,
   DISK_CONTOUR_POINT_COUNT,
+  DISK_LOWER_ARC_COLOR,
   DISK_LOWER_ARC_CUTOFF_ANGLE_DEG,
   DISK_LOWER_ARC_MERGE_X_FACTOR,
   DISK_LOWER_ARC_POLE_THICKNESS_FACTOR,
@@ -32,6 +34,8 @@ import {
   DISK_TILT_RAD,
   DISK_UPPER_ARC_FILLET_END_FACTOR,
   DISK_UPPER_ARC_FILLET_START_FACTOR,
+  DISK_UPPER_ARC_INNER_COLOR,
+  DISK_UPPER_ARC_OUTER_COLOR,
   DISK_UPPER_ARC_THICKNESS_FACTOR,
   INNER_ZONE_BRIGHTNESS_FACTOR,
   LENSING_FADE_START_DIAMETERS,
@@ -609,8 +613,21 @@ function drawDiskLowerArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry):
     ctx.lineTo(px, py);
   }
   ctx.closePath();
-  ctx.fillStyle = DISK_BASE_COLOR;
+  ctx.fillStyle = DISK_LOWER_ARC_COLOR;
   ctx.fill();
+
+  // Doppler overlay
+  const dopplerGrad = ctx.createLinearGradient(
+    bh.x - rx * cos, bh.y - rx * sin,
+    bh.x + rx * cos, bh.y + rx * sin
+  );
+  dopplerGrad.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
+  dopplerGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = dopplerGrad;
+  ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
 }
 
 // Верхняя дуга — толщина СТАБИЛЬНА по всей длине (кольцо между
@@ -627,6 +644,7 @@ function drawDiskLowerArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry):
 //  3. |x| ≥ FILLET_END — чистый верхний край пояса (с учётом его прогиба).
 function drawDiskUpperArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): void {
   const R = bh.radius;
+  const Rinner = R + 2; // 2px зазор — чёрная щель, «дыра дышит»
   const rx = R * DISK_RX_FACTOR;
   const beltHalf = R * DISK_BELT_HALF_THICKNESS_FACTOR;
   const sag = R * DISK_BELT_SAG_FACTOR;
@@ -669,14 +687,32 @@ function drawDiskUpperArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry):
   }
   for (let i = n; i >= 0; i--) {
     const x = -halfSpan + (2 * halfSpan * i) / n;
-    const y = -Math.sqrt(Math.max(0, R * R - x * x));
+    const y = -Math.sqrt(Math.max(0, Rinner * Rinner - x * x));
     const px = bh.x + x * cos - y * sin;
     const py = bh.y + x * sin + y * cos;
     ctx.lineTo(px, py);
   }
   ctx.closePath();
-  ctx.fillStyle = DISK_BASE_COLOR;
+
+  const upperArcGrad = ctx.createRadialGradient(bh.x, bh.y, Rinner, bh.x, bh.y, Rup);
+  upperArcGrad.addColorStop(0, DISK_UPPER_ARC_INNER_COLOR);
+  upperArcGrad.addColorStop(1, DISK_UPPER_ARC_OUTER_COLOR);
+  
+  ctx.fillStyle = upperArcGrad;
   ctx.fill();
+
+  // Doppler overlay
+  const dopplerGrad = ctx.createLinearGradient(
+    bh.x - rx * cos, bh.y - rx * sin,
+    bh.x + rx * cos, bh.y + rx * sin
+  );
+  dopplerGrad.addColorStop(0, 'rgba(255, 255, 255, 0.5)');
+  dopplerGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = dopplerGrad;
+  ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
 }
 
 // Пояс — отдельная линза (профиль sqrt(1-(x/rx)²), половина эллипса,
@@ -709,8 +745,30 @@ function drawDiskBelt(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): voi
     ctx.lineTo(px, py);
   }
   ctx.closePath();
-  ctx.fillStyle = DISK_BASE_COLOR;
+
+  const beltGrad = ctx.createLinearGradient(
+    bh.x - rx * cos, bh.y - rx * sin, 
+    bh.x + rx * cos, bh.y + rx * sin
+  );
+  beltGrad.addColorStop(0, DISK_BELT_EDGE_COLOR);
+  beltGrad.addColorStop(0.5, DISK_BELT_CENTER_COLOR);
+  beltGrad.addColorStop(1, DISK_BELT_EDGE_COLOR);
+  
+  ctx.fillStyle = beltGrad;
   ctx.fill();
+
+  // Doppler overlay
+  const dopplerGrad = ctx.createLinearGradient(
+    bh.x - rx * cos, bh.y - rx * sin, 
+    bh.x + rx * cos, bh.y + rx * sin
+  );
+  dopplerGrad.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
+  dopplerGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = dopplerGrad;
+  ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
 }
 
 // Фотонное кольцо — тонкая нить чуть внутри границы тени (PHOTON_RING_
@@ -741,10 +799,12 @@ function drawPhotonRing(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): v
     // t: 0 у правого полюса (угол 0, cos=1), 1 у левого полюса (угол π, cos=-1)
     const t = (1 - Math.cos(aMid)) / 2;
     ctx.lineWidth = PHOTON_RING_MIN_LINE_WIDTH + (PHOTON_RING_LINE_WIDTH - PHOTON_RING_MIN_LINE_WIDTH) * t;
+    ctx.globalAlpha = 0.3 + 0.7 * t; // Doppler brightness
     ctx.beginPath();
     ctx.arc(cx, cy, r, a0, a1);
     ctx.stroke();
   }
+  ctx.globalAlpha = 1;
 }
 
 const CURSOR_BASE_RADIUS = 3; // px — базовый размер синтетического «курсора» на канвасе
