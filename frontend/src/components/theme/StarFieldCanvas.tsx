@@ -567,6 +567,52 @@ function hermiteBlend(p0: number, m0: number, p1: number, m1: number, t: number)
   return h00 * p0 + h10 * m0 + h01 * p1 + h11 * m1;
 }
 
+// Аналитический джиттер контуров: создает сверхчастотное хаотичное дрожание "рваных" краев
+function getEdgeJitter(x: number, rx: number, R: number, now: number): number {
+  const t = x / rx; // -1 to 1
+  const jitterNorm = (
+    Math.sin(t * 13 + now * 0.005) * 0.5 +
+    Math.sin(t * 23 - now * 0.007) * 0.3 +
+    Math.sin(t * 37 + now * 0.011) * 0.2
+  );
+  return jitterNorm * (R * 0.05); // +/- 5% of radius jitter
+}
+
+// Наложение доплеровского свечения с цветовой температурой (сине-белый край) и хаотичным фликером
+function applyDopplerGlow(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, rx: number, now: number): void {
+  const cos = Math.cos(DISK_TILT_RAD);
+  const sin = Math.sin(DISK_TILT_RAD);
+  const dopplerGrad = ctx.createLinearGradient(
+    bh.x - rx * cos, bh.y - rx * sin,
+    bh.x + rx * cos, bh.y + rx * sin
+  );
+  
+  // Градиент из 5 точек для независимого несинхронного пульсирования каждой зоны
+  for (let i = 0; i <= 4; i++) {
+    const t = i / 4;
+    // Base alpha decays steeply from left (0) to right (1)
+    const baseAlpha = 0.8 * Math.pow(1 - t, 1.5);
+    
+    // High-frequency, non-synchronous flicker
+    const flicker = (
+      Math.sin(t * 15 + now * 0.011) * 0.5 +
+      Math.sin(t * 27 - now * 0.017) * 0.3 +
+      Math.sin(t * 43 + now * 0.023) * 0.2
+    );
+    
+    // Modulate alpha (up to +/- 40%)
+    const a = Math.max(0, Math.min(1, baseAlpha * (1 + 0.4 * flicker)));
+    
+    // Bright blue-white on the approaching side!
+    dopplerGrad.addColorStop(t, `rgba(210, 235, 255, ${a.toFixed(3)})`);
+  }
+  
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = dopplerGrad;
+  ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+}
+
 // Нижняя дуга — толщина (не радиус) задаётся напрямую как функция x:
 // полная DISK_LOWER_ARC_POLE_THICKNESS_FACTOR у полюса (x=0), затем
 // ЛИНЕЙНО (не smoothstep — угол на стыке здесь желателен, не баг) убывает
@@ -577,7 +623,7 @@ function hermiteBlend(p0: number, m0: number, p1: number, m1: number, t: number)
 // гарантия от зазора: без этой подстраховки прогиб пояса (пусть и малый)
 // мог бы у самого края тени уйти ниже, чем успевает опуститься дуга по
 // своей собственной (не знающей о поясе) формуле толщины.
-function drawDiskLowerArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): void {
+function drawDiskLowerArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, now: number): void {
   const R = bh.radius;
   const rx = R * DISK_RX_FACTOR;
   const beltHalf = R * DISK_BELT_HALF_THICKNESS_FACTOR;
@@ -607,7 +653,9 @@ function drawDiskLowerArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry):
     const thickness = absX <= xFlat ? poleT : Math.max(0, poleT - slope * (absX - xFlat));
     const rampY = innerY + thickness;
     const beltBottomY = beltCenterlineY(x, rx, sag) + beltHalfThicknessAt(x, rx, beltHalf);
-    const y = Math.max(rampY, beltBottomY);
+    let y = Math.max(rampY, beltBottomY);
+    // Jitter downwards (outer edge)
+    y += Math.abs(getEdgeJitter(x, rx, R, now + 1000));
     const px = bh.x + x * cos - y * sin;
     const py = bh.y + x * sin + y * cos;
     ctx.lineTo(px, py);
@@ -616,18 +664,7 @@ function drawDiskLowerArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry):
   ctx.fillStyle = DISK_LOWER_ARC_COLOR;
   ctx.fill();
 
-  // Doppler overlay
-  const dopplerGrad = ctx.createLinearGradient(
-    bh.x - rx * cos, bh.y - rx * sin,
-    bh.x + rx * cos, bh.y + rx * sin
-  );
-  dopplerGrad.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
-  dopplerGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-  
-  ctx.globalCompositeOperation = 'lighter';
-  ctx.fillStyle = dopplerGrad;
-  ctx.fill();
-  ctx.globalCompositeOperation = 'source-over';
+  applyDopplerGlow(ctx, bh, rx, now);
 }
 
 // Верхняя дуга — толщина СТАБИЛЬНА по всей длине (кольцо между
@@ -642,7 +679,7 @@ function drawDiskLowerArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry):
 //     наклон) окружности в начале до (значение, наклон) верхнего края
 //     пояса в конце — гладкое сопряжение и по значению, и по наклону.
 //  3. |x| ≥ FILLET_END — чистый верхний край пояса (с учётом его прогиба).
-function drawDiskUpperArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): void {
+function drawDiskUpperArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, now: number): void {
   const R = bh.radius;
   const Rinner = R + 2; // 2px зазор — чёрная щель, «дыра дышит»
   const rx = R * DISK_RX_FACTOR;
@@ -681,13 +718,18 @@ function drawDiskUpperArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry):
     } else {
       y = hermiteBlend(y1, m0, y2, m1, (absX - x1) / dx);
     }
+    // Jitter upwards (negative y is up)
+    y -= Math.abs(getEdgeJitter(x, rx, R, now + 2000));
+    
     const px = bh.x + x * cos - y * sin;
     const py = bh.y + x * sin + y * cos;
     if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
   }
   for (let i = n; i >= 0; i--) {
     const x = -halfSpan + (2 * halfSpan * i) / n;
-    const y = -Math.sqrt(Math.max(0, Rinner * Rinner - x * x));
+    // Wobble the inner gap very slightly
+    const jInner = getEdgeJitter(x, rx, R, now + 3000) * 0.4;
+    const y = -Math.sqrt(Math.max(0, Rinner * Rinner - x * x)) - Math.abs(jInner);
     const px = bh.x + x * cos - y * sin;
     const py = bh.y + x * sin + y * cos;
     ctx.lineTo(px, py);
@@ -701,18 +743,7 @@ function drawDiskUpperArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry):
   ctx.fillStyle = upperArcGrad;
   ctx.fill();
 
-  // Doppler overlay
-  const dopplerGrad = ctx.createLinearGradient(
-    bh.x - rx * cos, bh.y - rx * sin,
-    bh.x + rx * cos, bh.y + rx * sin
-  );
-  dopplerGrad.addColorStop(0, 'rgba(255, 255, 255, 0.5)');
-  dopplerGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-  
-  ctx.globalCompositeOperation = 'lighter';
-  ctx.fillStyle = dopplerGrad;
-  ctx.fill();
-  ctx.globalCompositeOperation = 'source-over';
+  applyDopplerGlow(ctx, bh, rx, now);
 }
 
 // Пояс — отдельная линза (профиль sqrt(1-(x/rx)²), половина эллипса,
@@ -721,7 +752,7 @@ function drawDiskUpperArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry):
 // трёх (вызывающий код) — пересекает тень поперёк по центру и перекрывает
 // боковые швы обеих дуг сверху, "нагло" (см. ТЗ), без точной геометрической
 // стыковки.
-function drawDiskBelt(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): void {
+function drawDiskBelt(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, now: number): void {
   const rx = bh.radius * DISK_RX_FACTOR;
   const beltHalf = bh.radius * DISK_BELT_HALF_THICKNESS_FACTOR;
   const sag = bh.radius * DISK_BELT_SAG_FACTOR;
@@ -732,14 +763,16 @@ function drawDiskBelt(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): voi
   ctx.beginPath();
   for (let i = 0; i <= n; i++) {
     const x = -rx + (2 * rx * i) / n;
-    const y = beltCenterlineY(x, rx, sag) - beltHalfThicknessAt(x, rx, beltHalf);
+    // Jitter upwards
+    const y = beltCenterlineY(x, rx, sag) - beltHalfThicknessAt(x, rx, beltHalf) - Math.abs(getEdgeJitter(x, rx, bh.radius, now + 4000));
     const px = bh.x + x * cos - y * sin;
     const py = bh.y + x * sin + y * cos;
     if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
   }
   for (let i = n; i >= 0; i--) {
     const x = -rx + (2 * rx * i) / n;
-    const y = beltCenterlineY(x, rx, sag) + beltHalfThicknessAt(x, rx, beltHalf);
+    // Jitter downwards
+    const y = beltCenterlineY(x, rx, sag) + beltHalfThicknessAt(x, rx, beltHalf) + Math.abs(getEdgeJitter(x, rx, bh.radius, now + 5000));
     const px = bh.x + x * cos - y * sin;
     const py = bh.y + x * sin + y * cos;
     ctx.lineTo(px, py);
@@ -757,18 +790,7 @@ function drawDiskBelt(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): voi
   ctx.fillStyle = beltGrad;
   ctx.fill();
 
-  // Doppler overlay
-  const dopplerGrad = ctx.createLinearGradient(
-    bh.x - rx * cos, bh.y - rx * sin, 
-    bh.x + rx * cos, bh.y + rx * sin
-  );
-  dopplerGrad.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
-  dopplerGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-  
-  ctx.globalCompositeOperation = 'lighter';
-  ctx.fillStyle = dopplerGrad;
-  ctx.fill();
-  ctx.globalCompositeOperation = 'source-over';
+  applyDopplerGlow(ctx, bh, rx, now);
 }
 
 // Фотонное кольцо — тонкая нить чуть внутри границы тени (PHOTON_RING_
@@ -785,7 +807,7 @@ function drawDiskBelt(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): voi
 // кольцо рисуется PHOTON_RING_SEGMENT_COUNT короткими дугами, каждая со
 // своим lineWidth (только числа в цикле, без аллокаций). round-колпачки —
 // чтобы стыки сегментов не были видны как ступеньки.
-function drawPhotonRing(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): void {
+function drawPhotonRing(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, now: number): void {
   const r = bh.radius * PHOTON_RING_RADIUS_FACTOR;
   const cx = bh.x + bh.radius * PHOTON_RING_CENTER_OFFSET_FACTOR;
   const cy = bh.y;
@@ -799,7 +821,12 @@ function drawPhotonRing(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): v
     // t: 0 у правого полюса (угол 0, cos=1), 1 у левого полюса (угол π, cos=-1)
     const t = (1 - Math.cos(aMid)) / 2;
     ctx.lineWidth = PHOTON_RING_MIN_LINE_WIDTH + (PHOTON_RING_LINE_WIDTH - PHOTON_RING_MIN_LINE_WIDTH) * t;
-    ctx.globalAlpha = 0.3 + 0.7 * t; // Doppler brightness
+    
+    // Non-synchronous flicker for the photon ring
+    const flicker = Math.sin(aMid * 3 + now * 0.015) * 0.5 + Math.sin(aMid * 7 - now * 0.02) * 0.5;
+    const baseAlpha = 0.3 + 0.7 * t;
+    ctx.globalAlpha = Math.max(0, Math.min(1, baseAlpha * (1 + 0.3 * flicker))); // +/- 30% jitter
+    
     ctx.beginPath();
     ctx.arc(cx, cy, r, a0, a1);
     ctx.stroke();
@@ -1074,10 +1101,10 @@ function StarFieldCanvasInner() {
         const bh = resolveBlackHoleGeometry(w, h);
         if (bh) {
           drawBlackHole(ctx, bh);
-          drawDiskLowerArc(ctx, bh);
-          drawDiskUpperArc(ctx, bh);
-          drawDiskBelt(ctx, bh);
-          drawPhotonRing(ctx, bh);
+          drawDiskLowerArc(ctx, bh, 0);
+          drawDiskUpperArc(ctx, bh, 0);
+          drawDiskBelt(ctx, bh, 0);
+          drawPhotonRing(ctx, bh, 0);
         }
       }
       return;
@@ -1180,10 +1207,10 @@ function StarFieldCanvasInner() {
       // → фотонное кольцо (см. функции выше).
       if (blackHole) {
         drawBlackHole(ctx, blackHole);
-        drawDiskLowerArc(ctx, blackHole);
-        drawDiskUpperArc(ctx, blackHole);
-        drawDiskBelt(ctx, blackHole);
-        drawPhotonRing(ctx, blackHole);
+        drawDiskLowerArc(ctx, blackHole, rotationNow);
+        drawDiskUpperArc(ctx, blackHole, rotationNow);
+        drawDiskBelt(ctx, blackHole, rotationNow);
+        drawPhotonRing(ctx, blackHole, rotationNow);
       }
 
       // Дрейф к центру (п.3 доработки) — вычисляем позицию для рендера
