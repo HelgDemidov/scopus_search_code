@@ -12,6 +12,7 @@ import {
 } from '../../utils/blackHoleLensing';
 import {
   BLACK_HOLE_DIAMETER_RATIO,
+  BLACK_HOLE_DIAMETER_RATIO_MOBILE,
   BLACK_HOLE_POSITION_MOBILE_X_RATIO,
   BLACK_HOLE_POSITION_MOBILE_Y_PX,
   BLACK_HOLE_POSITION_Y_PX,
@@ -20,10 +21,12 @@ import {
   CURSOR_DRIFT_ESCAPE_SPEED,
   CURSOR_RESISTANCE_POWER,
   DISK_ARC_INNER_OVERLAP_PX,
-  DISK_BASE_COLOR,
+  DISK_BELT_CENTER_COLOR,
+  DISK_BELT_EDGE_COLOR,
   DISK_BELT_HALF_THICKNESS_FACTOR,
   DISK_BELT_SAG_FACTOR,
   DISK_CONTOUR_POINT_COUNT,
+  DISK_LOWER_ARC_COLOR,
   DISK_LOWER_ARC_CUTOFF_ANGLE_DEG,
   DISK_LOWER_ARC_MERGE_X_FACTOR,
   DISK_LOWER_ARC_POLE_THICKNESS_FACTOR,
@@ -32,6 +35,8 @@ import {
   DISK_TILT_RAD,
   DISK_UPPER_ARC_FILLET_END_FACTOR,
   DISK_UPPER_ARC_FILLET_START_FACTOR,
+  DISK_UPPER_ARC_INNER_COLOR,
+  DISK_UPPER_ARC_OUTER_COLOR,
   DISK_UPPER_ARC_THICKNESS_FACTOR,
   INNER_ZONE_BRIGHTNESS_FACTOR,
   LENSING_FADE_START_DIAMETERS,
@@ -56,9 +61,6 @@ import {
   VORTEX_STAR_COUNT_MOBILE,
 } from '../../constants/blackHole';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 
 interface Star {
   x: number;
@@ -68,11 +70,6 @@ interface Star {
   twinkles: boolean;
   twinklePeriod: number; // ms, индивидуальный для каждой звезды
   twinklePhase: number;  // radians [0, 2π], индивидуальный
-  // Дистанция до поверхности чёрной дыры (px) — считается ОДИН РАЗ при
-  // resize (tagBlackHoleDistance), не каждый кадр: радиус орбиты звезды не
-  // меняется (меняется только угол при вращении), поэтому это истинная
-  // константа для всего времени жизни массива звёзд (см. п.8.2.1,
-  // docs/error-experience/spec.md). undefined до первого resize/без дыры.
   distFromBhSurface?: number;
 }
 
@@ -85,10 +82,6 @@ interface Meteor {
   duration: number;
   startTime: number;
   maxAlpha: number;
-  // Заполняются, если метеор вошёл в кольцевую зону чёрной дыры
-  // (docs/error-experience/spec.md) — вместо полосы по вектору скорости
-  // рендерится зафиксированная дуга по орбите, угасающая за CAPTURED_METEOR_FADE_MS.
-  // Радиус/охват дуги берутся из computeLensing() в момент захвата — не константы.
   capturedAt?: number;
   capturedAngle?: number;
   capturedRingRadius?: number;
@@ -107,9 +100,6 @@ interface ShowerSpec {
   direction: number; // +1 right, -1 left
 }
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
 
 const TWINKLE_AMP   = 0.20;
 const STAR_FRAME_MS = 1000 / 15;    // 15 fps для звёзд
@@ -117,28 +107,13 @@ const MTR_FRAME_MS  = 1000 / 60;    // 60 fps пока активен метео
 const MAX_METEORS   = 50;
 const MAX_DPR       = 2;
 
-// Метеорный поток (docs/error-experience/spec.md, п.5.6, раунд 5)
 const SHOWER_MAX_CLUSTERS         = 3; // обычный поток — было 4
 const SHOWER_CATCHUP_MAX_CLUSTERS = 2; // «догоняющий» поток при возврате из фона — п.5.6.3
-// Обычный кадр идёт раз в 16–66 мс — разрыв такого порядка означает, что
-// цикл только что вернулся из остановленного/троттлящегося состояния
-// (скрытая вкладка, фоновый троттлинг ОС/браузера), а не обычный тик.
 const RESUME_GAP_MS = 2000;
 
-// Клэмп шага интегрирования дрейфа курсора (п.8.3, docs/error-experience/
-// spec.md) — без него dt после скрытой вкладки/долгой паузы устройства
-// может быть счётом на секунды и уйти прямиком в интегрирование скорости
-// (driftVelRef += ax·dt), давая один кадр с непредсказуемым скачком.
-// 100мс — заведомо больше обычного джиттера кадра (16–66мс), но пресекает
-// патологические разрывы.
 const MAX_DRIFT_DT_SECONDS = 0.1;
 
-// ---------------------------------------------------------------------------
-// Stars
-// ---------------------------------------------------------------------------
 
-// Яркость/мерцание — общая логика для обычного фона и скопления вихря
-// (п.1.2), различается только пространственное распределение x/y.
 function randomStarVisuals(): Pick<Star, 'radius' | 'baseBrightness' | 'twinkles' | 'twinklePeriod' | 'twinklePhase'> {
   const r = Math.random();
   if (r < 0.6) {
@@ -177,11 +152,6 @@ function generateStars(w: number, h: number): Star[] {
   }));
 }
 
-// Общая раскладка звёзд по нескольким смещённым друг от друга «сгущениям»
-// (Box-Muller вокруг своего центра у каждого) — даёт органичную, рваную
-// форму скопления вместо одного правильного круга. Используется и основной
-// туманностью-воронкой у горизонта, и независимой от чёрной дыры туманностью
-// в левом нижнем квадранте (docs/error-experience/spec.md, п.5.4, раунд 5).
 function generateStarClumps(
   anchorX: number, anchorY: number, nebulaRadius: number, blobCount: number, totalStars: number,
 ): Star[] {
@@ -209,39 +179,20 @@ function generateStarClumps(
   return stars;
 }
 
-// Плотное, неправильной формы скопление звёзд вокруг чёрной дыры — фон для
-// эффекта воронки (docs/error-experience/spec.md, п.1.2), ~30% площади
-// экрана. Художественная аппроксимация через частицы, не пиксельное
-// линзирование фона (вне scope). Масштаб считается от диагонали экрана
-// (VORTEX_RADIUS_RATIO), НЕ от радиуса дыры — иначе туманность была бы
-// жёстко привязана к крошечному размеру самой дыры и оставалась тонкой
-// каёмкой вокруг неё вместо полноценного фона.
 function generateVortexCluster(bh: BlackHoleGeometry, diagonal: number, w: number): Star[] {
   const nebulaRadius = diagonal * VORTEX_RADIUS_RATIO;
-  // Якорь скопления смещён от центра дыры — дыра не строго в центре туманности
   const anchorAngle = Math.random() * Math.PI * 2;
   const anchorX = bh.x + Math.cos(anchorAngle) * nebulaRadius * 0.2;
   const anchorY = bh.y + Math.sin(anchorAngle) * nebulaRadius * 0.2;
-  // Мобильная плотность снижена (раунд 7, производительность) — см.
-  // комментарий у VORTEX_STAR_COUNT_MOBILE в constants/blackHole.ts.
   const starCount = w < MOBILE_BREAKPOINT_PX ? VORTEX_STAR_COUNT_MOBILE : VORTEX_STAR_COUNT;
   return generateStarClumps(anchorX, anchorY, nebulaRadius, VORTEX_BLOB_COUNT, starCount);
 }
 
-// Вторая, независимая от чёрной дыры туманность (docs/error-experience/
-// spec.md, п.5.4, раунд 5) — компенсирует визуальную пустоту нижнего левого
-// квадранта на error-страницах. Якорь держится уверенно внутри квадранта
-// (0.18–0.30 w, 0.68–0.80 h), а естественный разброс сгущений вокруг него
-// (generateStarClumps) даёт частичный заход в соседние квадранты без
-// декларативного обрезания по границе — неправильная форма получается сама.
 function generateSecondaryNebula(w: number, h: number): Star[] {
   const diagonal = Math.hypot(w, h);
   const nebulaRadius = diagonal * SECONDARY_NEBULA_RADIUS_RATIO;
   const anchorX = w * (0.18 + Math.random() * 0.12);
   const anchorY = h * (0.68 + Math.random() * 0.12);
-  // Мобильная плотность снижена сильнее, чем у вихря (раунд 7) — эта
-  // туманность не участвует в орбитальном вращении (п.1.2), несёт большую
-  // долю сокращения, см. константы в constants/blackHole.ts.
   const isMobile = w < MOBILE_BREAKPOINT_PX;
   const min = isMobile ? SECONDARY_NEBULA_STAR_COUNT_MIN_MOBILE : SECONDARY_NEBULA_STAR_COUNT_MIN;
   const max = isMobile ? SECONDARY_NEBULA_STAR_COUNT_MAX_MOBILE : SECONDARY_NEBULA_STAR_COUNT_MAX;
@@ -249,10 +200,6 @@ function generateSecondaryNebula(w: number, h: number): Star[] {
   return generateStarClumps(anchorX, anchorY, nebulaRadius, SECONDARY_NEBULA_BLOB_COUNT, totalStars);
 }
 
-// Позиция звезды с учётом орбитального вращения вихря (docs/error-experience/
-// spec.md, п.1.2) — радиус орбиты неизменен (звёзды не падают на дыру),
-// меняется только угол; вне зоны действия (outerBoundaryPx) не делает
-// лишней работы, возвращает исходные координаты как есть.
 function applyOrbitalRotation(
   x0: number, y0: number, bh: BlackHoleGeometry, outerBoundaryPx: number, nowMs: number,
 ): { x: number; y: number } {
@@ -263,8 +210,6 @@ function applyOrbitalRotation(
   return { x: bh.x + r * Math.cos(theta), y: bh.y + r * Math.sin(theta) };
 }
 
-// Дуга по орбите вокруг чёрной дыры — общий рендер для звёзд/курсора/метеоров
-// в кольцевой зоне (режим 'ring' из computeLensing).
 function drawOrbitArc(
   ctx: CanvasRenderingContext2D,
   bh: BlackHoleGeometry,
@@ -276,11 +221,6 @@ function drawOrbitArc(
   const halfSpan = angularSpanFraction * Math.PI; // fraction — доля полной окружности
   ctx.beginPath();
   ctx.arc(bh.x, bh.y, orbitRadius, centerAngle - halfSpan, centerAngle + halfSpan);
-  // Цвет всегда белый — альфа через globalAlpha, а не rgba()-строку (п.8.2.2,
-  // docs/error-experience/spec.md): убирает аллокацию+парсинг цвета на
-  // каждый вызов (звёзды в кольцевой зоне, метеоры, курсор). Сбрасываем в 1
-  // сразу после — функция общая для нескольких вызывающих в одном кадре,
-  // не должна оставлять «протёкшее» состояние соседям.
   ctx.strokeStyle = '#ffffff';
   ctx.globalAlpha = Math.max(0, alpha);
   ctx.lineWidth = 1;
@@ -288,10 +228,6 @@ function drawOrbitArc(
   ctx.globalAlpha = 1;
 }
 
-// Считается ОДИН РАЗ при resize (не каждый кадр) — см. Star.distFromBhSurface
-// и п.8.2.1 (docs/error-experience/spec.md). Дистанция звезды до дыры не
-// меняется от вращения (оно меняет только угол, не радиус орбиты), поэтому
-// кэшировать безопасно на весь срок жизни массива звёзд.
 function tagBlackHoleDistance(stars: Star[], bh: BlackHoleGeometry | null): void {
   for (const s of stars) {
     s.distFromBhSurface = bh ? Math.hypot(s.x - bh.x, s.y - bh.y) - bh.radius : Infinity;
@@ -305,27 +241,9 @@ function drawStars(
   animate: boolean,
   blackHole: BlackHoleGeometry | null,
 ): void {
-  // Деформация формы стартует на FADE_START — не на границе кольцевой зоны
-  // (OUTER) — иначе звёзды сперва растягивались бы в эллипс без всякого
-  // движения, а вращение включалось бы отдельным резким порогом позже.
   const outerBoundaryPx = blackHole ? blackHole.radius * 2 * LENSING_FADE_START_DIAMETERS : 0;
-  // Раунд 12: у вращения СВОЯ, на 7% более широкая граница (ROTATION_ZONE_
-  // EXTRA_FACTOR, constants/blackHole.ts) — это НЕ тот же баг «эллипс без
-  // движения» в обратную сторону: на новых внешних процентах звезда просто
-  // ещё круглая (деформация не включилась) и только-только начинает едва
-  // заметно вращаться — обе величины по-прежнему стартуют строго с нуля.
-  // computeLensing вычисляет свой порог самостоятельно из bh.radius и не
-  // получает outerBoundaryPx извне — расширение физически не может задеть
-  // деформацию формы, а курсор/метеоры читают LENSING_FADE_START_DIAMETERS
-  // напрямую в других функциях, тоже не связаны с этой переменной.
   const rotationBoundaryPx = outerBoundaryPx * ROTATION_ZONE_EXTRA_FACTOR;
 
-  // Цвет звёзд всегда белый — альфа/мерцание идёт через globalAlpha, не
-  // через новую rgba()-строку на каждую звезду каждый кадр (п.8.2.2): на
-  // десктопе это ~2650 аллокаций строк/кадр × 60fps, заметный источник
-  // GC-пауз, которые и ощущаются как «рывками» при вращении вихря на слабых
-  // устройствах. save/restore — чтобы globalAlpha не «протёк» в отрисовку
-  // метеоров/дыры/курсора, которая идёт следом в том же кадре.
   ctx.save();
   ctx.fillStyle = '#ffffff';
 
@@ -335,13 +253,6 @@ function drawStars(
       a = Math.max(0, Math.min(1, a * (1 + TWINKLE_AMP * Math.sin(2 * Math.PI * now / s.twinklePeriod + s.twinklePhase))));
     }
 
-    // Вне зоны эффекта (или дыры на странице нет вовсе) — координаты звезды
-    // не меняются (радиус орбиты постоянен, случай 'normal' гарантирован),
-    // пропускаем applyOrbitalRotation/computeLensing целиком, а не только
-    // их результат (п.8.2.1) — тригонометрия на статичное большинство
-    // звёзд иначе выполняется впустую каждый кадр. Порог — rotationBoundaryPx
-    // (шире, чем outerBoundaryPx деформации, раунд 12), иначе звёзды в новых
-    // 7% отбрасывались бы здесь ещё ДО применения вращения.
     if (!blackHole || (s.distFromBhSurface ?? Infinity) > rotationBoundaryPx) {
       ctx.globalAlpha = a;
       ctx.beginPath();
@@ -350,11 +261,7 @@ function drawStars(
       continue;
     }
 
-    // Вращение вихря (п.1.2) — применяется до расчёта деформации формы,
-    // оба эффекта независимы друг от друга на одной и той же звезде.
     const { x: rx, y: ry } = applyOrbitalRotation(s.x, s.y, blackHole, rotationBoundaryPx, now);
-    // Раунд 3: без resistancePower (p=1) — граница OUTER сама откалибрована
-    // на 25% радиуса эффекта, см. constants/blackHole.ts.
     const lensing = computeLensing(rx, ry, blackHole.x, blackHole.y, blackHole.radius);
     if (lensing.mode === 'normal') {
       ctx.globalAlpha = a;
@@ -372,10 +279,6 @@ function drawStars(
       );
       ctx.fill();
     } else {
-      // ring — пересчитывается каждый кадр из текущей (повёрнутой) позиции,
-      // звёзды не «замораживаются» в отличие от метеоров. Внутренние 50%
-      // радиуса эффекта (вся кольцевая зона) приглушены — иначе плотность
-      // перекрывающихся дуг у горизонта выглядит слишком ярко (п.6).
       const angle = Math.atan2(ry - blackHole.y, rx - blackHole.x);
       drawOrbitArc(ctx, blackHole, lensing.ringRadius, angle, lensing.ringSpanFraction, a * INNER_ZONE_BRIGHTNESS_FACTOR);
     }
@@ -384,9 +287,6 @@ function drawStars(
   ctx.restore();
 }
 
-// ---------------------------------------------------------------------------
-// Meteors
-// ---------------------------------------------------------------------------
 
 function spawnMeteor(
   w: number,
@@ -395,7 +295,6 @@ function spawnMeteor(
   direction: number,
   now: number,
 ): Meteor {
-  // angle from vertical → dx ≈ ±1, dy small positive (downward)
   const dx = Math.sin(angle) * direction;
   const dy = Math.cos(angle);
   const edgeOffset = Math.random() * w * 0.20;
@@ -407,11 +306,6 @@ function spawnMeteor(
     length:   Math.random() < 0.95
       ? w * (0.10 + Math.random() * 0.40)           // 95%: 10–50% ширины
       : w * (0.50 + Math.random() * 0.20),           // 5%: 50–70% ширины
-    // Смесь двух равномерных распределений (докрутка раунд 6, п.1.2) —
-    // не единый диапазон: 95% случаев 160–400 мс (медиана 280 мс, попадает
-    // в целевые 250–400), 5% — редкий «исключительный» хвост 400–800 мс.
-    // Корреляция именно по вероятности (5%), не по жёсткому порогу — внутри
-    // каждой ветки сохраняется полный псевдорандомный разброс.
     duration: Math.random() < 0.95
       ? 160 + Math.random() * 240
       : 400 + Math.random() * 400,
@@ -431,8 +325,6 @@ function drawAndFilterMeteors(
 
   const alive: Meteor[] = [];
   for (const m of meteors) {
-    // Уже захвачен — рендерим зафиксированную дугу, игнорируя исходную
-    // траекторию/duration; живёт CAPTURED_METEOR_FADE_MS, затем удаляется
     if (m.capturedAt !== undefined && blackHole) {
       const fadeProgress = (now - m.capturedAt) / CAPTURED_METEOR_FADE_MS;
       if (fadeProgress >= 1) continue;
@@ -448,7 +340,6 @@ function drawAndFilterMeteors(
     const progress = (now - m.startTime) / m.duration;
     if (progress >= 1) continue;
 
-    // Профиль альфа: fade-in 0–10%, plateau 10–80%, fade-out 80–100%
     let a: number;
     if (progress < 0.10) a = m.maxAlpha * (progress / 0.10);
     else if (progress < 0.80) a = m.maxAlpha;
@@ -459,9 +350,6 @@ function drawAndFilterMeteors(
     const headX = m.x0 + m.dx * dist;
     const headY = m.y0 + m.dy * dist;
 
-    // Проверяем горизонт события — метеор мгновенно «схлопывается» в дугу.
-    // Порог у метеоров свой, уже (METEOR_CAPTURE_DIAMETERS), не расширенная
-    // вместе со звёздами/курсором зона п.1.1 — см. комментарий у константы.
     const meteorDistFromSurface = blackHole
       ? Math.hypot(headX - blackHole.x, headY - blackHole.y) - blackHole.radius
       : Infinity;
@@ -481,12 +369,6 @@ function drawAndFilterMeteors(
     const tailX = headX - m.dx * tail;
     const tailY = headY - m.dy * tail;
 
-    // Градиент-объект пересоздаётся каждый раз (геометрия головы/хвоста
-    // движется, кэшировать нечем) — но обе цветовые точки и shadowColor
-    // теперь статичные литералы, не `rgba(...)`-строка на метеор/кадр (п.9.1,
-    // docs/error-experience/spec.md, тот же приём, что у звёзд в раунде 8):
-    // globalAlpha умножает альфу И градиента, И тени одновременно, поэтому
-    // «а»-затухание метеора по-прежнему полностью сохраняется.
     const grad = ctx.createLinearGradient(tailX, tailY, headX, headY);
     grad.addColorStop(0, 'rgba(255,255,255,0)');
     grad.addColorStop(1, '#ffffff');
@@ -507,8 +389,6 @@ function drawAndFilterMeteors(
   return alive;
 }
 
-// Круг самой чёрной дыры — рисуется поверх звёзд/метеоров (горизонт событий
-// физически «закрывает» всё, что за ним), абсолютно чёрный, без текстуры
 function drawBlackHole(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): void {
   ctx.beginPath();
   ctx.arc(bh.x, bh.y, bh.radius, 0, Math.PI * 2);
@@ -516,43 +396,20 @@ function drawBlackHole(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): vo
   ctx.fill();
 }
 
-// ---------------------------------------------------------------------------
-// Аккреционный диск с нуля (docs/error-experience/spec.md, раунд 13, план,
-// коммит 1 — статичная геометрия). Три НЕЗАВИСИМЫЕ фигуры вместо одной
-// параметрической формулы (см. обоснование — constants/blackHole.ts, блок
-// DISK_*). Дисциплина рендера — та же, что у звёзд/метеоров: НИ ОДНОЙ
-// per-frame аллокации (ни массивов точек, ни замыканий) — только числа и
-// прямые вызовы ctx в одном проходе цикла.
-// ---------------------------------------------------------------------------
 
-// Центральная линия пояса — не строго горизонтальная (правка 13.3, вводная
-// пользователя): гладкий симметричный прогиб вниз, тот же профиль
-// sqrt(1-(x/rx)²), что и толщина пояса — ноль на остриях, максимум в
-// центре. Именно "полуэллипс", не излом/"чайка" — уточнено у пользователя
-// явно двумя раундами вопросов.
+
 function beltCenterlineY(x: number, rx: number, sag: number): number {
-  return sag * Math.sqrt(Math.max(0, 1 - (x * x) / (rx * rx)));
+  const t = Math.max(0, Math.min(1, Math.abs(x) / rx));
+  return sag * Math.pow(Math.cos(t * Math.PI / 2), 2.5);
 }
 
-// Половина толщины пояса в точке x — тот же профиль, симметично вокруг
-// центральной линии (прогиб не меняет толщину диска — явное условие
-// пользователя).
 function beltHalfThicknessAt(x: number, rx: number, beltHalf: number): number {
-  return beltHalf * Math.sqrt(Math.max(0, 1 - (x * x) / (rx * rx)));
+  const t = Math.max(0, Math.min(1, Math.abs(x) / rx));
+  if (t >= 1) return 0;
+  const exponent = 2.5 - 1.5 * Math.pow(t, 2);
+  return beltHalf * Math.pow(Math.cos(t * Math.PI / 2), exponent);
 }
 
-// Правка 13.6 (по вводной пользователя) — ни полиномиальный, ни
-// экспоненциальный smooth-min не убрали видимый угол на стыке верхней дуги
-// с поясом: оба сглаживают только ЗНАЧЕНИЯ (a≈b), но не НАКЛОН — а у
-// окружности купола наклон у её собственного края стремится к вертикали
-// (стандартное свойство окружности у экватора), у почти плоского пояса
-// наклон близок к нулю. Резкая смена наклона на коротком отрезке всегда
-// читается как излом, даже если сами значения сблендены гладко.
-// Кубический Hermite-сплайн — единственный инструмент здесь, который явно
-// сопрягает НАКЛОН на обоих концах зоны слияния (не только значение),
-// поэтому кривизна переходит непрерывно. p0/m0 — значение и (уже
-// смасштабированный на длину отрезка) наклон в начале блока, p1/m1 — в
-// конце; t — доля пройденного пути (0..1).
 function hermiteBlend(p0: number, m0: number, p1: number, m1: number, t: number): number {
   const t2 = t * t;
   const t3 = t2 * t;
@@ -563,17 +420,85 @@ function hermiteBlend(p0: number, m0: number, p1: number, m1: number, t: number)
   return h00 * p0 + h10 * m0 + h01 * p1 + h11 * m1;
 }
 
-// Нижняя дуга — толщина (не радиус) задаётся напрямую как функция x:
-// полная DISK_LOWER_ARC_POLE_THICKNESS_FACTOR у полюса (x=0), затем
-// ЛИНЕЙНО (не smoothstep — угол на стыке здесь желателен, не баг) убывает
-// до DISK_LOWER_ARC_SIDE_THICKNESS_FACTOR ровно в точке слияния с поясом
-// (DISK_LOWER_ARC_MERGE_X_FACTOR × R), под углом DISK_LOWER_ARC_CUTOFF_
-// ANGLE_DEG — ширина зоны обреза выводится из перепада толщины и угла.
-// Внешняя граница — max(линейный обрез, нижний край ПРОГНУВШЕГОСЯ пояса) —
-// гарантия от зазора: без этой подстраховки прогиб пояса (пусть и малый)
-// мог бы у самого края тени уйти ниже, чем успевает опуститься дуга по
-// своей собственной (не знающей о поясе) формуле толщины.
-function drawDiskLowerArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): void {
+function getEdgeDisplacement(x: number, rx: number, R: number, now: number, direction: number, seed: number): { dx: number, dy: number } {
+  const t = x / rx; // -1 to 1
+  
+  const baseJitter = (
+    Math.sin(t * 13 + now * 0.15 + seed) * 0.5 +
+    Math.sin(t * 23 - now * 0.21 + seed * 1.3) * 0.3 +
+    Math.sin(t * 37 + now * 0.33 + seed * 0.7) * 0.2
+  ) * (R * 0.03); 
+  
+  const t1 = now * 0.012 + seed;
+  const t2 = now * 0.018 - seed;
+  
+  const envelope = Math.max(0, 
+    Math.sin(t * 19.5 - t1) + 
+    Math.cos(t * 33 + t2) - 
+    1.60 // Снижен порог (появляются в 2 раза чаще)
+  ); // Максимум envelope: 0.40
+  
+  let flameDx = 0;
+  let flameDy = 0;
+  
+  if (envelope > 0) {
+    const jagged = Math.sin(t * 180 - now * 0.04) * 0.5 + Math.sin(t * 310 + now * 0.05) * 0.5;
+    const shape = Math.pow(envelope, 0.7);
+    const height = shape * (1.43 + jagged * 0.47); // Перекалибровано для envelope 0.40
+    flameDy = height;
+    
+    const baseAngle = Math.atan(1.8);
+    const rand = Math.abs(Math.sin(t * 13.45 + seed * 9.87));
+    const angleDeviation = rand * (15 * Math.PI / 180);
+    const finalAngle = baseAngle - angleDeviation;
+    
+    flameDx = height * Math.tan(finalAngle); 
+  }
+  const edgeTaper = Math.pow(Math.max(0, 1 - Math.abs(t)), 1.5);
+
+  return {
+    dx: flameDx * direction * edgeTaper,
+    dy: (Math.abs(baseJitter) + flameDy) * direction * edgeTaper
+  };
+}
+
+function applyDopplerGlow(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, rx: number, now: number): void {
+  const cos = Math.cos(DISK_TILT_RAD);
+  const sin = Math.sin(DISK_TILT_RAD);
+  const dopplerGrad = ctx.createLinearGradient(
+    bh.x - rx * cos, bh.y - rx * sin,
+    bh.x + rx * cos, bh.y + rx * sin
+  );
+  
+  for (let i = 0; i <= 4; i++) {
+    const t = i / 4;
+    const baseAlpha = 0.8 * Math.pow(1 - t, 1.5);
+    
+    const flicker = (
+      Math.sin(t * 15 + now * 0.11) * 0.5 +
+      Math.sin(t * 27 - now * 0.17) * 0.3 +
+      Math.sin(t * 43 + now * 0.23) * 0.2
+    );
+    
+    const a = Math.max(0, Math.min(1, baseAlpha * (1 + 0.5 * flicker)));
+    
+    if (i === 0) {
+      dopplerGrad.addColorStop(0, `rgba(50, 150, 255, 0)`); // Принудительно прозрачный кончик для идеального клина
+      dopplerGrad.addColorStop(0.02, `rgba(50, 150, 255, ${(a * 0.9).toFixed(3)})`); // True blue outer envelope
+      dopplerGrad.addColorStop(0.05, `rgba(255, 255, 255, ${Math.min(1, a * 2.0).toFixed(3)})`); // Pure white core
+      dopplerGrad.addColorStop(0.15, `rgba(255, 255, 255, ${Math.min(1, a * 1.5).toFixed(3)})`);
+    } else {
+      dopplerGrad.addColorStop(t, `rgba(100, 200, 255, ${a.toFixed(3)})`);
+    }
+  }
+  
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = dopplerGrad;
+  ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function drawDiskLowerArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, now: number): void {
   const R = bh.radius;
   const rx = R * DISK_RX_FACTOR;
   const beltHalf = R * DISK_BELT_HALF_THICKNESS_FACTOR;
@@ -584,7 +509,8 @@ function drawDiskLowerArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry):
   const slope = Math.tan((DISK_LOWER_ARC_CUTOFF_ANGLE_DEG * Math.PI) / 180);
   const rampWidth = (poleT - sideT) / slope;
   const xFlat = mergeX - rampWidth;
-  const n = DISK_CONTOUR_POINT_COUNT;
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const n = isMobile ? Math.floor(DISK_CONTOUR_POINT_COUNT / 2) : DISK_CONTOUR_POINT_COUNT;
   const cos = Math.cos(DISK_TILT_RAD);
   const sin = Math.sin(DISK_TILT_RAD);
 
@@ -604,29 +530,65 @@ function drawDiskLowerArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry):
     const rampY = innerY + thickness;
     const beltBottomY = beltCenterlineY(x, rx, sag) + beltHalfThicknessAt(x, rx, beltHalf);
     const y = Math.max(rampY, beltBottomY);
-    const px = bh.x + x * cos - y * sin;
-    const py = bh.y + x * sin + y * cos;
+    const disp = getEdgeDisplacement(x, rx, R, now, 1, 1000);
+    const finalX = x + disp.dx;
+    const finalY = y + disp.dy;
+    const px = bh.x + finalX * cos - finalY * sin;
+    const py = bh.y + finalX * sin + finalY * cos;
     ctx.lineTo(px, py);
   }
   ctx.closePath();
-  ctx.fillStyle = DISK_BASE_COLOR;
+  ctx.fillStyle = DISK_LOWER_ARC_COLOR;
   ctx.fill();
+
+  applyDopplerGlow(ctx, bh, rx, now);
+
+  ctx.beginPath();
+  for (let i = n; i >= 0; i--) {
+    const x = -rx + (2 * rx * i) / n;
+    const absX = Math.abs(x);
+    const innerY = Math.sqrt(Math.max(0, R * R - x * x)) - DISK_ARC_INNER_OVERLAP_PX;
+    const thickness = absX <= xFlat ? poleT : Math.max(0, poleT - slope * (absX - xFlat));
+    const rampY = innerY + thickness;
+    const beltBottomY = beltCenterlineY(x, rx, sag) + beltHalfThicknessAt(x, rx, beltHalf);
+    const y = Math.max(rampY, beltBottomY);
+    const disp = getEdgeDisplacement(x, rx, R, now, 1, 11000);
+    const finalX = x + disp.dx;
+    const finalY = y + disp.dy;
+    const px = bh.x + finalX * cos - finalY * sin;
+    const py = bh.y + finalX * sin + finalY * cos;
+    if (i === n) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.lineWidth = 3;
+  const alphaStroke = Math.max(0, 0.07 + 0.77 * Math.sin(now * 0.102)).toFixed(2);
+  
+  const lowerArcStrokeGrad = ctx.createLinearGradient(
+    bh.x - rx * cos, bh.y - rx * sin,
+    bh.x + rx * cos, bh.y + rx * sin
+  );
+  
+  const fadeOutStartX = mergeX * 0.8; 
+  const fadeOutEndX = mergeX * 1.1;
+  
+  const tZeroLeft = (rx - fadeOutEndX) / (2 * rx);
+  const tSolidLeft = (rx - fadeOutStartX) / (2 * rx);
+  const tSolidRight = (rx + fadeOutStartX) / (2 * rx);
+  const tZeroRight = (rx + fadeOutEndX) / (2 * rx);
+  
+  lowerArcStrokeGrad.addColorStop(0, `rgba(255, 180, 100, 0)`);
+  lowerArcStrokeGrad.addColorStop(Math.max(0, tZeroLeft), `rgba(255, 180, 100, 0)`);
+  lowerArcStrokeGrad.addColorStop(Math.max(0, tSolidLeft), `rgba(255, 180, 100, ${alphaStroke})`);
+  lowerArcStrokeGrad.addColorStop(Math.min(1, tSolidRight), `rgba(255, 180, 100, ${alphaStroke})`);
+  lowerArcStrokeGrad.addColorStop(Math.min(1, tZeroRight), `rgba(255, 180, 100, 0)`);
+  lowerArcStrokeGrad.addColorStop(1, `rgba(255, 180, 100, 0)`);
+  
+  ctx.strokeStyle = lowerArcStrokeGrad;
+  ctx.stroke();
 }
 
-// Верхняя дуга — толщина СТАБИЛЬНА по всей длине (кольцо между
-// концентричной тени окружностью Rup=R+DISK_UPPER_ARC_THICKNESS_FACTOR и
-// самой тенью). Внутренняя граница — окружность тени БЕЗ сдвига (в отличие
-// от нижней дуги) — по вводной пользователя, эта граница нигде не должна
-// перекрывать тень; безопасно, т.к. обе кривые статичны и совпадают точно.
-// Внешняя граница, правка 13.6 (см. hermiteBlend выше) — ТРИ зоны, не
-// smooth-min двух формул целиком:
-//  1. |x| ≤ FILLET_START — чистая окружность Rup (толщина постоянна).
-//  2. FILLET_START < |x| < FILLET_END — Hermite-сплайн от (значение,
-//     наклон) окружности в начале до (значение, наклон) верхнего края
-//     пояса в конце — гладкое сопряжение и по значению, и по наклону.
-//  3. |x| ≥ FILLET_END — чистый верхний край пояса (с учётом его прогиба).
-function drawDiskUpperArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): void {
+function drawDiskUpperArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, now: number): void {
   const R = bh.radius;
+  const Rinner = R + 2; // 2px зазор — чёрная щель, «дыра дышит»
   const rx = R * DISK_RX_FACTOR;
   const beltHalf = R * DISK_BELT_HALF_THICKNESS_FACTOR;
   const sag = R * DISK_BELT_SAG_FACTOR;
@@ -634,13 +596,11 @@ function drawDiskUpperArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry):
   const x1 = R * DISK_UPPER_ARC_FILLET_START_FACTOR;
   const x2 = R * DISK_UPPER_ARC_FILLET_END_FACTOR;
   const halfSpan = x2;
-  const n = DISK_CONTOUR_POINT_COUNT;
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const n = isMobile ? Math.floor(DISK_CONTOUR_POINT_COUNT / 2) : DISK_CONTOUR_POINT_COUNT;
   const cos = Math.cos(DISK_TILT_RAD);
   const sin = Math.sin(DISK_TILT_RAD);
 
-  // Опорные значения/наклоны на границах зоны слияния — считаются один раз
-  // (не per-point): аналитические производные обеих формул (окружность,
-  // верхний край пояса), не численное приближение.
   const y1 = -Math.sqrt(Math.max(0, Rup * Rup - x1 * x1));
   const slope1 = x1 / Math.sqrt(Math.max(1e-6, Rup * Rup - x1 * x1));
   const beltAmplitude = sag - beltHalf; // амплитуда верхнего края пояса (обычно отрицательна)
@@ -663,71 +623,181 @@ function drawDiskUpperArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry):
     } else {
       y = hermiteBlend(y1, m0, y2, m1, (absX - x1) / dx);
     }
-    const px = bh.x + x * cos - y * sin;
-    const py = bh.y + x * sin + y * cos;
+    const disp = getEdgeDisplacement(x, rx, R, now, -1, 2000);
+    const finalX = x + disp.dx;
+    const finalY = y + disp.dy;
+    
+    const px = bh.x + finalX * cos - finalY * sin;
+    const py = bh.y + finalX * sin + finalY * cos;
     if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
   }
   for (let i = n; i >= 0; i--) {
     const x = -halfSpan + (2 * halfSpan * i) / n;
-    const y = -Math.sqrt(Math.max(0, R * R - x * x));
+    const jInnerDisp = getEdgeDisplacement(x, rx, R, now, -1, 3000);
+    const y = -Math.sqrt(Math.max(0, Rinner * Rinner - x * x)) + jInnerDisp.dy * 0.15; // Just a tiny wobble
     const px = bh.x + x * cos - y * sin;
     const py = bh.y + x * sin + y * cos;
     ctx.lineTo(px, py);
   }
   ctx.closePath();
-  ctx.fillStyle = DISK_BASE_COLOR;
+
+  const rEnd = halfSpan;
+  const upperArcGrad = ctx.createRadialGradient(bh.x, bh.y, Rinner, bh.x, bh.y, rEnd);
+  
+  const midStop = Math.max(0, Math.min(1, (Rup - Rinner) / (rEnd - Rinner)));
+  
+  upperArcGrad.addColorStop(0, DISK_UPPER_ARC_INNER_COLOR);
+  upperArcGrad.addColorStop(midStop, DISK_UPPER_ARC_OUTER_COLOR); // Сохраняем объем
+  upperArcGrad.addColorStop(1, `rgba(160, 82, 45, 0)`); // Плавно уходит в 100% прозрачность к концу сплайна
+  
+  ctx.fillStyle = upperArcGrad;
   ctx.fill();
+
+  applyDopplerGlow(ctx, bh, rx, now);
+
+  ctx.beginPath();
+  for (let i = 0; i <= n; i++) {
+    const x = -halfSpan + (2 * halfSpan * i) / n;
+    const absX = Math.abs(x);
+    let y: number;
+    if (absX <= x1) {
+      y = -Math.sqrt(Math.max(0, Rup * Rup - x * x));
+    } else if (absX >= x2) {
+      y = beltCenterlineY(x, rx, sag) - beltHalfThicknessAt(x, rx, beltHalf);
+    } else {
+      y = hermiteBlend(y1, m0, y2, m1, (absX - x1) / dx);
+    }
+    const disp = getEdgeDisplacement(x, rx, R, now, -1, 12000);
+    const finalX = x + disp.dx;
+    const finalY = y + disp.dy;
+    const px = bh.x + finalX * cos - finalY * sin;
+    const py = bh.y + finalX * sin + finalY * cos;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.lineWidth = 3;
+  const alphaStroke = Math.max(0, 0.07 + 0.77 * Math.sin(now * 0.096)).toFixed(2);
+  
+  const arcStrokeGrad = ctx.createLinearGradient(
+    bh.x - halfSpan * cos, bh.y - halfSpan * sin,
+    bh.x + halfSpan * cos, bh.y + halfSpan * sin
+  );
+  
+  const tLeftEnd = 0;
+  const tLeftStart = (halfSpan - x1) / (2 * halfSpan);
+  const tRightStart = (halfSpan + x1) / (2 * halfSpan);
+  const tRightEnd = 1;
+  
+  arcStrokeGrad.addColorStop(tLeftEnd, `rgba(255, 180, 100, 0)`);
+  arcStrokeGrad.addColorStop(tLeftStart, `rgba(255, 180, 100, ${alphaStroke})`);
+  arcStrokeGrad.addColorStop(tRightStart, `rgba(255, 180, 100, ${alphaStroke})`);
+  arcStrokeGrad.addColorStop(tRightEnd, `rgba(255, 180, 100, 0)`);
+  
+  ctx.strokeStyle = arcStrokeGrad;
+  ctx.stroke();
 }
 
-// Пояс — отдельная линза (профиль sqrt(1-(x/rx)²), половина эллипса,
-// естественно сужается к острию ровно в x=±rx), с прогнутой вниз
-// центральной линией (beltCenterlineY, правка 13.3). Рисуется ПОСЛЕДНИМ из
-// трёх (вызывающий код) — пересекает тень поперёк по центру и перекрывает
-// боковые швы обеих дуг сверху, "нагло" (см. ТЗ), без точной геометрической
-// стыковки.
-function drawDiskBelt(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): void {
+function drawDiskBelt(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, now: number): void {
   const rx = bh.radius * DISK_RX_FACTOR;
   const beltHalf = bh.radius * DISK_BELT_HALF_THICKNESS_FACTOR;
   const sag = bh.radius * DISK_BELT_SAG_FACTOR;
-  const n = DISK_CONTOUR_POINT_COUNT;
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const n = isMobile ? Math.floor(DISK_CONTOUR_POINT_COUNT / 2) : DISK_CONTOUR_POINT_COUNT;
   const cos = Math.cos(DISK_TILT_RAD);
   const sin = Math.sin(DISK_TILT_RAD);
 
   ctx.beginPath();
   for (let i = 0; i <= n; i++) {
     const x = -rx + (2 * rx * i) / n;
-    const y = beltCenterlineY(x, rx, sag) - beltHalfThicknessAt(x, rx, beltHalf);
-    const px = bh.x + x * cos - y * sin;
-    const py = bh.y + x * sin + y * cos;
+    const disp = getEdgeDisplacement(x, rx, bh.radius, now, -1, 4000);
+    const finalX = x + disp.dx;
+    const finalY = (beltCenterlineY(x, rx, sag) - beltHalfThicknessAt(x, rx, beltHalf)) + disp.dy;
+    const px = bh.x + finalX * cos - finalY * sin;
+    const py = bh.y + finalX * sin + finalY * cos;
     if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
   }
   for (let i = n; i >= 0; i--) {
     const x = -rx + (2 * rx * i) / n;
-    const y = beltCenterlineY(x, rx, sag) + beltHalfThicknessAt(x, rx, beltHalf);
-    const px = bh.x + x * cos - y * sin;
-    const py = bh.y + x * sin + y * cos;
+    const disp = getEdgeDisplacement(x, rx, bh.radius, now, 1, 5000);
+    const finalX = x + disp.dx;
+    const finalY = (beltCenterlineY(x, rx, sag) + beltHalfThicknessAt(x, rx, beltHalf)) + disp.dy;
+    const px = bh.x + finalX * cos - finalY * sin;
+    const py = bh.y + finalX * sin + finalY * cos;
     ctx.lineTo(px, py);
   }
   ctx.closePath();
-  ctx.fillStyle = DISK_BASE_COLOR;
+
+  const beltGrad = ctx.createLinearGradient(
+    bh.x - rx * cos, bh.y - rx * sin, 
+    bh.x + rx * cos, bh.y + rx * sin
+  );
+  beltGrad.addColorStop(0, 'rgba(139, 69, 19, 0)');     // Прозрачный кончик
+  beltGrad.addColorStop(0.03, DISK_BELT_EDGE_COLOR);    // Основной цвет края
+  beltGrad.addColorStop(0.5, DISK_BELT_CENTER_COLOR);
+  beltGrad.addColorStop(0.97, DISK_BELT_EDGE_COLOR);    // Основной цвет края
+  beltGrad.addColorStop(1, 'rgba(139, 69, 19, 0)');     // Прозрачный кончик
+  
+  ctx.fillStyle = beltGrad;
+  ctx.fill();
+
+  applyDopplerGlow(ctx, bh, rx, now);
+
+  ctx.beginPath();
+  
+  for (let i = 0; i <= n; i++) {
+    const x = -rx + (2 * rx * i) / n;
+    const t = x / rx;
+    const exponent = 2.5 - 1.5 * Math.pow(t, 2);
+    const halfW = 1.5 * Math.pow(Math.cos(t * Math.PI / 2), exponent);
+    const disp = getEdgeDisplacement(x, rx, bh.radius, now, -1, 14000);
+    const finalX = x + disp.dx;
+    const finalY = (beltCenterlineY(x, rx, sag) - beltHalfThicknessAt(x, rx, beltHalf)) + disp.dy - halfW;
+    const px = bh.x + finalX * cos - finalY * sin;
+    const py = bh.y + finalX * sin + finalY * cos;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  for (let i = n; i >= 0; i--) {
+    const x = -rx + (2 * rx * i) / n;
+    const t = x / rx;
+    const exponent = 2.5 - 1.5 * Math.pow(t, 2);
+    const halfW = 1.5 * Math.pow(Math.cos(t * Math.PI / 2), exponent);
+    const disp = getEdgeDisplacement(x, rx, bh.radius, now, 1, 15000);
+    const finalX = x + disp.dx;
+    const finalY = (beltCenterlineY(x, rx, sag) + beltHalfThicknessAt(x, rx, beltHalf)) + disp.dy + halfW;
+    const px = bh.x + finalX * cos - finalY * sin;
+    const py = bh.y + finalX * sin + finalY * cos;
+    ctx.lineTo(px, py);
+  }
+  for (let i = 0; i <= n; i++) {
+    const x = -rx + (2 * rx * i) / n;
+    const t = x / rx;
+    const exponent = 2.5 - 1.5 * Math.pow(t, 2);
+    const halfW = 1.5 * Math.pow(Math.cos(t * Math.PI / 2), exponent);
+    const disp = getEdgeDisplacement(x, rx, bh.radius, now, 1, 15000);
+    const finalX = x + disp.dx;
+    const finalY = (beltCenterlineY(x, rx, sag) + beltHalfThicknessAt(x, rx, beltHalf)) + disp.dy - halfW;
+    const px = bh.x + finalX * cos - finalY * sin;
+    const py = bh.y + finalX * sin + finalY * cos;
+    ctx.lineTo(px, py);
+  }
+  for (let i = n; i >= 0; i--) {
+    const x = -rx + (2 * rx * i) / n;
+    const t = x / rx;
+    const exponent = 2.5 - 1.5 * Math.pow(t, 2);
+    const halfW = 1.5 * Math.pow(Math.cos(t * Math.PI / 2), exponent);
+    const disp = getEdgeDisplacement(x, rx, bh.radius, now, -1, 14000);
+    const finalX = x + disp.dx;
+    const finalY = (beltCenterlineY(x, rx, sag) - beltHalfThicknessAt(x, rx, beltHalf)) + disp.dy + halfW;
+    const px = bh.x + finalX * cos - finalY * sin;
+    const py = bh.y + finalX * sin + finalY * cos;
+    ctx.lineTo(px, py);
+  }
+  
+  ctx.closePath();
+  ctx.fillStyle = `rgba(255, 180, 100, ${Math.max(0, 0.07 + 0.77 * Math.sin(now * 0.106)).toFixed(2)})`;
   ctx.fill();
 }
 
-// Фотонное кольцо — тонкая нить чуть внутри границы тени (PHOTON_RING_
-// RADIUS_FACTOR), ПОЛНАЯ окружность, не участвует в наклоне сборки
-// (окружность вокруг своего центра инвариантна к повороту). Две правки по
-// вводной пользователя (после раунда 13.2):
-// 1. Центр кольца смещён вправо от центра тени (PHOTON_RING_CENTER_OFFSET_
-//    FACTOR) — на референсе кольцо не концентрично тени.
-// 2. Толщина линии асимметрична по дуге: максимум (PHOTON_RING_LINE_WIDTH)
-//    у левого полюса тени, плавно убывает до минимума (PHOTON_RING_MIN_
-//    LINE_WIDTH, "на грани видимости") у правого полюса — cos(угол) даёт
-//    гладкую (не ступенчатую) интерполяцию, симметричную сверху/снизу.
-// Canvas не поддерживает переменную толщину линии в одном stroke() —
-// кольцо рисуется PHOTON_RING_SEGMENT_COUNT короткими дугами, каждая со
-// своим lineWidth (только числа в цикле, без аллокаций). round-колпачки —
-// чтобы стыки сегментов не были видны как ступеньки.
-function drawPhotonRing(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): void {
+function drawPhotonRing(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, now: number): void {
   const r = bh.radius * PHOTON_RING_RADIUS_FACTOR;
   const cx = bh.x + bh.radius * PHOTON_RING_CENTER_OFFSET_FACTOR;
   const cy = bh.y;
@@ -738,22 +808,23 @@ function drawPhotonRing(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): v
     const a0 = (i / n) * Math.PI * 2;
     const a1 = ((i + 1) / n) * Math.PI * 2;
     const aMid = (a0 + a1) / 2;
-    // t: 0 у правого полюса (угол 0, cos=1), 1 у левого полюса (угол π, cos=-1)
     const t = (1 - Math.cos(aMid)) / 2;
     ctx.lineWidth = PHOTON_RING_MIN_LINE_WIDTH + (PHOTON_RING_LINE_WIDTH - PHOTON_RING_MIN_LINE_WIDTH) * t;
+    
+    const flicker = Math.sin(aMid * 3 + now * 0.015) * 0.5 + Math.sin(aMid * 7 - now * 0.02) * 0.5;
+    const baseAlpha = 0.3 + 0.7 * t;
+    ctx.globalAlpha = Math.max(0, Math.min(1, baseAlpha * (1 + 0.3 * flicker))); // +/- 30% jitter
+    
     ctx.beginPath();
     ctx.arc(cx, cy, r, a0, a1);
     ctx.stroke();
   }
+  ctx.globalAlpha = 1;
 }
 
 const CURSOR_BASE_RADIUS = 3; // px — базовый размер синтетического «курсора» на канвасе
 const CURSOR_ALPHA = 0.85;
 
-// Экспериментальная курсорная деформация (docs/error-experience/spec.md,
-// раздел Reach) — непрерывная, не дискретная: величина сплющивания следует
-// той же гладкой computeLensing(), что и звёзды, поэтому нет «прыжка» при
-// пересечении границы, только плавное нарастание/убывание при движении мыши.
 function renderCursorLensing(
   ctx: CanvasRenderingContext2D,
   blackHole: BlackHoleGeometry | null,
@@ -775,14 +846,10 @@ function renderCursorLensing(
   document.body.style.cursor = hidden ? 'none' : '';
   if (!hidden) return;
 
-  // «Наведение на сам круг — исчезает бесследно»: ничего не рисуем
   if (isInsideBlackHoleDisk(cursorPos.x, cursorPos.y, blackHole.x, blackHole.y, blackHole.radius)) {
     return;
   }
 
-  // CURSOR_RESISTANCE_POWER — курсор на 50–60% устойчивее звёзд к деформации
-  // (тот же порог начала эффекта, shouldHideCursor выше не менялся), но
-  // превращается в линию/кольцо на орбите заметно ближе к горизонту (п.1).
   const lensing = computeLensing(
     cursorPos.x, cursorPos.y, blackHole.x, blackHole.y, blackHole.radius, CURSOR_RESISTANCE_POWER,
   );
@@ -792,9 +859,6 @@ function renderCursorLensing(
     return;
   }
 
-  // 'lensed' И узкая гистерезис-зона, где computeLensing уже вернул бы
-  // 'normal' — рисуем плавный эллипс (при scale=1,1 это просто кружок),
-  // чтобы скрытый системный курсор не оставлял видимый разрыв
   ctx.beginPath();
   ctx.ellipse(
     cursorPos.x, cursorPos.y,
@@ -806,13 +870,6 @@ function renderCursorLensing(
   ctx.fill();
 }
 
-// Дрейф синтетического курсора к центру дыры (docs/error-experience/spec.md,
-// п.3 доработки, раунд 3) — как только реальная мышь входит в зону
-// гравитационного эффекта (FADE_START), рендер отделяется от живой позиции
-// мыши и падает к центру с ускорением (см. gravitationalDriftAccel), пока
-// onMouseMove не увидит достаточно быстрое движение и не сбросит driftPosRef
-// в null. Возвращает позицию, которую нужно рисовать вместо cursorPosRef —
-// либо ту же реальную (вне зоны/нет дыры), либо дрейфующую.
 function updateCursorDrift(
   real: { x: number; y: number } | null,
   blackHole: BlackHoleGeometry | null,
@@ -832,19 +889,12 @@ function updateCursorDrift(
     return real;
   }
 
-  // Только что вошли в зону — дрейф стартует с текущей реальной позиции
   if (!driftPosRef.current) {
     driftPosRef.current = { x: real.x, y: real.y };
   }
 
   const pos = driftPosRef.current;
 
-  // Уже внутри диска — не интегрируем дальше (докритика раунд 5, п.5.3):
-  // без остановки накопленная скорость проносит курсор сквозь центр, и он
-  // вылетает с противоположной стороны, восстанавливая форму на глазах
-  // (эффект «пролёта через потенциальную яму»). Замораживаем позицию —
-  // курсор остаётся невидимым (renderCursorLensing уже ничего не рисует
-  // внутри диска), пока escape-флик в onMouseMove не сбросит driftPosRef.
   if (isInsideBlackHoleDisk(pos.x, pos.y, blackHole.x, blackHole.y, blackHole.radius)) {
     driftVelRef.current = { x: 0, y: 0 };
     return pos;
@@ -856,8 +906,6 @@ function updateCursorDrift(
     x: pos.x + driftVelRef.current.x * dtSeconds,
     y: pos.y + driftVelRef.current.y * dtSeconds,
   };
-  // Шаг интегрирования может перепрыгнуть диск целиком за один кадр —
-  // клэмпим сам переход, а не только уже случившееся попадание внутрь.
   if (isInsideBlackHoleDisk(next.x, next.y, blackHole.x, blackHole.y, blackHole.radius)) {
     driftVelRef.current = { x: 0, y: 0 };
   }
@@ -865,13 +913,6 @@ function updateCursorDrift(
   return next;
 }
 
-// И мобильная (раунд 6, п.2), и десктопная/планшетная (раунд 8, п.8.4/
-// 8.5.1) ветки резолвят Y из абсолютной px-константы, не из доли высоты
-// окна — в обоих случаях ориентир (кнопка «Go home» на мобильном, нижний
-// правый уголок ErrorPanel на десктопе/планшете) стоит на фиксированной
-// абсолютной высоте независимо от высоты окна (см. подробное обоснование у
-// констант в constants/blackHole.ts). xRatio, наоборот, ratio-based в обеих
-// ветках — сам ориентир тоже растёт пропорционально ширине окна.
 function resolveBlackHoleGeometry(w: number, h: number): BlackHoleGeometry | null {
   const pos = getBlackHole();
   if (!pos) return null;
@@ -879,21 +920,14 @@ function resolveBlackHoleGeometry(w: number, h: number): BlackHoleGeometry | nul
   return {
     x: isMobile ? BLACK_HOLE_POSITION_MOBILE_X_RATIO * w : pos.xRatio * w,
     y: isMobile ? BLACK_HOLE_POSITION_MOBILE_Y_PX : BLACK_HOLE_POSITION_Y_PX,
-    radius: blackHoleRadiusPx(w, h, BLACK_HOLE_DIAMETER_RATIO),
+    radius: blackHoleRadiusPx(w, h, isMobile ? BLACK_HOLE_DIAMETER_RATIO_MOBILE : BLACK_HOLE_DIAMETER_RATIO),
   };
 }
 
-// ---------------------------------------------------------------------------
-// Shower scheduler
-// ---------------------------------------------------------------------------
 
 function randSoloMs():   number { return 20000  + (Math.random() * 20000 - 10000);  } // 20 ± 10 s
 function randShowerMs(): number { return 120000 + (Math.random() * 60000 - 30000);  } // 120 ± 30 s
 
-// maxClusters параметризован (раунд 5, п.5.6.3) — обычный поток использует
-// SHOWER_MAX_CLUSTERS, но «догоняющий» поток при возврате из фона использует
-// более узкий предел (см. loop() ниже), чтобы не выглядеть максимально
-// нагруженным каждый раз, когда пользователь отсутствовал на вкладке.
 function buildShowerSpecs(now: number, maxClusters: number): ShowerSpec[] {
   const numClusters = 1 + Math.floor(Math.random() * maxClusters);
   const angle       = (60 + Math.random() * 30) * (Math.PI / 180); // 60–90° от вертикали
@@ -913,9 +947,6 @@ function buildShowerSpecs(now: number, maxClusters: number): ShowerSpec[] {
   return specs;
 }
 
-// ---------------------------------------------------------------------------
-// Component (exported — thin conditional wrapper)
-// ---------------------------------------------------------------------------
 
 export function StarFieldCanvas() {
   const { theme } = useTheme();
@@ -923,9 +954,6 @@ export function StarFieldCanvas() {
   return <StarFieldCanvasInner />;
 }
 
-// ---------------------------------------------------------------------------
-// Inner implementation — монтируется только в dark-режиме
-// ---------------------------------------------------------------------------
 
 function StarFieldCanvasInner() {
   const canvasRef    = useRef<HTMLCanvasElement>(null);
@@ -934,26 +962,12 @@ function StarFieldCanvasInner() {
   const specsRef     = useRef<ShowerSpec[]>([]);
   const rafRef       = useRef<number>(0);
   const lastFrameRef = useRef<number>(0);
-  // Накопленное время в «скрытых» разрывах (RESUME_GAP_MS) — вычитается из
-  // now ТОЛЬКО для вращения вихря (п.8.3, docs/error-experience/spec.md):
-  // угол считается напрямую от performance.now(), которое идёт и при
-  // скрытой вкладке, поэтому без этого первый кадр после возврата рисовал
-  // бы звезду в позиции «по реальному прошедшему времени» — заметный
-  // скачок на случайный угол вместо продолжения с точки паузы. Метеорный
-  // планировщик (nextSoloRef/nextShwRef) НЕ использует это смещение —
-  // «догоняющий» поток при возврате осознанно сохранён (см. RESUME_GAP_MS
-  // выше), виртуальные часы затронули бы и его.
   const hiddenTimeOffsetRef = useRef(0);
   const nextSoloRef  = useRef<number>(0);
   const nextShwRef   = useRef<number>(0);
   const sizeRef      = useRef({ w: 0, h: 0 });
-  // Экспериментальная курсорная деформация (docs/error-experience/spec.md, Reach)
   const cursorPosRef    = useRef<{ x: number; y: number } | null>(null);
   const cursorHiddenRef = useRef(false);
-  // Дрейф курсора к центру (раунд 3, п.3) — driftPosRef=null означает «не
-  // дрейфует, точно следует за реальной мышью»; ненулевой — синтетическая
-  // позиция, падающая к центру независимо от cursorPosRef, пока быстрое
-  // движение мыши (onMouseMove) не сбросит её обратно в null.
   const driftPosRef        = useRef<{ x: number; y: number } | null>(null);
   const driftVelRef        = useRef({ x: 0, y: 0 });
   const lastMouseSampleRef = useRef<{ x: number; y: number; t: number } | null>(null);
@@ -962,13 +976,11 @@ function StarFieldCanvasInner() {
   useEffect(() => {
     const canvasEl = canvasRef.current;
     if (!canvasEl) return;
-    // TypeScript не сужает тип внутри замыканий — переобъявляем без null
     const canvas: HTMLCanvasElement = canvasEl;
 
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
 
-    // ---- Resize ----
     function resize() {
       const w = window.innerWidth;
       const h = window.innerHeight;
@@ -980,7 +992,6 @@ function StarFieldCanvasInner() {
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       ctx.scale(dpr, dpr);
-      // Пересоздаём звёзды для новых размеров (периоды и фазы хранятся в каждой Star)
       const stars = generateStars(w, h);
       const bh = resolveBlackHoleGeometry(w, h);
       const allStars = bh
@@ -992,44 +1003,35 @@ function StarFieldCanvasInner() {
 
     resize();
 
-    // ---- Scheduler init ----
     const t0 = performance.now();
     nextSoloRef.current = t0 + randSoloMs();
     nextShwRef.current  = t0 + randShowerMs();
-    // Гарантируем буфер 8 s между первыми событиями
     if (Math.abs(nextSoloRef.current - nextShwRef.current) < 8000) {
       nextShwRef.current = nextSoloRef.current + 8000;
     }
 
-    // ---- Static draw (prefers-reduced-motion) ----
     if (prefersReduced) {
       const ctx = canvas.getContext('2d');
       if (ctx) {
         const { w, h } = sizeRef.current;
         ctx.clearRect(0, 0, w, h);
-        // reduced-motion: чёрная дыра статична, без искажения звёзд/метеоров
-        // (само искажение — вид анимации), поэтому звёзды рисуются как обычно,
-        // а круг просто накладывается поверх
         drawStars(ctx, starsRef.current, 0, false, null);
         const bh = resolveBlackHoleGeometry(w, h);
         if (bh) {
           drawBlackHole(ctx, bh);
-          drawDiskLowerArc(ctx, bh);
-          drawDiskUpperArc(ctx, bh);
-          drawDiskBelt(ctx, bh);
-          drawPhotonRing(ctx, bh);
+          drawDiskLowerArc(ctx, bh, 0);
+          drawDiskUpperArc(ctx, bh, 0);
+          drawDiskBelt(ctx, bh, 0);
+          drawPhotonRing(ctx, bh, 0);
         }
       }
       return;
     }
 
-    // ---- Курсор (Reach — только вне prefers-reduced-motion) ----
     function onMouseMove(e: MouseEvent) {
       const now = performance.now();
       const prevSample = lastMouseSampleRef.current;
       cursorPosRef.current = { x: e.clientX, y: e.clientY };
-      // Обычное быстрое движение мышью/тачпадом «вырывает» курсор из дрейфа
-      // (докидываем п.3 доработки) — сравниваем скорость с предыдущим сэмплом
       if (
         prevSample &&
         exceedsEscapeSpeed(e.clientX - prevSample.x, e.clientY - prevSample.y, now - prevSample.t, CURSOR_DRIFT_ESCAPE_SPEED)
@@ -1041,26 +1043,17 @@ function StarFieldCanvasInner() {
     }
     window.addEventListener('mousemove', onMouseMove);
 
-    // ---- RAF loop ----
     function loop(now: number) {
       rafRef.current = requestAnimationFrame(loop);
 
       const { w, h } = sizeRef.current;
       const blackHole = resolveBlackHoleGeometry(w, h);
       const hasMeteors = meteorsRef.current.length > 0 || specsRef.current.length > 0;
-      // Чёрная дыра держит активно вращающиеся звёзды (п.1.2/1.3 ТЗ) — на 15 fps
-      // быстрое вращение выглядело бы дёргано (стробоскопический эффект),
-      // поэтому канвас переключается на те же 60 fps, что и при метеорах.
       const targetMs = (hasMeteors || blackHole) ? MTR_FRAME_MS : STAR_FRAME_MS;
       const frameGapMs = now - lastFrameRef.current;
       if (frameGapMs < targetMs) return;
       lastFrameRef.current = now;
 
-      // Разрыв такого порядка — пауза (скрытая вкладка/троттлинг), а не
-      // обычный тик; исключаем «лишнее» время из виртуальных часов вращения
-      // (п.8.3) — оставляем типичный кадровый интервал, чтобы после
-      // возврата вихрь продолжил вращение с той же точки, где остановился,
-      // а не прыгнул на угол, «положенный» по реальному прошедшему времени.
       if (frameGapMs > RESUME_GAP_MS) {
         hiddenTimeOffsetRef.current += frameGapMs - targetMs;
       }
@@ -1072,7 +1065,6 @@ function StarFieldCanvasInner() {
       ctx.clearRect(0, 0, w, h);
       drawStars(ctx, starsRef.current, rotationNow, true, blackHole);
 
-      // Solo meteor
       if (now >= nextSoloRef.current && meteorsRef.current.length < MAX_METEORS) {
         const angle = (60 + Math.random() * 30) * (Math.PI / 180);
         meteorsRef.current.push(spawnMeteor(w, h, angle, Math.random() < 0.5 ? 1 : -1, now));
@@ -1082,11 +1074,6 @@ function StarFieldCanvasInner() {
         }
       }
 
-      // Start shower — «догоняющий» поток после долгого отсутствия на
-      // вкладке ограничен более узким числом кластеров (п.5.6.3, раунд 5),
-      // иначе он гарантированно получался бы максимально нагруженным каждый
-      // раз (случайный диапазон buildShowerSpecs не отличает обычное и
-      // догоняющее срабатывание сам по себе).
       if (specsRef.current.length === 0 && now >= nextShwRef.current) {
         const maxClusters = frameGapMs > RESUME_GAP_MS ? SHOWER_CATCHUP_MAX_CLUSTERS : SHOWER_MAX_CLUSTERS;
         specsRef.current = buildShowerSpecs(now, maxClusters);
@@ -1096,7 +1083,6 @@ function StarFieldCanvasInner() {
         }
       }
 
-      // Dispatch ready shower specs
       if (specsRef.current.length > 0) {
         const pending: ShowerSpec[] = [];
         for (const spec of specsRef.current) {
@@ -1109,28 +1095,18 @@ function StarFieldCanvasInner() {
         specsRef.current = pending;
       }
 
-      // Draw meteors & remove expired
       if (meteorsRef.current.length > 0) {
         meteorsRef.current = drawAndFilterMeteors(ctx, meteorsRef.current, now, blackHole);
       }
 
-      // Круг — поверх звёзд/метеоров (горизонт событий их «закрывает»).
-      // Аккреционный диск (раунд 13, коммит 1 — статичная геометрия): тень
-      // → нижняя дуга → верхняя дуга → пояс (перекрывает швы дуг по бокам)
-      // → фотонное кольцо (см. функции выше).
       if (blackHole) {
         drawBlackHole(ctx, blackHole);
-        drawDiskLowerArc(ctx, blackHole);
-        drawDiskUpperArc(ctx, blackHole);
-        drawDiskBelt(ctx, blackHole);
-        drawPhotonRing(ctx, blackHole);
+        drawDiskLowerArc(ctx, blackHole, rotationNow);
+        drawDiskUpperArc(ctx, blackHole, rotationNow);
+        drawDiskBelt(ctx, blackHole, rotationNow);
+        drawPhotonRing(ctx, blackHole, rotationNow);
       }
 
-      // Дрейф к центру (п.3 доработки) — вычисляем позицию для рендера
-      // (реальную либо дрейфующую) ДО renderCursorLensing, который её просто
-      // рисует, не зная о существовании дрейфа. Клэмп (п.8.3) — без него dt
-      // после скрытой вкладки может быть счётом на секунды и уйти прямиком
-      // в интегрирование скорости (см. MAX_DRIFT_DT_SECONDS выше).
       const rawDriftDtSeconds = lastDriftTimeRef.current ? (now - lastDriftTimeRef.current) / 1000 : 0;
       const driftDtSeconds = Math.min(rawDriftDtSeconds, MAX_DRIFT_DT_SECONDS);
       lastDriftTimeRef.current = now;
@@ -1142,21 +1118,15 @@ function StarFieldCanvasInner() {
 
     rafRef.current = requestAnimationFrame(loop);
 
-    // ---- Pause on hidden tab ----
     function onVisibility() {
       if (document.hidden) {
         cancelAnimationFrame(rafRef.current);
       } else {
-        // lastFrameRef.current НЕ трогаем — loop() сам читает разрыв между
-        // этим (устаревшим) значением и текущим performance.now() как сигнал
-        // «только что вернулись из фона» (RESUME_GAP_MS, п.5.6.3, раунд 5),
-        // сброс здесь замаскировал бы этот разрыв ещё до первого тика.
         rafRef.current = requestAnimationFrame(loop);
       }
     }
     document.addEventListener('visibilitychange', onVisibility);
 
-    // ---- Resize observer ----
     const ro = new ResizeObserver(resize);
     ro.observe(document.body);
 
@@ -1165,7 +1135,6 @@ function StarFieldCanvasInner() {
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('mousemove', onMouseMove);
       ro.disconnect();
-      // На случай ухода со страницы прямо в момент, когда курсор был скрыт
       document.body.style.cursor = '';
     };
   }, []);
