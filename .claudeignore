@@ -14,3 +14,6 @@ frontend/coverage/
 # DBs / migrations
 *.db
 *.sqlite
+
+# рабочие файлы Antigravity (Gemini) CLI
+.gemini/
