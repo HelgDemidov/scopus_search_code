@@ -1,0 +1,19 @@
+# Игнорировать рабочие файлы Claude CLI
+.claude/
+.claudeignore
+CLAUDE.md
+frontend/CLAUDE.md
+
+# Игнорировать технические и бинарные файлы
+*.log
+.pytest_cache/
+.coverage
+htmlcov/
+.vercel/
+.railway/
+frontend/coverage/
+*.db
+*.sqlite
+
+# Временно игнорировать .env
+.env
