@@ -536,7 +536,7 @@ function drawBlackHole(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry): vo
 // явно двумя раундами вопросов.
 function beltCenterlineY(x: number, rx: number, sag: number): number {
   const t = Math.max(0, Math.min(1, Math.abs(x) / rx));
-  return sag * Math.pow(Math.cos(t * Math.PI / 2), 1.5);
+  return sag * Math.pow(Math.cos(t * Math.PI / 2), 2.5);
 }
 
 // Половина толщины пояса в точке x — тот же профиль, симметично вокруг
@@ -544,7 +544,7 @@ function beltCenterlineY(x: number, rx: number, sag: number): number {
 // пользователя).
 function beltHalfThicknessAt(x: number, rx: number, beltHalf: number): number {
   const t = Math.max(0, Math.min(1, Math.abs(x) / rx));
-  return beltHalf * Math.pow(Math.cos(t * Math.PI / 2), 1.5);
+  return beltHalf * Math.pow(Math.cos(t * Math.PI / 2), 2.5);
 }
 
 // Правка 13.6 (по вводной пользователя) — ни полиномиальный, ни
@@ -570,14 +570,46 @@ function hermiteBlend(p0: number, m0: number, p1: number, m1: number, t: number)
 }
 
 // Аналитический джиттер контуров: создает сверхчастотное хаотичное дрожание "рваных" краев
-function getEdgeJitter(x: number, rx: number, R: number, now: number): number {
+// Аналитическая генерация протуберанцев (Flame-like) и микро-шума (Jitter)
+function getEdgeDisplacement(x: number, rx: number, R: number, now: number, direction: number, seed: number): { dx: number, dy: number } {
   const t = x / rx; // -1 to 1
-  const jitterNorm = (
-    Math.sin(t * 13 + now * 0.15) * 0.5 +
-    Math.sin(t * 23 - now * 0.21) * 0.3 +
-    Math.sin(t * 37 + now * 0.33) * 0.2
-  );
-  return jitterNorm * (R * 0.1); // +/- 10% of radius jitter
+  
+  // 1. Базовый микро-хаос (кипящая плазма)
+  const baseJitter = (
+    Math.sin(t * 13 + now * 0.15 + seed) * 0.5 +
+    Math.sin(t * 23 - now * 0.21 + seed * 1.3) * 0.3 +
+    Math.sin(t * 37 + now * 0.33 + seed * 0.7) * 0.2
+  ) * (R * 0.03); 
+  
+  // 2. Протуберанцы (языки пламени с коротким жизненным циклом 0.1s - 0.3s)
+  const t1 = now * 0.012 + seed;
+  const t2 = now * 0.018 - seed;
+  
+  const envelope = Math.max(0, 
+    Math.sin(t * 25 - t1) + 
+    Math.cos(t * 43 + t2) - 
+    1.4 // Пороговое значение: только сильные пики становятся протуберанцами
+  ); // Максимум envelope: ~0.6
+  
+  let flameDx = 0;
+  let flameDy = 0;
+  
+  if (envelope > 0) {
+    // Высокочастотная структура ("рваность") языка пламени
+    const jagged = Math.sin(t * 180 - now * 0.04) * 0.5 + Math.sin(t * 310 + now * 0.05) * 0.5;
+    const height = envelope * (1 + jagged) * 6.0; // Высота выброса до 6-7px
+    flameDy = height;
+    
+    // Эффект закручивания: протуберанец сносится по касательной из-за вращения диска.
+    flameDx = height * 1.8; 
+  }
+  
+  // direction: -1 (внешняя граница идет ВВЕРХ, в отрицательный y), 1 (ВНИЗ, в положительный y)
+  // Вращение: верхние границы сносит влево (negative x), нижние вправо (positive x).
+  return {
+    dx: flameDx * direction,
+    dy: (Math.abs(baseJitter) + flameDy) * direction
+  };
 }
 
 // Наложение доплеровского свечения с цветовой температурой (сине-белый край) и хаотичным фликером
@@ -605,11 +637,11 @@ function applyDopplerGlow(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, 
     // Modulate alpha (up to +/- 40%)
     const a = Math.max(0, Math.min(1, baseAlpha * (1 + 0.4 * flicker)));
     
-    // Bright blue-white on the approaching side!
+    // Extremely hot blue plasma halo on the very edge, rapidly becoming brilliant white
     if (i === 0) {
-      // 0.0 stop: pure white -> neon blue transition
-      dopplerGrad.addColorStop(0, `rgba(255, 255, 255, ${Math.min(1, a * 1.5).toFixed(3)})`);
-      dopplerGrad.addColorStop(0.1, `rgba(100, 200, 255, ${a.toFixed(3)})`);
+      dopplerGrad.addColorStop(0, `rgba(50, 150, 255, ${(a * 0.9).toFixed(3)})`); // True blue outer envelope
+      dopplerGrad.addColorStop(0.05, `rgba(255, 255, 255, ${Math.min(1, a * 2.0).toFixed(3)})`); // Pure white core
+      dopplerGrad.addColorStop(0.15, `rgba(255, 255, 255, ${Math.min(1, a * 1.5).toFixed(3)})`);
     } else {
       dopplerGrad.addColorStop(t, `rgba(100, 200, 255, ${a.toFixed(3)})`);
     }
@@ -661,11 +693,13 @@ function drawDiskLowerArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, 
     const thickness = absX <= xFlat ? poleT : Math.max(0, poleT - slope * (absX - xFlat));
     const rampY = innerY + thickness;
     const beltBottomY = beltCenterlineY(x, rx, sag) + beltHalfThicknessAt(x, rx, beltHalf);
-    let y = Math.max(rampY, beltBottomY);
-    // Jitter downwards (outer edge)
-    y += Math.abs(getEdgeJitter(x, rx, R, now + 1000));
-    const px = bh.x + x * cos - y * sin;
-    const py = bh.y + x * sin + y * cos;
+    const y = Math.max(rampY, beltBottomY);
+    // Protuberances downwards (direction = 1)
+    const disp = getEdgeDisplacement(x, rx, R, now, 1, 1000);
+    const finalX = x + disp.dx;
+    const finalY = y + disp.dy;
+    const px = bh.x + finalX * cos - finalY * sin;
+    const py = bh.y + finalX * sin + finalY * cos;
     ctx.lineTo(px, py);
   }
   ctx.closePath();
@@ -683,10 +717,12 @@ function drawDiskLowerArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, 
     const thickness = absX <= xFlat ? poleT : Math.max(0, poleT - slope * (absX - xFlat));
     const rampY = innerY + thickness;
     const beltBottomY = beltCenterlineY(x, rx, sag) + beltHalfThicknessAt(x, rx, beltHalf);
-    let y = Math.max(rampY, beltBottomY);
-    y += Math.abs(getEdgeJitter(x, rx, R, now + 11000));
-    const px = bh.x + x * cos - y * sin;
-    const py = bh.y + x * sin + y * cos;
+    const y = Math.max(rampY, beltBottomY);
+    const disp = getEdgeDisplacement(x, rx, R, now, 1, 11000);
+    const finalX = x + disp.dx;
+    const finalY = y + disp.dy;
+    const px = bh.x + finalX * cos - finalY * sin;
+    const py = bh.y + finalX * sin + finalY * cos;
     if (i === n) ctx.moveTo(px, py); else ctx.lineTo(px, py);
   }
   ctx.lineWidth = 3;
@@ -745,18 +781,20 @@ function drawDiskUpperArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, 
     } else {
       y = hermiteBlend(y1, m0, y2, m1, (absX - x1) / dx);
     }
-    // Jitter upwards (negative y is up)
-    y -= Math.abs(getEdgeJitter(x, rx, R, now + 2000));
+    // Protuberances upwards (direction = -1)
+    const disp = getEdgeDisplacement(x, rx, R, now, -1, 2000);
+    const finalX = x + disp.dx;
+    const finalY = y + disp.dy;
     
-    const px = bh.x + x * cos - y * sin;
-    const py = bh.y + x * sin + y * cos;
+    const px = bh.x + finalX * cos - finalY * sin;
+    const py = bh.y + finalX * sin + finalY * cos;
     if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
   }
   for (let i = n; i >= 0; i--) {
     const x = -halfSpan + (2 * halfSpan * i) / n;
-    // Wobble the inner gap very slightly
-    const jInner = getEdgeJitter(x, rx, R, now + 3000) * 0.4;
-    const y = -Math.sqrt(Math.max(0, Rinner * Rinner - x * x)) - Math.abs(jInner);
+    // Wobble the inner gap very slightly without flames (just use disp.dy with 0 envelope)
+    const jInnerDisp = getEdgeDisplacement(x, rx, R, now, -1, 3000);
+    const y = -Math.sqrt(Math.max(0, Rinner * Rinner - x * x)) + jInnerDisp.dy * 0.15; // Just a tiny wobble
     const px = bh.x + x * cos - y * sin;
     const py = bh.y + x * sin + y * cos;
     ctx.lineTo(px, py);
@@ -785,9 +823,11 @@ function drawDiskUpperArc(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, 
     } else {
       y = hermiteBlend(y1, m0, y2, m1, (absX - x1) / dx);
     }
-    y -= Math.abs(getEdgeJitter(x, rx, R, now + 12000));
-    const px = bh.x + x * cos - y * sin;
-    const py = bh.y + x * sin + y * cos;
+    const disp = getEdgeDisplacement(x, rx, R, now, -1, 12000);
+    const finalX = x + disp.dx;
+    const finalY = y + disp.dy;
+    const px = bh.x + finalX * cos - finalY * sin;
+    const py = bh.y + finalX * sin + finalY * cos;
     if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
   }
   ctx.lineWidth = 3;
@@ -812,18 +852,20 @@ function drawDiskBelt(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, now:
   ctx.beginPath();
   for (let i = 0; i <= n; i++) {
     const x = -rx + (2 * rx * i) / n;
-    // Jitter upwards
-    const y = beltCenterlineY(x, rx, sag) - beltHalfThicknessAt(x, rx, beltHalf) - Math.abs(getEdgeJitter(x, rx, bh.radius, now + 4000));
-    const px = bh.x + x * cos - y * sin;
-    const py = bh.y + x * sin + y * cos;
+    const disp = getEdgeDisplacement(x, rx, bh.radius, now, -1, 4000);
+    const finalX = x + disp.dx;
+    const finalY = (beltCenterlineY(x, rx, sag) - beltHalfThicknessAt(x, rx, beltHalf)) + disp.dy;
+    const px = bh.x + finalX * cos - finalY * sin;
+    const py = bh.y + finalX * sin + finalY * cos;
     if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
   }
   for (let i = n; i >= 0; i--) {
     const x = -rx + (2 * rx * i) / n;
-    // Jitter downwards
-    const y = beltCenterlineY(x, rx, sag) + beltHalfThicknessAt(x, rx, beltHalf) + Math.abs(getEdgeJitter(x, rx, bh.radius, now + 5000));
-    const px = bh.x + x * cos - y * sin;
-    const py = bh.y + x * sin + y * cos;
+    const disp = getEdgeDisplacement(x, rx, bh.radius, now, 1, 5000);
+    const finalX = x + disp.dx;
+    const finalY = (beltCenterlineY(x, rx, sag) + beltHalfThicknessAt(x, rx, beltHalf)) + disp.dy;
+    const px = bh.x + finalX * cos - finalY * sin;
+    const py = bh.y + finalX * sin + finalY * cos;
     ctx.lineTo(px, py);
   }
   ctx.closePath();
@@ -845,16 +887,20 @@ function drawDiskBelt(ctx: CanvasRenderingContext2D, bh: BlackHoleGeometry, now:
   ctx.beginPath();
   for (let i = 0; i <= n; i++) {
     const x = -rx + (2 * rx * i) / n;
-    const y = beltCenterlineY(x, rx, sag) - beltHalfThicknessAt(x, rx, beltHalf) - Math.abs(getEdgeJitter(x, rx, bh.radius, now + 14000));
-    const px = bh.x + x * cos - y * sin;
-    const py = bh.y + x * sin + y * cos;
+    const disp = getEdgeDisplacement(x, rx, bh.radius, now, -1, 14000);
+    const finalX = x + disp.dx;
+    const finalY = (beltCenterlineY(x, rx, sag) - beltHalfThicknessAt(x, rx, beltHalf)) + disp.dy;
+    const px = bh.x + finalX * cos - finalY * sin;
+    const py = bh.y + finalX * sin + finalY * cos;
     if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
   }
   for (let i = n; i >= 0; i--) {
     const x = -rx + (2 * rx * i) / n;
-    const y = beltCenterlineY(x, rx, sag) + beltHalfThicknessAt(x, rx, beltHalf) + Math.abs(getEdgeJitter(x, rx, bh.radius, now + 15000));
-    const px = bh.x + x * cos - y * sin;
-    const py = bh.y + x * sin + y * cos;
+    const disp = getEdgeDisplacement(x, rx, bh.radius, now, 1, 15000);
+    const finalX = x + disp.dx;
+    const finalY = (beltCenterlineY(x, rx, sag) + beltHalfThicknessAt(x, rx, beltHalf)) + disp.dy;
+    const px = bh.x + finalX * cos - finalY * sin;
+    const py = bh.y + finalX * sin + finalY * cos;
     ctx.lineTo(px, py);
   }
   ctx.closePath();
