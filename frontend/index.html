@@ -2,7 +2,17 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // Dynamically scale down on narrow mobile screens (<412px) to preserve exact layout proportions (baseline: Google Pixel 6a)
+      // We calculate the scale explicitly to ensure the browser centers the layout without bleeding off-screen.
+      var screenWidth = Math.min(window.screen.width, window.screen.height);
+      if (screenWidth < 412) {
+        var scale = Math.floor((screenWidth / 412) * 10000) / 10000;
+        document.write('<meta name="viewport" content="width=412, initial-scale=' + scale + ', maximum-scale=' + scale + ', user-scalable=no" />');
+      } else {
+        document.write('<meta name="viewport" content="width=device-width, initial-scale=1.0" />');
+      }
+    </script>
     <meta name="description" content="AI research publications from Scopus, curated and searchable" />
     <meta name="robots" content="index, follow" />
 
