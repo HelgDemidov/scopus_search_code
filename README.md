@@ -218,6 +218,21 @@ cd frontend && npm run test
 
 ---
 
+## Performance
+
+We use [k6](https://k6.io/) for load testing critical read-only endpoints (e.g., search, statistics).
+
+**Current Baseline (Local Backend + Supabase DB):**
+*   **Target:** `P(95) < 500ms`, `P(99) < 1000ms`, `rate(errors) < 1%`.
+*   **Result:** The baseline test failed with high latencies (`P(95) = 23.07s`, `P(99) = 26.05s`) and an error rate of `17.36%` (some requests timed out or failed under a load of 20 concurrent VUs).
+*   **Command to run baseline:**
+    ```bash
+    docker run --rm --network host -i grafana/k6 run - < tests/load/baseline.js
+    ```
+    *(Requires local backend running on `http://localhost:8000`)*
+
+---
+
 ## Local Launch
 
 <details>
