@@ -68,7 +68,7 @@ function RootLayout() {
   }, [location]);
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-[100dvh] bg-background text-foreground">
       <Header />
       <main>
         <RouterOutlet />

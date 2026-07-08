@@ -11,7 +11,7 @@ export const BLACK_HOLE_POSITION_Y_PX = 594;
 //
 export const MOBILE_BREAKPOINT_PX = 768; // тот же порог, что у generateStars() ниже
 export const BLACK_HOLE_POSITION_MOBILE_X_RATIO = 0.70;
-export const BLACK_HOLE_POSITION_MOBILE_Y_PX = 760; // центр дыры ниже карточки ошибки; верх вортекса = 760 − vortexR ≈ 643px, нижний край карточки ≈ 630px
+export const BLACK_HOLE_POSITION_MOBILE_Y_PX = 480; // центр дыры так, чтобы верх вортекса (~117px радиус) был на ~363px (карточка ошибки кончается на ~355px)
 
 //
 export const LENSING_FADE_START_DIAMETERS = 3.0 / 0.6; // дальше — совсем без искажения
