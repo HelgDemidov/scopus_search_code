@@ -14,7 +14,7 @@ i18n: react-i18next 17 + i18next 26 + i18next-browser-languagedetector 8.
 - `locales/` — `en`/`ru`/`sr-Latn` translation.json (204 ключа); `i18n.ts` init; `i18next.d.ts` типы; `test/setup.ts` — jest-dom matchers
 
 ## Key stores
-- `articleStore` — articles/pagination/`searchMode`('catalog'|'scopus')/`currentKeyword`/`resetKey`; `setSearchMode()` → `historyStore.resetFilters()`; `resetSearch()` → clears + инкрементирует `resetKey`
+- `articleStore` — articles/pagination/`searchMode`('catalog'|'scopus')/`currentKeyword`/`resetKey`; `setSearchMode()` → `historyStore.resetFilters()`; `resetSearch()` → clears + инкрементирует `resetKey`. `totalIsCapped` (PR #58) — бэкенд капает точный `COUNT(*)` на 2000 (перф на широких ILIKE-фильтрах), UI обязан показывать "2000+", не точное число
 - `historyStore` — search history (сырой список для `/profile`) + `historyFilters` (shared фильтры) + `resetFilters()`; агрегирующие селекторы (`selectByYear`/`DocType`/`Country`/`Journal`) удалены (PR #45) — `/explore?mode=personal` берёт данные напрямую с бэкенда
 - `statsStore` — catalog stats; загружается в `App.tsx` на старте
 - `dashboardStore` — /explore: `activeSelection` (cross-filter), `drawerDimension` (Sheet), `builderCards`
@@ -26,7 +26,7 @@ i18n: react-i18next 17 + i18next 26 + i18next-browser-languagedetector 8.
 
 ## Tests (co-location pattern: тест рядом с источником)
 Unit: `src/**/*.test.{ts,tsx}` | Integration: `*.integration.test.*`
-Total (main, 2026-07-05): **635** тестов, все зелёные.
+Total (main, 2026-07-09): **640** тестов, все зелёные.
 Vitest patterns (Checkbox mock, fake timers, vi.hoisted) — см. память [[feedback-vitest-testing-patterns]]. jsdom mocks — [[feedback-jsdom-browser-api-mocks]].
 
 ### Coverage (2026-06-26)
@@ -35,7 +35,10 @@ CI: `integration` job считает coverage по всем тестам. `front
 
 ## CI: frontend-tests.yml (triggers: push main, paths: frontend/**)
 Джобы: `typecheck` (tsc --noEmit), `lint` (ESLint --max-warnings 0 + npm audit --audit-level=high), `unit` (vitest, искл. `*.integration.test.*`), `integration` (vitest + coverage artifact), `build` (npm run build).
-Node.js 22. **ESLint:** flat config `eslint.config.js` (ESLint 10 + typescript-eslint 8 + react-hooks 7 + react-refresh); shadcn/ui overrides — последний блок в файле (last block wins). `react-hooks/set-state-in-effect` disable-comment — **внутри** тела useEffect, перед первым setState.
+Node.js 22. **ESLint:** flat config `eslint.config.js` (ESLint 10 + typescript-eslint 8 + react-hooks 7 + react-refresh + `eslint-plugin-jsx-a11y`, PR #58); shadcn/ui overrides — последний блок в файле (last block wins). `react-hooks/set-state-in-effect` disable-comment — **внутри** тела useEffect, перед первым setState.
+
+## A11y automation (PR #58, merged 2026-07-09)
+`eslint-plugin-jsx-a11y` (в `lint`) + `vitest-axe` (в `unit`, `test/setup.ts` регистрирует `toHaveNoViolations`) — переиспользуют существующие CI-джобы, без отдельной. `frontend/.npmrc` (`legacy-peer-deps=true`) обязателен — плагин не успел обновить peer-диапазон под ESLint 10. Известное ограничение: axe-core в jsdom не проверяет color-contrast (нет Canvas 2D) — страховка от структурных/ARIA-нарушений, не замена ручной/Lighthouse-проверки.
 
 ## Commands (from frontend/)
 ```bash
