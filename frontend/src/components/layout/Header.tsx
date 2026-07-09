@@ -1,7 +1,9 @@
-import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ThemeToggle } from '../theme/ThemeToggle';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { LocalizedLink } from './LocalizedLink';
+import { useLocalizedNavigate } from '../../hooks/useLocalizedNavigate';
+import { useDefaultLandingPath } from '../../hooks/useDefaultLandingPath';
 import { useArticleStore } from '../../stores/articleStore';
 import {
   NavigationMenu,
@@ -24,19 +26,22 @@ import { getInitials } from '../../utils/userDisplay';
 
 export function Header() {
   const { user, isAuthenticated, logout } = useAuthStore();
-  const navigate = useNavigate();
+  const navigate = useLocalizedNavigate();
   const resetSearch = useArticleStore((s) => s.resetSearch);
   const { t } = useTranslation();
+  // Логотип — role-based цель (§4.1 ТЗ): /main для анонимных, /search для
+  // авторизованных, вместо голого '/' (лишний прыжок через RootRedirect)
+  const landingPath = useDefaultLandingPath();
 
   // Display name: username ?? part of email before @
   const displayName = user
     ? (user.username ?? user.email.split('@')[0])
     : '';
 
-  // Sign out: clear store, redirect to home
+  // Sign out: clear store, redirect to /main (после logout isAuthenticated=false)
   function handleLogout() {
     logout();
-    navigate('/');
+    navigate('/main');
   }
 
   return (
@@ -49,8 +54,8 @@ export function Header() {
     >
       <div className="mx-auto flex h-14 max-w-screen-xl items-center justify-between px-4">
         {/* Logo — aria-label kept in English per spec §1.6 */}
-        <Link
-          to="/"
+        <LocalizedLink
+          to={landingPath}
           onClick={resetSearch}
           className="flex items-center gap-2 text-slate-900 no-underline dark:text-slate-100"
         >
@@ -66,7 +71,7 @@ export function Header() {
             <line x1="22" y1="22" x2="28" y2="28" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="text-blue-800 dark:text-blue-500" />
           </svg>
           <span className="font-semibold text-sm tracking-tight">Scopus Search</span>
-        </Link>
+        </LocalizedLink>
 
         {/* Navigation + right-side controls — скрыто <sm (§4.3 ТЗ,
             docs/layout-overhaul/spec.md): замеры показали, что вся эта
@@ -77,10 +82,18 @@ export function Header() {
           <LanguageSwitcher />
           <NavigationMenu>
             <NavigationMenuList>
+              {/* "Search" link — always visible (docs/i18n-url-routing/spec.md §4.1:
+                  раньше поиск был достижим только через логотип/'/') */}
+              <NavigationMenuItem>
+                <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
+                  <LocalizedLink to="/search">{t('nav.search')}</LocalizedLink>
+                </NavigationMenuLink>
+              </NavigationMenuItem>
+
               {/* "Explore" link — always visible */}
               <NavigationMenuItem>
                 <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
-                  <Link to="/explore">{t('nav.explore')}</Link>
+                  <LocalizedLink to="/explore">{t('nav.explore')}</LocalizedLink>
                 </NavigationMenuLink>
               </NavigationMenuItem>
 
@@ -88,7 +101,7 @@ export function Header() {
               {isAuthenticated && (
                 <NavigationMenuItem>
                   <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
-                    <Link to="/profile">{t('nav.profile')}</Link>
+                    <LocalizedLink to="/profile">{t('nav.profile')}</LocalizedLink>
                   </NavigationMenuLink>
                 </NavigationMenuItem>
               )}
@@ -110,7 +123,7 @@ export function Header() {
               // размеру шрифта, обе надписи на одном горизонтальном уровне.
               className="bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-md"
             >
-              <Link to="/auth">{t('nav.signIn')}</Link>
+              <LocalizedLink to="/auth">{t('nav.signIn')}</LocalizedLink>
             </Button>
           )}
 
@@ -137,7 +150,7 @@ export function Header() {
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link to="/profile">{t('nav.profile')}</Link>
+                  <LocalizedLink to="/profile">{t('nav.profile')}</LocalizedLink>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem

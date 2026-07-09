@@ -44,8 +44,10 @@ describe('Header', () => {
   it('логотип остаётся видимым вне скрытой группы (не зависит от брейкпоинта)', () => {
     const { container } = renderHeader();
     // Не через accessible-name (svg aria-label + соседний текст дают
-    // неоднозначное вычисляемое имя) — ищем по href напрямую.
-    const logo = container.querySelector('a[href="/"]');
+    // неоднозначное вычисляемое имя) — ищем по href напрямую. Анонимный
+    // пользователь (isAuthenticated=false в beforeEach) → role-based
+    // /main; вне /:lang-поддерева LocalizedLink использует DEFAULT_URL_LANG.
+    const logo = container.querySelector('a[href="/en/main"]');
     expect(logo).not.toBeNull();
     expect(logo?.parentElement?.parentElement?.tagName).toBe('HEADER');
   });

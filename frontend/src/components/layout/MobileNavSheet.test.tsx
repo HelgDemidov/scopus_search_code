@@ -51,7 +51,8 @@ describe('MobileNavSheet', () => {
 
   it('аноним: показывает "Sign in", не показывает Sign out/аватар', () => {
     renderMenu();
-    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/auth');
+    // Нет /:lang в URL (голый MemoryRouter) → LocalizedLink использует DEFAULT_URL_LANG
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/en/auth');
     expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument();
   });
 
@@ -64,7 +65,7 @@ describe('MobileNavSheet', () => {
   it('всегда показывает ссылку "Explore"', () => {
     renderMenu();
     const nav = screen.getByRole('navigation', { name: 'Menu' });
-    expect(within(nav).getByRole('link', { name: 'Explore' })).toHaveAttribute('href', '/explore');
+    expect(within(nav).getByRole('link', { name: 'Explore' })).toHaveAttribute('href', '/en/explore');
   });
 
   it('авторизован: показывает имя/email, "Profile" и "Sign out", не "Sign in"', () => {
@@ -81,10 +82,10 @@ describe('MobileNavSheet', () => {
     expect(screen.queryByRole('link', { name: 'Sign in' })).not.toBeInTheDocument();
 
     const nav = screen.getByRole('navigation', { name: 'Menu' });
-    expect(within(nav).getByRole('link', { name: 'Profile' })).toHaveAttribute('href', '/profile');
+    expect(within(nav).getByRole('link', { name: 'Profile' })).toHaveAttribute('href', '/en/profile');
   });
 
-  it('клик "Sign out" вызывает logout() и переход на "/"', async () => {
+  it('клик "Sign out" вызывает logout() и переход на "/en/main"', async () => {
     const mockLogout = vi.fn().mockResolvedValue(undefined);
     useAuthStore.setState({
       isAuthenticated: true,
@@ -97,7 +98,8 @@ describe('MobileNavSheet', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sign out' }));
 
     expect(mockLogout).toHaveBeenCalledTimes(1);
-    expect(mockNavigate).toHaveBeenCalledWith('/');
+    // После logout isAuthenticated=false → useDefaultLandingPath возвращает '/main'
+    expect(mockNavigate).toHaveBeenCalledWith('/en/main');
   });
 
   it('переключение языка на русский переводит пункты меню', async () => {

@@ -45,7 +45,9 @@ describe('NotFoundPage', () => {
   it('shows an Explore collection link pointing to /explore', () => {
     renderPage('/mamba');
     const link = screen.getByRole('link');
-    expect(link).toHaveAttribute('href', '/explore');
+    // Нет /:lang в URL (голый MemoryRouter) → LocalizedLink фоллбэчится на
+    // текущий i18n.language (по умолчанию 'en' в тестах)
+    expect(link).toHaveAttribute('href', '/en/explore');
   });
 
   // §10.4 post-prod (docs/layout-overhaul/spec.md): jsdom не считает layout —

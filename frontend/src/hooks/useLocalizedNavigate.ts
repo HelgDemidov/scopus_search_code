@@ -10,7 +10,8 @@ export function useLocalizedNavigate() {
   const navigate = useNavigate();
   const resolve = useLocalizedPath();
   return useCallback(
-    (path: string, options?: NavigateOptions) => navigate(resolve(path), options),
+    (path: string, options?: NavigateOptions) =>
+      options === undefined ? navigate(resolve(path)) : navigate(resolve(path), options),
     [navigate, resolve],
   );
 }

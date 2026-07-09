@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
 import { Trans, useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useAuthStore } from '../stores/authStore';
 import { useArticleStore } from '../stores/articleStore';
 import { SearchBar } from '../components/search/SearchBar';
+import { LocalizedLink } from '../components/layout/LocalizedLink';
 import { ArticleList } from '../components/articles/ArticleList';
 import { ScopusQuotaBadge } from '../components/articles/ScopusQuotaBadge';
 import { ScopusPaginationBar } from '../components/articles/ScopusPaginationBar';
@@ -36,7 +36,7 @@ function AnonHero({ onSearch }: { onSearch: (q: string) => void }) {
         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
           <Trans
             i18nKey="searchPage.anonSubtitle"
-            components={{ lnk: <Link to="/auth" className="text-blue-800 dark:text-blue-400 hover:underline" /> }}
+            components={{ lnk: <LocalizedLink to="/auth" className="text-blue-800 dark:text-blue-400 hover:underline" /> }}
           />
         </p>
       </div>
@@ -46,7 +46,7 @@ function AnonHero({ onSearch }: { onSearch: (q: string) => void }) {
       <p className="text-sm text-slate-500 dark:text-slate-400 text-center max-w-md">
         <Trans
           i18nKey="searchPage.anonNote"
-          components={{ lnk: <Link to="/auth" className="text-blue-800 dark:text-blue-400 hover:underline" /> }}
+          components={{ lnk: <LocalizedLink to="/auth" className="text-blue-800 dark:text-blue-400 hover:underline" /> }}
         />
       </p>
     </div>

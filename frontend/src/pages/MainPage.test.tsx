@@ -29,8 +29,9 @@ describe('MainPage', () => {
 
   it('анонимный пользователь видит обе CTA-кнопки: Start searching и Sign in', () => {
     renderPage();
-    expect(screen.getByRole('link', { name: /Start searching/i })).toHaveAttribute('href', '/search');
-    expect(screen.getByRole('link', { name: /Sign in/i })).toHaveAttribute('href', '/auth');
+    // Нет /:lang в URL (голый MemoryRouter) → LocalizedLink использует DEFAULT_URL_LANG
+    expect(screen.getByRole('link', { name: /Start searching/i })).toHaveAttribute('href', '/en/search');
+    expect(screen.getByRole('link', { name: /Sign in/i })).toHaveAttribute('href', '/en/auth');
   });
 
   it('авторизованный пользователь не видит CTA Sign in', () => {

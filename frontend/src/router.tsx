@@ -12,10 +12,9 @@ import { Header } from './components/layout/Header';
 import { PrivateRoute } from './components/layout/PrivateRoute';
 import { LocaleLayout } from './components/layout/LocaleLayout';
 import { recordBreadcrumb } from './utils/errorReport';
-import { DEFAULT_URL_LANG, buildLocalizedPath, i18nToUrlLang } from './utils/localeRouting';
+import { DEFAULT_URL_LANG, buildLocalizedPath } from './utils/localeRouting';
 import { useLocalizedPath } from './hooks/useLocalizedPath';
 import { useDefaultLandingPath } from './hooks/useDefaultLandingPath';
-import i18n from './i18n';
 import NotFoundPage from './pages/error/NotFoundPage';
 import RouteErrorPage from './pages/error/RouteErrorPage';
 
@@ -86,24 +85,21 @@ function RootLayout() {
 // Редиректы для локализованной URL-архитектуры (docs/i18n-url-routing/spec.md §5)
 // ---------------------------------------------------------------------------
 
-// Голый '/' (вне /:lang-поддерева) — детектит язык из уже инициализированного
-// i18next (LanguageDetector отработал синхронно при импорте ./i18n в main.tsx,
-// до первого рендера) и роль (анон/авторизован), редиректит одним прыжком на
-// реальный локализованный лендинг. Не листится в sitemap.xml (§6 ТЗ) —
-// редиректор, не контент.
-export function RootRedirect() {
-  const landingPath = useDefaultLandingPath();
-  const urlLang = i18nToUrlLang[i18n.language] ?? DEFAULT_URL_LANG;
-  return <Navigate to={buildLocalizedPath(urlLang, landingPath)} replace />;
-}
-
-// Голый '/:lang' (ручной ввод без секции) — та же роль-based цель, но lang уже
-// известен из URL (валидность гарантирована LocaleLayout-родителем).
+// Общая role-based (анон → /main, авторизован → /search) index-редирект-цель —
+// используется и на голом '/' (вне /:lang-поддерева), и на голом '/:lang'
+// (ручной ввод без секции). useLocalizedPath сама решает лингвистический
+// фоллбэк в обоих случаях (вне /:lang — уже инициализированный i18next;
+// внутри — сам :lang, валидность гарантирована LocaleLayout-родителем).
+// Не листится в sitemap.xml (§6 ТЗ) — редиректор, не контент.
 export function LangIndexRedirect() {
   const resolve = useLocalizedPath();
   const landingPath = useDefaultLandingPath();
   return <Navigate to={resolve(landingPath)} replace />;
 }
+
+// Алиас для голого '/' — тот же компонент, отдельное имя отражает
+// семантически другую позицию в дереве роутов (вне /:lang, а не его index).
+export const RootRedirect = LangIndexRedirect;
 
 // Legacy bare-пути (были проиндексированы Google до этого ТЗ — /explore,
 // /auth, /profile, /article/:id, /forgot-password, §3 ТЗ) — client-side

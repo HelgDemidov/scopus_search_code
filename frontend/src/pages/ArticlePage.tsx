@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { LocalizedLink } from '../components/layout/LocalizedLink';
 import { getArticleById } from '../api/articles';
 import type { ArticleResponse } from '../types/api';
 import { Badge } from '../components/ui/badge';
@@ -91,12 +92,12 @@ export default function ArticlePage() {
   if (notFound || !article) {
     return (
       <PageContainer>
-        <Link
-          to="/"
+        <LocalizedLink
+          to="/search"
           className="text-sm text-slate-500 hover:text-blue-700 dark:text-slate-400 dark:hover:text-blue-400 flex items-center gap-1 mb-6 transition-colors"
         >
           {t('article.backHome')}
-        </Link>
+        </LocalizedLink>
         <div className="text-center py-16">
           <p className="text-5xl mb-4">🔍</p>
           <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-200 mb-2">
@@ -114,12 +115,12 @@ export default function ArticlePage() {
   return (
     <PageContainer>
       {/* Back button */}
-      <Link
-        to="/"
+      <LocalizedLink
+        to="/search"
         className="text-sm text-slate-500 hover:text-blue-700 dark:text-slate-400 dark:hover:text-blue-400 flex items-center gap-1 mb-6 transition-colors"
       >
         {t('article.backHome')}
-      </Link>
+      </LocalizedLink>
 
       {/* Title */}
       <h1 className="text-xl font-semibold leading-snug text-slate-900 dark:text-slate-100 mb-4">

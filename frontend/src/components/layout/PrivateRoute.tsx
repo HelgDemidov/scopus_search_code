@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
+import { useLocalizedPath } from '../../hooks/useLocalizedPath';
 
 // Spinner — переиспользует тот же визуальный стиль, что и PageFallback в App.tsx
 function HydrationSpinner() {
@@ -29,6 +30,7 @@ export function PrivateRoute() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isHydrating    = useAuthStore((state) => state.isHydrating);
   const location       = useLocation();
+  const resolve         = useLocalizedPath();
 
   // Гидрация не завершена — не принимаем решение о доступе
   if (isHydrating) {
@@ -38,7 +40,7 @@ export function PrivateRoute() {
   if (!isAuthenticated) {
     // replace: true — не засоряем историю браузера при редиректе;
     // from сохраняется, чтобы AuthPage мог вернуть пользователя обратно
-    return <Navigate to="/auth" replace state={{ from: location }} />;
+    return <Navigate to={resolve('/auth')} replace state={{ from: location }} />;
   }
 
   // Рендерим дочерние маршруты

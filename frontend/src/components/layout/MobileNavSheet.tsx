@@ -1,8 +1,9 @@
-import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Menu } from 'lucide-react';
 import { ThemeToggle } from '../theme/ThemeToggle';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { LocalizedLink } from './LocalizedLink';
+import { useLocalizedNavigate } from '../../hooks/useLocalizedNavigate';
 import { useAuthStore } from '../../stores/authStore';
 import { Button } from '../ui/button';
 import {
@@ -24,7 +25,7 @@ import { getInitials } from '../../utils/userDisplay';
 // в Radix вызывает и переданный onClick, и закрытие).
 export function MobileNavSheet() {
   const { user, isAuthenticated, logout } = useAuthStore();
-  const navigate = useNavigate();
+  const navigate = useLocalizedNavigate();
   const { t } = useTranslation();
 
   // Display name: username ?? part of email before @ (зеркало Header.tsx)
@@ -34,7 +35,7 @@ export function MobileNavSheet() {
 
   function handleLogout() {
     logout();
-    navigate('/');
+    navigate('/main');
   }
 
   return (
@@ -64,22 +65,31 @@ export function MobileNavSheet() {
 
         <nav aria-label={t('nav.menu')} className="flex flex-col gap-1 px-2">
           <SheetClose asChild>
-            <Link
+            <LocalizedLink
+              to="/search"
+              className="flex h-11 items-center rounded-md px-3 text-sm font-medium hover:bg-muted"
+            >
+              {t('nav.search')}
+            </LocalizedLink>
+          </SheetClose>
+
+          <SheetClose asChild>
+            <LocalizedLink
               to="/explore"
               className="flex h-11 items-center rounded-md px-3 text-sm font-medium hover:bg-muted"
             >
               {t('nav.explore')}
-            </Link>
+            </LocalizedLink>
           </SheetClose>
 
           {isAuthenticated && (
             <SheetClose asChild>
-              <Link
+              <LocalizedLink
                 to="/profile"
                 className="flex h-11 items-center rounded-md px-3 text-sm font-medium hover:bg-muted"
               >
                 {t('nav.profile')}
-              </Link>
+              </LocalizedLink>
             </SheetClose>
           )}
         </nav>
@@ -93,7 +103,7 @@ export function MobileNavSheet() {
                 size="lg"
                 className="h-11 bg-blue-800 text-white hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400"
               >
-                <Link to="/auth">{t('nav.signIn')}</Link>
+                <LocalizedLink to="/auth">{t('nav.signIn')}</LocalizedLink>
               </Button>
             </SheetClose>
           )}

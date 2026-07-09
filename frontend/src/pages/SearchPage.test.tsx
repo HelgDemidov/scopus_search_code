@@ -35,11 +35,14 @@ vi.mock('../components/search/SearchBar', () => ({
 vi.mock('../components/articles/ScopusQuotaBadge', () => ({
   ScopusQuotaBadge: () => <div data-testid="quota-badge" />,
 }));
-// react-router-dom: Link используется в AnonHero — заглушаем, чтобы не нужен был Router
+// react-router-dom: Link используется в AnonHero (через LocalizedLink) — заглушаем,
+// чтобы не нужен был Router. useParams: () => ({}) — LocalizedLink читает :lang через
+// него; пустой объект имитирует рендер вне /:lang-поддерева (DEFAULT_URL_LANG-фоллбэк).
 vi.mock('react-router-dom', () => ({
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
     <a href={to}>{children}</a>
   ),
+  useParams: () => ({}),
 }));
 
 // sonner: toast используется в useEffect — заглушаем, чтобы не падало без Provider

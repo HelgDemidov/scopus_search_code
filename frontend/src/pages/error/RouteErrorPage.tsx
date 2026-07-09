@@ -1,8 +1,10 @@
 import { useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { isRouteErrorResponse, useNavigate, useRouteError } from 'react-router-dom';
+import { isRouteErrorResponse, useRouteError } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import { ErrorPanel } from '../../components/error/ErrorPanel';
+import { useLocalizedNavigate } from '../../hooks/useLocalizedNavigate';
+import { useDefaultLandingPath } from '../../hooks/useDefaultLandingPath';
 import { useBlackHole } from '../../hooks/useBlackHole';
 import { useBlackHoleMessageAnchor } from '../../hooks/useBlackHoleMessageAnchor';
 import { buildReportMailto } from '../../utils/errorReport';
@@ -21,7 +23,8 @@ function generateIncidentId(): string {
 
 export default function RouteErrorPage() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
+  const navigate = useLocalizedNavigate();
+  const landingPath = useDefaultLandingPath();
   const error = useRouteError();
   const incidentId = useMemo(() => generateIncidentId(), []);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -48,7 +51,7 @@ export default function RouteErrorPage() {
       description={t('errors.routeError.description')}
     >
       <Button onClick={() => window.location.reload()}>{t('errors.routeError.retry')}</Button>
-      <Button variant="outline" onClick={() => navigate('/')}>
+      <Button variant="outline" onClick={() => navigate(landingPath)}>
         {t('errors.routeError.home')}
       </Button>
       {reportHref && (

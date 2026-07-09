@@ -1,7 +1,7 @@
-import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../stores/authStore';
 import { Button } from '../components/ui/button';
+import { LocalizedLink } from '../components/layout/LocalizedLink';
 
 // Маркетинговый лендинг (docs/i18n-url-routing/spec.md §4.1) — разведён из
 // прежнего HomePage.tsx, где эта роль (герой + CTA) была слита с самим поиском
@@ -27,12 +27,12 @@ export default function MainPage() {
           size="lg"
           className="bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-md"
         >
-          <Link to="/search">{t('main.ctaSearch')}</Link>
+          <LocalizedLink to="/search">{t('main.ctaSearch')}</LocalizedLink>
         </Button>
         {/* Sign in CTA — только для анонимных; авторизованному пользователю нечего подписывать */}
         {!isAuthenticated && (
           <Button asChild variant="outline" size="lg">
-            <Link to="/auth">{t('main.ctaSignIn')}</Link>
+            <LocalizedLink to="/auth">{t('main.ctaSignIn')}</LocalizedLink>
           </Button>
         )}
       </div>

@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../stores/authStore';
 import { useQuotaStore } from '../stores/quotaStore';
 import { useHistoryStore } from '../stores/historyStore';
+import { useLocalizedNavigate } from '../hooks/useLocalizedNavigate';
 import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
 import { LiveSearchQuotaCounter } from '../components/profile/LiveSearchQuotaCounter';
@@ -51,7 +51,7 @@ function ProfilePageSkeleton() {
 
 export default function ProfilePage() {
   const { t, i18n } = useTranslation();
-  const navigate = useNavigate();
+  const navigate = useLocalizedNavigate();
   const { user, isAuthenticated, logout } = useAuthStore();
   const fetchQuota = useQuotaStore((s) => s.fetchQuota);
   const fetchHistory = useHistoryStore((s) => s.fetchHistory);
@@ -76,7 +76,7 @@ export default function ProfilePage() {
 
   function handleSignOut() {
     logout();
-    navigate('/');
+    navigate('/main');
   }
 
   // Skeleton instead of spinner — visually consistent with the page structure
