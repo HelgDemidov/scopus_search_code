@@ -39,4 +39,19 @@ export default tseslint.config(
     files: ["src/router.tsx"],
     rules: { "react-refresh/only-export-components": "off" },
   },
+  {
+    // Ambient-декларация для vitest-axe (module augmentation): интерфейс обязан
+    // дословно повторить сигнатуру `Assertion<T = any>` из @vitest/expect, иначе
+    // TS не сможет смержить объявления — отсюда неиспользуемый T/any и "пустой"
+    // интерфейс, для которых допустимая замена (utility-тип и т.п.) недоступна.
+    files: ["src/vitest.d.ts"],
+    rules: {
+      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-empty-object-type": [
+        "error",
+        { allowInterfaces: "with-single-extends" },
+      ],
+    },
+  },
 );
