@@ -5,6 +5,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Anti-overflow guard (docs/layout-overhaul/spec.md §4.6). "clip" — не "hidden":
+   overflow-x:hidden на предке создаёт новый scroll-container и ломает
+   position:sticky у шапки; "clip" обрезает контент без scroll-контейнера,
+   sticky остаётся рабочим. Вне @layer — иначе Tailwind v3 content-scan не
+   найдёт "html"/"body" как классы в контенте и вырежет правило при
+   продакшен-сборке (см. [[feedback-tailwind-layer-purge]]). */
+html, body {
+  overflow-x: clip;
+}
+
 /* =========================================================
    CSS-переменные shadcn/ui (Nova пресет, base color: Slate)
    Генерируются shadcn CLI при init — продублированы здесь

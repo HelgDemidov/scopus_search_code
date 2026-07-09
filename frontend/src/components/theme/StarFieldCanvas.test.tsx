@@ -41,6 +41,15 @@ beforeAll(() => {
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
     stubCtx as unknown as CanvasRenderingContext2D,
   );
+  // jsdom не считает layout — clientWidth/clientHeight канваса (CSS
+  // 100vw/100dvh) всегда 0 без явного стаба (§4.4 ТЗ Шаг 5: resize() теперь
+  // читает именно их, не window.innerWidth/innerHeight)
+  Object.defineProperty(HTMLCanvasElement.prototype, 'clientWidth', {
+    configurable: true, value: 1024,
+  });
+  Object.defineProperty(HTMLCanvasElement.prototype, 'clientHeight', {
+    configurable: true, value: 768,
+  });
   // RAF не запускает цикл в тестах — возвращает фиксированный id
   vi.stubGlobal('requestAnimationFrame', vi.fn().mockReturnValue(42));
   vi.stubGlobal('cancelAnimationFrame', vi.fn());

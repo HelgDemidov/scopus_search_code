@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { forwardRef, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
@@ -30,9 +30,15 @@ interface ErrorPanelProps {
 // инструментарием): light — статичное разорванное кольцо орбиты (SVG) за
 // статус-лейблом; dark — мягкое гало (радиальный градиент на основе цвета
 // фона, без острой границы) + угловые риски видоискателя вокруг всего блока.
-export function ErrorPanel({
+// forwardRef (см. [[feedback-shadcn-button-forwardref]]) — ref пробрасывается
+// на контейнер контента (статус/title/description/кнопки), НЕ на внешнюю
+// fixed-обёртку: useBlackHoleMessageAnchor (§4.4 ТЗ, docs/layout-overhaul/
+// spec.md, Шаг 5) меряет через него нижнюю границу СООБЩЕНИЯ (вплоть до ряда
+// кнопок) — внешняя обёртка включает лишний py-8, который не относится к
+// видимому контенту.
+export const ErrorPanel = forwardRef<HTMLDivElement, ErrorPanelProps>(function ErrorPanel({
   statusLabel, monoLabel, monoValue, copyable, title, description, children, actionsClassName,
-}: ErrorPanelProps) {
+}, ref) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const descRef = useRef<HTMLParagraphElement>(null);
@@ -121,7 +127,7 @@ export function ErrorPanel({
         <span aria-hidden="true" className="absolute bottom-2 left-2 hidden h-4 w-4 border-b border-l border-blue-500/40 dark:block" />
         <span aria-hidden="true" className="absolute bottom-2 right-2 hidden h-4 w-4 border-b border-r border-blue-500/40 dark:block" />
 
-        <div className="relative">
+        <div ref={ref} className="relative">
           {/* h-32 w-32 — с запасом под самый длинный статус-лейбл проекта
               («TRANSMISSION INTERRUPTED», ~115px по замеру), не только под
               короткий «NO SIGNAL»: кольцо декоративное, но должно оставаться
@@ -183,4 +189,4 @@ export function ErrorPanel({
       </div>
     </div>
   );
-}
+});

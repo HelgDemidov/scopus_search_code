@@ -2,17 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <script>
-      // Dynamically scale down on narrow mobile screens (<412px) to preserve exact layout proportions (baseline: Google Pixel 6a)
-      // We calculate the scale explicitly to ensure the browser centers the layout without bleeding off-screen.
-      var screenWidth = Math.min(window.screen.width, window.screen.height);
-      if (screenWidth < 412) {
-        var scale = Math.floor((screenWidth / 412) * 10000) / 10000;
-        document.write('<meta name="viewport" content="width=412, initial-scale=' + scale + ', maximum-scale=' + scale + ', user-scalable=no" />');
-      } else {
-        document.write('<meta name="viewport" content="width=device-width, initial-scale=1.0" />');
-      }
-    </script>
+    <!-- Стандартный адаптивный viewport (reflow, не масштабирование).
+         viewport-fit=cover — контент доходит до краёв notched-устройств; safe-area-inset-*
+         компенсируется в верстке (Header/RootLayout). Заменил прежний initial-scale-хак
+         (зумил фиксированный холст 412px) — см. docs/layout-overhaul/spec.md §4.1. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="description" content="AI research publications from Scopus, curated and searchable" />
     <meta name="robots" content="index, follow" />
 

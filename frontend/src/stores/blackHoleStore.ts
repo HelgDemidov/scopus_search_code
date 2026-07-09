@@ -15,8 +15,19 @@ export interface BlackHolePosition {
 }
 
 let _blackHole: BlackHolePosition | null = null;
+// Нижняя граница контента ErrorPanel (§4.4 ТЗ, docs/layout-overhaul/spec.md,
+// Шаг 5) — пишется useBlackHoleMessageAnchor, читается адаптивной геометрией
+// ЧД как floor (не наезжать на сообщение). Сбрасывается вместе с позицией —
+// не должна «пережить» уход со страницы ошибки.
+let _messageBottomPx: number | null = null;
 
 export const getBlackHole = (): BlackHolePosition | null => _blackHole;
 export const setBlackHole = (pos: BlackHolePosition | null): void => {
   _blackHole = pos;
+  if (pos === null) _messageBottomPx = null;
+};
+
+export const getMessageBottom = (): number | null => _messageBottomPx;
+export const setMessageBottom = (px: number | null): void => {
+  _messageBottomPx = px;
 };

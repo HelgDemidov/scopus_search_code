@@ -3,7 +3,8 @@
     "explore": "Explore",
     "profile": "Profile",
     "signIn": "Sign in",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "menu": "Menu"
   },
   "search": {
     "placeholder": "Search articles…",
@@ -292,7 +293,8 @@
     "searchMode": "Search mode",
     "refreshHistory": "Refresh search history",
     "clearFilter": "Clear filter",
-    "loadingStats": "Loading filtered stats"
+    "loadingStats": "Loading filtered stats",
+    "openMenu": "Open menu"
   },
   "errors": {
     "notFound": {

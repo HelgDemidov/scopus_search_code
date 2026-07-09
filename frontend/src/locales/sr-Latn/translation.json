@@ -3,7 +3,8 @@
     "explore": "Analitika",
     "profile": "Profil",
     "signIn": "Prijava",
-    "signOut": "Odjava"
+    "signOut": "Odjava",
+    "menu": "Meni"
   },
   "search": {
     "placeholder": "Pretraži članke…",
@@ -302,7 +303,8 @@
     "searchMode": "Način pretrage",
     "refreshHistory": "Osvježi historiju pretrage",
     "clearFilter": "Poništi filter",
-    "loadingStats": "Učitavanje filtrirane statistike"
+    "loadingStats": "Učitavanje filtrirane statistike",
+    "openMenu": "Otvori meni"
   },
   "errors": {
     "notFound": {
