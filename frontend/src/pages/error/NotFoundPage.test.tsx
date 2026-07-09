@@ -59,12 +59,18 @@ describe('NotFoundPage', () => {
     expect(within(link).getByText('Explore collection')).toHaveClass('hidden', 'sm:inline');
   });
 
-  it('lays out action buttons to share the row equally below sm (flex-1 basis-0)', () => {
+  // Пост-пост-фикс 2026-07-09 (§10, docs/layout-overhaul/spec.md): Go home
+  // равна по ширине Explore collection на ВСЕХ размерах (не только ниже sm) —
+  // раньше на ≥sm кнопка возвращалась к auto-ширине, оставляя неоправданно
+  // широкий зазор между кнопками.
+  it('lays out action buttons to share the row equally at every breakpoint (flex-1 basis-0)', () => {
     renderPage('/mamba');
     const homeButton = screen.getByRole('button', { name: 'Go home' });
     const exploreLink = screen.getByRole('link');
-    expect(homeButton).toHaveClass('flex-1', 'basis-0', 'sm:flex-none', 'sm:basis-auto');
-    expect(exploreLink).toHaveClass('flex-1', 'basis-0', 'sm:flex-none', 'sm:basis-auto');
+    expect(homeButton).toHaveClass('flex-1', 'basis-0');
+    expect(homeButton).not.toHaveClass('sm:flex-none', 'sm:basis-auto');
+    expect(exploreLink).toHaveClass('flex-1', 'basis-0');
+    expect(exploreLink).not.toHaveClass('sm:flex-none', 'sm:basis-auto');
   });
 
   it('registers a black hole position on mount and clears it on unmount', () => {

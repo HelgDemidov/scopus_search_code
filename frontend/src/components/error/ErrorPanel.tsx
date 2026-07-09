@@ -189,24 +189,30 @@ export const ErrorPanel = forwardRef<HTMLDivElement, ErrorPanelProps>(function E
           <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:mt-4">{title}</h1>
           <p ref={descRef} className="mx-auto mt-2 max-w-sm text-sm text-slate-500 dark:text-slate-400">{description}</p>
 
-          {/* Ниже sm — ряд не переносится (flex-nowrap, w-full): дети должны
-              быть flex-1 basis-0 (см. NotFoundPage), тогда пара кнопок делит
-              ширину поровну и всегда влезает в одну строку. На ≥sm — прежнее
-              поведение (flex-wrap, авто-ширина, maxWidth по факт. ширине
-              description через actionsWidth). RouteErrorPage (без
-              actionsClassName, 3 кнопки) не переносится на эту ветку вообще —
-              остаётся на исходном центрированном flex-wrap. */}
+          {/* Ряд не переносится (flex-nowrap, w-full) на ВСЕХ размерах: дети —
+              flex-1 basis-0 (см. NotFoundPage) — всегда делят ширину ряда
+              поровну, включая ≥sm (пост-пост-фикс 2026-07-09, docs/layout-
+              overhaul/spec.md §10): раньше на ≥sm кнопки возвращались к
+              авто-ширине + flex-wrap, из-за чего Go home (короче) оставался
+              узким, а между кнопками зиял widerpromежуток (justify-between
+              разносил их к краям maxWidth-контейнера). Теперь maxWidth
+              (по факт. ширине description через actionsWidth, только на ≥sm)
+              по-прежнему задаёт ОБЩУЮ ширину пары, но сама пара внутри неё —
+              равноширокая и сближенная, с зазором ровно gap. RouteErrorPage
+              (без actionsClassName, 3 кнопки) не переносится на эту ветку
+              вообще — остаётся на исходном центрированном flex-wrap. */}
           <div
             className={cn(
               'flex items-center',
-              // gap-4 (не gap-2) ниже sm: кнопки flex-1 basis-0 внутри
-              // фикс-ширины ряда (w-full) — рост gap НЕ раздвигает внешние
-              // края ряда (те всегда = границам контейнера, см. §10.4), а
-              // забирает место ровно у внутренних/смежных краёв кнопок
-              // (симметрично, т.к. у обеих одинаковый flex-grow). Кнопки
-              // визуально стягиваются к своим внешним краям, не наоборот.
+              // gap-4 ниже sm, gap-3 на ≥sm: кнопки flex-1 basis-0 внутри
+              // фикс-ширины ряда (w-full, либо напрямую, либо через maxWidth)
+              // — рост gap НЕ раздвигает внешние края ряда (те всегда =
+              // границам контейнера, см. §10.4), а забирает место ровно у
+              // внутренних/смежных краёв кнопок (симметрично, т.к. у обеих
+              // одинаковый flex-grow). Кнопки визуально стягиваются к своим
+              // внешним краям, не наоборот.
               actionsClassName
-                ? 'mt-4 w-full flex-nowrap gap-4 sm:mt-6 sm:w-auto sm:flex-wrap sm:gap-3'
+                ? 'mt-4 w-full flex-nowrap gap-4 sm:mt-6 sm:gap-3'
                 : 'mt-6 flex-wrap gap-3 justify-center',
               actionsClassName,
             )}

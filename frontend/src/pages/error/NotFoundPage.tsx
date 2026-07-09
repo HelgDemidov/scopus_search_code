@@ -30,22 +30,30 @@ export default function NotFoundPage() {
       // центрированного внутри него текста), а не по центру.
       actionsClassName="mx-auto justify-between"
     >
+      {/* flex-1 basis-0 на ВСЕХ размерах (не только ниже sm) — пост-пост-фикс
+          2026-07-09, docs/layout-overhaul/spec.md §10: раньше на ≥sm кнопка
+          возвращалась к auto-ширине (только по своему тексту, короче Explore
+          collection), из-за чего между кнопками внутри maxWidth-контейнера
+          оставался неоправданно широкий зазор. Теперь Go home всегда равна по
+          ширине Explore collection — надпись центрируется в более широкой
+          кнопке (Button уже justify-center по умолчанию), это и есть
+          стандартный паттерн для равноширокой пары CTA. */}
       <Button
         variant="outline"
         onClick={() => navigate('/')}
-        className="flex-1 basis-0 sm:flex-none sm:basis-auto"
+        className="flex-1 basis-0"
       >
         {t('errors.notFound.home')}
       </Button>
       {/* Цвет — 1:1 классы кнопки "Sign in" в Header.tsx (тот же сквозной
           бренд-акцент, что у лого/статус-лейбла/угловых рисок панели).
-          flex-1 basis-0 (ниже sm) — пара кнопок делит ширину ряда поровну и
-          всегда влезает в одну строку (§10.4 post-prod, docs/layout-overhaul/
-          spec.md); короткий лейбл ниже sm — по той же причине полный
-          "Explore collection" физически не влезал рядом с "Go home". */}
+          flex-1 basis-0 на всех размерах — пара кнопок делит ширину ряда
+          поровну и всегда влезает в одну строку (§10.4 post-prod, docs/
+          layout-overhaul/spec.md); короткий лейбл ниже sm — по той же причине
+          полный "Explore collection" физически не влезал рядом с "Go home". */}
       <Button
         asChild
-        className="flex-1 basis-0 sm:flex-none sm:basis-auto bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400 text-white"
+        className="flex-1 basis-0 bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400 text-white"
       >
         <Link to="/explore">
           <span className="sm:hidden">{t('errors.notFound.exploreShort')}</span>
