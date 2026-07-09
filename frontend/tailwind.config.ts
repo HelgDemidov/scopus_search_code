@@ -13,6 +13,17 @@ const config: Config = {
     './node_modules/@tremor/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
+    // §4.2 ТЗ (docs/layout-overhaul/spec.md): mobile-first шкала брейкпоинтов
+    // зафиксирована явно (значения совпадают с дефолтом Tailwind v3) — вся
+    // верстка (шапка/бургер §4.3, дашборд-гриды §4.5) считает именно эти
+    // пороги; явная запись защищает от молчаливого сдвига при апдейте Tailwind.
+    screens: {
+      sm: '640px',
+      md: '768px',
+      lg: '1024px',
+      xl: '1280px',
+      '2xl': '1536px',
+    },
     extend: {
       // Шрифты проекта
       fontFamily: {

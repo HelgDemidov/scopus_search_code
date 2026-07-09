@@ -19,13 +19,8 @@ import {
 } from '../ui/dropdown-menu';
 import { Button } from '../ui/button';
 import { useAuthStore } from '../../stores/authStore';
-
-// Generate two-letter initials for the avatar
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
+import { MobileNavSheet } from './MobileNavSheet';
+import { getInitials } from '../../utils/userDisplay';
 
 export function Header() {
   const { user, isAuthenticated, logout } = useAuthStore();
@@ -45,7 +40,13 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-700 dark:bg-[#0c1927]/95">
+    <header
+      // Safe-area: env(safe-area-inset-*) — следствие viewport-fit=cover (§4.1
+      // ТЗ, docs/layout-overhaul/spec.md); без этого паддинга шапка на notched-
+      // устройствах (особенно landscape) уходит под жестовую зону/чёлку. На
+      // не-notched устройствах env(...) резолвится в 0 — поведение не меняется.
+      className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] backdrop-blur dark:border-slate-700 dark:bg-[#0c1927]/95"
+    >
       <div className="mx-auto flex h-14 max-w-screen-xl items-center justify-between px-4">
         {/* Logo — aria-label kept in English per spec §1.6 */}
         <Link
@@ -67,8 +68,11 @@ export function Header() {
           <span className="font-semibold text-sm tracking-tight">Scopus Search</span>
         </Link>
 
-        {/* Navigation + right-side controls */}
-        <div className="flex items-center gap-2">
+        {/* Navigation + right-side controls — скрыто <sm (§4.3 ТЗ,
+            docs/layout-overhaul/spec.md): замеры показали, что вся эта
+            группа не влезает на узких экранах (RU-шапка ≈353px). Дублируется
+            в MobileNavSheet (бургер справа, ниже) для <sm. */}
+        <div className="hidden items-center gap-2 sm:flex">
           <ThemeToggle />
           <LanguageSwitcher />
           <NavigationMenu>
@@ -146,6 +150,10 @@ export function Header() {
             </DropdownMenu>
           )}
         </div>
+
+        {/* Бургер — виден только <sm (кнопка сама скрывается через sm:hidden
+            в MobileNavSheet), т.к. группа выше скрыта тем же брейкпоинтом. */}
+        <MobileNavSheet />
       </div>
     </header>
   );

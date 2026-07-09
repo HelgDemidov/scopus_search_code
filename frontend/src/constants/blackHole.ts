@@ -8,7 +8,12 @@ export const BLACK_HOLE_POSITION = { xRatio: 0.713 };
 
 export const BLACK_HOLE_POSITION_Y_PX = 594;
 
-//
+// §4.2 ТЗ (docs/layout-overhaul/spec.md): 768 — НЕ баг корректности геометрии,
+// порог только для ПРОИЗВОДИТЕЛЬНОСТИ канваса (плотность звёзд/точек контура
+// ниже, см. VORTEX_STAR_COUNT_MOBILE и т.п.). BLACK_HOLE_POSITION_MOBILE_*
+// ниже сейчас тоже переключаются по этому порогу — временно: Шаг 5 (§4.4)
+// заменит Y/размер ЧД на непрерывную функцию вьюпорта, и 768 останется
+// исключительно перф-переключателем, как и было задумано изначально.
 export const MOBILE_BREAKPOINT_PX = 768; // тот же порог, что у generateStars() ниже
 export const BLACK_HOLE_POSITION_MOBILE_X_RATIO = 0.70;
 export const BLACK_HOLE_POSITION_MOBILE_Y_PX = 530; // центр дыры так, чтобы даже самые внешние тусклые звезды вортекса (~1.45 * 117px) были ниже карточки ошибки (~355px)

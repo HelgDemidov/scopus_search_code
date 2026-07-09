@@ -3,7 +3,8 @@
     "explore": "Аналитика",
     "profile": "Профиль",
     "signIn": "Войти",
-    "signOut": "Выйти"
+    "signOut": "Выйти",
+    "menu": "Меню"
   },
   "search": {
     "placeholder": "Поиск статей…",
@@ -312,7 +313,8 @@
     "searchMode": "Режим поиска",
     "refreshHistory": "Обновить историю поиска",
     "clearFilter": "Сбросить фильтр",
-    "loadingStats": "Загрузка отфильтрованной статистики"
+    "loadingStats": "Загрузка отфильтрованной статистики",
+    "openMenu": "Открыть меню"
   },
   "errors": {
     "notFound": {
