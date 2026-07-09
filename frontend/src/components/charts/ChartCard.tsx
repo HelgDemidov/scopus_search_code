@@ -35,16 +35,18 @@ export function ChartCard({
             style={{ backgroundColor: accentColor }}
           />
         )}
-        <h3
-          className={[
-            'text-sm font-semibold text-slate-900 dark:text-slate-100',
-            onTitleClick
-              ? 'cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 transition-colors'
-              : '',
-          ].join(' ')}
-          onClick={onTitleClick}
-        >
-          {title}
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+          {onTitleClick ? (
+            <button
+              type="button"
+              onClick={onTitleClick}
+              className="text-left cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+            >
+              {title}
+            </button>
+          ) : (
+            title
+          )}
         </h3>
         {headerAction && <div className="ml-auto flex-shrink-0">{headerAction}</div>}
       </div>

@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { axe } from 'vitest-axe';
 import { TableBuilderPanel } from './TableBuilderPanel';
 import { useDashboardStore } from '../../stores/dashboardStore';
 import { useStatsStore } from '../../stores/statsStore';
@@ -44,6 +45,16 @@ beforeEach(() => {
 });
 
 describe('TableBuilderPanel — форма добавления', () => {
+  it('не имеет базовых нарушений a11y в развёрнутом виде', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<TableBuilderPanel />);
+    // Разворачиваем панель для полной проверки формы
+    await user.click(screen.getByRole('button', { name: 'Add table' }));
+    
+    // Запускаем axe против отрендеренного DOM-дерева
+    expect(await axe(container)).toHaveNoViolations();
+  });
+
   it('изначально показывает свёрнутую кнопку с текстом "Table Builder", без отдельного заголовка и без формы', () => {
     render(<TableBuilderPanel />);
     const trigger = screen.getByRole('button', { name: 'Add table' }); // aria-label стабилен для поиска

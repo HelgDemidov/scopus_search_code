@@ -23,6 +23,9 @@ class Article(Base):
         # Индексы для серверной фильтрации каталога (migration 0008)
         Index("ix_articles_document_type", "document_type"),
         Index("ix_articles_affiliation_country", "affiliation_country"),
+        # Диапазонный year-фильтр (migration 0017) — под sargable-предикат
+        # publication_date < make_date(max_year+1,1,1) в get_journal_impact()
+        Index("ix_articles_publication_date", "publication_date"),
         Index(
             "ix_articles_open_access_true",
             "open_access",

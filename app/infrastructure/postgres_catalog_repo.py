@@ -1,4 +1,5 @@
 import statistics
+from datetime import date
 from typing import Any, List
 
 import sqlalchemy as sa
@@ -111,6 +112,7 @@ class PostgresCatalogRepository(ICatalogRepository):
 
     async def get_total_count(
         self,
+        cap: int,
         keyword: str | None = None,
         search: str | None = None,
         year_from: int | None = None,
@@ -118,18 +120,32 @@ class PostgresCatalogRepository(ICatalogRepository):
         doc_types: list[str] | None = None,
         open_access: bool | None = None,
         countries: list[str] | None = None,
-    ) -> int:
-        """COUNT с теми же фильтрами что get_all — для корректной пагинации."""
-        # Субзапрос для COUNT: те же JOIN + WHERE, без ORDER BY / LIMIT
-        stmt = (
-            select(func.count()).select_from(Article).join(CatalogArticle, CatalogArticle.article_id == Article.id)
+    ) -> tuple[int, bool]:
+        """COUNT с теми же фильтрами что get_all — для корректной пагинации.
+
+        Кап через подзапрос с LIMIT cap+1: на широких ILIKE-фильтрах без подходящего индекса
+        (title/author) точный COUNT(*) по всей таблице — доминирующая стоимость запроса
+        (сканирует всё, LIMIT в обычном SELECT его не ускоряет). Обёртка LIMIT позволяет
+        планировщику прервать скан, как только найдено cap+1 совпадений, независимо от
+        реальной селективности фильтра.
+        """
+        # Подзапрос: те же JOIN + WHERE, что get_all, но без ORDER BY — с LIMIT cap+1
+        inner_stmt = (
+            select(sa.literal(1))
+            .select_from(Article)
+            .join(CatalogArticle, CatalogArticle.article_id == Article.id)
         )
+        inner_stmt = self._apply_filters(
+            inner_stmt, keyword, search, year_from, year_to, doc_types, open_access, countries
+        )
+        capped_subquery = inner_stmt.limit(cap + 1).subquery()
 
-        # Те же WHERE-клаузы через тот же хелпер — гарантия консистентности с get_all
-        stmt = self._apply_filters(stmt, keyword, search, year_from, year_to, doc_types, open_access, countries)
+        result = await self.session.execute(select(func.count()).select_from(capped_subquery))
+        raw_count = result.scalar_one()
 
-        result = await self.session.execute(stmt)
-        return result.scalar_one()
+        if raw_count > cap:
+            return cap, True
+        return raw_count, False
 
     # ------------------------------------------------------------------ #
     #  save_seeded                                                         #
@@ -409,13 +425,18 @@ class PostgresCatalogRepository(ICatalogRepository):
         та PG-only, SQLite (юнит/интеграционные тесты) её не поддерживает. count/avg —
         портируемый SQL, отбирает top-N журналов; сырые cited_by_count подтягиваются
         вторым запросом только для них (не для всего окна зрелости).
+
+        Фильтр по году — sargable-диапазон (< 1 января следующего года), не
+        extract(year FROM publication_date) <= max_year: функция над колонкой не может
+        использовать обычный btree-индекс на publication_date (root cause прогона
+        2026-07-09, Шаг 3 индексирования — docs/project_context/...).
         """
         stmt = (
             select(Article)
             .join(CatalogArticle, CatalogArticle.article_id == Article.id)
             .where(
                 Article.journal.isnot(None),
-                func.extract("year", Article.publication_date) <= max_year,
+                Article.publication_date < date(max_year + 1, 1, 1),
             )
         )
         catalog_articles_q = stmt.subquery()

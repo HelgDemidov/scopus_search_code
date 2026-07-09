@@ -31,6 +31,12 @@ logger = logging.getLogger(__name__)
 
 
 class CatalogService:
+    # Верхняя граница точного подсчёта total для GET /articles (пагинация каталога).
+    # За её пределами точный COUNT(*) по всей таблице доминирует над стоимостью запроса на
+    # широких ILIKE-фильтрах без подходящего индекса (см. docs/project_context — root cause
+    # нагрузочного прогона 2026-07-09); показываем "cap+", а не точное число.
+    TOTAL_COUNT_CAP = 2000
+
     def __init__(
         self,
         article_repo: IArticleRepository,
@@ -95,7 +101,8 @@ class CatalogService:
             open_access=open_access,
             countries=countries,
         )
-        total = await self.catalog_repo.get_total_count(
+        total, total_is_capped = await self.catalog_repo.get_total_count(
+            cap=self.TOTAL_COUNT_CAP,
             keyword=keyword,
             search=search,
             year_from=year_from,
@@ -107,7 +114,7 @@ class CatalogService:
 
         # ORM-объекты → Pydantic-схемы
         article_responses = [ArticleResponse.model_validate(article) for article in db_articles]
-        return PaginatedArticleResponse(items=article_responses, total=total)
+        return PaginatedArticleResponse(items=article_responses, total=total, total_is_capped=total_is_capped)
 
     # ------------------------------------------------------------------ #
     #  get_stats                                                           #

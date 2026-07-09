@@ -11,6 +11,8 @@ interface ArticleStore {
   // Данные с сервера
   articles: ArticleResponse[];
   total: number;
+  // true — total упёрся в кап на бэкенде (CatalogService.TOTAL_COUNT_CAP), не точное число
+  totalIsCapped: boolean;
 
   // Параметры запроса к GET /articles/
   page: number;
@@ -57,6 +59,7 @@ interface ArticleStore {
 export const useArticleStore = create<ArticleStore>((set, get) => ({
   articles: [],
   total: 0,
+  totalIsCapped: false,
   page: 1,
   size: 10,   // PageSize — минимальный вариант из SIZE_OPTIONS
   filters: {},
@@ -112,6 +115,7 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
       set({
         articles: appendMode && currentPage > 1 ? [...prev, ...sorted] : sorted,
         total: data.total,
+        totalIsCapped: data.total_is_capped,
         isLoading: false,
       });
     } catch (err: unknown) {
@@ -182,6 +186,7 @@ export const useArticleStore = create<ArticleStore>((set, get) => ({
       liveResults: [],
       currentKeyword: null,
       total: 0,
+      totalIsCapped: false,
       page: 1,
       error: null,
       filters: {},

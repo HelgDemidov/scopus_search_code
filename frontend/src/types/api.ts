@@ -22,6 +22,9 @@ export interface ArticleResponse {
 export interface PaginatedArticleResponse {
   items: ArticleResponse[];  // переименовано articles → items: синхронизировано с бэкенд-схемой
   total: number;
+  // true — total упёрся в CatalogService.TOTAL_COUNT_CAP на бэкенде: total равен именно капу,
+  // не точному числу совпадений. UI обязан показать это как "N+", не как точное значение.
+  total_is_capped: boolean;
 }
 
 // ---------------------------------------------------------------------------

@@ -218,6 +218,54 @@ cd frontend && npm run test
 
 ---
 
+## Performance
+
+We use [k6](https://k6.io/) for load testing critical read-only endpoints (full-text search, journal-impact stats).
+
+**Methodology.** Run against an isolated, disposable Postgres — never the shared Supabase instance
+(a load test has no business generating synthetic traffic there). Seeded at production scale via a
+one-time read-only copy of `articles` + `catalog_articles` from production (no user/auth tables —
+those carry real PII and were never touched). `DB_ECHO=false` and `DB_POOL_SIZE`/`DB_MAX_OVERFLOW`
+sized for the target concurrency (both configurable via `.env`, see `.env.example`) — otherwise the
+measurement drowns in its own SQL-echo logging and connection-pool queueing instead of reflecting
+the app.
+
+**Baseline (142,658 articles, 20 VUs, isolated Postgres, 2026-07-09):**
+*   **Target:** `P(95) < 500ms`, `P(99) < 1000ms`, `rate(errors) < 1%`.
+*   **First honest measurement:** thresholds failed — `P(95) = 11.89s`, `P(99) = 13.39s`, but
+    **0% errors** (no timeouts, no failed requests — pure queueing, not the connection-pool/network
+    artifacts of an earlier, buggy attempt). Root-caused via `EXPLAIN ANALYZE`: both endpoints fell
+    back to a full parallel sequential scan because no index matched their actual query shape —
+    `title ILIKE '%term%' OR author ILIKE '%term%'` (leading wildcard defeats every btree, including
+    the existing `ix_articles_lower_*`) and `EXTRACT(year FROM publication_date) <= max_year`
+    (a function over the column also defeats indexing). Individually both were sub-300ms and
+    invisible in the browser; at 20 concurrent VUs, every request's own parallel workers competed
+    for the container's CPU cores — that queueing, not per-query cost, produced the multi-second
+    tail latency.
+*   **Fixed in 3 measured steps, cheapest first** (see `docs/project_context` for the full trade-off
+    discussion — GiST over GIN, sargable predicates over functional indexes):
+    1. Cap the pagination `COUNT(*)` at 2000 (`SELECT count(*) FROM (... LIMIT 2001) t` — the planner
+       stops scanning once it finds the cap, regardless of a term's real selectivity) and show an
+       honest "2000+" instead of a false-precision exact number. → `P(95) = 10.03s`, `P(99) = 12.36s`
+       — real but modest; the search scan itself was still the bottleneck, capping only removed the
+       uncapped-`COUNT`'s own extra cost.
+    2. `pg_trgm` **GiST** index on `title`/`author` (not GIN — cheaper to write given the seeder's
+       bulk-update pattern, no pending-buffer/autovacuum overhead to manage; costs a bit more on read
+       and needs an index recheck). → `P(95) = 1.74s`, `P(99) = 2.37s`.
+    3. Sargable rewrite of the year filter (`publication_date < make_date(max_year+1,1,1)` instead of
+       `EXTRACT(year FROM ...)`) + a plain btree index on `publication_date`. → **`P(95) = 632ms`,
+       `P(99) = 1.06s`.**
+*   **Net result:** ~19x on P95, ~13x on P99 versus the first honest measurement. Thresholds are not
+    fully met yet — P99 misses by 60ms — but the app now visibly scales, and every step's cost/benefit
+    is measured and documented, not assumed.
+*   **Command to run baseline:**
+    ```bash
+    docker run --rm --network host -i grafana/k6 run - < tests/load/baseline.js
+    ```
+    *(Requires the backend running on `http://localhost:8000` against an isolated, production-scale-seeded database)*
+
+---
+
 ## Local Launch
 
 <details>

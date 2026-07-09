@@ -54,25 +54,20 @@ function SortableHeader({
   return (
     <th
       scope="col"
-      role="button"
-      tabIndex={0}
       aria-sort={active ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-      onClick={() => onSort(sortKey)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onSort(sortKey);
-        }
-      }}
       className={[
         // Заголовки — реальные подписи данных (страны, типы документов и т.п.), а не
         // просто UI-хром, поэтому контраст выше типового muted-заголовка таблицы
         // (text-slate-500 без dark:-варианта было плохо читаемо в обеих темах).
-        'px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide cursor-pointer select-none whitespace-nowrap',
+        'px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide select-none whitespace-nowrap',
         align === 'right' ? 'text-right' : 'text-left',
       ].join(' ')}
     >
-      <span className={`inline-flex items-center gap-1 ${align === 'right' ? 'flex-row-reverse' : ''}`}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={`inline-flex items-center gap-1 w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded cursor-pointer ${align === 'right' ? 'flex-row-reverse justify-start' : 'justify-start'}`}
+      >
         {label}
         {active &&
           (dir === 'asc' ? (
@@ -80,7 +75,7 @@ function SortableHeader({
           ) : (
             <ChevronDown className="size-3" aria-hidden />
           ))}
-      </span>
+      </button>
     </th>
   );
 }

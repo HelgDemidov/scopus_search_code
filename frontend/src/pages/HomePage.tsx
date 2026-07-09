@@ -66,6 +66,7 @@ export default function HomePage() {
     page,
     size,
     total,
+    totalIsCapped,
     appendMode,
     setFilters,
     fetchArticles,
@@ -197,6 +198,7 @@ export default function HomePage() {
                   page={page}
                   size={size}
                   total={total}
+                  totalIsCapped={totalIsCapped}
                   appendMode={appendMode}
                   onPageChange={handlePageChange}
                   onSizeChange={handleSizeChange}
@@ -266,6 +268,7 @@ export default function HomePage() {
                     page={1}
                     size={25}
                     total={sortedLiveArticles.length}
+                    totalIsCapped={false}
                     appendMode={false}
                     onPageChange={() => {}}
                     onSizeChange={() => {}}
@@ -295,6 +298,7 @@ export default function HomePage() {
                   page={page}
                   size={size}
                   total={total}
+                  totalIsCapped={totalIsCapped}
                   appendMode={appendMode}
                   onPageChange={handlePageChange}
                   onSizeChange={handleSizeChange}

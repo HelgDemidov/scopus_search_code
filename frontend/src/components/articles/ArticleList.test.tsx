@@ -95,6 +95,7 @@ function makeProps(overrides: Partial<ArticleListProps> = {}): ArticleListProps 
     page: 1,
     size: 10,
     total: 0,
+    totalIsCapped: false,
     appendMode: false,
     onPageChange: vi.fn(),
     onSizeChange: vi.fn(),
@@ -143,6 +144,15 @@ describe('ArticleList — счетчик и переключатель режи�
     render(<ArticleList {...makeProps({ total: 150, articles: [makeArticle(1)] })} />);
     // Продакшн: {total.toLocaleString('en-US')} results → «150 results»
     expect(screen.getByText(/150/)).toBeInTheDocument();
+  });
+
+  it('totalIsCapped=true — счетчик показывает "N+" вместо точного числа', () => {
+    render(
+      <ArticleList
+        {...makeProps({ total: 2000, totalIsCapped: true, articles: [makeArticle(1)] })}
+      />,
+    );
+    expect(screen.getByText('2000+ results')).toBeInTheDocument();
   });
 
   it('total>0, appendMode=false — кнопка показывает «Scroll»', () => {

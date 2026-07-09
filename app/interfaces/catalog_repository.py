@@ -35,6 +35,7 @@ class ICatalogRepository(ABC):
     @abstractmethod
     async def get_total_count(
         self,
+        cap: int,
         keyword: str | None = None,
         search: str | None = None,
         year_from: int | None = None,
@@ -42,9 +43,16 @@ class ICatalogRepository(ABC):
         doc_types: list[str] | None = None,
         open_access: bool | None = None,
         countries: list[str] | None = None,
-    ) -> int:
+    ) -> tuple[int, bool]:
         """
         Считает статьи каталога с теми же фильтрами, что get_all — для корректной пагинации.
+
+        cap: верхняя граница подсчёта. Реализация обязана прервать сканирование, как только
+        найдено cap+1 совпадений (а не досчитывать все — на широких ILIKE-фильтрах без
+        подходящего индекса точный COUNT(*) по всей таблице доминирует над стоимостью запроса).
+        Возвращает (count, is_capped): is_capped=True означает "совпадений >= cap", и тогда
+        count == cap (не точное число — вызывающий код обязан показать это как "cap+", не как
+        точное значение).
         """
         pass
 

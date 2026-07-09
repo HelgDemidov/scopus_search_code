@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - feature/accretion-disk-rework
+      - feat/a11y-load-test
 
   pull_request:
     branches:

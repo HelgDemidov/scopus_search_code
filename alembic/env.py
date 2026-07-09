@@ -40,17 +40,23 @@ target_metadata = Base.metadata
 alembic_url = settings.database_url_str.replace("%", "%%")
 config.set_main_option("sqlalchemy.url", alembic_url)
 
-# Функциональные индексы (expression-based) не отражаются в ORM-модели —
-# SQLAlchemy возвращает их как _textual_index_element, alembic check считает
-# их «лишними» и хочет удалить. Исключаем явно по имени.
-_FUNCTIONAL_INDICES = {
+# Индексы, созданные напрямую SQL-миграцией (не через Index(...) в ORM-модели) — не отражаются
+# в metadata, alembic check считает их «лишними» и хочет удалить. Исключаем явно по имени.
+# - lower(...) — функциональные (expression-based), SQLAlchemy рефлектит их как
+#   _textual_index_element, structural-сравнение с моделью для них не работает.
+# - *_trgm — GiST + pg_trgm operator class (gist_trgm_ops), см. 0016_trgm_gist_search_indices —
+#   operator class не воспроизводим декларативно через Index(...) без риска, что autogenerate
+#   не сможет сматчить его с моделью и предложит DROP/CREATE на каждый прогон.
+_MIGRATION_ONLY_INDICES = {
     "ix_articles_lower_affiliation_country",
     "ix_articles_lower_document_type",
+    "ix_articles_title_trgm",
+    "ix_articles_author_trgm",
 }
 
 
 def _include_object(obj, name, type_, reflected, compare_to):  # type: ignore[no-untyped-def]
-    if type_ == "index" and name in _FUNCTIONAL_INDICES:
+    if type_ == "index" and name in _MIGRATION_ONLY_INDICES:
         return False
     return True
 
