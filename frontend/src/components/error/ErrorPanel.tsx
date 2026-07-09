@@ -2,6 +2,7 @@ import { forwardRef, useLayoutEffect, useRef, useState, type ReactNode } from 'r
 import { Copy, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 interface ErrorPanelProps {
   statusLabel: string;
@@ -43,6 +44,12 @@ export const ErrorPanel = forwardRef<HTMLDivElement, ErrorPanelProps>(function E
   const [copied, setCopied] = useState(false);
   const descRef = useRef<HTMLParagraphElement>(null);
   const [actionsWidth, setActionsWidth] = useState<number | null>(null);
+  // §10.4 post-prod (docs/layout-overhaul/spec.md): выравнивание ряда кнопок
+  // по ширине текста description — десктопный приём (см. actionsClassName
+  // ветку ниже). Ниже sm кнопки растягиваются flex-1 на всю ширину ряда, там
+  // maxWidth-ограничение только мешало бы (актуально для узкого экрана,
+  // где description часто переносится на 2 строки — сам layout уже другой).
+  const isDesktopWidth = useMediaQuery('(min-width: 640px)');
 
   const handleCopy = async () => {
     if (!monoValue) return;
@@ -106,9 +113,12 @@ export const ErrorPanel = forwardRef<HTMLDivElement, ErrorPanelProps>(function E
     // относительно вьюпорта и не могут разъехаться. overflow-y-auto — на
     // случай легитимно длинного контента (другая локаль/очень короткий
     // вьюпорт) — скролл уйдёт ВНУТРЬ панели, а не потеряется совсем.
-    // pt-[38px] ≈ условный «1см» от нижней рамки шапки — сохранён как есть.
-    <div className="fixed inset-x-0 top-14 z-10 flex h-[calc(100dvh-3.5rem)] items-start justify-center overflow-y-auto px-4 pt-[38px]">
-      <div className="relative w-full max-w-md px-6 py-8 text-center">
+    // pt-[38px] ≈ условный «1см» от нижней рамки шапки — сохранён как есть на
+    // ≥sm; ниже sm поджат до pt-6 (§10.4 post-prod, docs/layout-overhaul/
+    // spec.md) — на узких экранах панель занимала >50% высоты вьюпорта
+    // (цель ~40%), верхний отступ был частью проблемы.
+    <div className="fixed inset-x-0 top-14 z-10 flex h-[calc(100dvh-3.5rem)] items-start justify-center overflow-y-auto px-4 pt-6 sm:pt-[38px]">
+      <div className="relative w-full max-w-md px-6 py-6 text-center sm:py-8">
         {/* dark-only: мягкое гало вместо сплошной заливки — фон #0c1927
             (см. constants блока dark-темы), затухающий к прозрачности без
             жёсткой границы, чтобы не читаться как карточка */}
@@ -176,12 +186,31 @@ export const ErrorPanel = forwardRef<HTMLDivElement, ErrorPanelProps>(function E
             </div>
           )}
 
-          <h1 className="mt-4 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">{title}</h1>
+          <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:mt-4">{title}</h1>
           <p ref={descRef} className="mx-auto mt-2 max-w-sm text-sm text-slate-500 dark:text-slate-400">{description}</p>
 
+          {/* Ниже sm — ряд не переносится (flex-nowrap, w-full): дети должны
+              быть flex-1 basis-0 (см. NotFoundPage), тогда пара кнопок делит
+              ширину поровну и всегда влезает в одну строку. На ≥sm — прежнее
+              поведение (flex-wrap, авто-ширина, maxWidth по факт. ширине
+              description через actionsWidth). RouteErrorPage (без
+              actionsClassName, 3 кнопки) не переносится на эту ветку вообще —
+              остаётся на исходном центрированном flex-wrap. */}
           <div
-            className={cn('mt-6 flex flex-wrap items-center gap-3', actionsClassName ?? 'justify-center')}
-            style={actionsWidth ? { maxWidth: actionsWidth } : undefined}
+            className={cn(
+              'flex items-center',
+              // gap-4 (не gap-2) ниже sm: кнопки flex-1 basis-0 внутри
+              // фикс-ширины ряда (w-full) — рост gap НЕ раздвигает внешние
+              // края ряда (те всегда = границам контейнера, см. §10.4), а
+              // забирает место ровно у внутренних/смежных краёв кнопок
+              // (симметрично, т.к. у обеих одинаковый flex-grow). Кнопки
+              // визуально стягиваются к своим внешним краям, не наоборот.
+              actionsClassName
+                ? 'mt-4 w-full flex-nowrap gap-4 sm:mt-6 sm:w-auto sm:flex-wrap sm:gap-3'
+                : 'mt-6 flex-wrap gap-3 justify-center',
+              actionsClassName,
+            )}
+            style={isDesktopWidth && actionsWidth ? { maxWidth: actionsWidth } : undefined}
           >
             {children}
           </div>

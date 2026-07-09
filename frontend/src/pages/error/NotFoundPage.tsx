@@ -30,14 +30,27 @@ export default function NotFoundPage() {
       // центрированного внутри него текста), а не по центру.
       actionsClassName="mx-auto justify-between"
     >
-      <Button variant="outline" onClick={() => navigate('/')}>{t('errors.notFound.home')}</Button>
+      <Button
+        variant="outline"
+        onClick={() => navigate('/')}
+        className="flex-1 basis-0 sm:flex-none sm:basis-auto"
+      >
+        {t('errors.notFound.home')}
+      </Button>
       {/* Цвет — 1:1 классы кнопки "Sign in" в Header.tsx (тот же сквозной
-          бренд-акцент, что у лого/статус-лейбла/угловых рисок панели) */}
+          бренд-акцент, что у лого/статус-лейбла/угловых рисок панели).
+          flex-1 basis-0 (ниже sm) — пара кнопок делит ширину ряда поровну и
+          всегда влезает в одну строку (§10.4 post-prod, docs/layout-overhaul/
+          spec.md); короткий лейбл ниже sm — по той же причине полный
+          "Explore collection" физически не влезал рядом с "Go home". */}
       <Button
         asChild
-        className="bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400 text-white"
+        className="flex-1 basis-0 sm:flex-none sm:basis-auto bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400 text-white"
       >
-        <Link to="/explore">{t('errors.notFound.exploreCollection')}</Link>
+        <Link to="/explore">
+          <span className="sm:hidden">{t('errors.notFound.exploreShort')}</span>
+          <span className="hidden sm:inline">{t('errors.notFound.exploreCollection')}</span>
+        </Link>
       </Button>
     </ErrorPanel>
   );

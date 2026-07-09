@@ -12,6 +12,7 @@ import {
 } from '../../utils/blackHoleLensing';
 import { resolveBlackHoleGeometry } from '../../utils/blackHoleGeometry';
 import {
+  BH_VORTEX_CLEARANCE_FACTOR,
   BLACK_HOLE_POSITION_MOBILE_X_RATIO,
   CAPTURED_METEOR_FADE_MS,
   CURSOR_DRIFT_BASE_ACCEL,
@@ -178,9 +179,18 @@ function generateStarClumps(
   return stars;
 }
 
+// Единый источник isMobile/ratio-решения для радиуса вихря (§10.4 post-prod,
+// docs/layout-overhaul/spec.md) — используется и здесь (генерация звёзд
+// облака), и в getCurrentBlackHoleGeometry (клиренс floor'а под это же
+// облако), чтобы два места не могли разъехаться в допущении о размере вихря.
+function vortexNebulaRadiusPx(w: number, diagonal: number): number {
+  const isMobile = w < MOBILE_BREAKPOINT_PX;
+  return diagonal * (isMobile ? VORTEX_RADIUS_RATIO_MOBILE : VORTEX_RADIUS_RATIO);
+}
+
 function generateVortexCluster(bh: BlackHoleGeometry, diagonal: number, w: number): Star[] {
   const isMobile = w < MOBILE_BREAKPOINT_PX;
-  const nebulaRadius = diagonal * (isMobile ? VORTEX_RADIUS_RATIO_MOBILE : VORTEX_RADIUS_RATIO);
+  const nebulaRadius = vortexNebulaRadiusPx(w, diagonal);
   const anchorAngle = Math.random() * Math.PI * 2;
   const anchorX = bh.x + Math.cos(anchorAngle) * nebulaRadius * 0.2;
   const anchorY = bh.y + Math.sin(anchorAngle) * nebulaRadius * 0.2;
@@ -923,7 +933,9 @@ function getCurrentBlackHoleGeometry(w: number, h: number, safeAreaBottomPx: num
   if (!pos) return null;
   const isMobile = w < MOBILE_BREAKPOINT_PX;
   const xRatio = isMobile ? BLACK_HOLE_POSITION_MOBILE_X_RATIO : pos.xRatio;
-  return resolveBlackHoleGeometry(w, h, xRatio, getMessageBottom(), safeAreaBottomPx);
+  const nebulaRadius = vortexNebulaRadiusPx(w, Math.hypot(w, h));
+  const vortexClearancePx = nebulaRadius * BH_VORTEX_CLEARANCE_FACTOR;
+  return resolveBlackHoleGeometry(w, h, xRatio, getMessageBottom(), safeAreaBottomPx, vortexClearancePx);
 }
 
 // env(safe-area-inset-bottom) нельзя прочитать напрямую из JS — нет такого

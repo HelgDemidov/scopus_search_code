@@ -1,8 +1,29 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { render, screen, within } from '@testing-library/react';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import NotFoundPage from './NotFoundPage';
 import { getBlackHole } from '../../stores/blackHoleStore';
+
+// ErrorPanel (§10.4 post-prod, docs/layout-overhaul/spec.md) вызывает
+// useMediaQuery('(min-width: 640px)') безусловно — jsdom не реализует
+// matchMedia, нужна заглушка перед любым рендером страницы (тот же паттерн,
+// что в ThemeToggle.test.tsx/useMediaQuery.test.ts).
+function stubMatchMedia(matchesDesktop: boolean) {
+  vi.stubGlobal('matchMedia', vi.fn().mockImplementation((q: string) => ({
+    matches: q === '(min-width: 640px)' ? matchesDesktop : false,
+    media: q,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  } as unknown as MediaQueryList)));
+}
+
+beforeEach(() => {
+  stubMatchMedia(true);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 function renderPage(path = '/this-page-does-not-exist') {
   return render(
@@ -23,8 +44,27 @@ describe('NotFoundPage', () => {
 
   it('shows an Explore collection link pointing to /explore', () => {
     renderPage('/mamba');
-    const link = screen.getByRole('link', { name: 'Explore collection' });
+    const link = screen.getByRole('link');
     expect(link).toHaveAttribute('href', '/explore');
+  });
+
+  // §10.4 post-prod (docs/layout-overhaul/spec.md): jsdom не считает layout —
+  // "sm:hidden"/"hidden sm:inline" не скрывают элементы по-настоящему в
+  // тестах (нет реального Tailwind CSS), поэтому проверяем ПРИСУТСТВИЕ
+  // классов на нужных span, а не видимый на экране текст ссылки.
+  it('renders a short primary label for narrow screens and the full label for sm+', () => {
+    renderPage('/mamba');
+    const link = screen.getByRole('link');
+    expect(within(link).getByText('Explore')).toHaveClass('sm:hidden');
+    expect(within(link).getByText('Explore collection')).toHaveClass('hidden', 'sm:inline');
+  });
+
+  it('lays out action buttons to share the row equally below sm (flex-1 basis-0)', () => {
+    renderPage('/mamba');
+    const homeButton = screen.getByRole('button', { name: 'Go home' });
+    const exploreLink = screen.getByRole('link');
+    expect(homeButton).toHaveClass('flex-1', 'basis-0', 'sm:flex-none', 'sm:basis-auto');
+    expect(exploreLink).toHaveClass('flex-1', 'basis-0', 'sm:flex-none', 'sm:basis-auto');
   });
 
   it('registers a black hole position on mount and clears it on unmount', () => {

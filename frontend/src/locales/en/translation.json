@@ -303,7 +303,8 @@
       "title": "Page not found",
       "description": "This link may be outdated, or the page may have moved.",
       "home": "Go home",
-      "exploreCollection": "Explore collection"
+      "exploreCollection": "Explore collection",
+      "exploreShort": "Explore"
     },
     "routeError": {
       "status": "TRANSMISSION INTERRUPTED",

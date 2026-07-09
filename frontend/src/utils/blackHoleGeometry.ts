@@ -36,28 +36,50 @@ function clamp(min: number, value: number, max: number): number {
 // уже учитывал radius в исходном pseudo-коде). spec.md обновлён вслед за
 // этим фиксом.
 //
-// Edge case: если даже при radius=MIN floor > ceil (очень низкий/landscape
-// вьюпорт, сообщение занимает почти всю высоту) — корректной позиции нет,
-// возвращаем null. Канвас со звёздами остаётся, ЧД не рисуется — деградация,
-// не баг.
+// vortexClearancePx (§10.4 post-prod, docs/layout-overhaul/spec.md) — клиренс
+// под декоративный вихрь вокруг ЧД (generateVortexCluster в StarFieldCanvas.tsx),
+// который на узких экранах на порядок шире самого диска (bh.radius). floor
+// защищает БОЛЬШИЙ из двух: диск (как раньше) или вихрь. Канвас — единственный
+// источник isMobile/ratio-решения по нему (см. BH_VORTEX_CLEARANCE_FACTOR),
+// здесь просто принимаем готовое px-значение — чистота функции сохранена.
+//
+// Деградация — 3 шага (расширяет исходную 2-шаговую; «показать ЧД когда
+// возможно» важнее полного клиренса вихря):
+//   1) full-clearance:  floor = messageBottom + GAP + max(radius, vortexClearancePx)
+//   2) floor > ceil  →  диск-only: floor = messageBottom + GAP + radius
+//      (вихрь может слегка вторгнуться на очень коротких вьюпортах — редкий
+//      случай, приемлем по договорённости 10.3)
+//   3) floor > ceil  →  radius → MIN, пересчёт; если всё ещё floor > ceil — null
+//
+// Edge case: если даже при radius=MIN (шаг 3) floor > ceil (очень низкий/
+// landscape вьюпорт, сообщение занимает почти всю высоту) — корректной позиции
+// нет, возвращаем null. Канвас со звёздами остаётся, ЧД не рисуется —
+// деградация, не баг.
 export function resolveBlackHoleGeometry(
   w: number,
   h: number,
   xRatio: number,
   messageBottomPx: number | null,
   safeAreaBottomPx: number,
+  vortexClearancePx = 0,
 ): ResolvedBlackHoleGeometry | null {
   const messageBottom = messageBottomPx ?? 0;
 
   let radius = clamp(BH_MIN_RADIUS_PX, blackHoleRadiusPx(w, h, BH_DIAM_RATIO), BH_MAX_RADIUS_PX);
-  let floor = messageBottom + BH_MESSAGE_GAP_PX + radius;
+  let floor = messageBottom + BH_MESSAGE_GAP_PX + Math.max(radius, vortexClearancePx);
   let ceil = h - radius - safeAreaBottomPx;
 
   if (floor > ceil) {
-    radius = BH_MIN_RADIUS_PX;
+    // Шаг 2 — диск-only клиренс.
     floor = messageBottom + BH_MESSAGE_GAP_PX + radius;
-    ceil = h - radius - safeAreaBottomPx;
-    if (floor > ceil) return null;
+
+    if (floor > ceil) {
+      // Шаг 3 — минимальный радиус.
+      radius = BH_MIN_RADIUS_PX;
+      floor = messageBottom + BH_MESSAGE_GAP_PX + radius;
+      ceil = h - radius - safeAreaBottomPx;
+      if (floor > ceil) return null;
+    }
   }
 
   const target = BH_TARGET_Y_RATIO * h;

@@ -313,7 +313,8 @@
       "title": "Stranica nije pronađena",
       "description": "Link je možda zastareo ili je stranica premeštena.",
       "home": "Početna",
-      "exploreCollection": "Istražite kolekciju"
+      "exploreCollection": "Istražite kolekciju",
+      "exploreShort": "Istraži"
     },
     "routeError": {
       "status": "VEZA PREKINUTA",

@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import RouteErrorPage from './RouteErrorPage';
 
@@ -12,6 +12,22 @@ vi.mock('react-router-dom', async (importOriginal) => {
     isRouteErrorResponse: (err: unknown) =>
       typeof err === 'object' && err !== null && 'status' in err && 'statusText' in err,
   };
+});
+
+// ErrorPanel (§10.4 post-prod, docs/layout-overhaul/spec.md) вызывает
+// useMediaQuery('(min-width: 640px)') безусловно — jsdom не реализует
+// matchMedia, нужна заглушка перед любым рендером страницы.
+beforeEach(() => {
+  vi.stubGlobal('matchMedia', vi.fn().mockImplementation((q: string) => ({
+    matches: false,
+    media: q,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  } as unknown as MediaQueryList)));
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 function renderPage() {
