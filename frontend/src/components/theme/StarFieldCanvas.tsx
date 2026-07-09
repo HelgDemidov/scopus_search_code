@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useTheme } from '../../hooks/useTheme';
-import { getBlackHole } from '../../stores/blackHoleStore';
+import { getBlackHole, getMessageBottom } from '../../stores/blackHoleStore';
+import i18n from '../../i18n';
 import {
-  blackHoleRadiusPx,
   computeLensing,
   exceedsEscapeSpeed,
   gravitationalDriftAccel,
@@ -10,12 +10,9 @@ import {
   orbitalAngularVelocity,
   shouldHideCursor,
 } from '../../utils/blackHoleLensing';
+import { resolveBlackHoleGeometry } from '../../utils/blackHoleGeometry';
 import {
-  BLACK_HOLE_DIAMETER_RATIO,
-  BLACK_HOLE_DIAMETER_RATIO_MOBILE,
   BLACK_HOLE_POSITION_MOBILE_X_RATIO,
-  BLACK_HOLE_POSITION_MOBILE_Y_PX,
-  BLACK_HOLE_POSITION_Y_PX,
   CAPTURED_METEOR_FADE_MS,
   CURSOR_DRIFT_BASE_ACCEL,
   CURSOR_DRIFT_ESCAPE_SPEED,
@@ -916,15 +913,35 @@ function updateCursorDrift(
   return next;
 }
 
-function resolveBlackHoleGeometry(w: number, h: number): BlackHoleGeometry | null {
+// Обёртка над чистой resolveBlackHoleGeometry (utils/blackHoleGeometry.ts,
+// §4.4 ТЗ docs/layout-overhaul/spec.md, Шаг 5): решает, ЕСТЬ ли вообще ЧД на
+// этой странице (getBlackHole()) и её X-ratio (десктоп/мобильный — оставлено
+// дискретным, см. комментарий у MOBILE_BREAKPOINT_PX в constants/blackHole.ts),
+// затем делегирует Y/радиус чистой clamp-модели.
+function getCurrentBlackHoleGeometry(w: number, h: number, safeAreaBottomPx: number): BlackHoleGeometry | null {
   const pos = getBlackHole();
   if (!pos) return null;
   const isMobile = w < MOBILE_BREAKPOINT_PX;
-  return {
-    x: isMobile ? BLACK_HOLE_POSITION_MOBILE_X_RATIO * w : pos.xRatio * w,
-    y: isMobile ? BLACK_HOLE_POSITION_MOBILE_Y_PX : BLACK_HOLE_POSITION_Y_PX,
-    radius: blackHoleRadiusPx(w, h, isMobile ? BLACK_HOLE_DIAMETER_RATIO_MOBILE : BLACK_HOLE_DIAMETER_RATIO),
-  };
+  const xRatio = isMobile ? BLACK_HOLE_POSITION_MOBILE_X_RATIO : pos.xRatio;
+  return resolveBlackHoleGeometry(w, h, xRatio, getMessageBottom(), safeAreaBottomPx);
+}
+
+// env(safe-area-inset-bottom) нельзя прочитать напрямую из JS — нет такого
+// API; стандартный приём — зонд-элемент с этим CSS-значением в стиле и чтение
+// его РЕЗОЛВНУТОГО getComputedStyle (браузер сам подставляет px). Вызывается
+// только в resize() (не per-frame) — создание/удаление узла раз на ресайз
+// не влияет на производительность цикла отрисовки.
+function readSafeAreaBottomPx(): number {
+  const probe = document.createElement('div');
+  probe.style.position = 'fixed';
+  probe.style.bottom = '0';
+  probe.style.paddingBottom = 'env(safe-area-inset-bottom)';
+  probe.style.visibility = 'hidden';
+  probe.style.pointerEvents = 'none';
+  document.body.appendChild(probe);
+  const value = parseFloat(getComputedStyle(probe).paddingBottom) || 0;
+  document.body.removeChild(probe);
+  return value;
 }
 
 
@@ -975,6 +992,7 @@ function StarFieldCanvasInner() {
   const driftVelRef        = useRef({ x: 0, y: 0 });
   const lastMouseSampleRef = useRef<{ x: number; y: number; t: number } | null>(null);
   const lastDriftTimeRef   = useRef(0);
+  const safeAreaBottomRef  = useRef(0);
 
   useEffect(() => {
     const canvasEl = canvasRef.current;
@@ -984,19 +1002,24 @@ function StarFieldCanvasInner() {
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
 
+    // w/h читаются из clientWidth/clientHeight (CSS-разметка, задана через
+    // style height:'100dvh' в JSX ниже), НЕ из window.innerWidth/innerHeight
+    // (§4.4 ТЗ, Шаг 5): канвас и ErrorPanel (h-[calc(100dvh-3.5rem)]) меряют
+    // одну и ту же CSS-единицу — показ/скрытие адресной строки мобильного
+    // браузера (меняющее фактическое значение dvh) двигает оба синхронно,
+    // без явной подписки на visualViewport/pinch-zoom.
     function resize() {
-      const w = window.innerWidth;
-      const h = window.innerHeight;
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
       sizeRef.current = { w, h };
+      safeAreaBottomRef.current = readSafeAreaBottomPx();
       canvas.width  = w * dpr;
       canvas.height = h * dpr;
-      canvas.style.width  = `${w}px`;
-      canvas.style.height = `${h}px`;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       ctx.scale(dpr, dpr);
       const stars = generateStars(w, h);
-      const bh = resolveBlackHoleGeometry(w, h);
+      const bh = getCurrentBlackHoleGeometry(w, h, safeAreaBottomRef.current);
       const allStars = bh
         ? stars.concat(generateVortexCluster(bh, Math.hypot(w, h), w), generateSecondaryNebula(w, h))
         : stars;
@@ -1014,12 +1037,24 @@ function StarFieldCanvasInner() {
     }
 
     if (prefersReduced) {
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
+      // Статический кадр — без RAF-цикла. Но геометрия ЧД зависит от
+      // messageBottom (шрифты/i18n грузятся асинхронно, см. useBlackHole-
+      // MessageAnchor) и от размера вьюпорта — без пересчёта reduced-motion
+      // пользователь навсегда застрял бы с геометрией на момент mount, даже
+      // после resize/поворота экрана. Один redraw на каждое из этих событий
+      // (не per-frame) держит ЧД корректной, сохраняя allocation-free RAF-
+      // отсутствие как таковое.
+      let cancelled = false;
+
+      function drawStatic() {
+        if (cancelled) return;
+        resize();
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
         const { w, h } = sizeRef.current;
         ctx.clearRect(0, 0, w, h);
         drawStars(ctx, starsRef.current, 0, false, null);
-        const bh = resolveBlackHoleGeometry(w, h);
+        const bh = getCurrentBlackHoleGeometry(w, h, safeAreaBottomRef.current);
         if (bh) {
           drawBlackHole(ctx, bh);
           drawDiskLowerArc(ctx, bh, 0);
@@ -1028,7 +1063,21 @@ function StarFieldCanvasInner() {
           drawPhotonRing(ctx, bh, 0);
         }
       }
-      return;
+
+      drawStatic();
+      window.addEventListener('orientationchange', drawStatic);
+      i18n.on('languageChanged', drawStatic);
+      document.fonts?.ready?.then(drawStatic);
+
+      const roStatic = new ResizeObserver(drawStatic);
+      roStatic.observe(canvas);
+
+      return () => {
+        cancelled = true;
+        window.removeEventListener('orientationchange', drawStatic);
+        i18n.off('languageChanged', drawStatic);
+        roStatic.disconnect();
+      };
     }
 
     function onMouseMove(e: MouseEvent) {
@@ -1050,7 +1099,7 @@ function StarFieldCanvasInner() {
       rafRef.current = requestAnimationFrame(loop);
 
       const { w, h } = sizeRef.current;
-      const blackHole = resolveBlackHoleGeometry(w, h);
+      const blackHole = getCurrentBlackHoleGeometry(w, h, safeAreaBottomRef.current);
       const hasMeteors = meteorsRef.current.length > 0 || specsRef.current.length > 0;
       const targetMs = (hasMeteors || blackHole) ? MTR_FRAME_MS : STAR_FRAME_MS;
       const frameGapMs = now - lastFrameRef.current;
@@ -1130,13 +1179,20 @@ function StarFieldCanvasInner() {
     }
     document.addEventListener('visibilitychange', onVisibility);
 
+    // ResizeObserver на канвасе (не document.body, §4.4 ТЗ Шаг 5) — ловит
+    // изменение фактического 100dvh (показ/скрытие адресной строки) точно
+    // так же, как ловит изменение ширины при повороте/ресайзе окна.
+    // orientationchange — подстраховка: некоторые мобильные браузеры не
+    // всегда синхронно триггерят ResizeObserver сразу на смену ориентации.
     const ro = new ResizeObserver(resize);
-    ro.observe(document.body);
+    ro.observe(canvas);
+    window.addEventListener('orientationchange', resize);
 
     return () => {
       cancelAnimationFrame(rafRef.current);
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('orientationchange', resize);
       ro.disconnect();
       document.body.style.cursor = '';
     };
@@ -1149,8 +1205,11 @@ function StarFieldCanvasInner() {
       style={{
         position: 'fixed',
         inset: 0,
-        width: '100%',
-        height: '100%',
+        // dvh/vw (не 100%, §4.4 ТЗ Шаг 5) — CSS, а не JS, владеет размером;
+        // resize() читает обратно canvas.clientWidth/clientHeight, поэтому
+        // канвас и ErrorPanel (тоже на 100dvh) всегда синхронны.
+        width: '100vw',
+        height: '100dvh',
         zIndex: 0,
         pointerEvents: 'none',
       }}

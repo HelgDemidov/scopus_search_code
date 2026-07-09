@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isRouteErrorResponse, useNavigate, useRouteError } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import { ErrorPanel } from '../../components/error/ErrorPanel';
 import { useBlackHole } from '../../hooks/useBlackHole';
+import { useBlackHoleMessageAnchor } from '../../hooks/useBlackHoleMessageAnchor';
 import { buildReportMailto } from '../../utils/errorReport';
 import { BLACK_HOLE_POSITION } from '../../constants/blackHole';
 
@@ -23,8 +24,10 @@ export default function RouteErrorPage() {
   const navigate = useNavigate();
   const error = useRouteError();
   const incidentId = useMemo(() => generateIncidentId(), []);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useBlackHole(BLACK_HOLE_POSITION);
+  useBlackHoleMessageAnchor(panelRef);
 
   const message = isRouteErrorResponse(error)
     ? `${error.status} ${error.statusText}`
@@ -36,6 +39,7 @@ export default function RouteErrorPage() {
 
   return (
     <ErrorPanel
+      ref={panelRef}
       statusLabel={t('errors.routeError.status')}
       monoLabel={t('errors.routeError.idLabel')}
       monoValue={incidentId}

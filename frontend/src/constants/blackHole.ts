@@ -1,22 +1,27 @@
 
-//
-export const BLACK_HOLE_DIAMETER_RATIO = 0.0225; // диаметр = 2.25% диагонали экрана (было 1.8%)
-export const BLACK_HOLE_DIAMETER_RATIO_MOBILE = 0.0347; // 0.0385 × 0.9 — ещё −10% для гармонизации
+// Адаптивная геометрия ЧД (Шаг 5, §4.4 ТЗ docs/layout-overhaul/spec.md) —
+// единая непрерывная clamp-модель вместо двух дискретных наборов (было:
+// BLACK_HOLE_DIAMETER_RATIO/_MOBILE + BLACK_HOLE_POSITION_Y_PX/_MOBILE_Y_PX,
+// переключаемых по MOBILE_BREAKPOINT_PX — отсюда скачок размера/позиции на
+// 768px и дрейф Y% при разных высотах вьюпорта, см. §1.2 эмпирическую
+// таблицу). Реализация — utils/blackHoleGeometry.ts:resolveBlackHoleGeometry().
+export const BH_DIAM_RATIO = 0.0225; // диаметр = 2.25% диагонали — как у прежнего десктопа
+export const BH_MIN_RADIUS_PX = 16;  // поднимает узкие телефоны (малая диагональ) до старого мобильного размера
+export const BH_MAX_RADIUS_PX = 32;  // защита от раздувания на очень широких/4K мониторах
+export const BH_TARGET_Y_RATIO = 0.70; // мягкая цель — доля высоты вьюпорта (калибровано по §1.2: десктоп/планшет-портрет)
+export const BH_MESSAGE_GAP_PX = 24;   // зазор МЕЖДУ краем ЧД (не центром — см. blackHoleGeometry.ts) и низом сообщения
 
 //
 export const BLACK_HOLE_POSITION = { xRatio: 0.713 };
 
-export const BLACK_HOLE_POSITION_Y_PX = 594;
-
 // §4.2 ТЗ (docs/layout-overhaul/spec.md): 768 — НЕ баг корректности геометрии,
 // порог только для ПРОИЗВОДИТЕЛЬНОСТИ канваса (плотность звёзд/точек контура
-// ниже, см. VORTEX_STAR_COUNT_MOBILE и т.п.). BLACK_HOLE_POSITION_MOBILE_*
-// ниже сейчас тоже переключаются по этому порогу — временно: Шаг 5 (§4.4)
-// заменит Y/размер ЧД на непрерывную функцию вьюпорта, и 768 останется
-// исключительно перф-переключателем, как и было задумано изначально.
+// ниже, см. VORTEX_STAR_COUNT_MOBILE и т.п.) И X-позиции ЧД (§4.4: «X —
+// оставить пропорциональной», разница 0.713 vs 0.70 не была измеренной
+// проблемой в §1.2, в отличие от Y/размера — сознательно не переведена на
+// непрерывную модель в этом PR).
 export const MOBILE_BREAKPOINT_PX = 768; // тот же порог, что у generateStars() ниже
 export const BLACK_HOLE_POSITION_MOBILE_X_RATIO = 0.70;
-export const BLACK_HOLE_POSITION_MOBILE_Y_PX = 530; // центр дыры так, чтобы даже самые внешние тусклые звезды вортекса (~1.45 * 117px) были ниже карточки ошибки (~355px)
 
 //
 export const LENSING_FADE_START_DIAMETERS = 3.0 / 0.6; // дальше — совсем без искажения

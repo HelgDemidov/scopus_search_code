@@ -1,19 +1,24 @@
+import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import { ErrorPanel } from '../../components/error/ErrorPanel';
 import { useBlackHole } from '../../hooks/useBlackHole';
+import { useBlackHoleMessageAnchor } from '../../hooks/useBlackHoleMessageAnchor';
 import { BLACK_HOLE_POSITION } from '../../constants/blackHole';
 
 export default function NotFoundPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useBlackHole(BLACK_HOLE_POSITION);
+  useBlackHoleMessageAnchor(panelRef);
 
   return (
     <ErrorPanel
+      ref={panelRef}
       statusLabel={t('errors.notFound.status')}
       monoLabel={t('errors.notFound.queryLabel')}
       monoValue={location.pathname}
