@@ -1,4 +1,5 @@
 import statistics
+from datetime import date
 from typing import Any, List
 
 import sqlalchemy as sa
@@ -424,13 +425,18 @@ class PostgresCatalogRepository(ICatalogRepository):
         та PG-only, SQLite (юнит/интеграционные тесты) её не поддерживает. count/avg —
         портируемый SQL, отбирает top-N журналов; сырые cited_by_count подтягиваются
         вторым запросом только для них (не для всего окна зрелости).
+
+        Фильтр по году — sargable-диапазон (< 1 января следующего года), не
+        extract(year FROM publication_date) <= max_year: функция над колонкой не может
+        использовать обычный btree-индекс на publication_date (root cause прогона
+        2026-07-09, Шаг 3 индексирования — docs/project_context/...).
         """
         stmt = (
             select(Article)
             .join(CatalogArticle, CatalogArticle.article_id == Article.id)
             .where(
                 Article.journal.isnot(None),
-                func.extract("year", Article.publication_date) <= max_year,
+                Article.publication_date < date(max_year + 1, 1, 1),
             )
         )
         catalog_articles_q = stmt.subquery()
