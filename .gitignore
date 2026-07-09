@@ -42,7 +42,7 @@ node_modules/
 htmlcov/
 
 # Claude CLI files — сессии и память вне репо; skills версионируются
-.claude/
+.claude/*
 !.claude/commands/
 !.claude/commands/*.md
 CLAUDE.local.md

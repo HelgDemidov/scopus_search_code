@@ -40,10 +40,18 @@ Update `MEMORY.md` index: add one line per new file, update description of chang
 ## Step 4 — Update spec/design docs (if applicable)
 
 If the merge closes a feature branch with a spec in `docs/`, append a concise §"Статус выполнения" section (10–15 lines) stating: merge date, PR number, commit hashes, what was done, what remains out of scope.
+`docs/` is gitignored (local working notes, not for the public repo) — this is a local file edit only, not part of Step 6's commit.
 
-## Step 5 — Commit documentation changes
+## Step 5 — Update README.md and README.ru.md
 
-Stage only documentation files (CLAUDE.md, frontend/CLAUDE.md, docs/**). Do NOT stage memory files (they live outside the repo). Commit with message:
+Read both files. Update ONLY the parts whose content is now factually outdated because of the merged changes (new feature, changed command, stack/architecture change, etc.) — точечно и минимально, не раздувая объём файла.
+- Сохранять существующий стиль и форматирование README (структура разделов, тон, длина формулировок).
+- README.ru.md — зеркало README.md по содержанию: любая правка в одном файле дублируется по смыслу в другом.
+- Если изменения PR не затрагивают ничего, отражённого в README, — пропустить этот шаг.
+
+## Step 6 — Commit documentation changes
+
+Stage only documentation files (CLAUDE.md, frontend/CLAUDE.md, README.md, README.ru.md). Do NOT stage `docs/**` (gitignored, local-only) or memory files (they live outside the repo). Commit with message:
 `docs: обновить CLAUDE.md и документацию после мерджа <branch-name>`
 
 Then report a short summary: what was updated and why.
