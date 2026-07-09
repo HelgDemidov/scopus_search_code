@@ -14,7 +14,9 @@ if is_cloud_db:
 # Он управляет пулом соединений с базой данных
 engine = create_async_engine(
     url=settings.database_url_str,  # _str добавлено для облачной реализации
-    echo=True,  # Показать SQL-запросы в консоли (удобная опция для отладки)
+    echo=settings.DB_ECHO,  # см. app/config.py — по умолчанию True (удобно для отладки)
+    pool_size=settings.DB_POOL_SIZE,
+    max_overflow=settings.DB_MAX_OVERFLOW,
     connect_args=connect_args,  # строка добавлена для облачной реализации на Supabase
 )
 

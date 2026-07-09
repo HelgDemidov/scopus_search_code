@@ -42,7 +42,20 @@ class Settings(BaseSettings):
     UPSTASH_REDIS_REST_URL: str | None = None
     UPSTASH_REDIS_REST_TOKEN: str | None = None
 
-    # 8. URLs фронтенда
+    # 8. Async-движок БД (app/infrastructure/database.py) — дефолты сохраняют
+    # текущее поведение неизменным. echo=True удобен для локальной отладки
+    # в один запрос за раз, но синхронно пишет каждый SQL-запрос в консоль и
+    # легко доминирует над измеряемой latency под конкурентной нагрузкой;
+    # pool_size/max_overflow по умолчанию — это дефолты самого SQLAlchemy
+    # QueuePool (5 + 10 = 15 соединений), рассчитанные на интерактивную
+    # сессию, а не на N виртуальных пользователей нагрузочного теста.
+    # Перед запуском tests/load/ — выставлять через .env: DB_ECHO=false,
+    # DB_POOL_SIZE/DB_MAX_OVERFLOW под целевую конкурентность.
+    DB_ECHO: bool = True
+    DB_POOL_SIZE: int = 5
+    DB_MAX_OVERFLOW: int = 10
+
+    # 9. URLs фронтенда
     FRONTEND_URL: str = "http://localhost:5173"
     # Список разрешенных CORS-origins через запятую
     # Пример Railway: https://scopus-search-code.vercel.app
