@@ -232,26 +232,32 @@ the app.
 
 **Baseline (142,658 articles, 20 VUs, isolated Postgres, 2026-07-09):**
 *   **Target:** `P(95) < 500ms`, `P(99) < 1000ms`, `rate(errors) < 1%`.
-*   **Result:** thresholds failed — `P(95) = 11.89s`, `P(99) = 13.39s`, but **0% errors** (no
-    timeouts, no failed requests — pure queueing, not the connection-pool/network artifacts of
-    earlier attempts). This is a real, reproducible scalability ceiling.
-*   **Root cause (confirmed via `EXPLAIN ANALYZE`):** both endpoints fall back to a full parallel
-    sequential scan because no index matches their actual query shape:
-    - `/articles/?search=` — `title ILIKE '%term%' OR author ILIKE '%term%'`. A leading wildcard
-      defeats every btree index on the table (including the existing `ix_articles_lower_*`) — it
-      needs a `pg_trgm` GIN index. The pagination `COUNT(*)` is the dominant cost on its own:
-      **284ms/query**, parallel seq scan, no `LIMIT` to short-circuit it.
-    - `/stats/journal-impact` — `EXTRACT(year FROM publication_date) <= max_year` is a function
-      over the column, which also defeats indexing: **112ms/query** (parallel seq scan + join with
-      `catalog_articles`).
-    - Individually both are sub-300ms and invisible in the browser. At 20 concurrent VUs, every
-      request spins up its own parallel workers competing for the container's CPU cores — that
-      queueing, not per-query cost, is what produces multi-second tail latency.
-*   **Known gap / next ticket:** add a `pg_trgm` GIN index on `title`/`author` (or move to Postgres
-    full-text search / `tsvector`) and a functional index matching the year filter, then re-measure.
-    Deliberately not implemented here — this ticket's scope was "measure and document", not "make
-    the query planner do something completely different"; changing what the search endpoint does is
-    a decision worth its own ticket, not a drive-by fix.
+*   **First honest measurement:** thresholds failed — `P(95) = 11.89s`, `P(99) = 13.39s`, but
+    **0% errors** (no timeouts, no failed requests — pure queueing, not the connection-pool/network
+    artifacts of an earlier, buggy attempt). Root-caused via `EXPLAIN ANALYZE`: both endpoints fell
+    back to a full parallel sequential scan because no index matched their actual query shape —
+    `title ILIKE '%term%' OR author ILIKE '%term%'` (leading wildcard defeats every btree, including
+    the existing `ix_articles_lower_*`) and `EXTRACT(year FROM publication_date) <= max_year`
+    (a function over the column also defeats indexing). Individually both were sub-300ms and
+    invisible in the browser; at 20 concurrent VUs, every request's own parallel workers competed
+    for the container's CPU cores — that queueing, not per-query cost, produced the multi-second
+    tail latency.
+*   **Fixed in 3 measured steps, cheapest first** (see `docs/project_context` for the full trade-off
+    discussion — GiST over GIN, sargable predicates over functional indexes):
+    1. Cap the pagination `COUNT(*)` at 2000 (`SELECT count(*) FROM (... LIMIT 2001) t` — the planner
+       stops scanning once it finds the cap, regardless of a term's real selectivity) and show an
+       honest "2000+" instead of a false-precision exact number. → `P(95) = 10.03s`, `P(99) = 12.36s`
+       — real but modest; the search scan itself was still the bottleneck, capping only removed the
+       uncapped-`COUNT`'s own extra cost.
+    2. `pg_trgm` **GiST** index on `title`/`author` (not GIN — cheaper to write given the seeder's
+       bulk-update pattern, no pending-buffer/autovacuum overhead to manage; costs a bit more on read
+       and needs an index recheck). → `P(95) = 1.74s`, `P(99) = 2.37s`.
+    3. Sargable rewrite of the year filter (`publication_date < make_date(max_year+1,1,1)` instead of
+       `EXTRACT(year FROM ...)`) + a plain btree index on `publication_date`. → **`P(95) = 632ms`,
+       `P(99) = 1.06s`.**
+*   **Net result:** ~19x on P95, ~13x on P99 versus the first honest measurement. Thresholds are not
+    fully met yet — P99 misses by 60ms — but the app now visibly scales, and every step's cost/benefit
+    is measured and documented, not assumed.
 *   **Command to run baseline:**
     ```bash
     docker run --rm --network host -i grafana/k6 run - < tests/load/baseline.js
