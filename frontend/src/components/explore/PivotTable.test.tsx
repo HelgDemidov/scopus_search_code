@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect } from 'vitest';
+import { axe } from 'vitest-axe';
 import { PivotTable } from './PivotTable';
 import type { PivotResponse } from '../../types/api';
 
@@ -185,6 +186,16 @@ describe('PivotTable — пагинация', () => {
     await user.click(within(nav).getByText('2'));
     const rows = screen.getAllByRole('row').slice(1, -1);
     expect(rows).toHaveLength(5);
+  });
+});
+
+describe('PivotTable — a11y', () => {
+  it('не имеет базовых нарушений a11y с сортируемыми заголовками и пагинацией', async () => {
+    // makeLargeData(20) > PAGE_SIZE (15) — рендерит и SortableHeader (fix commit
+    // c3d3b4f: div/span role="button" → настоящий <button>), и PaginationControls.
+    const large = makeLargeData(20);
+    const { container } = render(<PivotTable data={large} rowDim="country" colDim="doc_type" />);
+    expect(await axe(container)).toHaveNoViolations();
   });
 });
 

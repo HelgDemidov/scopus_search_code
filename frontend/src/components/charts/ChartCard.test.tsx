@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi } from 'vitest';
+import { axe } from 'vitest-axe';
 import { ChartCard } from './ChartCard';
 
 describe('ChartCard', () => {
@@ -54,5 +55,21 @@ describe('ChartCard', () => {
     render(<ChartCard title="Plain">content</ChartCard>);
     await userEvent.click(screen.getByText('Plain'));
     // Просто не падает
+  });
+
+  it('не имеет базовых нарушений a11y с кликабельным заголовком, dot-маркером и headerAction', async () => {
+    // Комбинация всех интерактивных/декоративных элементов сразу — именно здесь
+    // ранее был div/span с onClick вместо настоящего <button> (commit c3d3b4f).
+    const { container } = render(
+      <ChartCard
+        title="Top Countries"
+        dimension="country"
+        onTitleClick={vi.fn()}
+        headerAction={<button type="button">Remove</button>}
+      >
+        content
+      </ChartCard>
+    );
+    expect(await axe(container)).toHaveNoViolations();
   });
 });
