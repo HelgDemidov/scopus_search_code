@@ -68,6 +68,7 @@ function makeArticleState(overrides: Record<string, unknown> = {}) {
     page: 1,
     size: 10 as PageSize,
     total: 0,
+    totalIsCapped: false,
     appendMode: false,
     searchMode: 'scopus' as 'scopus' | 'catalog',
     currentKeyword: null as string | null,

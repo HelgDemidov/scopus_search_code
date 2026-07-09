@@ -30,6 +30,10 @@ class PaginatedArticleResponse(BaseModel):
     # Схема ответа для пагинации согласно ТЗ
     items: List[ArticleResponse]  # переименовано: согласовано с test_catalog_filters_e2e.py
     total: int
+    # True — total упёрся в CatalogService.TOTAL_COUNT_CAP, реальных совпадений может быть
+    # больше; total в этом случае равен именно капу, не точному числу (фронт обязан показать
+    # это как "cap+", не как точное значение)
+    total_is_capped: bool = False
 
 
 class CountByField(BaseModel):

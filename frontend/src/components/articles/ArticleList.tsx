@@ -13,6 +13,8 @@ interface ArticleListProps {
   page: number;
   size: PageSize;
   total: number;
+  // true — total упёрся в кап на бэкенде (CatalogService.TOTAL_COUNT_CAP), не точное число
+  totalIsCapped: boolean;
   appendMode: boolean;
   onPageChange: (p: number) => void;
   onSizeChange: (s: PageSize) => void;
@@ -40,6 +42,7 @@ export function ArticleList({
   page,
   size,
   total,
+  totalIsCapped,
   appendMode,
   onPageChange,
   onSizeChange,
@@ -91,7 +94,7 @@ export function ArticleList({
           <ArticleFiltersMobile />
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-500 dark:text-slate-400">
-              {t('articles.resultsCount', { count: total })}
+              {t(totalIsCapped ? 'articles.resultsCountCapped' : 'articles.resultsCount', { count: total })}
             </span>
             {/* Sort by */}
             <div role="group" aria-label="Sort" className="flex rounded-md border border-slate-200 dark:border-slate-700 overflow-hidden">

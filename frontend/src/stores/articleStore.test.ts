@@ -47,6 +47,7 @@ import { getArticles } from '../api/articles';
 const INITIAL_STATE = {
   articles: [] as ArticleResponse[],
   total: 0,
+  totalIsCapped: false,
   page: 1,
   size: 10 as PageSize,
   filters: {},
@@ -86,7 +87,7 @@ function makePaginatedResponse(
   items: ArticleResponse[],
   total = items.length,
 ): PaginatedArticleResponse {
-  return { items, total };
+  return { items, total, total_is_capped: false };
 }
 
 // Типизированный мок getArticles

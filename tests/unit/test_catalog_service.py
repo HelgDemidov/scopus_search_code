@@ -83,9 +83,10 @@ class FakeCatalogRepository(ICatalogRepository):
         # Имитируем SQL LIMIT/OFFSET
         return self._articles[offset : offset + limit]
 
-    # Сигнатура синхронизирована с ICatalogRepository после добавления фильтров
+    # Сигнатура синхронизирована с ICatalogRepository после добавления cap (шаг 1 индексирования)
     async def get_total_count(
         self,
+        cap: int,
         keyword: str | None = None,
         search: str | None = None,
         year_from: int | None = None,
@@ -93,9 +94,10 @@ class FakeCatalogRepository(ICatalogRepository):
         doc_types: list[str] | None = None,
         open_access: bool | None = None,
         countries: list[str] | None = None,
-    ) -> int:
+    ) -> tuple[int, bool]:
         self.get_count_calls.append(
             {
+                "cap": cap,
                 "keyword": keyword,
                 "search": search,
                 "year_from": year_from,
@@ -105,7 +107,9 @@ class FakeCatalogRepository(ICatalogRepository):
                 "countries": countries,
             }
         )
-        return self._total
+        if self._total > cap:
+            return cap, True
+        return self._total, False
 
     async def save_seeded(self, articles: List[Article], keyword: str) -> List[Article]:
         self.save_seeded_calls.append({"articles": list(articles), "keyword": keyword})
@@ -404,6 +408,43 @@ async def test_get_catalog_paginated_filters_consistent_in_all_and_count():
     cnt_call = cr.get_count_calls[0]
     for key in ("year_from", "year_to", "doc_types", "open_access", "countries"):
         assert all_call[key] == cnt_call[key], f"Расхождение в поле {key!r}"
+
+
+# ================================================================ #
+#  Тесты get_catalog_paginated — кап точного COUNT (TOTAL_COUNT_CAP)#
+# ================================================================ #
+
+
+@pytest.mark.asyncio
+async def test_get_catalog_paginated_passes_total_count_cap():
+    """get_total_count получает CatalogService.TOTAL_COUNT_CAP, а не хардкод."""
+    svc, _, cr, _ = _mk_service(articles=[], total=5)
+
+    await svc.get_catalog_paginated(page=1, size=10)
+
+    assert cr.get_count_calls[0]["cap"] == CatalogService.TOTAL_COUNT_CAP
+
+
+@pytest.mark.asyncio
+async def test_get_catalog_paginated_total_below_cap_not_capped():
+    """total ниже кап — точное число, total_is_capped=False."""
+    svc, _, cr, _ = _mk_service(articles=[], total=CatalogService.TOTAL_COUNT_CAP - 1)
+
+    result = await svc.get_catalog_paginated(page=1, size=10)
+
+    assert result.total == CatalogService.TOTAL_COUNT_CAP - 1
+    assert result.total_is_capped is False
+
+
+@pytest.mark.asyncio
+async def test_get_catalog_paginated_total_above_cap_is_capped():
+    """total выше кап — total == cap (не точное число), total_is_capped=True."""
+    svc, _, cr, _ = _mk_service(articles=[], total=CatalogService.TOTAL_COUNT_CAP + 5000)
+
+    result = await svc.get_catalog_paginated(page=1, size=10)
+
+    assert result.total == CatalogService.TOTAL_COUNT_CAP
+    assert result.total_is_capped is True
 
 
 # ================================================================ #
