@@ -6,11 +6,16 @@
 // ---------------------------------------------------------------------------
 
 import { lazy, Suspense, useEffect } from 'react';
-import { createBrowserRouter, Outlet as RouterOutlet, useLocation } from 'react-router-dom';
+import { createBrowserRouter, Navigate, Outlet as RouterOutlet, useLocation } from 'react-router-dom';
 import type { RouteObject } from 'react-router-dom';
 import { Header } from './components/layout/Header';
 import { PrivateRoute } from './components/layout/PrivateRoute';
+import { LocaleLayout } from './components/layout/LocaleLayout';
 import { recordBreadcrumb } from './utils/errorReport';
+import { DEFAULT_URL_LANG, buildLocalizedPath, i18nToUrlLang } from './utils/localeRouting';
+import { useLocalizedPath } from './hooks/useLocalizedPath';
+import { useDefaultLandingPath } from './hooks/useDefaultLandingPath';
+import i18n from './i18n';
 import NotFoundPage from './pages/error/NotFoundPage';
 import RouteErrorPage from './pages/error/RouteErrorPage';
 
@@ -78,6 +83,44 @@ function RootLayout() {
 }
 
 // ---------------------------------------------------------------------------
+// Редиректы для локализованной URL-архитектуры (docs/i18n-url-routing/spec.md §5)
+// ---------------------------------------------------------------------------
+
+// Голый '/' (вне /:lang-поддерева) — детектит язык из уже инициализированного
+// i18next (LanguageDetector отработал синхронно при импорте ./i18n в main.tsx,
+// до первого рендера) и роль (анон/авторизован), редиректит одним прыжком на
+// реальный локализованный лендинг. Не листится в sitemap.xml (§6 ТЗ) —
+// редиректор, не контент.
+export function RootRedirect() {
+  const landingPath = useDefaultLandingPath();
+  const urlLang = i18nToUrlLang[i18n.language] ?? DEFAULT_URL_LANG;
+  return <Navigate to={buildLocalizedPath(urlLang, landingPath)} replace />;
+}
+
+// Голый '/:lang' (ручной ввод без секции) — та же роль-based цель, но lang уже
+// известен из URL (валидность гарантирована LocaleLayout-родителем).
+export function LangIndexRedirect() {
+  const resolve = useLocalizedPath();
+  const landingPath = useDefaultLandingPath();
+  return <Navigate to={resolve(landingPath)} replace />;
+}
+
+// Legacy bare-пути (были проиндексированы Google до этого ТЗ — /explore,
+// /auth, /profile, /article/:id, /forgot-password, §3 ТЗ) — client-side
+// фоллбэк для npm run dev (Vite dev-сервер не читает vercel.json). В проде
+// эти же 5 путей ловятся раньше, на edge, статическим redirects в
+// vercel.json (308) — не долетают до этого компонента вовсе. Один общий
+// компонент для всех 5: location.pathname уже содержит резолвленные
+// значения динамических сегментов (напр. /article/123), buildLocalizedPath
+// просто добавляет префикс — не нужен redirect на каждый путь отдельно.
+export function LegacyPathRedirect() {
+  const location = useLocation();
+  return (
+    <Navigate to={buildLocalizedPath(DEFAULT_URL_LANG, location.pathname) + location.search} replace />
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Ленивые страницы — объявляются после lazyPage (нет зависимости от hoisting)
 // ---------------------------------------------------------------------------
 
@@ -117,26 +160,46 @@ export const appRoutes: RouteObject[] = [
         // страницы нет» семантически не «ошибка».
         errorElement: <RouteErrorPage />,
         children: [
-          // index временно указывает на SearchPage — сохраняет сегодняшнее поведение
-          // (см. docs/i18n-url-routing/spec.md §4.1). Роль-based редирект '/' →
-          // /main|/search и вынос под /:lang — следующий коммит той же ветки.
-          { index: true,           element: SearchPage },
-          { path: 'main',          element: MainPage },
-          { path: 'search',        element: SearchPage },
-          { path: 'explore',       element: ExplorePage },
-          { path: 'auth',             element: AuthPage },
+          { index: true, element: <RootRedirect /> },
+
+          // Исключения из локализации (docs/i18n-url-routing/spec.md §7) — бэкенд
+          // хардкодит эти 2 URL без понятия о локали (app/routers/auth.py:112,187:
+          // OAuth-редирект и ссылка в письме password-reset от Brevo). Остаются
+          // без /{lang}-префикса навсегда, не только на переходный период.
           { path: 'auth/callback',   element: OAuthCallback },
-          { path: 'article/:id',     element: ArticlePage },
-          { path: 'forgot-password', element: ForgotPasswordPage },
           { path: 'reset-password',  element: ResetPasswordPage },
+
+          // Legacy bare-пути — уже проиндексированы Google (§3 ТЗ), редирект на
+          // /en/... (client-side фоллбэк; прод — vercel.json redirects, см. §3).
+          // Статические литералы 'explore'/'auth'/'profile'/... ранжируются
+          // react-router выше динамического ':lang' ниже — коллизии нет.
+          { path: 'explore',         element: <LegacyPathRedirect /> },
+          { path: 'auth',            element: <LegacyPathRedirect /> },
+          { path: 'profile',         element: <LegacyPathRedirect /> },
+          { path: 'article/:id',     element: <LegacyPathRedirect /> },
+          { path: 'forgot-password', element: <LegacyPathRedirect /> },
+
           {
-            // Защищенные маршруты через PrivateRoute
-            element: <PrivateRoute />,
+            path: ':lang',
+            element: <LocaleLayout />,
             children: [
-              { path: 'profile', element: ProfilePage },
+              { index: true,           element: <LangIndexRedirect /> },
+              { path: 'main',          element: MainPage },
+              { path: 'search',        element: SearchPage },
+              { path: 'explore',       element: ExplorePage },
+              { path: 'article/:id',   element: ArticlePage },
+              { path: 'auth',          element: AuthPage },
+              { path: 'forgot-password', element: ForgotPasswordPage },
+              {
+                // Защищенные маршруты через PrivateRoute
+                element: <PrivateRoute />,
+                children: [
+                  { path: 'profile', element: ProfilePage },
+                ],
+              },
+              { path: '*', element: <NotFoundPage /> },
             ],
           },
-          { path: '*', element: <NotFoundPage /> },
         ],
       },
     ],
