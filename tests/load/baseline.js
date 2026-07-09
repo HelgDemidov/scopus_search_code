@@ -20,7 +20,10 @@ const BASE_URL = __ENV.BASE_URL || 'http://localhost:8000';
 
 export default function () {
   // 1. Полнотекстовый поиск (симуляция ввода запроса)
-  const res1 = http.get(`${BASE_URL}/articles/?q=machine+learning&page=1&size=20`);
+  // Параметр эндпоинта — search, не q (app/routers/articles.py) — с q FastAPI
+  // молча игнорирует фильтр, и тест на деле гонял постраничный каталог без
+  // ILIKE-фильтрации вообще, хотя check ниже всё равно проходил.
+  const res1 = http.get(`${BASE_URL}/articles/?search=machine+learning&page=1&size=20`);
   check(res1, {
     'search status is 200': (r) => r.status === 200,
     'search response has items': (r) => {

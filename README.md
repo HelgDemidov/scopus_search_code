@@ -220,16 +220,45 @@ cd frontend && npm run test
 
 ## Performance
 
-We use [k6](https://k6.io/) for load testing critical read-only endpoints (e.g., search, statistics).
+We use [k6](https://k6.io/) for load testing critical read-only endpoints (full-text search, journal-impact stats).
 
-**Current Baseline (Local Backend + Supabase DB):**
-*   **Target:** `P(95) < 500ms`, `P(99) < 1000ms`, `rate(errors) < 1%`.
-*   **Result:** The baseline test failed with high latencies (`P(95) = 23.07s`, `P(99) = 26.05s`) and an error rate of `17.36%` (some requests timed out or failed under a load of 20 concurrent VUs).
-*   **Command to run baseline:**
+**Lessons learned from the first attempt.** An earlier run of this test published `P(95) = 23.07s`,
+`P(99) = 26.05s`, `17.36%` errors as the app's "baseline" — numbers bad enough to suggest the app
+falls over at 20 concurrent users. On review, three measurement bugs explain nearly all of it, not
+app capacity:
+1. The script queried `?q=...`, but the search endpoint's parameter is `search` — FastAPI silently
+   ignores unknown params, so the "full-text search" test never actually exercised the `ILIKE` path.
+2. The async engine ran with `echo=True` (every SQL statement synchronously logged to stdout on every
+   request) and no explicit connection-pool size (SQLAlchemy's default `pool_size=5 + max_overflow=10`
+   — sized for one interactive dev session, not 20 virtual users). Both are cheap to control and both
+   dominate latency under load if left on.
+3. Following this project's own local-dev convention, `DATABASE_URL` pointed at the hosted Supabase
+   instance, not an isolated database — so the "local baseline" was in fact 20 VUs hitting a shared,
+   networked, multi-tenant Postgres instance.
+
+Fixed in code: `tests/load/baseline.js` now uses `search=`; `DB_ECHO` / `DB_POOL_SIZE` /
+`DB_MAX_OVERFLOW` are configurable via `.env` (see `.env.example`) instead of hardcoded.
+
+**How to run a trustworthy baseline:**
+1. Point `DATABASE_URL` at an isolated Postgres seeded at production scale (never the shared
+   Supabase instance — a load test has no business generating synthetic traffic against it).
+2. In that environment's `.env`, set `DB_ECHO=false` and size `DB_POOL_SIZE`/`DB_MAX_OVERFLOW` for
+   the target concurrency (e.g. `pool_size=20` for a 20-VU test).
+3. Run:
     ```bash
     docker run --rm --network host -i grafana/k6 run - < tests/load/baseline.js
     ```
-    *(Requires local backend running on `http://localhost:8000`)*
+    *(Requires the backend running on `http://localhost:8000` against that isolated database)*
+
+**Status:** methodology verified end-to-end against an isolated throwaway Postgres (500 synthetic
+rows, `DB_ECHO=false`, `pool_size=20`) — 5 VUs / 10s, all thresholds passed (`p95=216ms`, `p99=217ms`,
+`0%` errors), confirming the fixed script and env-based tuning actually work together, not just in
+theory. That run is a mechanism smoke test, not the published baseline — 500 rows at 5 VUs isn't
+comparable to the real 122k-article corpus at 20 VUs. A baseline at that scale is a follow-up the
+project owner will capture once available (seeding 122k rows takes multiple seeder-cron cycles
+against the live Scopus API — not reproducible in a single sitting), the same way the production
+observability check-in (`/health`, `/health/redis`) was manually verified against live Railway
+rather than simulated.
 
 ---
 
