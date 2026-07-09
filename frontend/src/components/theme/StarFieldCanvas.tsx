@@ -933,8 +933,16 @@ function getCurrentBlackHoleGeometry(w: number, h: number, safeAreaBottomPx: num
   if (!pos) return null;
   const isMobile = w < MOBILE_BREAKPOINT_PX;
   const xRatio = isMobile ? BLACK_HOLE_POSITION_MOBILE_X_RATIO : pos.xRatio;
-  const nebulaRadius = vortexNebulaRadiusPx(w, Math.hypot(w, h));
-  const vortexClearancePx = nebulaRadius * BH_VORTEX_CLEARANCE_FACTOR;
+  // vortexClearancePx — ТОЛЬКО на мобильном (§10.4 post-prod, docs/layout-
+  // overhaul/spec.md). Регрессия 2026-07-09: на десктопе VORTEX_RADIUS_RATIO
+  // (0.20) даёт nebulaRadius даже больше, чем на мобильном (0.126) — клиренс
+  // (×1.3) на широких вьюпортах превышал мягкую цель по Y (BH_TARGET_Y_RATIO)
+  // и прижимал ЧД к самому низу экрана вместо нормальной десктопной позиции
+  // (~70% высоты). На десктопе floor и раньше не связывал y (messageBottom
+  // мал относительно h) — десктопное поведение должно остаться как до §10.
+  const vortexClearancePx = isMobile
+    ? vortexNebulaRadiusPx(w, Math.hypot(w, h)) * BH_VORTEX_CLEARANCE_FACTOR
+    : 0;
   return resolveBlackHoleGeometry(w, h, xRatio, getMessageBottom(), safeAreaBottomPx, vortexClearancePx);
 }
 

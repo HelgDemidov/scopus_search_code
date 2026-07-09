@@ -3,6 +3,7 @@ import { describe, it, expect, beforeAll, afterEach, afterAll, vi } from 'vitest
 import { StarFieldCanvas } from './StarFieldCanvas';
 import { ThemeProvider } from './ThemeProvider';
 import { setBlackHole } from '../../stores/blackHoleStore';
+import { BH_TARGET_Y_RATIO } from '../../constants/blackHole';
 
 // Каждое присвоение fillStyle пишется сюда, а не только финальное значение —
 // renderCursorLensing тоже красит fillStyle (курсор), если он зарегистрирован
@@ -144,6 +145,44 @@ describe('StarFieldCanvas', () => {
     // проверяем по истории присвоений, не по последнему значению (см.
     // комментарий у fillStyleHistory выше), что круг реально отрисовался
     expect(fillStyleHistory).toContain('#000000');
+
+    setBlackHole(null);
+  });
+
+  // Регрессия 2026-07-09 (§10.4 post-prod, docs/layout-overhaul/spec.md):
+  // vortexClearancePx изначально считался БЕЗ учёта isMobile — на десктопе
+  // (clientWidth=1024 из beforeAll, >= MOBILE_BREAKPOINT_PX) это толкало ЧД к
+  // самому низу вьюпорта вместо нормальной позиции ~70% высоты (десктопный
+  // VORTEX_RADIUS_RATIO даже больше мобильного, клиренс от него на широком
+  // экране перебивал мягкую цель по Y). Фикс — клиренс только при isMobile;
+  // тест ловит повторный регресс, если условие снова потеряется.
+  it('keeps the desktop black hole near its Y target, not pushed to the viewport bottom (regression guard)', () => {
+    localStorage.setItem('theme', 'dark');
+    const captured: { loop: FrameRequestCallback | null } = { loop: null };
+    vi.stubGlobal('requestAnimationFrame', vi.fn((cb: FrameRequestCallback) => {
+      captured.loop = cb;
+      return 42;
+    }));
+
+    setBlackHole({ xRatio: 0.713 });
+    render(
+      <ThemeProvider>
+        <StarFieldCanvas />
+      </ThemeProvider>,
+    );
+    captured.loop?.(1000);
+
+    // drawBlackHole вызывает ctx.arc(bh.x, bh.y, bh.radius, 0, 2π) — единственный
+    // arc-вызов с полным оборотом (0..2π) и radius в диапазоне диска (звёзды —
+    // 0.7-1.2px, сегменты фотонного кольца/орбит — частичные дуги, не 0..2π).
+    const bhArcCall = (stubCtx.arc as ReturnType<typeof vi.fn>).mock.calls.find(
+      (args: number[]) => args[3] === 0 && args[4] === Math.PI * 2 && args[2] > 5,
+    );
+    expect(bhArcCall).toBeDefined();
+    const y = bhArcCall![1];
+    // clientHeight=768 (beforeAll) — messageBottom не задан (null→0), floor
+    // должен оставаться далеко ниже мягкой цели, target её и определяет.
+    expect(y).toBeCloseTo(BH_TARGET_Y_RATIO * 768, 0);
 
     setBlackHole(null);
   });
