@@ -2,6 +2,10 @@ Turn a feature/refactor/large-task request into a structured spec (ТЗ), follow
 
 Take the task description from the user's message (and any command args) as the primary input. Everything below is a DEFAULT — an explicit instruction in that message (different length, different process, different location) overrides it.
 
+## Сквозной принцип — современные практики и стандарты
+
+ТЗ разрабатывается исходя из лучших практик и передовых стандартов, принятых в индустриальной разработке ПО на сегодняшний день — с точки зрения системной архитектуры (в т.ч. соответствия принципам SOLID), устойчивости и чистоты кода, а также безопасной разработки. Для фронтенд-фич дополнительно учитывать актуальные тренды, паттерны и лучшие мировые практики веб-дизайна в релевантных нишах. Это не отдельный шаг, а критерий, который применяется на всех этапах — черновик (Step 2), самокритика (Step 3), финализация (Step 4).
+
 ## Step 1 — Ground the spec in reality
 
 Read the relevant existing code, related `docs/*/spec.md` (for tone/structure), `CLAUDE.md`/`frontend/CLAUDE.md`, and relevant project memory (`MEMORY.md` index + linked files). Every concrete claim that ends up in the spec — file path, function name, endpoint, table — must be verified against the actual repo, not assumed.
@@ -12,7 +16,7 @@ Write an initial spec: problem/goal, technical approach, affected files/layers, 
 
 ## Step 3 — Adversarial self-critique (round 2)
 
-Re-read the round-1 draft as a skeptical senior reviewer, not its author. Look for: wrong assumptions about existing code, missing edge cases, unstated scope boundaries, security/perf implications, gaps in the test plan, an unrealistic commit breakdown. List concrete objections, then revise to address each one.
+Re-read the round-1 draft as a skeptical senior reviewer, not its author. Look for: wrong assumptions about existing code, missing edge cases, unstated scope boundaries, security/perf implications, gaps in the test plan, an unrealistic commit breakdown, SOLID/architecture violations, dated patterns that don't match current industry best practices (and, for frontend work, dated UI/UX approaches vs. current web-design conventions). List concrete objections, then revise to address each one.
 
 ## Step 4 — Verify (round 3, when warranted)
 
