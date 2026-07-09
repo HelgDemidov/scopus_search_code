@@ -222,43 +222,41 @@ cd frontend && npm run test
 
 We use [k6](https://k6.io/) for load testing critical read-only endpoints (full-text search, journal-impact stats).
 
-**Lessons learned from the first attempt.** An earlier run of this test published `P(95) = 23.07s`,
-`P(99) = 26.05s`, `17.36%` errors as the app's "baseline" — numbers bad enough to suggest the app
-falls over at 20 concurrent users. On review, three measurement bugs explain nearly all of it, not
-app capacity:
-1. The script queried `?q=...`, but the search endpoint's parameter is `search` — FastAPI silently
-   ignores unknown params, so the "full-text search" test never actually exercised the `ILIKE` path.
-2. The async engine ran with `echo=True` (every SQL statement synchronously logged to stdout on every
-   request) and no explicit connection-pool size (SQLAlchemy's default `pool_size=5 + max_overflow=10`
-   — sized for one interactive dev session, not 20 virtual users). Both are cheap to control and both
-   dominate latency under load if left on.
-3. Following this project's own local-dev convention, `DATABASE_URL` pointed at the hosted Supabase
-   instance, not an isolated database — so the "local baseline" was in fact 20 VUs hitting a shared,
-   networked, multi-tenant Postgres instance.
+**Methodology.** Run against an isolated, disposable Postgres — never the shared Supabase instance
+(a load test has no business generating synthetic traffic there). Seeded at production scale via a
+one-time read-only copy of `articles` + `catalog_articles` from production (no user/auth tables —
+those carry real PII and were never touched). `DB_ECHO=false` and `DB_POOL_SIZE`/`DB_MAX_OVERFLOW`
+sized for the target concurrency (both configurable via `.env`, see `.env.example`) — otherwise the
+measurement drowns in its own SQL-echo logging and connection-pool queueing instead of reflecting
+the app.
 
-Fixed in code: `tests/load/baseline.js` now uses `search=`; `DB_ECHO` / `DB_POOL_SIZE` /
-`DB_MAX_OVERFLOW` are configurable via `.env` (see `.env.example`) instead of hardcoded.
-
-**How to run a trustworthy baseline:**
-1. Point `DATABASE_URL` at an isolated Postgres seeded at production scale (never the shared
-   Supabase instance — a load test has no business generating synthetic traffic against it).
-2. In that environment's `.env`, set `DB_ECHO=false` and size `DB_POOL_SIZE`/`DB_MAX_OVERFLOW` for
-   the target concurrency (e.g. `pool_size=20` for a 20-VU test).
-3. Run:
+**Baseline (142,658 articles, 20 VUs, isolated Postgres, 2026-07-09):**
+*   **Target:** `P(95) < 500ms`, `P(99) < 1000ms`, `rate(errors) < 1%`.
+*   **Result:** thresholds failed — `P(95) = 11.89s`, `P(99) = 13.39s`, but **0% errors** (no
+    timeouts, no failed requests — pure queueing, not the connection-pool/network artifacts of
+    earlier attempts). This is a real, reproducible scalability ceiling.
+*   **Root cause (confirmed via `EXPLAIN ANALYZE`):** both endpoints fall back to a full parallel
+    sequential scan because no index matches their actual query shape:
+    - `/articles/?search=` — `title ILIKE '%term%' OR author ILIKE '%term%'`. A leading wildcard
+      defeats every btree index on the table (including the existing `ix_articles_lower_*`) — it
+      needs a `pg_trgm` GIN index. The pagination `COUNT(*)` is the dominant cost on its own:
+      **284ms/query**, parallel seq scan, no `LIMIT` to short-circuit it.
+    - `/stats/journal-impact` — `EXTRACT(year FROM publication_date) <= max_year` is a function
+      over the column, which also defeats indexing: **112ms/query** (parallel seq scan + join with
+      `catalog_articles`).
+    - Individually both are sub-300ms and invisible in the browser. At 20 concurrent VUs, every
+      request spins up its own parallel workers competing for the container's CPU cores — that
+      queueing, not per-query cost, is what produces multi-second tail latency.
+*   **Known gap / next ticket:** add a `pg_trgm` GIN index on `title`/`author` (or move to Postgres
+    full-text search / `tsvector`) and a functional index matching the year filter, then re-measure.
+    Deliberately not implemented here — this ticket's scope was "measure and document", not "make
+    the query planner do something completely different"; changing what the search endpoint does is
+    a decision worth its own ticket, not a drive-by fix.
+*   **Command to run baseline:**
     ```bash
     docker run --rm --network host -i grafana/k6 run - < tests/load/baseline.js
     ```
-    *(Requires the backend running on `http://localhost:8000` against that isolated database)*
-
-**Status:** methodology verified end-to-end against an isolated throwaway Postgres (500 synthetic
-rows, `DB_ECHO=false`, `pool_size=20`) — 5 VUs / 10s, all thresholds passed (`p95=216ms`, `p99=217ms`,
-`0%` errors), confirming the fixed script and env-based tuning actually work together, not just in
-theory. That run is a mechanism smoke test, not the published baseline — 500 rows at 5 VUs isn't
-comparable to the real 122k-article corpus at 20 VUs. A baseline at that scale is a follow-up the
-project owner will capture once available (seeding 122k rows takes multiple seeder-cron cycles
-against the live Scopus API — not reproducible in a single sitting), the same way the production
-observability check-in (`/health`, `/health/redis`) was manually verified against live Railway
-rather than simulated.
+    *(Requires the backend running on `http://localhost:8000` against an isolated, production-scale-seeded database)*
 
 ---
 
