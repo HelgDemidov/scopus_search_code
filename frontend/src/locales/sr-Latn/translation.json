@@ -12,7 +12,13 @@
     "button": "Pretraži",
     "minLength": "Unesite najmanje {{min}} znakova"
   },
-  "home": {
+  "main": {
+    "heroTitle": "Istražite publikacije o vještačkoj inteligenciji i neuronskim mrežama",
+    "heroSubtitle": "Kurirana kolekcija Scopus publikacija o vještačkoj inteligenciji i neuronskim mrežama, spremna za pretragu.",
+    "ctaSearch": "Započni pretragu",
+    "ctaSignIn": "Prijavi se"
+  },
+  "searchPage": {
     "anonTitle": "Pretraži Scopus publikacije",
     "anonSubtitle": "Pregledajte rezultate ispod. <lnk>Prijavite se</lnk> za puni pristup pretrazi.",
     "anonNote": "Rezultati su ograničeni na kolekciju \"VJ i neuronske mreže\". <lnk>Prijavite se</lnk> za puni pristup Scopusu",

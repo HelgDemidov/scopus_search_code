@@ -1,7 +1,7 @@
 import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi, beforeEach, describe, it, expect } from 'vitest';
-import HomePage from './HomePage';
+import SearchPage from './SearchPage';
 import type { PageSize } from '../components/articles/PaginationBar';
 
 // ---------------------------------------------------------------------------
@@ -26,7 +26,7 @@ vi.mock('../components/articles/ScopusPaginationBar', () => ({
   },
 }));
 
-// Заглушки компонентов без логики, нужных HomePage
+// Заглушки компонентов без логики, нужных SearchPage
 vi.mock('../components/search/SearchBar', () => ({
   SearchBar: ({ onSearch }: { onSearch: (q: string) => void }) => (
     <button data-testid="search-bar" onClick={() => onSearch('ai')}>search</button>
@@ -56,7 +56,7 @@ vi.mock('../api/articles', () => ({
 // Фабрики для articleStore / authStore
 // ---------------------------------------------------------------------------
 
-// Дефолтный articleStore-стейт — все поля, которые читает HomePage
+// Дефолтный articleStore-стейт — все поля, которые читает SearchPage
 function makeArticleState(overrides: Record<string, unknown> = {}) {
   return {
     articles: [],
@@ -88,7 +88,7 @@ function makeArticleState(overrides: Record<string, unknown> = {}) {
 }
 
 // Мок useArticleStore — при каждом тесте создаём новый стейт.
-// selector опционален: HomePage вызывает useArticleStore() без аргумента
+// selector опционален: SearchPage вызывает useArticleStore() без аргумента
 // (деструктурирует весь стор), поэтому при selector === undefined возвращаем
 // весь articleState, иначе — selector(articleState).
 let articleState = makeArticleState();
@@ -120,16 +120,16 @@ beforeEach(() => {
 // Блок 1: Anon hero — рендер до / после поиска
 // ---------------------------------------------------------------------------
 
-describe('HomePage — anon hero', () => {
+describe('SearchPage — anon hero', () => {
 
   it('до поиска: AnonHero виден, ArticleList не рендерится', () => {
-    render(<HomePage />);
+    render(<SearchPage />);
     expect(screen.getByText(/Search Scopus Publications/i)).toBeInTheDocument();
     expect(screen.queryByTestId('article-list')).toBeNull();
   });
 
   it('после поиска: ArticleList появляется', async () => {
-    render(<HomePage />);
+    render(<SearchPage />);
     await userEvent.click(screen.getByTestId('search-bar'));
     expect(screen.getByTestId('article-list')).toBeInTheDocument();
   });
@@ -139,11 +139,11 @@ describe('HomePage — anon hero', () => {
 // Блок 2: Pagination wire-up — анонимный режим
 // ---------------------------------------------------------------------------
 
-describe('HomePage — pagination wire-up (anon)', () => {
+describe('SearchPage — pagination wire-up (anon)', () => {
 
   it('page/size/total/appendMode из стора прокидываются в ArticleList', async () => {
     articleState = makeArticleState({ page: 3, size: 25 as PageSize, total: 75, appendMode: true });
-    render(<HomePage />);
+    render(<SearchPage />);
     await userEvent.click(screen.getByTestId('search-bar'));
     expect(capturedArticleListProps.page).toBe(3);
     expect(capturedArticleListProps.size).toBe(25);
@@ -155,7 +155,7 @@ describe('HomePage — pagination wire-up (anon)', () => {
     const setPage = vi.fn();
     const fetchArticles = vi.fn().mockResolvedValue(undefined);
     articleState = makeArticleState({ total: 30, setPage, fetchArticles });
-    render(<HomePage />);
+    render(<SearchPage />);
     await userEvent.click(screen.getByTestId('search-bar'));
 
     await act(async () => {
@@ -169,7 +169,7 @@ describe('HomePage — pagination wire-up (anon)', () => {
     const setSize = vi.fn();
     const fetchArticles = vi.fn().mockResolvedValue(undefined);
     articleState = makeArticleState({ total: 30, setSize, fetchArticles });
-    render(<HomePage />);
+    render(<SearchPage />);
     await userEvent.click(screen.getByTestId('search-bar'));
 
     await act(async () => {
@@ -184,12 +184,12 @@ describe('HomePage — pagination wire-up (anon)', () => {
 // Блок 3: Toggle mode
 // ---------------------------------------------------------------------------
 
-describe('HomePage — toggle mode', () => {
+describe('SearchPage — toggle mode', () => {
 
   it('onToggleMode при appendMode=false вызывает setAppendMode(true)', async () => {
     const setAppendMode = vi.fn();
     articleState = makeArticleState({ appendMode: false, total: 10, setAppendMode });
-    render(<HomePage />);
+    render(<SearchPage />);
     await userEvent.click(screen.getByTestId('search-bar'));
 
     await act(async () => {
@@ -201,7 +201,7 @@ describe('HomePage — toggle mode', () => {
   it('onToggleMode при appendMode=true вызывает setAppendMode(false)', async () => {
     const setAppendMode = vi.fn();
     articleState = makeArticleState({ appendMode: true, total: 10, setAppendMode });
-    render(<HomePage />);
+    render(<SearchPage />);
     await userEvent.click(screen.getByTestId('search-bar'));
 
     await act(async () => {
@@ -215,11 +215,11 @@ describe('HomePage — toggle mode', () => {
 // Блок 4: Auth mode — ScopusPaginationBar wire-up
 // ---------------------------------------------------------------------------
 
-describe('HomePage — auth mode (ScopusPaginationBar wire-up)', () => {
+describe('SearchPage — auth mode (ScopusPaginationBar wire-up)', () => {
 
   it('ScopusPaginationBar рендерится в auth-режиме (searchMode=scopus по дефолту)', () => {
     authIsAuthenticated = true;
-    render(<HomePage />);
+    render(<SearchPage />);
     expect(screen.getByTestId('scopus-pagination-bar')).toBeInTheDocument();
   });
 
@@ -231,13 +231,13 @@ describe('HomePage — auth mode (ScopusPaginationBar wire-up)', () => {
       { id: 3, title: 'C', cited_by_count: 3 },
     ] as never;
     articleState = makeArticleState({ liveResults });
-    render(<HomePage />);
+    render(<SearchPage />);
     expect(capturedScopusPaginationBarProps.total).toBe(3);
   });
 
   it('livePage сбрасывается в 1 при новом поиске', async () => {
     authIsAuthenticated = true;
-    render(<HomePage />);
+    render(<SearchPage />);
 
     await act(async () => {
       (capturedScopusPaginationBarProps.onPageChange as (p: number) => void)(2);
@@ -254,7 +254,7 @@ describe('HomePage — auth mode (ScopusPaginationBar wire-up)', () => {
     authIsAuthenticated = true;
     const setLiveSize = vi.fn();
     articleState = makeArticleState({ setLiveSize });
-    render(<HomePage />);
+    render(<SearchPage />);
 
     await act(async () => {
       (capturedScopusPaginationBarProps.onPageChange as (p: number) => void)(2);
@@ -276,7 +276,7 @@ describe('HomePage — auth mode (ScopusPaginationBar wire-up)', () => {
       cited_by_count: 0,
     })) as never;
     articleState = makeArticleState({ liveResults, liveSize: 10 as const });
-    render(<HomePage />);
+    render(<SearchPage />);
 
     const articles = capturedArticleListProps.articles as Array<{ id: number }>;
     expect(articles).toHaveLength(10);
@@ -292,7 +292,7 @@ describe('HomePage — auth mode (ScopusPaginationBar wire-up)', () => {
       cited_by_count: 0,
     })) as never;
     articleState = makeArticleState({ liveResults, liveSize: 'all' as const });
-    render(<HomePage />);
+    render(<SearchPage />);
 
     const articles = capturedArticleListProps.articles as Array<{ id: number }>;
     expect(articles).toHaveLength(15);
@@ -303,12 +303,12 @@ describe('HomePage — auth mode (ScopusPaginationBar wire-up)', () => {
 // Блок 5: Auth mode — нейтральные заглушки ArticleList
 // ---------------------------------------------------------------------------
 
-describe('HomePage — auth mode (ArticleList neutral stubs)', () => {
+describe('SearchPage — auth mode (ArticleList neutral stubs)', () => {
 
   it('ArticleList получает appendMode=false и page=1 независимо от стора', () => {
     authIsAuthenticated = true;
     articleState = makeArticleState({ page: 5, size: 50 as PageSize, total: 200, appendMode: true });
-    render(<HomePage />);
+    render(<SearchPage />);
     expect(capturedArticleListProps.appendMode).toBe(false);
     expect(capturedArticleListProps.page).toBe(1);
   });
@@ -318,12 +318,12 @@ describe('HomePage — auth mode (ArticleList neutral stubs)', () => {
 // Блок 6: Auth mode — searchMode toggle
 // ---------------------------------------------------------------------------
 
-describe('HomePage — auth mode (searchMode toggle)', () => {
+describe('SearchPage — auth mode (searchMode toggle)', () => {
 
   it('обе кнопки переключателя рендерятся: Scopus active (дефолт), Catalog inactive', () => {
     authIsAuthenticated = true;
     // searchMode: 'scopus' — дефолт в makeArticleState
-    render(<HomePage />);
+    render(<SearchPage />);
     const scopusBtn = screen.getByRole('button', { name: /Search Scopus Database/i });
     const catalogBtn = screen.getByRole('button', { name: /Search AI.*Collection/i });
     expect(scopusBtn).toHaveAttribute('aria-pressed', 'true');
@@ -333,7 +333,7 @@ describe('HomePage — auth mode (searchMode toggle)', () => {
   it('в catalog-режиме (searchMode=catalog из стора) aria-pressed корректны', () => {
     authIsAuthenticated = true;
     articleState = makeArticleState({ searchMode: 'catalog' });
-    render(<HomePage />);
+    render(<SearchPage />);
     expect(screen.getByRole('button', { name: /Search AI.*Collection/i })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: /Search Scopus Database/i })).toHaveAttribute('aria-pressed', 'false');
   });
@@ -342,7 +342,7 @@ describe('HomePage — auth mode (searchMode toggle)', () => {
     authIsAuthenticated = true;
     const setSearchMode = vi.fn();
     articleState = makeArticleState({ setSearchMode });
-    render(<HomePage />);
+    render(<SearchPage />);
     await userEvent.click(screen.getByRole('button', { name: /Search AI.*Collection/i }));
     expect(setSearchMode).toHaveBeenCalledWith('catalog');
   });
@@ -352,7 +352,7 @@ describe('HomePage — auth mode (searchMode toggle)', () => {
     const setSearchMode = vi.fn();
     // Пресетируем catalog, чтобы кнопка Scopus была кликабельна (смена режима)
     articleState = makeArticleState({ searchMode: 'catalog', setSearchMode });
-    render(<HomePage />);
+    render(<SearchPage />);
     await userEvent.click(screen.getByRole('button', { name: /Search Scopus Database/i }));
     expect(setSearchMode).toHaveBeenCalledWith('scopus');
   });
@@ -361,7 +361,7 @@ describe('HomePage — auth mode (searchMode toggle)', () => {
     authIsAuthenticated = true;
     const setCurrentKeyword = vi.fn();
     articleState = makeArticleState({ setCurrentKeyword });
-    render(<HomePage />);
+    render(<SearchPage />);
     await act(async () => { await userEvent.click(screen.getByTestId('search-bar')); });
     expect(setCurrentKeyword).toHaveBeenCalledWith('ai');
   });
@@ -373,7 +373,7 @@ describe('HomePage — auth mode (searchMode toggle)', () => {
     const searchScopusLive = vi.fn().mockResolvedValue(undefined);
     // Пресетируем catalog-режим в стейте — мок-setSearchMode не меняет состояние
     articleState = makeArticleState({ searchMode: 'catalog', setFilters, fetchArticles, searchScopusLive });
-    render(<HomePage />);
+    render(<SearchPage />);
     await act(async () => { await userEvent.click(screen.getByTestId('search-bar')); });
     expect(setFilters).toHaveBeenCalledWith({ search: 'ai', keyword: undefined });
     expect(fetchArticles).toHaveBeenCalled();
@@ -383,7 +383,7 @@ describe('HomePage — auth mode (searchMode toggle)', () => {
   it('в catalog-режиме ArticleList получает page/size/total из стора', () => {
     authIsAuthenticated = true;
     articleState = makeArticleState({ searchMode: 'catalog', page: 2, size: 25 as PageSize, total: 50 });
-    render(<HomePage />);
+    render(<SearchPage />);
     expect(capturedArticleListProps.page).toBe(2);
     expect(capturedArticleListProps.size).toBe(25);
     expect(capturedArticleListProps.total).toBe(50);
@@ -392,7 +392,7 @@ describe('HomePage — auth mode (searchMode toggle)', () => {
   it('в catalog-режиме ScopusPaginationBar не рендерится', () => {
     authIsAuthenticated = true;
     articleState = makeArticleState({ searchMode: 'catalog' });
-    render(<HomePage />);
+    render(<SearchPage />);
     expect(screen.queryByTestId('scopus-pagination-bar')).toBeNull();
   });
 });

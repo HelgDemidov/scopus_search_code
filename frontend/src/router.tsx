@@ -81,7 +81,8 @@ function RootLayout() {
 // Ленивые страницы — объявляются после lazyPage (нет зависимости от hoisting)
 // ---------------------------------------------------------------------------
 
-const HomePage            = lazyPage(() => import('./pages/HomePage'));
+const MainPage            = lazyPage(() => import('./pages/MainPage'));
+const SearchPage          = lazyPage(() => import('./pages/SearchPage'));
 const ExplorePage         = lazyPage(() => import('./pages/ExplorePage'));
 const AuthPage            = lazyPage(() => import('./pages/AuthPage'));
 const OAuthCallback       = lazyPage(() => import('./pages/OAuthCallback'));
@@ -116,7 +117,12 @@ export const appRoutes: RouteObject[] = [
         // страницы нет» семантически не «ошибка».
         errorElement: <RouteErrorPage />,
         children: [
-          { index: true,           element: HomePage },
+          // index временно указывает на SearchPage — сохраняет сегодняшнее поведение
+          // (см. docs/i18n-url-routing/spec.md §4.1). Роль-based редирект '/' →
+          // /main|/search и вынос под /:lang — следующий коммит той же ветки.
+          { index: true,           element: SearchPage },
+          { path: 'main',          element: MainPage },
+          { path: 'search',        element: SearchPage },
           { path: 'explore',       element: ExplorePage },
           { path: 'auth',             element: AuthPage },
           { path: 'auth/callback',   element: OAuthCallback },

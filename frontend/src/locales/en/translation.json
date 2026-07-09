@@ -12,7 +12,13 @@
     "button": "Search",
     "minLength": "Enter at least {{min}} characters"
   },
-  "home": {
+  "main": {
+    "heroTitle": "Discover AI & Neural Network Research",
+    "heroSubtitle": "A curated, searchable collection of Scopus-indexed publications on artificial intelligence and neural networks.",
+    "ctaSearch": "Start searching",
+    "ctaSignIn": "Sign in"
+  },
+  "searchPage": {
     "anonTitle": "Search Scopus Publications",
     "anonSubtitle": "Preview results below. <lnk>Sign in</lnk> for full search access.",
     "anonNote": "Results are limited to the AI & Neural Network Technologies collection. <lnk>Sign in</lnk> for full Scopus access",
