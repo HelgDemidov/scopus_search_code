@@ -89,6 +89,7 @@ export default defineConfig({
         'src/hooks/useDefaultLandingPath.ts',
         'src/hooks/useLocalizedNavigate.ts',
         'src/hooks/useLocalizedPath.ts',
+        'src/pages/AboutPage.tsx',
         'src/pages/ForgotPasswordPage.tsx',
         'src/pages/MainPage.tsx',
         'src/pages/SearchPage.tsx',

@@ -2,6 +2,7 @@
   "nav": {
     "search": "Pretraga",
     "explore": "Analitika",
+    "about": "O projektu",
     "profile": "Profil",
     "signIn": "Prijava",
     "signOut": "Odjava",
@@ -27,6 +28,17 @@
     "modeCatalog": "Kolekcija «Vještačka inteligencija i neuronske mreže»",
     "errorQuota": "Sedmični limit pretrage je iscrpljen",
     "errorGeneric": "Greška pretrage: {{error}}"
+  },
+  "about": {
+    "title": "O projektu",
+    "intro": "Scopus Search je lični projekat — kolekcija Scopus publikacija o vještačkoj inteligenciji i neuronskim mrežama, spremna za pretragu i analitiku.",
+    "dataSourceTitle": "Izvor podataka",
+    "dataSourceBody": "Članci se preuzimaju putem Scopus Search API-ja i redovno ažuriraju. Kolekcija uzima u obzir status otvorenog pristupa i uključuje samo članke sa DOI-jem.",
+    "howBuiltTitle": "Kako je napravljeno",
+    "howBuiltBody": "Bekend na FastAPI + PostgreSQL, frontend na React + TypeScript, deploy na Railway i Vercel. Ovo je portfolio projekat — izvorni kod je javno dostupan.",
+    "viewSource": "Izvorni kod na GitHub-u",
+    "contactTitle": "Kontakt",
+    "contactBody": "Pitanja ili predlozi? Pišite:"
   },
   "articles": {
     "openAccess": "Open Access",

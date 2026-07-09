@@ -82,6 +82,15 @@ export function MobileNavSheet() {
             </LocalizedLink>
           </SheetClose>
 
+          <SheetClose asChild>
+            <LocalizedLink
+              to="/about"
+              className="flex h-11 items-center rounded-md px-3 text-sm font-medium hover:bg-muted"
+            >
+              {t('nav.about')}
+            </LocalizedLink>
+          </SheetClose>
+
           {isAuthenticated && (
             <SheetClose asChild>
               <LocalizedLink

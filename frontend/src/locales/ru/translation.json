@@ -2,6 +2,7 @@
   "nav": {
     "search": "Поиск",
     "explore": "Аналитика",
+    "about": "О проекте",
     "profile": "Профиль",
     "signIn": "Войти",
     "signOut": "Выйти",
@@ -27,6 +28,17 @@
     "modeCatalog": "Коллекция «ИИ и нейросетевые технологии»",
     "errorQuota": "Недельный лимит поиска исчерпан",
     "errorGeneric": "Ошибка поиска: {{error}}"
+  },
+  "about": {
+    "title": "О проекте",
+    "intro": "Scopus Search — личный проект: коллекция публикаций Scopus по искусственному интеллекту и нейросетям, доступная для поиска и аналитики.",
+    "dataSourceTitle": "Источник данных",
+    "dataSourceBody": "Статьи загружаются через Scopus Search API и регулярно обновляются. Коллекция учитывает статус открытого доступа и включает только статьи с DOI.",
+    "howBuiltTitle": "Как это сделано",
+    "howBuiltBody": "Бэкенд на FastAPI + PostgreSQL, фронтенд на React + TypeScript, деплой на Railway и Vercel. Это портфолио-проект — исходный код открыт.",
+    "viewSource": "Исходный код на GitHub",
+    "contactTitle": "Контакты",
+    "contactBody": "Вопросы или отзывы? Пишите:"
   },
   "articles": {
     "openAccess": "Open Access",

@@ -122,6 +122,7 @@ export function LegacyPathRedirect() {
 
 const MainPage            = lazyPage(() => import('./pages/MainPage'));
 const SearchPage          = lazyPage(() => import('./pages/SearchPage'));
+const AboutPage           = lazyPage(() => import('./pages/AboutPage'));
 const ExplorePage         = lazyPage(() => import('./pages/ExplorePage'));
 const AuthPage            = lazyPage(() => import('./pages/AuthPage'));
 const OAuthCallback       = lazyPage(() => import('./pages/OAuthCallback'));
@@ -182,6 +183,7 @@ export const appRoutes: RouteObject[] = [
               { index: true,           element: <LangIndexRedirect /> },
               { path: 'main',          element: MainPage },
               { path: 'search',        element: SearchPage },
+              { path: 'about',         element: AboutPage },
               { path: 'explore',       element: ExplorePage },
               { path: 'article/:id',   element: ArticlePage },
               { path: 'auth',          element: AuthPage },

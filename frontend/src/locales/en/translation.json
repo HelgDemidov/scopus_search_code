@@ -2,6 +2,7 @@
   "nav": {
     "search": "Search",
     "explore": "Explore",
+    "about": "About",
     "profile": "Profile",
     "signIn": "Sign in",
     "signOut": "Sign out",
@@ -27,6 +28,17 @@
     "modeCatalog": "Search AI & Neural Network Technologies Collection",
     "errorQuota": "Weekly search quota exceeded",
     "errorGeneric": "Search error: {{error}}"
+  },
+  "about": {
+    "title": "About this project",
+    "intro": "Scopus Search is a personal project — a searchable, analytics-ready collection of Scopus-indexed publications on artificial intelligence and neural networks.",
+    "dataSourceTitle": "Data source",
+    "dataSourceBody": "Articles are pulled from the Scopus Search API and refreshed on a recurring schedule. The collection tracks open-access status and includes only DOI-indexed articles.",
+    "howBuiltTitle": "How it's built",
+    "howBuiltBody": "A FastAPI + PostgreSQL backend and a React + TypeScript frontend, deployed on Railway and Vercel. Built as a portfolio project — the source code is public.",
+    "viewSource": "View source on GitHub",
+    "contactTitle": "Contact",
+    "contactBody": "Questions or feedback? Reach out:"
   },
   "articles": {
     "openAccess": "Open Access",

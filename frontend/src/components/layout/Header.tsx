@@ -97,6 +97,13 @@ export function Header() {
                 </NavigationMenuLink>
               </NavigationMenuItem>
 
+              {/* "About" link — always visible (docs/i18n-url-routing/spec.md §4.2) */}
+              <NavigationMenuItem>
+                <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
+                  <LocalizedLink to="/about">{t('nav.about')}</LocalizedLink>
+                </NavigationMenuLink>
+              </NavigationMenuItem>
+
               {/* "Profile" link — authenticated users only */}
               {isAuthenticated && (
                 <NavigationMenuItem>
