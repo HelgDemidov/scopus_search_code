@@ -11,7 +11,8 @@ i18n: react-i18next 17 + i18next 26 + i18next-browser-languagedetector 8.
 - `api/` — HTTP clients; `components/` — UI (`components/ui/` = shadcn/ui, inline customized)
 - `pages/` — роутные компоненты; `stores/` — Zustand; `hooks/` — custom hooks; `types/` — TS types
 - `constants/` — scopusFilters.ts + labelTranslations.ts (переводы меток графиков)
-- `locales/` — `en`/`ru`/`sr-Latn` translation.json (204 ключа); `i18n.ts` init; `i18next.d.ts` типы; `test/setup.ts` — jest-dom matchers
+- `locales/` — `en`/`ru`/`sr-Latn` translation.json (295 ключей); `i18n.ts` init; `i18next.d.ts` типы; `test/setup.ts` — jest-dom matchers
+- `seo/` — `indexableSections.json` (манифест 6 индексируемых секций) + `generateSitemapXml.ts`
 
 ## Key stores
 - `articleStore` — articles/pagination/`searchMode`('catalog'|'scopus')/`currentKeyword`/`resetKey`; `setSearchMode()` → `historyStore.resetFilters()`; `resetSearch()` → clears + инкрементирует `resetKey`. `totalIsCapped` (PR #58) — бэкенд капает точный `COUNT(*)` на 2000 (перф на широких ILIKE-фильтрах), UI обязан показывать "2000+", не точное число
@@ -26,11 +27,11 @@ i18n: react-i18next 17 + i18next 26 + i18next-browser-languagedetector 8.
 
 ## Tests (co-location pattern: тест рядом с источником)
 Unit: `src/**/*.test.{ts,tsx}` | Integration: `*.integration.test.*`
-Total (main, 2026-07-09): **676** тестов, все зелёные.
+Total (main, 2026-07-10): **740** тестов, все зелёные.
 Vitest patterns (Checkbox mock, fake timers, vi.hoisted) — см. память [[feedback-vitest-testing-patterns]]. jsdom mocks — [[feedback-jsdom-browser-api-mocks]].
 
-### Coverage (2026-06-26)
-`vite.config.ts` → `coverage.include`: 12 файлов бизнес-логики (stores/articleStore|authStore|historyStore, hooks/usePagination, pages/HomePage|ForgotPassword|ResetPassword, api/articles, components/articles/ArticleFilters|ArticleList|PaginationBar|ScopusPaginationBar). Threshold: `statements: 70` (фактическое: **76.54%**). Исключены: `components/ui/` (vendor), `components/charts/` (Recharts passthrough), `App.tsx`/`main.tsx`.
+### Coverage
+`vite.config.ts` → `coverage.include`: 23 файла бизнес-логики (stores/articleStore|authStore|historyStore, hooks/usePagination|useDefaultLandingPath|useHreflangTags|useLocalizedNavigate|useLocalizedPath, pages/MainPage|SearchPage|AboutPage|PrivacyPage|TermsPage|ForgotPassword|ResetPassword, api/articles, components/articles/ArticleFilters|ArticleList|PaginationBar|ScopusPaginationBar, components/layout/LocaleLayout, utils/localeRouting, seo/generateSitemapXml). Threshold: `statements: 70` (фактическое: **85.81%**). Исключены: `components/ui/` (vendor), `components/charts/` (Recharts passthrough), `App.tsx`/`main.tsx`.
 CI: `integration` job считает coverage по всем тестам. `frontend/coverage/` в `.gitignore`.
 
 ## CI: frontend-tests.yml (triggers: push main, paths: frontend/**)
@@ -74,14 +75,18 @@ PR #46 — `PersonalKpiRow`/`PersonalDimensionDrawer`: тонкие обёртк
 - AT больше не в localStorage; `client.ts` читает через `getToken()` из `tokenStore.ts`. `AuthPage` (`/auth`) — вертикальный нав (`flex-row gap-5`, Register сверху / Sign in снизу, `w-28`), форма справа (`flex-1`); card-surface `max-w-md`. Разделитель i18n-ключ `auth.divider` (EN "or" / RU "или" / sr-Latn "ili").
 
 ## i18n (PR #34 EN/RU + PR #35 sr-Latn, merged 2026-06-28)
-EN/РУ/CG (sr-Latn) переключатель в Header (`LanguageSwitcher.tsx`, Radix `DropdownMenu`), выбор — в `localStorage` (`i18n_lang`). Локали: `locales/{en,ru,sr-Latn}` (204 ключа); init — `src/i18n.ts`, типизация — `i18next.d.ts`.
-Плюральные формы: RU `_one/_few/_many/_other`; sr-Latn `_one/_few/_other`; EN `_one/_other` (CLDR). KPI — `getKpiLabel()` в `KpiRow.tsx`.
+EN/РУ/CG переключатель в Header (`LanguageSwitcher.tsx`, Radix `DropdownMenu`), выбор синхронизируется с URL (см. ниже). Локали: `locales/{en,ru,sr-Latn}` (295 ключей); init — `src/i18n.ts`, типизация — `i18next.d.ts`. Плюральные формы: RU `_one/_few/_many/_other`; sr-Latn `_one/_few/_other`; EN `_one/_other` (CLDR). KPI — `getKpiLabel()` в `KpiRow.tsx`.
 Переводы меток графиков — `constants/labelTranslations.ts`: `getLabelMaps(lang)` → `{country, doc_type, oa}` для RU/sr-Latn, `null` для EN; используется в ChartTooltip/DimensionDrawer/*Chart/ArticleFilters.
 CI lint job проверяет паритет ключей EN↔RU↔SR-LATN. Фильтры: `MultiSelectCombobox` — `getDisplayLabel?`. **"Open Access"** не переводится; **"Closed Access"** → "Закрытый доступ"/"Zatvoreni pristup".
 
-## SEO & Google Analytics (2026-06-29)
-`frontend/public/`: `sitemap.xml` (/, /explore), `robots.txt` (Allow all, block AI crawlers), `google4ec5affa61728a9a.html` (Search Console). `index.html`: Open Graph, Twitter card, canonical, robots meta, sitemap link.
-`vercel.json` — явные статические маршруты (`sitemap.xml`, `robots.txt`, `/google:path*`) перед catch-all `/(.*) → /index.html` (без них catch-all может перехватить статику).
+## URL-архитектура `/{lang}/{section}` (PR #60, merged 2026-07-10)
+Локаль отражена в URL всего сайта (`/en/…`, `/ru/…`, `/cnr/…`), не только в клиентском состоянии — `LocaleLayout.tsx` (обёртка над `/:lang`) валидирует сегмент (невалидный → честный 404, не редирект) и синхронизирует `i18n.changeLanguage`/`document.documentElement.lang` из URL; `LanguageSwitcher` навигирует через `swapLocaleInPath`, не `i18n.changeLanguage()` напрямую. Каждая внутренняя ссылка/навигация — через `LocalizedLink`/`useLocalizedNavigate`/`useLocalizedPath` (`hooks/`), не голый `Link`/`navigate(path)` — иначе теряется языковой префикс. i18next-ресурс третьей локали остаётся `sr-Latn` (папка/`supportedLngs`/плюральные формы не переименованы), но её URL-сегмент и hreflang — `cnr` (ISO 639-3, черногорский официально отдельный от сербского язык с 2007 г.); карты `urlLangToI18n`/`i18nToUrlLang`/`urlLangToHreflang` в `utils/localeRouting.ts` намеренно расходятся. Legacy bare-пути (`/explore`, `/auth`, `/profile`, `/article/:id`, `/forgot-password` — уже в индексе Google) редиректят на `/en/...`: 308 на edge (`vercel.json` `redirects`) + client-side `<Navigate>` фоллбэк в `router.tsx` (Vite dev-сервер не читает `vercel.json`). `/auth/callback`/`/reset-password` — вне схемы навсегда (бэкенд хардкодит эти 2 URL без локали, `app/routers/auth.py:112,187`). `HomePage.tsx` разведён на `MainPage.tsx` (маркетинг) + `SearchPage.tsx` (поиск); добавлены `AboutPage`/`PrivacyPage`/`TermsPage`. Детали и найденный по ходу баг — [[project-i18n-url-routing]].
+
+## SEO & Google Analytics (2026-06-29; hreflang/sitemap-генератор PR #60, 2026-07-10)
+`frontend/public/`: `sitemap.xml` (генерируется — см. ниже), `robots.txt` (Allow all, block AI crawlers), `google4ec5affa61728a9a.html` (Search Console). `index.html`: Open Graph, Twitter card, статичный fallback title/description/canonical (**с `data-rh="true"`** — иначе react-helmet-async не подхватывает и дублирует эти теги своей версией), robots meta, sitemap link.
+`vercel.json` — явные статические маршруты (`sitemap.xml`, `robots.txt`, `/google:path*`) перед catch-all `/(.*) → /index.html`.
+`react-helmet-async` (`HelmetProvider` в `App.tsx`) + `useHreflangTags(path)` (`hooks/`) — per-page title/description/canonical/hreflang×3+x-default на 6 индексируемых секциях (main/search/explore/about/privacy/terms), манифест — `seo/indexableSections.json`. `RootLayout` (`router.tsx`) держит постоянный дефолтный `<Helmet>` как фоллбэк для страниц без своего `useHreflangTags` (auth/profile/article/error) — без него title/description/canonical "подвисали" от предыдущей страницы при client-side переходе.
+`scripts/generate-sitemap.ts` (через `tsx`, не голый `.mjs` — импортирует типизированный `utils/localeRouting.ts`) запускается перед `tsc -b && vite build` (`npm run build`) — 18 URL (6 секций × 3 локали) с hreflang-блоками, тот же манифест, что `useHreflangTags`.
 GA4 (`G-RZW7LRD02L`): `gtag.js` в `index.html` через `%VITE_GA_MEASUREMENT_ID%` (Vite env), `send_page_view:false` → page_view в `RootLayout` через `useLocation`+`useEffect`. Типы: `src/types/gtag.d.ts`. CSP: добавлены `googletagmanager.com` + `google-analytics.com`. Env var: `VITE_GA_MEASUREMENT_ID` (Vercel Production+Preview + `.env.local`). **Не использовать react-ga4** — лишняя зависимость, gtag.js напрямую.
 
 ## Build & conventions
