@@ -30,6 +30,17 @@ let _hydrationStarted = false;
 // ---------------------------------------------------------------------------
 
 export default function App() {
+  // Dev-only лаз для ручного просмотра RootErrorBoundary (?__crash_test=1):
+  // import.meta.env.DEV — статическая constant-fold-подстановка Vite, в
+  // production build (npm run build) становится `if (false && ...)` и
+  // esbuild/rollup полностью вырезает ветку при минификации — в dist её нет
+  // физически, не только по недостижимости в рантайме. См. память
+  // [[project-error-experience]] для истории, почему обычным URL/действием
+  // на эту страницу попасть нельзя (ловит крэши ВНЕ роутера).
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('__crash_test')) {
+    throw new Error('QA crash test');
+  }
+
   const { setToken, fetchUser, logout, setHydrating } = useAuthStore();
   const fetchStats = useStatsStore((state) => state.fetchStats);
   const { i18n } = useTranslation();
