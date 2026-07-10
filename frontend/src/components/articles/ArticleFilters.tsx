@@ -328,9 +328,12 @@ function FiltersContent() {
 // Десктопный сайдбар (lg+): компактная кнопка Filters вместо прежнего
 // постоянно открытого блока — по клику разворачивает тот же набор фильтров
 // прямо на странице (inline, в потоке документа), без слайд-панели/оверлея.
-// px-4 на кнопке — выравнивание текста "Filters" под текст "Search Scopus
-// Database" в табе режима поиска (обе кнопки получают одинаковый инсет:
-// 1px border + 16px padding).
+// size="default" (не "sm") — тот же h-8/text-sm/rounded-lg, что у кнопки
+// Search в SearchBar; px-4 поверх дефолтного px-2.5 — выравнивание текста
+// "Filters" под текст "Search Scopus Database" в табе режима поиска (обе
+// кнопки получают одинаковый инсет: 1px border + 16px padding). gap-4 на
+// родительском flex-col (SearchPage) не зависит от высоты кнопки — вертикальный
+// отступ от строки поиска не меняется при росте кнопки.
 export function ArticleFiltersSidebar() {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -338,7 +341,6 @@ export function ArticleFiltersSidebar() {
     <aside className="hidden lg:flex flex-col w-56 shrink-0">
       <Button
         variant="outline"
-        size="sm"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
         className="px-4 self-start"

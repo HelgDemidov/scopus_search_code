@@ -70,24 +70,29 @@ export function ArticleList({
 
   // Empty state — сообщение показывается только после реального поиска
   // (hasSearched=false на первом рендере до ввода запроса — тогда достаточно
-  // видимой кнопки фильтров, без "No articles found" по умолчанию)
+  // видимой кнопки фильтров, без "No articles found" по умолчанию).
+  // Сообщение вынесено из flex-1-колонки результатов в отдельный full-width
+  // блок ниже строки с фильтрами — иначе items-center центрировал его только
+  // в узкой колонке справа от sidebar, а не по центру страницы.
   if (!isLoading && articles.length === 0) {
     return (
-      <div className="flex gap-6">
-        <ArticleFiltersSidebar />
-        <div className="flex-1 min-w-0 flex flex-col">
-          <ArticleFiltersMobile />
-          {hasSearched && (
-            <div className="flex flex-1 flex-col items-center justify-center gap-1.5 min-h-52 py-8 text-center">
-              <p className="text-base font-medium text-slate-600 dark:text-slate-300">
-                {t('articles.noResultsTitle')}
-              </p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                {t('articles.noResultsHint')}
-              </p>
-            </div>
-          )}
+      <div className="flex flex-col gap-3">
+        <div className="flex gap-6">
+          <ArticleFiltersSidebar />
+          <div className="flex-1 min-w-0">
+            <ArticleFiltersMobile />
+          </div>
         </div>
+        {hasSearched && (
+          <div className="flex flex-col items-center gap-1.5 py-14 text-center">
+            <p className="text-base font-medium text-slate-600 dark:text-slate-300">
+              {t('articles.noResultsTitle')}
+            </p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {t('articles.noResultsHint')}
+            </p>
+          </div>
+        )}
       </div>
     );
   }
