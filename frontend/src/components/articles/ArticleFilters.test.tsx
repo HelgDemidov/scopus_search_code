@@ -282,10 +282,20 @@ describe('ArticleFiltersSidebar — toggle', () => {
 
 describe('ArticleFiltersMobile', () => {
   it('оборачивает FiltersContent в px-4 (фикс: поля упирались в левый край Sheet)', () => {
-    const { container } = render(<ArticleFiltersMobile />);
-    const paddedWrapper = container.querySelector('.px-4');
+    render(<ArticleFiltersMobile />);
+    const yearFromInput = screen.getByLabelText('Year from');
+    const paddedWrapper = yearFromInput.closest('.px-4');
     expect(paddedWrapper).not.toBeNull();
-    expect(paddedWrapper?.querySelector('[aria-label="Year from"]')).not.toBeNull();
+    // Обёртка вокруг FiltersContent — не сама кнопка-триггер (у неё тоже px-4,
+    // но другая цель — выравнивание текста, см. следующий тест)
+    expect(paddedWrapper?.tagName).toBe('DIV');
+  });
+
+  it('кнопка-триггер: size="default" (не "sm") + px-4 — выравнивание под "Search Scopus Database"', () => {
+    render(<ArticleFiltersMobile />);
+    const trigger = screen.getByRole('button', { name: 'Filters' });
+    expect(trigger).toHaveClass('px-4');
+    expect(trigger).not.toHaveClass('text-[0.8rem]');
   });
 });
 

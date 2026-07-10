@@ -360,13 +360,18 @@ export function ArticleFiltersSidebar() {
 // FiltersContent — SheetContent сам по себе не задаёт горизонтальных отступов
 // (см. SheetContent в ui/sheet.tsx), без обёртки поля фильтров упирались
 // в левый край экрана вплотную (баг на проде, скриншот пользователя 2026-07-10).
+// Триггер — тот же size="default" + px-4, что у десктопной кнопки Filters
+// (см. ArticleFiltersSidebar выше): h-8/text-sm/rounded-lg вместо мелкой "sm",
+// левый край текста выровнен под "Search Scopus Database" и поисковую строку
+// (на <lg сайдбар скрыт через hidden lg:flex — колонка результатов начинается
+// у того же отступа контейнера, что и таб/инпут выше).
 export function ArticleFiltersMobile() {
   const { t } = useTranslation();
   return (
     <div className="lg:hidden">
       <Sheet>
         <SheetTrigger asChild>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" className="px-4">
             {t('filters.filtersButton')}
           </Button>
         </SheetTrigger>
