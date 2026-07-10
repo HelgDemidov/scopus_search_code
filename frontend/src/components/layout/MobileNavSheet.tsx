@@ -1,7 +1,5 @@
 import { useTranslation } from 'react-i18next';
 import { Menu } from 'lucide-react';
-import { ThemeToggle } from '../theme/ThemeToggle';
-import { LanguageSwitcher } from './LanguageSwitcher';
 import { LocalizedLink } from './LocalizedLink';
 import { useLocalizedNavigate } from '../../hooks/useLocalizedNavigate';
 import { useAuthStore } from '../../stores/authStore';
@@ -17,8 +15,9 @@ import {
 import { getInitials } from '../../utils/userDisplay';
 
 // <sm бургер-меню (§4.3 ТЗ, docs/layout-overhaul/spec.md): дублирует
-// содержимое правой группы плоской шапки (ThemeToggle/LanguageSwitcher/
-// навигация/auth-действия), которая на <sm скрыта в Header.tsx. Focus-trap
+// навигацию/auth-действия правой группы плоской шапки, которая на <sm
+// скрыта в Header.tsx (ThemeToggle/LanguageSwitcher из бургера убраны —
+// теперь всегда видны в самой шапке, см. Header.tsx). Focus-trap
 // и закрытие по Escape/клику вне — даёт сам Radix Dialog (через Sheet),
 // отдельно не реализуются. Каждый пункт меню обёрнут в SheetClose asChild —
 // закрывает Sheet при переходе по ссылке/выходе (composeEventHandlers
@@ -47,7 +46,10 @@ export function MobileNavSheet() {
           aria-label={t('a11y.openMenu')}
           // ≥44×44 touch target (WCAG 2.2, §4.3 ТЗ) — sm:hidden здесь (не на
           // обёртке) держит саму кнопку вне DOM-показа ≥sm без лишнего <div>.
-          className="flex h-11 w-11 sm:hidden"
+          // Скругленная квадратная рамка (border-2, rounded-lg от базового
+          // Button) — единственный вход в полное меню на мобильном, должен
+          // визуально выделяться сильнее пунктов внутри самого Sheet ниже.
+          className="flex h-11 w-11 border-[1.5px] border-slate-400 dark:border-white sm:hidden"
         >
           <Menu className="h-5 w-5" />
         </Button>
@@ -58,16 +60,15 @@ export function MobileNavSheet() {
           <SheetTitle>{t('nav.menu')}</SheetTitle>
         </SheetHeader>
 
-        <div className="flex items-center gap-2 px-4">
-          <ThemeToggle size="lg" />
-          <LanguageSwitcher size="lg" />
-        </div>
-
+        {/* Пункты меню — та же скругленная рамка, что у бургер-иконки-триггера
+            (визуальная связь "это всё внутри одного меню"), но тоньше
+            (border, не border-2) и мягче по цвету — бургер остаётся
+            заметнее как единственная точка входа снаружи Sheet. */}
         <nav aria-label={t('nav.menu')} className="flex flex-col gap-1 px-2">
           <SheetClose asChild>
             <LocalizedLink
               to="/search"
-              className="flex h-11 items-center rounded-md px-3 text-sm font-medium hover:bg-muted"
+              className="flex h-11 items-center rounded-md border border-slate-200 px-3 text-sm font-medium hover:bg-muted dark:border-slate-600"
             >
               {t('nav.search')}
             </LocalizedLink>
@@ -76,7 +77,7 @@ export function MobileNavSheet() {
           <SheetClose asChild>
             <LocalizedLink
               to="/explore"
-              className="flex h-11 items-center rounded-md px-3 text-sm font-medium hover:bg-muted"
+              className="flex h-11 items-center rounded-md border border-slate-200 px-3 text-sm font-medium hover:bg-muted dark:border-slate-600"
             >
               {t('nav.explore')}
             </LocalizedLink>
@@ -85,7 +86,7 @@ export function MobileNavSheet() {
           <SheetClose asChild>
             <LocalizedLink
               to="/about"
-              className="flex h-11 items-center rounded-md px-3 text-sm font-medium hover:bg-muted"
+              className="flex h-11 items-center rounded-md border border-slate-200 px-3 text-sm font-medium hover:bg-muted dark:border-slate-600"
             >
               {t('nav.about')}
             </LocalizedLink>
@@ -95,7 +96,7 @@ export function MobileNavSheet() {
             <SheetClose asChild>
               <LocalizedLink
                 to="/profile"
-                className="flex h-11 items-center rounded-md px-3 text-sm font-medium hover:bg-muted"
+                className="flex h-11 items-center rounded-md border border-slate-200 px-3 text-sm font-medium hover:bg-muted dark:border-slate-600"
               >
                 {t('nav.profile')}
               </LocalizedLink>

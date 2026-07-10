@@ -21,14 +21,11 @@ const LANGS = [
   { code: 'sr-Latn', urlLang: 'cnr', label: 'CG' },
 ] as const;
 
-interface LanguageSwitcherProps {
-  /** 'lg' — touch target ≥44×44 (WCAG 2.2, §4.3 ТЗ docs/layout-overhaul/spec.md),
-   * используется в MobileNavSheet. Дефолт 'sm' — прежний размер, десктопная
-   * шапка не меняется. */
-  size?: 'sm' | 'lg';
-}
-
-export function LanguageSwitcher({ size = 'sm' }: LanguageSwitcherProps) {
+// Всегда видим в Header (<sm тоже, см. Header.tsx) — размер респонсивный,
+// не JS-проп: min-h-11/min-w-11 (44×44, WCAG 2.2 touch target, §4.3 ТЗ
+// docs/layout-overhaul/spec.md) на <sm, компактный вид на ≥sm (мышиный
+// десктоп-контекст, прежний вид не меняется).
+export function LanguageSwitcher() {
   const { i18n, t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
@@ -53,7 +50,8 @@ export function LanguageSwitcher({ size = 'sm' }: LanguageSwitcherProps) {
           'hover:bg-slate-100 hover:text-slate-900',
           'dark:hover:bg-slate-800 dark:hover:text-slate-100',
           'focus:outline-none focus:ring-1 focus:ring-slate-300 dark:focus:ring-slate-600',
-          size === 'lg' ? 'min-h-11 min-w-11 justify-center px-3 text-sm' : 'px-2 py-1.5',
+          'min-h-11 min-w-11 justify-center px-3 text-sm',
+          'sm:min-h-0 sm:min-w-0 sm:justify-start sm:px-2 sm:py-1.5 sm:text-xs',
         )}
       >
         {current.label}

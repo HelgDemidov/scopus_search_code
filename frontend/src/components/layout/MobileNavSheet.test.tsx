@@ -49,6 +49,20 @@ describe('MobileNavSheet', () => {
     expect(trigger).toHaveClass('h-11', 'w-11');
   });
 
+  it('бургер-триггер: скругленная рамка border-[1.5px] (заметнее пунктов меню внутри)', () => {
+    renderMenu();
+    const trigger = screen.getByRole('button', { name: 'Open menu' });
+    expect(trigger).toHaveClass('border-[1.5px]');
+  });
+
+  it('пункт меню "Explore": тоньше рамка (border 1px, не border-[1.5px]), чем у бургер-триггера', () => {
+    renderMenu();
+    const nav = screen.getByRole('navigation', { name: 'Menu' });
+    const exploreLink = within(nav).getByRole('link', { name: 'Explore' });
+    expect(exploreLink).toHaveClass('border');
+    expect(exploreLink).not.toHaveClass('border-[1.5px]');
+  });
+
   it('аноним: показывает "Sign in", не показывает Sign out/аватар', () => {
     renderMenu();
     // Нет /:lang в URL (голый MemoryRouter) → LocalizedLink использует DEFAULT_URL_LANG

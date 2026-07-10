@@ -35,9 +35,17 @@ function AnonHero({ onSearch }: { onSearch: (q: string) => void }) {
           {t('searchPage.anonTitle')}
         </h1>
         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+          {/* br — принудительный перенос между двумя предложениями (locale-строка):
+              обычный inline-wrap на узких экранах смешивал слова разных
+              предложений на одной строке / оставлял слово-сироту на последней
+              строке (см. docs/layout-overhaul/spec.md). Каждое предложение
+              теперь всегда начинает свою строку. */}
           <Trans
             i18nKey="searchPage.anonSubtitle"
-            components={{ lnk: <LocalizedLink to="/auth" className="text-blue-800 dark:text-blue-400 hover:underline" /> }}
+            components={{
+              lnk: <LocalizedLink to="/auth" className="text-blue-800 dark:text-blue-400 hover:underline" />,
+              br: <br />,
+            }}
           />
         </p>
       </div>
@@ -47,7 +55,10 @@ function AnonHero({ onSearch }: { onSearch: (q: string) => void }) {
       <p className="text-sm text-slate-500 dark:text-slate-400 text-center max-w-md">
         <Trans
           i18nKey="searchPage.anonNote"
-          components={{ lnk: <LocalizedLink to="/auth" className="text-blue-800 dark:text-blue-400 hover:underline" /> }}
+          components={{
+            lnk: <LocalizedLink to="/auth" className="text-blue-800 dark:text-blue-400 hover:underline" />,
+            br: <br />,
+          }}
         />
       </p>
     </div>

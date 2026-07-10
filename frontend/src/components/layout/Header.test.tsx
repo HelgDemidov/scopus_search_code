@@ -30,10 +30,19 @@ describe('Header', () => {
     expect(trigger).toHaveClass('h-11', 'w-11', 'sm:hidden');
   });
 
-  it('≥sm: плоская группа (ThemeToggle/LanguageSwitcher/nav) скрыта классом hidden sm:flex, но остаётся в DOM', () => {
+  it('ThemeToggle/LanguageSwitcher видны всегда (не скрыты <sm — вынесены из hidden sm:flex)', () => {
     renderHeader();
     const themeButton = screen.getByRole('button', { name: /switch to (dark|light) mode/i });
-    expect(themeButton.parentElement).toHaveClass('hidden', 'sm:flex');
+    const langButton = screen.getByRole('button', { name: 'Switch language' });
+    expect(themeButton).not.toHaveClass('hidden');
+    expect(langButton).not.toHaveClass('hidden');
+  });
+
+  it('≥sm: nav-ссылки и auth-действия по-прежнему скрыты классом hidden sm:flex на <sm, но остаются в DOM', () => {
+    renderHeader();
+    const exploreLink = screen.getByRole('link', { name: 'Explore' });
+    const navGroup = exploreLink.closest('.hidden.sm\\:flex');
+    expect(navGroup).not.toBeNull();
   });
 
   it('≥sm: ссылка "Explore" плоской шапки рендерится один раз (Sheet закрыт по умолчанию)', () => {
