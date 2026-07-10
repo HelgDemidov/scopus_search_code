@@ -8,6 +8,9 @@ import type { ArticleResponse } from '../../types/api';
 interface ArticleListProps {
   articles: ArticleResponse[];
   isLoading: boolean;
+  // true — пользователь уже выполнил поиск (или применил фильтр) в текущей сессии;
+  // пока false, articles=[] означает «ещё не искали», а не «ничего не найдено»
+  hasSearched: boolean;
   sortBy: 'date' | 'citations';
   onSortChange: (s: 'date' | 'citations') => void;
   page: number;
@@ -37,6 +40,7 @@ function ArticleCardSkeleton() {
 export function ArticleList({
   articles,
   isLoading,
+  hasSearched,
   sortBy,
   onSortChange,
   page,
@@ -64,18 +68,25 @@ export function ArticleList({
     );
   }
 
-  // Empty state
+  // Empty state — сообщение показывается только после реального поиска
+  // (hasSearched=false на первом рендере до ввода запроса — тогда достаточно
+  // видимой кнопки фильтров, без "No articles found" по умолчанию)
   if (!isLoading && articles.length === 0) {
     return (
       <div className="flex gap-6">
         <ArticleFiltersSidebar />
         <div className="flex-1 min-w-0 flex flex-col">
           <ArticleFiltersMobile />
-          <div className="flex flex-1 items-center justify-center min-h-52 py-8">
-            <p className="text-center text-sm text-slate-400">
-              {t('articles.noResults')}
-            </p>
-          </div>
+          {hasSearched && (
+            <div className="flex flex-1 flex-col items-center justify-center gap-1.5 min-h-52 py-8 text-center">
+              <p className="text-base font-medium text-slate-600 dark:text-slate-300">
+                {t('articles.noResultsTitle')}
+              </p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {t('articles.noResultsHint')}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     );

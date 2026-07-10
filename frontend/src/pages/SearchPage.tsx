@@ -196,6 +196,7 @@ export default function SearchPage() {
                 <ArticleList
                   articles={sortedCatalogArticles}
                   isLoading={isLoading}
+                  hasSearched={hasSearched}
                   sortBy={sortBy}
                   onSortChange={setSortBy}
                   page={page}
@@ -266,6 +267,7 @@ export default function SearchPage() {
                   <ArticleList
                     articles={visibleLiveResults}
                     isLoading={isLiveSearching}
+                    hasSearched={hasSearched}
                     sortBy={sortBy}
                     onSortChange={setSortBy}
                     page={1}
@@ -296,6 +298,7 @@ export default function SearchPage() {
                 <ArticleList
                   articles={sortedCatalogArticles}
                   isLoading={isLoading}
+                  hasSearched={hasSearched}
                   sortBy={sortBy}
                   onSortChange={setSortBy}
                   page={page}

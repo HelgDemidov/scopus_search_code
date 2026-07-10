@@ -325,18 +325,39 @@ function FiltersContent() {
 // Публичные экспорты
 // ---------------------------------------------------------------------------
 
-// Десктопный сайдбар: всегда виден на lg+
+// Десктопный сайдбар (lg+): компактная кнопка Filters вместо прежнего
+// постоянно открытого блока — по клику разворачивает тот же набор фильтров
+// прямо на странице (inline, в потоке документа), без слайд-панели/оверлея.
+// px-4 на кнопке — выравнивание текста "Filters" под текст "Search Scopus
+// Database" в табе режима поиска (обе кнопки получают одинаковый инсет:
+// 1px border + 16px padding).
 export function ArticleFiltersSidebar() {
   const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
   return (
     <aside className="hidden lg:flex flex-col w-56 shrink-0">
-      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">{t('filters.filtersButton')}</p>
-      <FiltersContent />
+      <Button
+        variant="outline"
+        size="sm"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="px-4 self-start"
+      >
+        {t('filters.filtersButton')}
+      </Button>
+      {open && (
+        <div className="mt-3">
+          <FiltersContent />
+        </div>
+      )}
     </aside>
   );
 }
 
-// Мобильная версия: Sheet, открываемый кнопкой
+// Мобильная версия (<lg): Sheet, открываемый кнопкой. px-4-обёртка вокруг
+// FiltersContent — SheetContent сам по себе не задаёт горизонтальных отступов
+// (см. SheetContent в ui/sheet.tsx), без обёртки поля фильтров упирались
+// в левый край экрана вплотную (баг на проде, скриншот пользователя 2026-07-10).
 export function ArticleFiltersMobile() {
   const { t } = useTranslation();
   return (
@@ -351,7 +372,9 @@ export function ArticleFiltersMobile() {
           <SheetHeader>
             <SheetTitle>{t('filters.filtersButton')}</SheetTitle>
           </SheetHeader>
-          <FiltersContent />
+          <div className="px-4">
+            <FiltersContent />
+          </div>
         </SheetContent>
       </Sheet>
     </div>

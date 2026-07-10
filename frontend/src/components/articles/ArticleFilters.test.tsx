@@ -135,7 +135,7 @@ vi.mock('../../stores/statsStore', () => ({
 // Импорт тестируемого модуля — ПОСЛЕ vi.mock
 // ---------------------------------------------------------------------------
 
-import { ArticleFiltersSidebar } from './ArticleFilters';
+import { ArticleFiltersSidebar, ArticleFiltersMobile } from './ArticleFilters';
 
 // ---------------------------------------------------------------------------
 // Вспомогательные данные
@@ -202,8 +202,13 @@ beforeEach(() => {
   statsState.stats = null;
 });
 
+// ArticleFiltersSidebar теперь по умолчанию свёрнут (компактная кнопка) —
+// раскрываем клик по кнопке, чтобы существующие тесты видели FiltersContent
+// сразу, как и раньше со стационарным сайдбаром
 function renderFilters() {
-  return render(<ArticleFiltersSidebar />);
+  const utils = render(<ArticleFiltersSidebar />);
+  fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+  return utils;
 }
 
 // ===========================================================================
@@ -238,6 +243,49 @@ describe('базовый рендер', () => {
     historyState.historyFilters = { openAccessOnly: true };
     renderFilters();
     expect(screen.getByRole('button', { name: /clear filters/i })).toBeInTheDocument();
+  });
+});
+
+// ===========================================================================
+// Блок 1a: ArticleFiltersSidebar — свёрнут по умолчанию, разворачивается по клику
+// ===========================================================================
+
+describe('ArticleFiltersSidebar — toggle', () => {
+  it('по умолчанию (без клика) FiltersContent не отображается', () => {
+    render(<ArticleFiltersSidebar />);
+    expect(screen.queryByLabelText('Year from')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument();
+  });
+
+  it('клик по кнопке Filters разворачивает FiltersContent inline (aria-expanded=true)', () => {
+    render(<ArticleFiltersSidebar />);
+    const btn = screen.getByRole('button', { name: 'Filters' });
+    expect(btn).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(btn);
+    expect(btn).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByLabelText('Year from')).toBeInTheDocument();
+  });
+
+  it('повторный клик сворачивает панель обратно', () => {
+    render(<ArticleFiltersSidebar />);
+    const btn = screen.getByRole('button', { name: 'Filters' });
+    fireEvent.click(btn);
+    fireEvent.click(btn);
+    expect(btn).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByLabelText('Year from')).not.toBeInTheDocument();
+  });
+});
+
+// ===========================================================================
+// Блок 1b: ArticleFiltersMobile — Sheet с горизонтальным паддингом контента
+// ===========================================================================
+
+describe('ArticleFiltersMobile', () => {
+  it('оборачивает FiltersContent в px-4 (фикс: поля упирались в левый край Sheet)', () => {
+    const { container } = render(<ArticleFiltersMobile />);
+    const paddedWrapper = container.querySelector('.px-4');
+    expect(paddedWrapper).not.toBeNull();
+    expect(paddedWrapper?.querySelector('[aria-label="Year from"]')).not.toBeNull();
   });
 });
 

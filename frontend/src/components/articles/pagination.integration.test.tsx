@@ -93,6 +93,7 @@ function makePropsFromStore() {
     <ArticleList
       articles={s.articles}
       isLoading={s.isLoading}
+      hasSearched
       sortBy="date"
       onSortChange={vi.fn()}
       page={s.page}

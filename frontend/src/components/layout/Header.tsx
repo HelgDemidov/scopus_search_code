@@ -104,14 +104,10 @@ export function Header() {
                 </NavigationMenuLink>
               </NavigationMenuItem>
 
-              {/* "Profile" link — authenticated users only */}
-              {isAuthenticated && (
-                <NavigationMenuItem>
-                  <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
-                    <LocalizedLink to="/profile">{t('nav.profile')}</LocalizedLink>
-                  </NavigationMenuLink>
-                </NavigationMenuItem>
-              )}
+              {/* "Profile" nav-ссылка убрана для авторизованных (дублировала пункт
+                  "Profile" в дропдауне аватара ниже — доступ к профилю остаётся
+                  через аватар, как везде в остальном UI). Mobile-меню (бургер)
+                  сохраняет отдельную ссылку — там нет кликабельного аватара. */}
             </NavigationMenuList>
           </NavigationMenu>
 

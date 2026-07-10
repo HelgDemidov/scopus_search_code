@@ -90,6 +90,7 @@ function makeProps(overrides: Partial<ArticleListProps> = {}): ArticleListProps 
   return {
     articles: [] as ArticleResponse[],
     isLoading: false,
+    hasSearched: true,
     sortBy: 'date' as const,
     onSortChange: vi.fn(),
     page: 1,
@@ -163,6 +164,30 @@ describe('ArticleList — счетчик и переключатель режи�
   it('total>0, appendMode=true — кнопка показывает «Pages»', () => {
     render(<ArticleList {...makeProps({ total: 50, appendMode: true, articles: [makeArticle(1)] })} />);
     expect(screen.getByRole('button', { name: 'Pages' })).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Блок 4: Пустое состояние — сообщение только после реального поиска
+// ---------------------------------------------------------------------------
+
+describe('ArticleList — empty state / hasSearched', () => {
+  it('hasSearched=false, articles=[] — "No articles found" не рендерится, кнопка фильтров видна', () => {
+    render(<ArticleList {...makeProps({ hasSearched: false, total: 0 })} />);
+    expect(screen.queryByText('No articles found')).toBeNull();
+    expect(screen.getByTestId('filters-sidebar')).toBeInTheDocument();
+    expect(screen.getByTestId('filters-mobile')).toBeInTheDocument();
+  });
+
+  it('hasSearched=true, articles=[] — рендерится "No articles found"', () => {
+    render(<ArticleList {...makeProps({ hasSearched: true, total: 0 })} />);
+    expect(screen.getByText('No articles found')).toBeInTheDocument();
+    expect(screen.getByText('Try a different search query.')).toBeInTheDocument();
+  });
+
+  it('isLoading=true, hasSearched=false — скелетон рендерится без "No articles found"', () => {
+    render(<ArticleList {...makeProps({ hasSearched: false, isLoading: true, articles: [] })} />);
+    expect(screen.queryByText('No articles found')).toBeNull();
   });
 });
 

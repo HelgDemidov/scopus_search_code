@@ -53,7 +53,9 @@ export function SearchBar({
           value={value}
           onChange={handleChange}
           placeholder={resolvedPlaceholder}
-          className={['flex-1', error ? 'border-red-500 focus-visible:ring-red-400' : ''].join(' ')}
+          // pl-4 переопределяет дефолтный px-2.5 shadcn Input слева — выравнивает
+          // начало текста плейсхолдера под текст в табах режима поиска (border+px-4)
+          className={['flex-1 pl-4', error ? 'border-red-500 focus-visible:ring-red-400' : ''].join(' ')}
           autoComplete="off"
           aria-describedby={error ? errorId : undefined}
           aria-invalid={error ? true : undefined}
