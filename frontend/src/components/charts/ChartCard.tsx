@@ -35,8 +35,18 @@ export function ChartCard({
   return (
     <div
       className={cn(
-        'relative rounded-xl border border-slate-200 dark:border-slate-700 bg-white p-5 flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow',
-        translucent ? 'dark:bg-[#152236]/50 dark:backdrop-blur-xl' : 'dark:bg-[#152236]',
+        'relative rounded-xl border border-slate-200 bg-white p-5 flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow',
+        // blur-xl (24px) поверх разреженных звёзд смазывал их в невидимое пятно —
+        // blur-md (12px) сохраняет звёзды как узнаваемые мягкие точки света вместо
+        // каши. /60 (было /50 → /40 → живая проверка в браузере показала: и то,
+        // и другое читалось как "просто пустой фон", карточка визуально не
+        // отличима от страницы) — более плотная подложка нужна, чтобы сама
+        // ПОВЕРХНОСТЬ стекла была заметна, а не только блюр звёзд внутри неё.
+        // Отдельный синий rim (вместо общего slate-700) даёт карточке край
+        // "стекла", не завязанный на видимость самого блюра.
+        translucent
+          ? 'dark:bg-[#152236]/60 dark:backdrop-blur-md dark:border-blue-400/20'
+          : 'dark:bg-[#152236] dark:border-slate-700',
       )}
     >
       {/* relative обязателен: без stacking context карточка красится ДО фикс.
