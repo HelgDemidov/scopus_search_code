@@ -7,13 +7,16 @@
          компенсируется в верстке (Header/RootLayout). Заменил прежний initial-scale-хак
          (зумил фиксированный холст 412px) — см. docs/layout-overhaul/spec.md §4.1. -->
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="description" content="AI research publications from Scopus, curated and searchable" />
+    <!-- data-rh="true" — react-helmet-async управляет per-page тегами (docs/i18n-url-routing/
+         spec.md §6, useHreflangTags.tsx) только для элементов с этим маркером; без него
+         статичный тег остаётся в DOM рядом с Helmet-версией (дубль canonical/description) -->
+    <meta name="description" content="AI research publications from Scopus, curated and searchable" data-rh="true" />
     <meta name="robots" content="index, follow" />
 
     <title>Scopus Research Search</title>
 
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="canonical" href="https://scopus-search-code.vercel.app/" />
+    <link rel="canonical" href="https://scopus-search-code.vercel.app/" data-rh="true" />
     <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
 
     <!-- Open Graph (соцсети, мессенджеры) -->

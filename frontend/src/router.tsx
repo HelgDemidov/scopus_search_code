@@ -7,6 +7,7 @@
 
 import { lazy, Suspense, useEffect } from 'react';
 import { createBrowserRouter, Navigate, Outlet as RouterOutlet, useLocation } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import type { RouteObject } from 'react-router-dom';
 import { Header } from './components/layout/Header';
 import { PrivateRoute } from './components/layout/PrivateRoute';
@@ -60,7 +61,9 @@ function lazyPage(factory: () => Promise<{ default: React.ComponentType }>) {
 
 // Общий шаблон страницы: Header сверху + содержимое через Outlet.
 // useLocation доступен здесь, т.к. RootLayout рендерится внутри RouterProvider.
-function RootLayout() {
+// Экспортирован (не только для appRoutes) — тестируется отдельно в
+// router.rootLayoutSeo.test.tsx (fallback/override Helmet-тегов).
+export function RootLayout() {
   const location = useLocation();
 
   useEffect(() => {
@@ -73,6 +76,23 @@ function RootLayout() {
 
   return (
     <div className="min-h-[100dvh] bg-background text-foreground">
+      {/* Дефолтный Helmet — постоянно смонтирован (RootLayout не размонтируется между
+          роутами), фолбэк title/description/canonical для страниц БЕЗ своего useHreflangTags
+          (auth/profile/article/:id/error-страницы — вне 6 индексируемых секций §6 ТЗ).
+          Без этого при переходе с "wired" страницы (напр. /about) на "unwired" (напр. /auth)
+          title/description/canonical оставались от предыдущей страницы или пропадали вовсе —
+          react-helmet-async снимает свои теги при unmount активного <Helmet>-инстанса, а
+          других (у /auth) не было, кому их восстановить. Проверено вручную (Chrome DevTools):
+          react-helmet-async корректно дедуплицирует "innermost wins" даже для
+          rel="canonical" — вложенный per-page Helmet чисто переопределяет этот дефолт,
+          дублей не возникает. Значения — те же, что статичные в index.html (см. комментарий
+          там же про data-rh="true" — без этого маркера Helmet не видит статичные теги и
+          дублирует их вместо замены). */}
+      <Helmet>
+        <title>Scopus Research Search</title>
+        <meta name="description" content="AI research publications from Scopus, curated and searchable" />
+        <link rel="canonical" href="https://scopus-search-code.vercel.app/" />
+      </Helmet>
       <Header />
       <main>
         <RouterOutlet />
