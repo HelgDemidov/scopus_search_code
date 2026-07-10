@@ -66,7 +66,7 @@ const FINGERPRINT_HISTORY_LIMIT = 15;
 function CollectionSkeleton() {
   return (
     <div className="flex flex-col gap-6">
-      {/* Top Countries by Year — full width */}
+      {/* Journal Landscape Scatter — full width, теперь первая позиция */}
       <Skeleton className="h-[440px] w-full rounded-xl" />
       {/* Sunburst + Top Journals by Country — вторая строка, пополам */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -234,14 +234,21 @@ export default function ExplorePage() {
                     DimensionDrawer, см. docs/explore-charts-refactor/spec.md §0–1).
                     На их месте — 3 новых кросс-аналитических графика (spec.md §4-6):
                     комбинированные разрезы, которых KPI/drawer (всегда одномерные) не дают. */}
-                <TopCountriesByYearChart />
+
+                {/* Journal Landscape Scatter поднят на первую позицию (было — 4-й график,
+                    spec.md §1): единственный по-настоящему авторский визуал проекта
+                    (docs/project_context/scopus-feedback-07-03.md §6 — «Scatter с
+                    квадрантами — ваш единственный по-настоящему авторский элемент»),
+                    Top Countries by Year — типовой line-chart, каких много в любом
+                    BI-туториале. Первая позиция = первая секунда внимания рекрутера. */}
+                <JournalLandscapeScatterChart />
+
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <CountrySunburstChart />
                   <TopJournalsByCountryChart />
                 </div>
 
-                {/* 4-й фикс-график — объём×импакт по журналам (spec.md §1) */}
-                <JournalLandscapeScatterChart />
+                <TopCountriesByYearChart />
 
                 {/* Table Builder — пользовательские pivot-таблицы (spec.md §3) */}
                 <TableBuilderPanel />

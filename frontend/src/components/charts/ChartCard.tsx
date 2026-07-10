@@ -27,7 +27,12 @@ export function ChartCard({
   const accentColor = dimension ? dimColors.base : undefined;
 
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#152236] p-5 flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow">
+    <div className="relative rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#152236] p-5 flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow">
+      {/* relative обязателен: без stacking context карточка красится ДО фикс.
+          StarFieldCanvas (CSS2.1 Appendix E, non-positioned блок красится раньше
+          позиционированного z-index:0) — звёзды ложились поверх непрозрачного
+          фона карточки, заметнее всего на Journal Landscape Scatter (самая
+          большая площадь однотонного фона). */}
       <div className="flex items-center gap-2">
         {accentColor && (
           <span

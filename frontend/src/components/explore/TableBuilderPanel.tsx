@@ -140,7 +140,8 @@ function AddTableForm({
     <div
       role="region"
       aria-label={t('explore.tableBuilder.heading')}
-      className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#152236] p-5 flex flex-col gap-4 shadow-sm"
+      // relative — то же обоснование, что в ChartCard.tsx (star-bleed фикс)
+      className="relative rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#152236] p-5 flex flex-col gap-4 shadow-sm"
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <label className="flex flex-col gap-1.5 text-sm">
