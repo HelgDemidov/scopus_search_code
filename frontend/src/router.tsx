@@ -130,6 +130,8 @@ const ProfilePage         = lazyPage(() => import('./pages/ProfilePage'));
 const ArticlePage         = lazyPage(() => import('./pages/ArticlePage'));
 const ForgotPasswordPage  = lazyPage(() => import('./pages/ForgotPasswordPage'));
 const ResetPasswordPage   = lazyPage(() => import('./pages/ResetPasswordPage'));
+const PrivacyPage         = lazyPage(() => import('./pages/PrivacyPage'));
+const TermsPage           = lazyPage(() => import('./pages/TermsPage'));
 
 // ---------------------------------------------------------------------------
 // Маршруты по §3 ТЗ
@@ -184,6 +186,8 @@ export const appRoutes: RouteObject[] = [
               { path: 'main',          element: MainPage },
               { path: 'search',        element: SearchPage },
               { path: 'about',         element: AboutPage },
+              { path: 'privacy',       element: PrivacyPage },
+              { path: 'terms',         element: TermsPage },
               { path: 'explore',       element: ExplorePage },
               { path: 'article/:id',   element: ArticlePage },
               { path: 'auth',          element: AuthPage },

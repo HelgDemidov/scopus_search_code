@@ -40,6 +40,14 @@
     "contactTitle": "Contact",
     "contactBody": "Questions or feedback? Reach out:"
   },
+  "privacy": {
+    "title": "Privacy Policy",
+    "placeholder": "This page is a placeholder. A full privacy policy — covering data collected (email, password, search history) and third-party services in use (Google OAuth, GA4, Brevo) — will be published here."
+  },
+  "terms": {
+    "title": "Terms of Service",
+    "placeholder": "This page is a placeholder. Full terms of service will be published here."
+  },
   "articles": {
     "openAccess": "Open Access",
     "cited": "Cited: {{count}}",

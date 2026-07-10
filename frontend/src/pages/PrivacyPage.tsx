@@ -1,0 +1,16 @@
+import { useTranslation } from 'react-i18next';
+
+// Плейсхолдер (docs/i18n-url-routing/spec.md §4.3) — резервирует URL/роут/i18n-каркас.
+// Юридический текст политики конфиденциальности — отдельная задача, не в скоупе этого ТЗ.
+export default function PrivacyPage() {
+  const { t } = useTranslation();
+
+  return (
+    <div className="mx-auto max-w-screen-sm px-4 py-16">
+      <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
+        {t('privacy.title')}
+      </h1>
+      <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">{t('privacy.placeholder')}</p>
+    </div>
+  );
+}

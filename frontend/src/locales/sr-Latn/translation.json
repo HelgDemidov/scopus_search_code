@@ -40,6 +40,14 @@
     "contactTitle": "Kontakt",
     "contactBody": "Pitanja ili predlozi? Pišite:"
   },
+  "privacy": {
+    "title": "Politika privatnosti",
+    "placeholder": "Ova stranica je privremeni sadržaj. Puni tekst politike privatnosti (koji podaci se prikupljaju — email, lozinka, istorija pretrage — i koje se treće strane koriste — Google OAuth, GA4, Brevo) biće objavljen ovdje."
+  },
+  "terms": {
+    "title": "Uslovi korišćenja",
+    "placeholder": "Ova stranica je privremeni sadržaj. Puni tekst uslova korišćenja biće objavljen ovdje."
+  },
   "articles": {
     "openAccess": "Open Access",
     "cited": "Citiranja: {{count}}",
