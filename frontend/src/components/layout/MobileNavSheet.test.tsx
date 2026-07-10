@@ -49,18 +49,21 @@ describe('MobileNavSheet', () => {
     expect(trigger).toHaveClass('h-11', 'w-11');
   });
 
-  it('бургер-триггер: скругленная рамка border-[1.5px] (заметнее пунктов меню внутри)', () => {
+  it('бургер-триггер: скругленная рамка border (1px), не border-2', () => {
     renderMenu();
     const trigger = screen.getByRole('button', { name: 'Open menu' });
-    expect(trigger).toHaveClass('border-[1.5px]');
+    expect(trigger).toHaveClass('border');
+    expect(trigger).not.toHaveClass('border-2');
   });
 
-  it('пункт меню "Explore": тоньше рамка (border 1px, не border-[1.5px]), чем у бургер-триггера', () => {
+  it('пункт меню "Explore": та же толщина рамки (border), но мягче цвет, чем у бургер-триггера', () => {
     renderMenu();
+    const trigger = screen.getByRole('button', { name: 'Open menu' });
     const nav = screen.getByRole('navigation', { name: 'Menu' });
     const exploreLink = within(nav).getByRole('link', { name: 'Explore' });
     expect(exploreLink).toHaveClass('border');
-    expect(exploreLink).not.toHaveClass('border-[1.5px]');
+    expect(trigger).toHaveClass('border-slate-400');
+    expect(exploreLink).toHaveClass('border-slate-200');
   });
 
   it('аноним: показывает "Sign in", не показывает Sign out/аватар', () => {

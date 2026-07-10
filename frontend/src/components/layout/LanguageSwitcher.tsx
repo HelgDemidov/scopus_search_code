@@ -49,7 +49,13 @@ export function LanguageSwitcher() {
           'text-slate-500 dark:text-slate-400',
           'hover:bg-slate-100 hover:text-slate-900',
           'dark:hover:bg-slate-800 dark:hover:text-slate-100',
-          'focus:outline-none focus:ring-1 focus:ring-slate-300 dark:focus:ring-slate-600',
+          // focus-visible, не focus: обычный focus триггерится и при обычном
+          // мышином клике, из-за чего рамка "залипала" после клика и пропадала
+          // только при следующем действии на другом элементе. focus-visible —
+          // тот же паттерн, что уже везде в проекте (Button, SearchBar,
+          // ChartCard, PivotTable) — показывает рамку только при реальной
+          // клавиатурной навигации (Tab), не при клике мышью.
+          'focus:outline-none focus-visible:ring-1 focus-visible:ring-slate-300 dark:focus-visible:ring-slate-600',
           'min-h-11 min-w-11 justify-center px-3 text-sm',
           'sm:min-h-0 sm:min-w-0 sm:justify-start sm:px-2 sm:py-1.5 sm:text-xs',
         )}

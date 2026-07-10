@@ -46,10 +46,9 @@ export function MobileNavSheet() {
           aria-label={t('a11y.openMenu')}
           // ≥44×44 touch target (WCAG 2.2, §4.3 ТЗ) — sm:hidden здесь (не на
           // обёртке) держит саму кнопку вне DOM-показа ≥sm без лишнего <div>.
-          // Скругленная квадратная рамка (border-2, rounded-lg от базового
-          // Button) — единственный вход в полное меню на мобильном, должен
-          // визуально выделяться сильнее пунктов внутри самого Sheet ниже.
-          className="flex h-11 w-11 border-[1.5px] border-slate-400 dark:border-white sm:hidden"
+          // Скругленная квадратная рамка (border, rounded-lg от базового
+          // Button) — единственный вход в полное меню на мобильном.
+          className="flex h-11 w-11 border border-slate-400 dark:border-white sm:hidden"
         >
           <Menu className="h-5 w-5" />
         </Button>
@@ -60,10 +59,11 @@ export function MobileNavSheet() {
           <SheetTitle>{t('nav.menu')}</SheetTitle>
         </SheetHeader>
 
-        {/* Пункты меню — та же скругленная рамка, что у бургер-иконки-триггера
-            (визуальная связь "это всё внутри одного меню"), но тоньше
-            (border, не border-2) и мягче по цвету — бургер остаётся
-            заметнее как единственная точка входа снаружи Sheet. */}
+        {/* Пункты меню — та же скругленная рамка (border), что у
+            бургер-иконки-триггера (визуальная связь "это всё внутри одного
+            меню"), но мягче по цвету (slate-200/slate-600 против
+            slate-400/white) — бургер остаётся заметнее как единственная
+            точка входа снаружи Sheet за счёт контраста цвета, не толщины. */}
         <nav aria-label={t('nav.menu')} className="flex flex-col gap-1 px-2">
           <SheetClose asChild>
             <LocalizedLink
