@@ -50,7 +50,7 @@ describe('RootRedirect (голый /)', () => {
         </Routes>
       </MemoryRouter>,
     );
-    expect(await screen.findByTestId('probe')).toHaveTextContent('/sr-latn/search');
+    expect(await screen.findByTestId('probe')).toHaveTextContent('/cnr/search');
   });
 });
 

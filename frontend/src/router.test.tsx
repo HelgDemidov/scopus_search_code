@@ -55,9 +55,9 @@ describe('локализованные роуты (/:lang/*)', () => {
     expect(matches?.[matches.length - 1]?.params.lang).toBe('en');
   });
 
-  it('/ru/search и /sr-latn/main резолвятся под своим :lang', () => {
+  it('/ru/search и /cnr/main резолвятся под своим :lang', () => {
     expect(lastMatch('/ru/search')?.params.lang).toBe('ru');
-    expect(lastMatch('/sr-latn/main')?.params.lang).toBe('sr-latn');
+    expect(lastMatch('/cnr/main')?.params.lang).toBe('cnr');
   });
 
   it('/en/article/123 резолвится и сохраняет :id', () => {

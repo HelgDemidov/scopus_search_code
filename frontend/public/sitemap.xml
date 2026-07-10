@@ -7,7 +7,7 @@
     <priority>1.0</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://scopus-search-code.vercel.app/en/main"/>
     <xhtml:link rel="alternate" hreflang="ru" href="https://scopus-search-code.vercel.app/ru/main"/>
-    <xhtml:link rel="alternate" hreflang="sr-Latn" href="https://scopus-search-code.vercel.app/sr-latn/main"/>
+    <xhtml:link rel="alternate" hreflang="cnr" href="https://scopus-search-code.vercel.app/cnr/main"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://scopus-search-code.vercel.app/en/main"/>
   </url>
   <url>
@@ -17,17 +17,17 @@
     <priority>1.0</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://scopus-search-code.vercel.app/en/main"/>
     <xhtml:link rel="alternate" hreflang="ru" href="https://scopus-search-code.vercel.app/ru/main"/>
-    <xhtml:link rel="alternate" hreflang="sr-Latn" href="https://scopus-search-code.vercel.app/sr-latn/main"/>
+    <xhtml:link rel="alternate" hreflang="cnr" href="https://scopus-search-code.vercel.app/cnr/main"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://scopus-search-code.vercel.app/en/main"/>
   </url>
   <url>
-    <loc>https://scopus-search-code.vercel.app/sr-latn/main</loc>
+    <loc>https://scopus-search-code.vercel.app/cnr/main</loc>
     <lastmod>2026-07-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://scopus-search-code.vercel.app/en/main"/>
     <xhtml:link rel="alternate" hreflang="ru" href="https://scopus-search-code.vercel.app/ru/main"/>
-    <xhtml:link rel="alternate" hreflang="sr-Latn" href="https://scopus-search-code.vercel.app/sr-latn/main"/>
+    <xhtml:link rel="alternate" hreflang="cnr" href="https://scopus-search-code.vercel.app/cnr/main"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://scopus-search-code.vercel.app/en/main"/>
   </url>
   <url>
@@ -37,7 +37,7 @@
     <priority>0.8</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://scopus-search-code.vercel.app/en/search"/>
     <xhtml:link rel="alternate" hreflang="ru" href="https://scopus-search-code.vercel.app/ru/search"/>
-    <xhtml:link rel="alternate" hreflang="sr-Latn" href="https://scopus-search-code.vercel.app/sr-latn/search"/>
+    <xhtml:link rel="alternate" hreflang="cnr" href="https://scopus-search-code.vercel.app/cnr/search"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://scopus-search-code.vercel.app/en/search"/>
   </url>
   <url>
@@ -47,17 +47,17 @@
     <priority>0.8</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://scopus-search-code.vercel.app/en/search"/>
     <xhtml:link rel="alternate" hreflang="ru" href="https://scopus-search-code.vercel.app/ru/search"/>
-    <xhtml:link rel="alternate" hreflang="sr-Latn" href="https://scopus-search-code.vercel.app/sr-latn/search"/>
+    <xhtml:link rel="alternate" hreflang="cnr" href="https://scopus-search-code.vercel.app/cnr/search"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://scopus-search-code.vercel.app/en/search"/>
   </url>
   <url>
-    <loc>https://scopus-search-code.vercel.app/sr-latn/search</loc>
+    <loc>https://scopus-search-code.vercel.app/cnr/search</loc>
     <lastmod>2026-07-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://scopus-search-code.vercel.app/en/search"/>
     <xhtml:link rel="alternate" hreflang="ru" href="https://scopus-search-code.vercel.app/ru/search"/>
-    <xhtml:link rel="alternate" hreflang="sr-Latn" href="https://scopus-search-code.vercel.app/sr-latn/search"/>
+    <xhtml:link rel="alternate" hreflang="cnr" href="https://scopus-search-code.vercel.app/cnr/search"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://scopus-search-code.vercel.app/en/search"/>
   </url>
   <url>
@@ -67,7 +67,7 @@
     <priority>0.8</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://scopus-search-code.vercel.app/en/explore"/>
     <xhtml:link rel="alternate" hreflang="ru" href="https://scopus-search-code.vercel.app/ru/explore"/>
-    <xhtml:link rel="alternate" hreflang="sr-Latn" href="https://scopus-search-code.vercel.app/sr-latn/explore"/>
+    <xhtml:link rel="alternate" hreflang="cnr" href="https://scopus-search-code.vercel.app/cnr/explore"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://scopus-search-code.vercel.app/en/explore"/>
   </url>
   <url>
@@ -77,17 +77,17 @@
     <priority>0.8</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://scopus-search-code.vercel.app/en/explore"/>
     <xhtml:link rel="alternate" hreflang="ru" href="https://scopus-search-code.vercel.app/ru/explore"/>
-    <xhtml:link rel="alternate" hreflang="sr-Latn" href="https://scopus-search-code.vercel.app/sr-latn/explore"/>
+    <xhtml:link rel="alternate" hreflang="cnr" href="https://scopus-search-code.vercel.app/cnr/explore"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://scopus-search-code.vercel.app/en/explore"/>
   </url>
   <url>
-    <loc>https://scopus-search-code.vercel.app/sr-latn/explore</loc>
+    <loc>https://scopus-search-code.vercel.app/cnr/explore</loc>
     <lastmod>2026-07-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://scopus-search-code.vercel.app/en/explore"/>
     <xhtml:link rel="alternate" hreflang="ru" href="https://scopus-search-code.vercel.app/ru/explore"/>
-    <xhtml:link rel="alternate" hreflang="sr-Latn" href="https://scopus-search-code.vercel.app/sr-latn/explore"/>
+    <xhtml:link rel="alternate" hreflang="cnr" href="https://scopus-search-code.vercel.app/cnr/explore"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://scopus-search-code.vercel.app/en/explore"/>
   </url>
   <url>
@@ -97,7 +97,7 @@
     <priority>0.8</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://scopus-search-code.vercel.app/en/about"/>
     <xhtml:link rel="alternate" hreflang="ru" href="https://scopus-search-code.vercel.app/ru/about"/>
-    <xhtml:link rel="alternate" hreflang="sr-Latn" href="https://scopus-search-code.vercel.app/sr-latn/about"/>
+    <xhtml:link rel="alternate" hreflang="cnr" href="https://scopus-search-code.vercel.app/cnr/about"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://scopus-search-code.vercel.app/en/about"/>
   </url>
   <url>
@@ -107,17 +107,17 @@
     <priority>0.8</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://scopus-search-code.vercel.app/en/about"/>
     <xhtml:link rel="alternate" hreflang="ru" href="https://scopus-search-code.vercel.app/ru/about"/>
-    <xhtml:link rel="alternate" hreflang="sr-Latn" href="https://scopus-search-code.vercel.app/sr-latn/about"/>
+    <xhtml:link rel="alternate" hreflang="cnr" href="https://scopus-search-code.vercel.app/cnr/about"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://scopus-search-code.vercel.app/en/about"/>
   </url>
   <url>
-    <loc>https://scopus-search-code.vercel.app/sr-latn/about</loc>
+    <loc>https://scopus-search-code.vercel.app/cnr/about</loc>
     <lastmod>2026-07-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://scopus-search-code.vercel.app/en/about"/>
     <xhtml:link rel="alternate" hreflang="ru" href="https://scopus-search-code.vercel.app/ru/about"/>
-    <xhtml:link rel="alternate" hreflang="sr-Latn" href="https://scopus-search-code.vercel.app/sr-latn/about"/>
+    <xhtml:link rel="alternate" hreflang="cnr" href="https://scopus-search-code.vercel.app/cnr/about"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://scopus-search-code.vercel.app/en/about"/>
   </url>
   <url>
@@ -127,7 +127,7 @@
     <priority>0.8</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://scopus-search-code.vercel.app/en/privacy"/>
     <xhtml:link rel="alternate" hreflang="ru" href="https://scopus-search-code.vercel.app/ru/privacy"/>
-    <xhtml:link rel="alternate" hreflang="sr-Latn" href="https://scopus-search-code.vercel.app/sr-latn/privacy"/>
+    <xhtml:link rel="alternate" hreflang="cnr" href="https://scopus-search-code.vercel.app/cnr/privacy"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://scopus-search-code.vercel.app/en/privacy"/>
   </url>
   <url>
@@ -137,17 +137,17 @@
     <priority>0.8</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://scopus-search-code.vercel.app/en/privacy"/>
     <xhtml:link rel="alternate" hreflang="ru" href="https://scopus-search-code.vercel.app/ru/privacy"/>
-    <xhtml:link rel="alternate" hreflang="sr-Latn" href="https://scopus-search-code.vercel.app/sr-latn/privacy"/>
+    <xhtml:link rel="alternate" hreflang="cnr" href="https://scopus-search-code.vercel.app/cnr/privacy"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://scopus-search-code.vercel.app/en/privacy"/>
   </url>
   <url>
-    <loc>https://scopus-search-code.vercel.app/sr-latn/privacy</loc>
+    <loc>https://scopus-search-code.vercel.app/cnr/privacy</loc>
     <lastmod>2026-07-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://scopus-search-code.vercel.app/en/privacy"/>
     <xhtml:link rel="alternate" hreflang="ru" href="https://scopus-search-code.vercel.app/ru/privacy"/>
-    <xhtml:link rel="alternate" hreflang="sr-Latn" href="https://scopus-search-code.vercel.app/sr-latn/privacy"/>
+    <xhtml:link rel="alternate" hreflang="cnr" href="https://scopus-search-code.vercel.app/cnr/privacy"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://scopus-search-code.vercel.app/en/privacy"/>
   </url>
   <url>
@@ -157,7 +157,7 @@
     <priority>0.8</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://scopus-search-code.vercel.app/en/terms"/>
     <xhtml:link rel="alternate" hreflang="ru" href="https://scopus-search-code.vercel.app/ru/terms"/>
-    <xhtml:link rel="alternate" hreflang="sr-Latn" href="https://scopus-search-code.vercel.app/sr-latn/terms"/>
+    <xhtml:link rel="alternate" hreflang="cnr" href="https://scopus-search-code.vercel.app/cnr/terms"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://scopus-search-code.vercel.app/en/terms"/>
   </url>
   <url>
@@ -167,17 +167,17 @@
     <priority>0.8</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://scopus-search-code.vercel.app/en/terms"/>
     <xhtml:link rel="alternate" hreflang="ru" href="https://scopus-search-code.vercel.app/ru/terms"/>
-    <xhtml:link rel="alternate" hreflang="sr-Latn" href="https://scopus-search-code.vercel.app/sr-latn/terms"/>
+    <xhtml:link rel="alternate" hreflang="cnr" href="https://scopus-search-code.vercel.app/cnr/terms"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://scopus-search-code.vercel.app/en/terms"/>
   </url>
   <url>
-    <loc>https://scopus-search-code.vercel.app/sr-latn/terms</loc>
+    <loc>https://scopus-search-code.vercel.app/cnr/terms</loc>
     <lastmod>2026-07-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://scopus-search-code.vercel.app/en/terms"/>
     <xhtml:link rel="alternate" hreflang="ru" href="https://scopus-search-code.vercel.app/ru/terms"/>
-    <xhtml:link rel="alternate" hreflang="sr-Latn" href="https://scopus-search-code.vercel.app/sr-latn/terms"/>
+    <xhtml:link rel="alternate" hreflang="cnr" href="https://scopus-search-code.vercel.app/cnr/terms"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://scopus-search-code.vercel.app/en/terms"/>
   </url>
 </urlset>

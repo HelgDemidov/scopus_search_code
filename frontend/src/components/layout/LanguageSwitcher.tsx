@@ -10,12 +10,15 @@ import {
 import { cn } from '../../lib/utils';
 import { swapLocaleInPath } from '../../utils/localeRouting';
 
-// code — канонический i18next-код (сравнение с i18n.language); urlLang —
-// его lowercase URL-сегмент, передаётся в swapLocaleInPath (docs/i18n-url-routing/spec.md §5).
+// code — канонический i18next-код (сравнение с i18n.language); urlLang — его
+// URL-сегмент, передаётся в swapLocaleInPath (docs/i18n-url-routing/spec.md §5).
+// cnr (не sr-Latn) — ISO 639-3 код черногорского языка, URL-сегмент/hreflang
+// намеренно расходятся с i18next-кодом ресурса (см. localeRouting.ts). Label
+// "CG" — тот же, что использует gov.me для этой локали в UI (не в URL).
 const LANGS = [
-  { code: 'en',      urlLang: 'en',      label: 'EN' },
-  { code: 'ru',      urlLang: 'ru',      label: 'РУ' },
-  { code: 'sr-Latn', urlLang: 'sr-latn', label: 'CG' },
+  { code: 'en',      urlLang: 'en',  label: 'EN' },
+  { code: 'ru',      urlLang: 'ru',  label: 'РУ' },
+  { code: 'sr-Latn', urlLang: 'cnr', label: 'CG' },
 ] as const;
 
 interface LanguageSwitcherProps {

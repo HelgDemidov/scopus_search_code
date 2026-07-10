@@ -108,12 +108,12 @@ describe('LanguageSwitcher', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('menuitem', { name: 'CG' }));
     });
-    expect(mockNavigate).toHaveBeenCalledWith('/sr-latn/explore');
+    expect(mockNavigate).toHaveBeenCalledWith('/cnr/explore');
   });
 
   it('переключает на английский с sr-Latn', async () => {
     await i18n.changeLanguage('sr-Latn');
-    renderSwitcher('/sr-latn/main');
+    renderSwitcher('/cnr/main');
     await act(async () => {
       fireEvent.click(screen.getByRole('menuitem', { name: 'EN' }));
     });

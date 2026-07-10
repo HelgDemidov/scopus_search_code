@@ -51,8 +51,8 @@ describe('LocaleLayout', () => {
     expect(document.documentElement.lang).toBe('ru');
   });
 
-  it('sr-latn (URL-сегмент) резолвится в канонический i18next-код sr-Latn', async () => {
-    renderAt('/sr-latn/whatever');
+  it('cnr (URL-сегмент, Montenegrin) резолвится в i18next-ресурс sr-Latn', async () => {
+    renderAt('/cnr/whatever');
     await waitFor(() => expect(i18n.language).toBe('sr-Latn'));
     expect(document.documentElement.lang).toBe('sr-Latn');
   });

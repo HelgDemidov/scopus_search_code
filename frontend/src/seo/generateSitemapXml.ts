@@ -2,7 +2,7 @@ import {
   DEFAULT_URL_LANG,
   SUPPORTED_URL_LANGS,
   buildLocalizedPath,
-  urlLangToI18n,
+  urlLangToHreflang,
 } from '../utils/localeRouting';
 
 export interface IndexableSection {
@@ -36,7 +36,7 @@ export function generateSitemapXml(sections: IndexableSection[], lastmod: string
 
       const alternates = SUPPORTED_URL_LANGS.map((altLang) => {
         const href = `${SITE_ORIGIN}${buildLocalizedPath(altLang, sectionPath)}`;
-        return `    <xhtml:link rel="alternate" hreflang="${urlLangToI18n[altLang]}" href="${xmlEscape(href)}"/>`;
+        return `    <xhtml:link rel="alternate" hreflang="${urlLangToHreflang[altLang]}" href="${xmlEscape(href)}"/>`;
       });
       const xDefaultHref = `${SITE_ORIGIN}${buildLocalizedPath(DEFAULT_URL_LANG, sectionPath)}`;
       alternates.push(

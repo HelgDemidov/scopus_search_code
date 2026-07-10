@@ -6,6 +6,7 @@ import {
   i18nToUrlLang,
   isSupportedUrlLang,
   swapLocaleInPath,
+  urlLangToHreflang,
   urlLangToI18n,
 } from './localeRouting';
 
@@ -13,7 +14,7 @@ describe('isSupportedUrlLang', () => {
   it('accepts all 3 registered locales', () => {
     expect(isSupportedUrlLang('en')).toBe(true);
     expect(isSupportedUrlLang('ru')).toBe(true);
-    expect(isSupportedUrlLang('sr-latn')).toBe(true);
+    expect(isSupportedUrlLang('cnr')).toBe(true);
   });
 
   it('rejects unknown/undefined values', () => {
@@ -31,15 +32,26 @@ describe('urlLangToI18n / i18nToUrlLang', () => {
     }
   });
 
-  it('maps sr-latn to canonical BCP-47 sr-Latn', () => {
-    expect(urlLangToI18n['sr-latn']).toBe('sr-Latn');
+  it('maps cnr (Montenegrin URL-сегмент) to i18next-ресурс sr-Latn', () => {
+    expect(urlLangToI18n['cnr']).toBe('sr-Latn');
+  });
+});
+
+describe('urlLangToHreflang', () => {
+  it('cnr — hreflang совпадает с URL-сегментом (не с i18next-кодом sr-Latn)', () => {
+    expect(urlLangToHreflang['cnr']).toBe('cnr');
+  });
+
+  it('en/ru — hreflang совпадает и с URL-сегментом, и с i18next-кодом', () => {
+    expect(urlLangToHreflang['en']).toBe('en');
+    expect(urlLangToHreflang['ru']).toBe('ru');
   });
 });
 
 describe('buildLocalizedPath', () => {
   it('prefixes a section path with the lang segment', () => {
     expect(buildLocalizedPath('ru', '/explore')).toBe('/ru/explore');
-    expect(buildLocalizedPath('sr-latn', '/article/123')).toBe('/sr-latn/article/123');
+    expect(buildLocalizedPath('cnr', '/article/123')).toBe('/cnr/article/123');
   });
 
   it('adds a leading slash if the caller forgot one', () => {
@@ -54,7 +66,7 @@ describe('buildLocalizedPath', () => {
 describe('swapLocaleInPath', () => {
   it('replaces only the first segment, keeps the rest', () => {
     expect(swapLocaleInPath('/ru/explore', 'en')).toBe('/en/explore');
-    expect(swapLocaleInPath('/en/article/123', 'sr-latn')).toBe('/sr-latn/article/123');
+    expect(swapLocaleInPath('/en/article/123', 'cnr')).toBe('/cnr/article/123');
   });
 
   it('handles a bare lang-only path (no section)', () => {

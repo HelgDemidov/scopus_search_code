@@ -7,7 +7,7 @@ import {
   SUPPORTED_URL_LANGS,
   buildLocalizedPath,
   isSupportedUrlLang,
-  urlLangToI18n,
+  urlLangToHreflang,
 } from '../utils/localeRouting';
 
 // Единственный источник домена — используется здесь и в scripts/generate-sitemap.ts
@@ -44,7 +44,7 @@ export function useHreflangTags(path: string) {
         <link
           key={urlLang}
           rel="alternate"
-          hrefLang={urlLangToI18n[urlLang]}
+          hrefLang={urlLangToHreflang[urlLang]}
           href={`${SITE_ORIGIN}${buildLocalizedPath(urlLang, path)}`}
         />
       ))}

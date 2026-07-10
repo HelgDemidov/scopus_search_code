@@ -60,28 +60,28 @@ describe('useHreflangTags', () => {
     );
   });
 
-  it('рендерит ровно 3 alternate-тега (en/ru/sr-Latn) + 1 x-default', async () => {
+  it('рендерит ровно 3 alternate-тега (en/ru/cnr) + 1 x-default', async () => {
     renderBare('/about');
     await waitFor(() => expect(document.querySelectorAll('link[rel="alternate"]').length).toBe(4));
     const hreflangs = Array.from(document.querySelectorAll('link[rel="alternate"]')).map((el) =>
       el.getAttribute('hreflang'),
     );
-    expect(hreflangs).toEqual(expect.arrayContaining(['en', 'ru', 'sr-Latn', 'x-default']));
+    expect(hreflangs).toEqual(expect.arrayContaining(['en', 'ru', 'cnr', 'x-default']));
   });
 
   it('x-default указывает на en-вариант', async () => {
-    renderWithLang('/sr-latn/about', '/about');
+    renderWithLang('/cnr/about', '/about');
     await waitFor(() => {
       const xDefault = document.querySelector('link[hreflang="x-default"]');
       expect(xDefault?.getAttribute('href')).toBe('https://scopus-search-code.vercel.app/en/about');
     });
   });
 
-  it('alternate sr-latn URL-сегмент (lowercase) сопоставлен с каноническим hreflang sr-Latn', async () => {
+  it('alternate cnr URL-сегмент сопоставлен с hreflang cnr (не с i18next-кодом sr-Latn)', async () => {
     renderBare('/about');
     await waitFor(() => {
-      const srAlt = document.querySelector('link[hreflang="sr-Latn"]');
-      expect(srAlt?.getAttribute('href')).toBe('https://scopus-search-code.vercel.app/sr-latn/about');
+      const srAlt = document.querySelector('link[hreflang="cnr"]');
+      expect(srAlt?.getAttribute('href')).toBe('https://scopus-search-code.vercel.app/cnr/about');
     });
   });
 

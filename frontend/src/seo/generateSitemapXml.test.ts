@@ -34,7 +34,7 @@ describe('generateSitemapXml', () => {
     const urls = Array.from(doc.querySelectorAll('url'));
     for (const url of urls) {
       const hreflangs = alternateLinks(url).map((el) => el.getAttribute('hreflang'));
-      expect(hreflangs).toEqual(expect.arrayContaining(['en', 'ru', 'sr-Latn', 'x-default']));
+      expect(hreflangs).toEqual(expect.arrayContaining(['en', 'ru', 'cnr', 'x-default']));
       expect(hreflangs.length).toBe(4);
     }
   });
@@ -46,7 +46,7 @@ describe('generateSitemapXml', () => {
       const xDefault = alternateLinks(url).find((el) => el.getAttribute('hreflang') === 'x-default');
       const loc = url.querySelector('loc')?.textContent ?? '';
       // Путь после /en/ должен совпадать у loc (после отбрасывания префикса локали) и x-default href
-      const pathFromLoc = loc.replace(new RegExp(`^${SITE_ORIGIN}/(en|ru|sr-latn)`), '');
+      const pathFromLoc = loc.replace(new RegExp(`^${SITE_ORIGIN}/(en|ru|cnr)`), '');
       expect(xDefault?.getAttribute('href')).toBe(`${SITE_ORIGIN}/en${pathFromLoc}`);
     }
   });
