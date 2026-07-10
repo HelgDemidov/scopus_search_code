@@ -195,7 +195,9 @@ export default function SearchPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-3.5rem)]">
+    // min-h-full — заполняет реальную высоту flex-1 <main> (см. router.tsx),
+    // растёт дальше при большом списке результатов; без хардкода высоты Header
+    <div className="min-h-full">
       {hreflangTags}
       {!isAuthenticated ? (
         <div className="flex flex-col">

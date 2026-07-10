@@ -75,7 +75,7 @@ export function RootLayout() {
   }, [location]);
 
   return (
-    <div className="min-h-[100dvh] bg-background text-foreground">
+    <div className="min-h-[100dvh] flex flex-col bg-background text-foreground">
       {/* Дефолтный Helmet — постоянно смонтирован (RootLayout не размонтируется между
           роутами), фолбэк title/description/canonical для страниц БЕЗ своего useHreflangTags
           (auth/profile/article/:id/error-страницы — вне 6 индексируемых секций §6 ТЗ).
@@ -94,7 +94,13 @@ export function RootLayout() {
         <link rel="canonical" href="https://scopus-search-code.vercel.app/" />
       </Helmet>
       <Header />
-      <main>
+      {/* flex-1 — <main> заполняет ровно оставшуюся высоту (100dvh минус
+          РЕАЛЬНАЯ высота Header), а не хардкоженную "3.5rem": высота Header
+          не константа (border-b 1px + env(safe-area-inset-top) на notched
+          устройствах) — calc(100vh-3.5rem) на страницах (было в SearchPage/
+          AuthPage) систематически недосчитывал 1px+ и создавал паразитный
+          скролл даже когда контента меньше вьюпорта (найдено 2026-07-10). */}
+      <main className="flex-1">
         <RouterOutlet />
       </main>
     </div>

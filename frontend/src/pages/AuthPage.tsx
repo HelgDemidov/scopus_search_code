@@ -303,7 +303,8 @@ export default function AuthPage() {
   const from = (location.state as { from?: Location })?.from?.pathname ?? '/';
 
   return (
-    <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4 py-12">
+    // min-h-full — см. router.tsx (flex-1 <main>) и SearchPage.tsx
+    <div className="flex min-h-full items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#152236] px-6 py-8 shadow-sm">
         {/* Page heading */}
