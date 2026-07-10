@@ -8,6 +8,7 @@ on:
       - feature/accretion-disk-rework
       - feat/a11y-load-test
       - feat/layout-responsive-foundation
+      - feat/i18n-url-routing
 
   pull_request:
     branches:

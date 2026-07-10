@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useForm, type UseFormRegisterReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -8,6 +8,8 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { LocalizedLink } from '../components/layout/LocalizedLink';
+import { useLocalizedNavigate } from '../hooks/useLocalizedNavigate';
 import { confirmPasswordReset } from '../api/auth';
 
 function makeSchema(t: TFunction) {
@@ -68,7 +70,7 @@ function PasswordInput({ id, register }: { id: string; register: UseFormRegister
 export default function ResetPasswordPage() {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
+  const navigate = useLocalizedNavigate();
   const token = searchParams.get('token');
   const [serverError, setServerError] = useState<string | null>(null);
   const schema = useMemo(() => makeSchema(t), [t]);
@@ -86,12 +88,12 @@ export default function ResetPasswordPage() {
           <p className="text-slate-600 dark:text-slate-400 mb-4">
             {t('resetPassword.invalidLink')}
           </p>
-          <Link
+          <LocalizedLink
             to="/forgot-password"
             className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
           >
             {t('resetPassword.requestNew')}
-          </Link>
+          </LocalizedLink>
         </div>
       </div>
     );
@@ -154,9 +156,9 @@ export default function ResetPasswordPage() {
           {serverError && (
             <p className="text-xs text-rose-600 dark:text-rose-400">
               {serverError}{' '}
-              <Link to="/forgot-password" className="underline">
+              <LocalizedLink to="/forgot-password" className="underline">
                 {t('resetPassword.requestNewLink')}
-              </Link>
+              </LocalizedLink>
             </p>
           )}
 

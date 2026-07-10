@@ -128,7 +128,14 @@ vi.mock('react-router-dom', () => ({
     return [params, vi.fn()];
   },
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => <a href={to}>{children}</a>,
+  // LocalizedLink (внутри ExplorePage — CTA-баннер/emptyPersonal) читает :lang
+  // через useParams; пустой объект — фоллбэк на DEFAULT_URL_LANG.
+  useParams: () => ({}),
 }));
+
+// useHreflangTags рендерит <Helmet> — требует HelmetProvider в дереве; SEO-теги
+// не относятся к тому, что тестирует этот файл (см. useHreflangTags.test.tsx), заглушка
+vi.mock('react-helmet-async', () => ({ Helmet: () => null }));
 
 // shadcn/ui компоненты — используют @/lib/utils alias, который в jsdom не разрешается
 vi.mock('../components/ui/skeleton', () => ({ Skeleton: () => null }));

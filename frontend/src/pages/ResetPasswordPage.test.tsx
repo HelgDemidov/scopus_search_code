@@ -62,7 +62,7 @@ describe('ResetPasswordPage', () => {
     expect(screen.getByRole('button', { name: /update password/i })).toBeInTheDocument();
   });
 
-  it('после успешного сброса навигирует на /auth', async () => {
+  it('после успешного сброса навигирует на /auth (с языковым префиксом — /reset-password вне /:lang, useLocalizedNavigate фоллбэчится на текущий i18n.language)', async () => {
     mockConfirmPasswordReset.mockResolvedValueOnce(undefined);
     renderWithToken('valid-token-abc');
 
@@ -71,7 +71,7 @@ describe('ResetPasswordPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /update password/i }));
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/auth', { replace: true });
+      expect(mockNavigate).toHaveBeenCalledWith('/en/auth', { replace: true });
     });
     expect(mockConfirmPasswordReset).toHaveBeenCalledWith('valid-token-abc', VALID_PASSWORD);
   });

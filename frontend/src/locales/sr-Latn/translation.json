@@ -1,6 +1,8 @@
 {
   "nav": {
+    "search": "Pretraga",
     "explore": "Analitika",
+    "about": "O projektu",
     "profile": "Profil",
     "signIn": "Prijava",
     "signOut": "Odjava",
@@ -12,7 +14,13 @@
     "button": "Pretraži",
     "minLength": "Unesite najmanje {{min}} znakova"
   },
-  "home": {
+  "main": {
+    "heroTitle": "Istražite publikacije o vještačkoj inteligenciji i neuronskim mrežama",
+    "heroSubtitle": "Kurirana kolekcija Scopus publikacija o vještačkoj inteligenciji i neuronskim mrežama, spremna za pretragu.",
+    "ctaSearch": "Započni pretragu",
+    "ctaSignIn": "Prijavi se"
+  },
+  "searchPage": {
     "anonTitle": "Pretraži Scopus publikacije",
     "anonSubtitle": "Pregledajte rezultate ispod. <lnk>Prijavite se</lnk> za puni pristup pretrazi.",
     "anonNote": "Rezultati su ograničeni na kolekciju \"VJ i neuronske mreže\". <lnk>Prijavite se</lnk> za puni pristup Scopusu",
@@ -20,6 +28,51 @@
     "modeCatalog": "Kolekcija «Vještačka inteligencija i neuronske mreže»",
     "errorQuota": "Sedmični limit pretrage je iscrpljen",
     "errorGeneric": "Greška pretrage: {{error}}"
+  },
+  "about": {
+    "title": "O projektu",
+    "intro": "Scopus Search je lični projekat — kolekcija Scopus publikacija o vještačkoj inteligenciji i neuronskim mrežama, spremna za pretragu i analitiku.",
+    "dataSourceTitle": "Izvor podataka",
+    "dataSourceBody": "Članci se preuzimaju putem Scopus Search API-ja i redovno ažuriraju. Kolekcija uzima u obzir status otvorenog pristupa i uključuje samo članke sa DOI-jem.",
+    "howBuiltTitle": "Kako je napravljeno",
+    "howBuiltBody": "Bekend na FastAPI + PostgreSQL, frontend na React + TypeScript, deploy na Railway i Vercel. Ovo je portfolio projekat — izvorni kod je javno dostupan.",
+    "viewSource": "Izvorni kod na GitHub-u",
+    "contactTitle": "Kontakt",
+    "contactBody": "Pitanja ili predlozi? Pišite:"
+  },
+  "privacy": {
+    "title": "Politika privatnosti",
+    "placeholder": "Ova stranica je privremeni sadržaj. Puni tekst politike privatnosti (koji podaci se prikupljaju — email, lozinka, istorija pretrage — i koje se treće strane koriste — Google OAuth, GA4, Brevo) biće objavljen ovdje."
+  },
+  "terms": {
+    "title": "Uslovi korišćenja",
+    "placeholder": "Ova stranica je privremeni sadržaj. Puni tekst uslova korišćenja biće objavljen ovdje."
+  },
+  "seo": {
+    "main": {
+      "title": "Scopus Search — kolekcija istraživanja o AI i neuronskim mrežama",
+      "description": "Kurirana kolekcija Scopus publikacija o vještačkoj inteligenciji i neuronskim mrežama, spremna za pretragu."
+    },
+    "search": {
+      "title": "Pretraga publikacija o AI i neuronskim mrežama | Scopus Search",
+      "description": "Pretražujte i filtrirajte Scopus članke o vještačkoj inteligenciji i neuronskim mrežama — po godini, državi, časopisu i drugim parametrima."
+    },
+    "explore": {
+      "title": "Analitika istraživanja o AI | Scopus Search",
+      "description": "Interaktivna analitika kolekcije publikacija o AI i neuronskim mrežama — trendovi objava, top države, časopisi i podjela po otvorenom pristupu."
+    },
+    "about": {
+      "title": "O projektu | Scopus Search",
+      "description": "Šta je Scopus Search, odakle dolaze podaci i kako je projekat napravljen."
+    },
+    "privacy": {
+      "title": "Politika privatnosti | Scopus Search",
+      "description": "Kako Scopus Search prikuplja, koristi i štiti vaše podatke."
+    },
+    "terms": {
+      "title": "Uslovi korišćenja | Scopus Search",
+      "description": "Uslovi koji regulišu korišćenje Scopus Search-a."
+    }
   },
   "articles": {
     "openAccess": "Open Access",

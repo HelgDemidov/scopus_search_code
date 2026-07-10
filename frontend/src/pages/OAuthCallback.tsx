@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
+import { useLocalizedNavigate } from '../hooks/useLocalizedNavigate';
 
 // Имя временной handshake cookie — должно совпадать с константой в бэкенде (_AT_HANDSHAKE_COOKIE)
 const AT_HANDSHAKE_COOKIE = 'auth_handshake';
@@ -27,7 +27,7 @@ function clearHandshakeCookie(): void {
  * сохранил ее до выполнения редиректа (не cross-site drop согласно RFC 6265bis §5.4).
  */
 export default function OAuthCallback() {
-  const navigate = useNavigate();
+  const navigate = useLocalizedNavigate();
   const { setToken, fetchUser, setHydrating } = useAuthStore();
 
   useEffect(() => {
@@ -41,7 +41,9 @@ export default function OAuthCallback() {
       // setHydrating(false) предотвращает race condition с App.tsx useEffect:
       // App.tsx тоже вызывает setHydrating(false) в .finally() — дублирование безвредно (Zustand идемпотентен)
       setHydrating(false);
-      fetchUser().then(() => navigate('/'));
+      // Прямо на /search (не голый '/') — пользователь уже авторизован,
+      // не нужен лишний прыжок через RootRedirect
+      fetchUser().then(() => navigate('/search'));
     } else {
       // Handshake cookie отсутствует — OAuth-флоу не завершился
       navigate('/auth?error=oauth_failed');

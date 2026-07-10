@@ -4,6 +4,7 @@
 
 import { useEffect } from 'react';
 import { RouterProvider } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { useTranslation } from 'react-i18next';
@@ -106,13 +107,15 @@ export default function App() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <ThemeProvider>
-      <StarFieldCanvas />
-      <RouterProvider router={router} />
-      {/* Глобальный контейнер для toast-уведомлений через shadcn Sonner */}
-      <Toaster richColors position="top-right" />
-      <Analytics />
-      <SpeedInsights />
-    </ThemeProvider>
+    <HelmetProvider>
+      <ThemeProvider>
+        <StarFieldCanvas />
+        <RouterProvider router={router} />
+        {/* Глобальный контейнер для toast-уведомлений через shadcn Sonner */}
+        <Toaster richColors position="top-right" />
+        <Analytics />
+        <SpeedInsights />
+      </ThemeProvider>
+    </HelmetProvider>
   );
 }
