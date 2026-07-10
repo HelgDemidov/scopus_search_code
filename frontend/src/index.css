@@ -10,9 +10,19 @@
    position:sticky у шапки; "clip" обрезает контент без scroll-контейнера,
    sticky остаётся рабочим. Вне @layer — иначе Tailwind v3 content-scan не
    найдёт "html"/"body" как классы в контенте и вырежет правило при
-   продакшен-сборке (см. [[feedback-tailwind-layer-purge]]). */
+   продакшен-сборке (см. [[feedback-tailwind-layer-purge]]).
+
+   background-color здесь же (не только Tailwind-класс bg-background на
+   корневом div в router.tsx) — сплошная заливка html/body красится браузером
+   даже раньше stacking-контекстов документа (спец-правило CSS про viewport
+   canvas), т.е. гарантированно ПОД StarFieldCanvas при любом z-index/isolation.
+   Корневой div НЕ несёт свой bg-background — иначе его непрозрачная заливка,
+   однажды попав в тот же (или более поздний) stacking-order, что и канвас,
+   перекрыла бы канвас целиком (см. [[project-dark-mode]], баг 2026-07-10:
+   isolate на div с bg-background стёр звёзды со всей страницы). */
 html, body {
   overflow-x: clip;
+  background-color: var(--background);
 }
 
 /* =========================================================

@@ -75,7 +75,28 @@ export function RootLayout() {
   }, [location]);
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-background text-foreground">
+    // isolate — весь контент сайта гарантированно красится ПОСЛЕ StarFieldCanvas
+    // (App.tsx: <StarFieldCanvas/> — сосед этого div, идёт раньше в DOM).
+    // isolation:isolate создаёт новый stacking context БЕЗ position — в отличие
+    // от relative/absolute, не меняет containing block для потомков с
+    // position:absolute нигде в дереве (звёзды/метеоры красились поверх
+    // непозиционированных блоков — CSS2.1 Appendix E; раньше чинили точечно,
+    // per-компонентно, добавляя relative на каждый surface типа ChartCard —
+    // см. [[project-dark-mode]]; теперь один div выше по дереву решает это
+    // для всего сайта разом, без точечных фиксов на новых компонентах).
+    // Header (sticky z-50) и ErrorPanel (fixed z-10) не задеты: они по-прежнему
+    // красятся выше остального контента ВНУТРИ этого же контекста — сравнение
+    // с канвасом теперь идёт на уровне "весь RootLayout целиком", а не по
+    // z-index каждого элемента с канвасом напрямую.
+    //
+    // Намеренно БЕЗ bg-background на этом div: сплошная заливка "ночного неба"
+    // живёт на html/body (index.css) — слоем ниже канваса. Если бы этот div
+    // (теперь isolate, т.е. красится как единый блок) сам был непрозрачным,
+    // его собственная заливка перекрыла бы канвас целиком, а не только
+    // контент внутри — ровно так звёзды пропадали при первой попытке фикса
+    // 2026-07-10 (см. [[project-dark-mode]]). text-foreground остаётся —
+    // это только цвет текста, не заливка.
+    <div className="min-h-[100dvh] isolate flex flex-col text-foreground">
       {/* Дефолтный Helmet — постоянно смонтирован (RootLayout не размонтируется между
           роутами), фолбэк title/description/canonical для страниц БЕЗ своего useHreflangTags
           (auth/profile/article/:id/error-страницы — вне 6 индексируемых секций §6 ТЗ).
