@@ -1,6 +1,7 @@
 # Сервис каталога сидера — управляет статьями, добавленными автоматическим сидером
 from __future__ import annotations
 
+import json
 import logging
 from typing import TYPE_CHECKING, List
 
@@ -25,7 +26,11 @@ from app.schemas.article_schemas import (
 if TYPE_CHECKING:
     from app.infrastructure.redis_client import UpstashRedisClient
 
-from app.infrastructure.redis_client import STATS_CACHE_TTL, make_stats_cache_key
+from app.infrastructure.redis_client import (
+    STATS_CACHE_TTL,
+    make_journal_impact_cache_key,
+    make_stats_cache_key,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -207,9 +212,34 @@ class CatalogService:
     async def get_journal_impact(self, max_year: int) -> list[JournalImpactPoint]:
         """Топ-N журналов (объём×импакт) для интерактивного слайдера окна зрелости.
 
-        Без кэша (в отличие от get_stats) — значение зависит от рантайм-параметра
-        max_year, кэшировать одну плоскую StatsResponse-запись бессмысленно.
+        Cache-aside, как get_stats — TTL=60s, тот же db_namespace. В отличие от
+        get_pivot (комбинаторно много пар измерений × slicer), max_year — слайдер
+        ровно на 3 значения (2022-2024), кэшировать есть смысл: пространство ключей
+        крошечное, а сам запрос — самый тяжёлый из 4 стационарных графиков /explore
+        (единственный без готового statsStore под рукой на фронте).
         """
+        if self.redis is None:
+            return await self._fetch_journal_impact_from_db(max_year)
+
+        cache_key = make_journal_impact_cache_key(max_year, db_namespace=self.db_namespace)
+
+        try:
+            cached = await self.redis.get(cache_key)
+            if cached is not None:
+                return [JournalImpactPoint(**r) for r in json.loads(cached)]
+        except Exception:
+            logger.warning("Redis GET failed, falling back to DB", exc_info=True)
+
+        result = await self._fetch_journal_impact_from_db(max_year)
+
+        try:
+            await self.redis.setex(cache_key, STATS_CACHE_TTL, json.dumps([p.model_dump() for p in result]))
+        except Exception:
+            logger.warning("Redis SETEX failed, cache skipped", exc_info=True)
+
+        return result
+
+    async def _fetch_journal_impact_from_db(self, max_year: int) -> list[JournalImpactPoint]:
         raw = await self.catalog_repo.get_journal_impact(max_year=max_year)
         return [JournalImpactPoint(**r) for r in raw]
 
@@ -227,8 +257,10 @@ class CatalogService:
         filter_dim: PivotDimension | None = None,
         filter_value: str | None = None,
     ) -> PivotResponse:
-        """2D pivot по 2 измерениям + опциональный slicer. Без кэша — как get_journal_impact,
-        значение зависит от рантайм-выбора пользователя в Table Builder.
+        """2D pivot по 2 измерениям + опциональный slicer. Без кэша, в отличие от
+        get_journal_impact (там слайдер всего на 3 значения) — комбинаторное
+        пространство row_dim×col_dim×filter_dim×filter_value в Table Builder
+        слишком велико, чтобы кэш давал разумный hit rate.
 
         Проверка допустимости конкретной ПАРЫ измерений (§3.1) и row_dim != col_dim —
         на уровне роутера (это HTTP-контракт, а не бизнес-правило самого сервиса).

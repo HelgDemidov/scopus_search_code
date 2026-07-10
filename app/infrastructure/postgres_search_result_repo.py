@@ -223,7 +223,7 @@ class PostgresSearchResultRepository(ISearchResultRepository):
         """Поисковая активность пользователя по времени (docs/explore-personal-
         redesign/spec.md §2.1). Грануляция и группировка по периодам — в Python
         (не date_trunc/strftime) — портируемо между PG и SQLite, тот же принцип,
-        что медиана в CatalogRepository.get_journal_impact.
+        что SQLite-фолбэк медианы в CatalogRepository.get_journal_impact.
         """
         history_rows = (
             await self.session.execute(

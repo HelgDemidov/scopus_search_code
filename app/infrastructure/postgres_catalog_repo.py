@@ -421,10 +421,14 @@ class PostgresCatalogRepository(ICatalogRepository):
     async def get_journal_impact(self, max_year: int) -> list[dict]:
         """Топ-N журналов (объём + среднее/медианное цитирование) среди статей <= max_year.
 
-        Медиана считается в Python (statistics.median), не через SQL percentile_cont —
-        та PG-only, SQLite (юнит/интеграционные тесты) её не поддерживает. count/avg —
-        портируемый SQL, отбирает top-N журналов; сырые cited_by_count подтягиваются
-        вторым запросом только для них (не для всего окна зрелости).
+        На Postgres медиана считается в самой БД через percentile_cont(0.5) WITHIN
+        GROUP — один запрос вместо двух, без переноса сырых cited_by_count по сети
+        и без Python-цикла (было раньше: portable count/avg + отдельный запрос
+        сырых значений + statistics.median). SQLite (юнит/интеграционные тесты)
+        percentile_cont не поддерживает — там сохранён прежний двухзапросный путь.
+        coalesce(cited_by_count, 0) внутри percentile_cont — тот же null→0, что и
+        Python-фолбэк (r.cited_by_count or 0), иначе медиана тихо разошлась бы
+        между диалектами на статьях без cited_by_count.
 
         Фильтр по году — sargable-диапазон (< 1 января следующего года), не
         extract(year FROM publication_date) <= max_year: функция над колонкой не может
@@ -441,6 +445,37 @@ class PostgresCatalogRepository(ICatalogRepository):
         )
         catalog_articles_q = stmt.subquery()
 
+        conn = await self.session.connection()
+        if conn.dialect.name == "postgresql":
+            rows = (
+                await self.session.execute(
+                    select(
+                        catalog_articles_q.c.journal,
+                        func.count().label("count"),
+                        func.avg(catalog_articles_q.c.cited_by_count).label("mean_citations"),
+                        func.percentile_cont(0.5)
+                        .within_group(func.coalesce(catalog_articles_q.c.cited_by_count, 0).asc())
+                        .label("median_citations"),
+                    )
+                    .select_from(catalog_articles_q)
+                    .group_by(catalog_articles_q.c.journal)
+                    .having(func.count() >= self._JOURNAL_IMPACT_MIN_COUNT)
+                    .order_by(sa.text("count DESC"))
+                    .limit(self._JOURNAL_IMPACT_TOP_N)
+                )
+            ).all()
+
+            return [
+                {
+                    "journal": r.journal,
+                    "count": r.count,
+                    "mean_citations": float(r.mean_citations or 0),
+                    "median_citations": float(r.median_citations or 0),
+                }
+                for r in rows
+            ]
+
+        # SQLite (тесты) — без percentile_cont: portable агрегат + сырые значения + Python-медиана
         top_rows = (
             await self.session.execute(
                 select(

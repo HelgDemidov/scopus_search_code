@@ -1,20 +1,53 @@
 """Интеграционные тесты GET /articles/stats/journal-impact (SQLite, без requires_pg).
 
-Journal Landscape Scatter — docs/explore-table-builder/spec.md §1. Эндпоинт не кэшируется
-(в отличие от /articles/stats), поэтому фикстуры client/db_session из conftest.py
-используются без переопределения get_catalog_service (redis не участвует в этом пути).
+Journal Landscape Scatter — docs/explore-table-builder/spec.md §1. Эндпоинт теперь
+кэшируется (max_year — слайдер всего на 3 значения, см. CatalogService.get_journal_impact) —
+поэтому, как и test_stats_cross_analytics.py, переопределяем get_catalog_service, чтобы
+форсировать redis=None для тестов этого файла.
 """
 
 import datetime
 
 import pytest
+import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.dependencies import get_catalog_service
+from app.infrastructure.postgres_article_repo import PostgresArticleRepository
+from app.infrastructure.postgres_catalog_repo import PostgresCatalogRepository
+from app.main import app
 from app.models.article import Article
 from app.models.article import Article as A
 from app.models.catalog_article import CatalogArticle
+from app.services.catalog_service import CatalogService
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _bypass_real_redis_cache(db_session: AsyncSession):
+    """GET /articles/stats/journal-impact кэшируется в общем Upstash Redis
+    (db_namespace=DATABASE_URL из .env, см. app/core/dependencies.get_catalog_service) —
+    этот ключ ОДИН И ТОТ ЖЕ для всех тестов в рамках локального запуска, независимо от
+    того, какая SQLite in-memory БД стоит за конкретным тестом. Без этой фикстуры тесты
+    в этом файле либо читают чужой (реальный, production/staging) кэш вместо своей
+    засеянной SQLite-фикстуры, либо пишут в него мусор с TTL=60с (найдено 2026-07-10 —
+    та же ловушка, что уже чинили в test_stats_cross_analytics.py). Форсируем redis=None
+    (graceful-degradation путь, см. test_catalog_service.py::
+    test_get_journal_impact_no_redis_goes_directly_to_db) только для тестов этого файла."""
+
+    def _override() -> CatalogService:
+        return CatalogService(
+            article_repo=PostgresArticleRepository(db_session),
+            catalog_repo=PostgresCatalogRepository(db_session),
+            session=db_session,
+            redis=None,
+            db_namespace="",
+        )
+
+    app.dependency_overrides[get_catalog_service] = _override
+    yield
+    app.dependency_overrides.pop(get_catalog_service, None)
 
 
 async def _seed(session: AsyncSession, articles: list[dict]) -> None:

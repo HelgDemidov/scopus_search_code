@@ -112,8 +112,8 @@ async def get_stats(
 # ------------------------------------------------------------------ #
 #  GET /stats/journal-impact — публичный, без JWT                     #
 #  Journal Landscape Scatter (docs/explore-table-builder/spec.md §1)  #
-#  Отдельный, не кэшируемый эндпоинт (в отличие от /stats) — значение  #
-#  зависит от рантайм-параметра слайдера окна зрелости.                #
+#  Кэшируется (CatalogService.get_journal_impact, TTL=60s) — max_year  #
+#  всего 3 значения (2022-2024), в отличие от /stats/pivot ниже.       #
 # ------------------------------------------------------------------ #
 
 
@@ -256,7 +256,7 @@ async def get_personal_stats(
 ) -> SearchStatsResponse:
     # Приватный эндпоинт — источник инфографики /explore?mode=personal (не кэшируется:
     # низкий QPS, join на ≤HISTORY_DEPTH_LIMIT записей истории на пользователя, по
-    # аналогии с /stats/pivot и /stats/journal-impact — docs/personal-search-data/spec.md §2.2).
+    # аналогии с /stats/pivot — docs/personal-search-data/spec.md §2.2).
     # search=None — агрегат по ВСЕЙ (не по одному ключевому слову) истории пользователя.
     # Отдельный роут, а не search=None через /search/stats: тот путь никогда не
     # выполнялся и не тестировался (роутер требовал min_length=2).

@@ -1,11 +1,12 @@
 # tests/unit/test_catalog_service.py
+import json
 from datetime import date
 from typing import List, cast
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infrastructure.redis_client import STATS_CACHE_TTL, make_stats_cache_key
+from app.infrastructure.redis_client import STATS_CACHE_TTL, make_journal_impact_cache_key, make_stats_cache_key
 from app.interfaces.article_repository import IArticleRepository
 from app.interfaces.catalog_repository import ICatalogRepository
 from app.models.article import Article
@@ -523,6 +524,116 @@ async def test_get_journal_impact_passes_max_year_to_repo():
     await svc.get_journal_impact(max_year=2022)
 
     assert cr.journal_impact_calls == [2022]
+
+
+# ================================================================ #
+#  Тесты get_journal_impact — кэш Redis                             #
+#  (max_year — слайдер на 3 значения, в отличие от get_pivot ниже)  #
+# ================================================================ #
+
+
+def _journal_impact_cache_json() -> str:
+    """Валидный кэшированный payload — тот же формат, что и json.dumps([p.model_dump()...])."""
+    return json.dumps([{"journal": "Cached Journal", "count": 1, "mean_citations": 1.0, "median_citations": 1.0}])
+
+
+@pytest.mark.asyncio
+async def test_get_journal_impact_uses_cache_on_hit():
+    """Cache hit: Redis возвращает значение → DB не вызывается."""
+    redis = FakeRedis(cached_value=_journal_impact_cache_json())
+    svc, _, cr, _ = _mk_service(redis=redis)
+
+    result = await svc.get_journal_impact(max_year=2024)
+
+    assert cr.journal_impact_calls == [], "DB не должна вызываться при cache hit"
+    assert redis.get_call_count == 1
+    assert result == [
+        JournalImpactPoint(journal="Cached Journal", count=1, mean_citations=1.0, median_citations=1.0)
+    ]
+
+
+@pytest.mark.asyncio
+async def test_get_journal_impact_writes_cache_on_miss():
+    """Cache miss: DB вызывается, результат записывается в Redis с правильным ключом и TTL."""
+    redis = FakeRedis(cached_value=None)
+    svc, _, cr, _ = _mk_service(redis=redis)
+
+    result = await svc.get_journal_impact(max_year=2022)
+
+    assert cr.journal_impact_calls == [2022], "При cache miss DB должна вызываться"
+    assert len(redis.setex_calls) == 1, "После DB должна быть запись в Redis"
+
+    key, ttl, value = redis.setex_calls[0]
+    assert key == make_journal_impact_cache_key(2022, db_namespace=_TEST_DB_NAMESPACE)
+    assert ttl == STATS_CACHE_TTL
+    assert json.loads(value)[0]["journal"] == "Nature"
+    assert result[0].journal == "Nature"
+
+
+@pytest.mark.asyncio
+async def test_get_journal_impact_different_max_year_different_cache_key():
+    """Разные значения слайдера (2022/2023/2024) не должны делить один ключ кэша."""
+    redis = FakeRedis(cached_value=None)
+    svc, _, _, _ = _mk_service(redis=redis)
+
+    await svc.get_journal_impact(max_year=2022)
+    await svc.get_journal_impact(max_year=2024)
+
+    key_2022, _, _ = redis.setex_calls[0]
+    key_2024, _, _ = redis.setex_calls[1]
+    assert key_2022 != key_2024
+
+
+@pytest.mark.asyncio
+async def test_get_journal_impact_different_db_namespace_different_cache_key():
+    """prod/staging, делящие один физический Redis, не должны делить ключ (см. get_stats)."""
+    redis_a = FakeRedis(cached_value=None)
+    redis_b = FakeRedis(cached_value=None)
+    svc_a, _, _, _ = _mk_service(redis=redis_a, db_namespace="postgresql://prod-host/db")
+    svc_b, _, _, _ = _mk_service(redis=redis_b, db_namespace="postgresql://staging-host/db")
+
+    await svc_a.get_journal_impact(max_year=2024)
+    await svc_b.get_journal_impact(max_year=2024)
+
+    key_a, _, _ = redis_a.setex_calls[0]
+    key_b, _, _ = redis_b.setex_calls[0]
+    assert key_a != key_b
+
+
+@pytest.mark.asyncio
+async def test_get_journal_impact_degrades_on_redis_error():
+    """Redis GET бросает исключение → graceful degradation: DB вызывается, результат корректен."""
+    redis = FakeRedis(raise_on_get=True)
+    svc, _, cr, _ = _mk_service(redis=redis)
+
+    result = await svc.get_journal_impact(max_year=2024)
+
+    assert cr.journal_impact_calls == [2024], "При ошибке Redis должен быть fallback на DB"
+    assert result[0].journal == "Nature"
+
+
+@pytest.mark.asyncio
+async def test_get_journal_impact_skips_setex_on_redis_error():
+    """Redis SETEX бросает исключение → результат всё равно возвращается корректно."""
+    redis = FakeRedis(cached_value=None, raise_on_setex=True)
+    svc, _, cr, _ = _mk_service(redis=redis)
+
+    result = await svc.get_journal_impact(max_year=2024)
+
+    assert cr.journal_impact_calls == [2024]
+    assert len(redis.setex_calls) == 0
+    assert result[0].journal == "Nature"
+
+
+@pytest.mark.asyncio
+async def test_get_journal_impact_no_redis_goes_directly_to_db():
+    """redis=None → прямой вызов DB без попыток Redis."""
+    svc, _, cr, _ = _mk_service(redis=None)
+
+    result = await svc.get_journal_impact(max_year=2024)
+
+    assert cr.journal_impact_calls == [2024]
+    assert result[0].journal == "Nature"
 
 
 # ================================================================ #
