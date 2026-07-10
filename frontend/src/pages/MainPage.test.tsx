@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import MainPage from './MainPage';
 
@@ -11,9 +12,11 @@ vi.mock('../stores/authStore', () => ({
 
 function renderPage() {
   return render(
-    <MemoryRouter>
-      <MainPage />
-    </MemoryRouter>,
+    <HelmetProvider>
+      <MemoryRouter>
+        <MainPage />
+      </MemoryRouter>
+    </HelmetProvider>,
   );
 }
 

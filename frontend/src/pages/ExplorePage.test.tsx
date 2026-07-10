@@ -133,6 +133,10 @@ vi.mock('react-router-dom', () => ({
   useParams: () => ({}),
 }));
 
+// useHreflangTags рендерит <Helmet> — требует HelmetProvider в дереве; SEO-теги
+// не относятся к тому, что тестирует этот файл (см. useHreflangTags.test.tsx), заглушка
+vi.mock('react-helmet-async', () => ({ Helmet: () => null }));
+
 // shadcn/ui компоненты — используют @/lib/utils alias, который в jsdom не разрешается
 vi.mock('../components/ui/skeleton', () => ({ Skeleton: () => null }));
 vi.mock('../components/ui/button', () => ({

@@ -1,0 +1,8 @@
+[
+  { "path": "/main", "titleKey": "seo.main.title", "descriptionKey": "seo.main.description" },
+  { "path": "/search", "titleKey": "seo.search.title", "descriptionKey": "seo.search.description" },
+  { "path": "/explore", "titleKey": "seo.explore.title", "descriptionKey": "seo.explore.description" },
+  { "path": "/about", "titleKey": "seo.about.title", "descriptionKey": "seo.about.description" },
+  { "path": "/privacy", "titleKey": "seo.privacy.title", "descriptionKey": "seo.privacy.description" },
+  { "path": "/terms", "titleKey": "seo.terms.title", "descriptionKey": "seo.terms.description" }
+]

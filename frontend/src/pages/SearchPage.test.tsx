@@ -45,6 +45,10 @@ vi.mock('react-router-dom', () => ({
   useParams: () => ({}),
 }));
 
+// useHreflangTags рендерит <Helmet> — требует HelmetProvider в дереве; SEO-теги
+// не относятся к тому, что тестирует этот файл (см. useHreflangTags.test.tsx), заглушка
+vi.mock('react-helmet-async', () => ({ Helmet: () => null }));
+
 // sonner: toast используется в useEffect — заглушаем, чтобы не падало без Provider
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
 

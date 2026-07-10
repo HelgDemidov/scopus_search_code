@@ -48,6 +48,32 @@
     "title": "Uslovi korišćenja",
     "placeholder": "Ova stranica je privremeni sadržaj. Puni tekst uslova korišćenja biće objavljen ovdje."
   },
+  "seo": {
+    "main": {
+      "title": "Scopus Search — kolekcija istraživanja o AI i neuronskim mrežama",
+      "description": "Kurirana kolekcija Scopus publikacija o vještačkoj inteligenciji i neuronskim mrežama, spremna za pretragu."
+    },
+    "search": {
+      "title": "Pretraga publikacija o AI i neuronskim mrežama | Scopus Search",
+      "description": "Pretražujte i filtrirajte Scopus članke o vještačkoj inteligenciji i neuronskim mrežama — po godini, državi, časopisu i drugim parametrima."
+    },
+    "explore": {
+      "title": "Analitika istraživanja o AI | Scopus Search",
+      "description": "Interaktivna analitika kolekcije publikacija o AI i neuronskim mrežama — trendovi objava, top države, časopisi i podjela po otvorenom pristupu."
+    },
+    "about": {
+      "title": "O projektu | Scopus Search",
+      "description": "Šta je Scopus Search, odakle dolaze podaci i kako je projekat napravljen."
+    },
+    "privacy": {
+      "title": "Politika privatnosti | Scopus Search",
+      "description": "Kako Scopus Search prikuplja, koristi i štiti vaše podatke."
+    },
+    "terms": {
+      "title": "Uslovi korišćenja | Scopus Search",
+      "description": "Uslovi koji regulišu korišćenje Scopus Search-a."
+    }
+  },
   "articles": {
     "openAccess": "Open Access",
     "cited": "Citiranja: {{count}}",

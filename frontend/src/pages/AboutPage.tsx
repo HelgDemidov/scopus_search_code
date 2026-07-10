@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { useHreflangTags } from '../hooks/useHreflangTags';
 
 const GITHUB_REPO_URL = 'https://github.com/HelgDemidov/scopus_search_code';
 
@@ -11,9 +12,11 @@ const LINK_CLASSES = 'text-blue-600 dark:text-blue-400 hover:underline';
 export default function AboutPage() {
   const { t } = useTranslation();
   const supportEmail: string | undefined = import.meta.env.VITE_SUPPORT_EMAIL;
+  const hreflangTags = useHreflangTags('/about');
 
   return (
     <div className="mx-auto max-w-screen-md px-4 py-16 flex flex-col gap-10">
+      {hreflangTags}
       <div>
         <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
           {t('about.title')}

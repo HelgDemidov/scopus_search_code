@@ -14,6 +14,7 @@ import { KpiRow } from '../components/explore/KpiRow';
 import { PersonalKpiRow } from '../components/explore/PersonalKpiRow';
 import { DimensionDrawer, PersonalDimensionDrawer } from '../components/explore/DimensionDrawer';
 import { ActiveFilterBanner } from '../components/explore/ActiveFilterBanner';
+import { useHreflangTags } from '../hooks/useHreflangTags';
 
 // PublicationsByYearChart/DocumentTypesChart/TopCountriesChart/TopJournalsChart
 // удалены (docs/explore-personal-redesign/spec.md §1.4) — personal mode теперь
@@ -97,6 +98,7 @@ function ChartErrorFallback() {
 
 export default function ExplorePage() {
   const { t } = useTranslation();
+  const hreflangTags = useHreflangTags('/explore');
   const { fetchStats } = useStatsStore();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const {
@@ -175,6 +177,7 @@ export default function ExplorePage() {
 
   return (
     <div className="mx-auto max-w-screen-xl px-4 py-8 flex flex-col gap-8">
+      {hreflangTags}
 
       {/* Заголовок раздела */}
       <div>

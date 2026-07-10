@@ -48,6 +48,32 @@
     "title": "Terms of Service",
     "placeholder": "This page is a placeholder. Full terms of service will be published here."
   },
+  "seo": {
+    "main": {
+      "title": "Scopus Search — AI & Neural Network Research Collection",
+      "description": "Discover a curated, searchable collection of Scopus-indexed publications on artificial intelligence and neural networks."
+    },
+    "search": {
+      "title": "Search AI & Neural Network Publications | Scopus Search",
+      "description": "Search and filter Scopus-indexed articles on artificial intelligence and neural networks by year, country, journal, and more."
+    },
+    "explore": {
+      "title": "Explore AI Research Trends | Scopus Search",
+      "description": "Interactive analytics on the AI/neural-network research collection — publication trends, top countries, journals, and open-access breakdowns."
+    },
+    "about": {
+      "title": "About | Scopus Search",
+      "description": "What Scopus Search is, where the data comes from, and how the project is built."
+    },
+    "privacy": {
+      "title": "Privacy Policy | Scopus Search",
+      "description": "How Scopus Search collects, uses, and protects your data."
+    },
+    "terms": {
+      "title": "Terms of Service | Scopus Search",
+      "description": "The terms governing use of Scopus Search."
+    }
+  },
   "articles": {
     "openAccess": "Open Access",
     "cited": "Cited: {{count}}",

@@ -9,6 +9,7 @@ import { ArticleList } from '../components/articles/ArticleList';
 import { ScopusQuotaBadge } from '../components/articles/ScopusQuotaBadge';
 import { ScopusPaginationBar } from '../components/articles/ScopusPaginationBar';
 import { ErrorBoundary } from '../components/ui/ErrorBoundary';
+import { useHreflangTags } from '../hooks/useHreflangTags';
 import type { PageSize } from '../components/articles/PaginationBar';
 import type { LiveSize } from '../components/articles/ScopusPaginationBar';
 import type { ArticleResponse } from '../types/api';
@@ -54,6 +55,7 @@ function AnonHero({ onSearch }: { onSearch: (q: string) => void }) {
 }
 
 export default function SearchPage() {
+  const hreflangTags = useHreflangTags('/search');
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const {
     articles,
@@ -183,6 +185,7 @@ export default function SearchPage() {
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)]">
+      {hreflangTags}
       {!isAuthenticated ? (
         <div className="flex flex-col">
           <AnonHero key={resetKey} onSearch={handleSearch} />
