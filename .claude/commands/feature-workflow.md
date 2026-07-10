@@ -26,8 +26,10 @@ The task list must include dedicated test-coverage tasks for the new functionali
 
 Work through the task list commit by commit: implement, run the relevant test/lint/typecheck commands for the layer touched (`CLAUDE.md` / `frontend/CLAUDE.md`), commit with a conventional-commit message, check off the matching box in the spec's "Чек-лист реализации". Don't batch unrelated work into one commit.
 
+**Full-suite budget:** run the complete, unfiltered lint+typecheck+test suite (`ruff check`, `ruff format --check`, `mypy`, full `pytest` — and/or the frontend equivalents `lint`, `tsc --noEmit`, full `npm run test`) **at most once per commit**, immediately before that commit — plus one extra full run right before opening the PR (Step 5). Everywhere else *within* a commit's work-in-progress cycle (after each edit, while iterating on a fix), run only targeted/selective checks scoped to the files actually touched — a single test file, `ruff check <path>`, `tsc --noEmit` on demand is still whole-project by nature of the tool but don't pair it with a full test run each time. This keeps the iteration loop fast; the full sweep exists to catch cross-file regressions right before they get baked into a commit or a PR.
+
 ## Step 5 — Wrap up
 
-Once all planned commits land and local checks pass (ruff/mypy/pytest for backend, lint/typecheck/test/build for frontend — whichever layers were touched): push, then open the PR (`gh pr create`) with a body summarizing the spec's goal/scope (§0) and a test-plan checklist — not a repo link to the spec file, since `docs/` is gitignored and won't be in the diff. Report the PR URL.
+Once all planned commits land: run the full-suite check one last time (the second and final use of the Step 4 budget for this feature), confirm everything passes, then push and open the PR (`gh pr create`) with a body summarizing the spec's goal/scope (§0) and a test-plan checklist — not a repo link to the spec file, since `docs/` is gitignored and won't be in the diff. Report the PR URL.
 
 Do not merge the PR yourself, and do not run `/post-merge-sync` — those happen after human review, as a separate step.
