@@ -10,7 +10,6 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 import { useTranslation } from 'react-i18next';
 import { Toaster } from './components/ui/sonner';
 import { ThemeProvider } from './components/theme/ThemeProvider';
-import { StarFieldCanvas } from './components/theme/StarFieldCanvas';
 import { useAuthStore } from './stores/authStore';
 import { useStatsStore } from './stores/statsStore';
 import { router } from './router';
@@ -120,7 +119,9 @@ export default function App() {
   return (
     <HelmetProvider>
       <ThemeProvider>
-        <StarFieldCanvas />
+        {/* StarFieldCanvas смонтирован внутри RootLayout (router.tsx), не здесь —
+            backdrop-filter (frosted-glass ChartCard) не видит содержимое чужого
+            stacking context; см. [[project-dark-mode]] (isolate + backdrop-root). */}
         <RouterProvider router={router} />
         {/* Глобальный контейнер для toast-уведомлений через shadcn Sonner */}
         <Toaster richColors position="top-right" />

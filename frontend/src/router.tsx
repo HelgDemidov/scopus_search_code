@@ -12,6 +12,7 @@ import type { RouteObject } from 'react-router-dom';
 import { Header } from './components/layout/Header';
 import { PrivateRoute } from './components/layout/PrivateRoute';
 import { LocaleLayout } from './components/layout/LocaleLayout';
+import { StarFieldCanvas } from './components/theme/StarFieldCanvas';
 import { recordBreadcrumb } from './utils/errorReport';
 import { DEFAULT_URL_LANG, buildLocalizedPath } from './utils/localeRouting';
 import { useLocalizedPath } from './hooks/useLocalizedPath';
@@ -96,7 +97,20 @@ export function RootLayout() {
     // контент внутри — ровно так звёзды пропадали при первой попытке фикса
     // 2026-07-10 (см. [[project-dark-mode]]). text-foreground остаётся —
     // это только цвет текста, не заливка.
+    //
+    // StarFieldCanvas — ПЕРВЫЙ потомок этого же isolate-div (не сосед в
+    // App.tsx, как было раньше), иначе frosted-glass ломается: isolation:
+    // isolate — это ещё и "backdrop root" — граница, дальше которой
+    // backdrop-filter не видит. ChartCard с translucent-пропом внутри этого
+    // же div мог бы блюрить только то, что находится ВНУТРИ этой границы;
+    // канвас-сосед снаружи был для него невидим — блюр применялся, но
+    // блюрить было нечего, отсюда "полностью непрозрачный" фон карточек
+    // (найдено 2026-07-10 после доклада пользователя, см.
+    // [[project-dark-mode]]). Перенос канваса внутрь возвращает его в тот
+    // же backdrop root, что и карточки — порядок отрисовки не меняется,
+    // канвас всё так же первый в DOM внутри блока.
     <div className="min-h-[100dvh] isolate flex flex-col text-foreground">
+      <StarFieldCanvas />
       {/* Дефолтный Helmet — постоянно смонтирован (RootLayout не размонтируется между
           роутами), фолбэк title/description/canonical для страниц БЕЗ своего useHreflangTags
           (auth/profile/article/:id/error-страницы — вне 6 индексируемых секций §6 ТЗ).
