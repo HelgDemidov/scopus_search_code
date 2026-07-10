@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import {
   DropdownMenu,
@@ -7,11 +8,17 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 import { cn } from '../../lib/utils';
+import { swapLocaleInPath } from '../../utils/localeRouting';
 
+// code — канонический i18next-код (сравнение с i18n.language); urlLang — его
+// URL-сегмент, передаётся в swapLocaleInPath (docs/i18n-url-routing/spec.md §5).
+// cnr (не sr-Latn) — ISO 639-3 код черногорского языка, URL-сегмент/hreflang
+// намеренно расходятся с i18next-кодом ресурса (см. localeRouting.ts). Label
+// "CG" — тот же, что использует gov.me для этой локали в UI (не в URL).
 const LANGS = [
-  { code: 'en',      label: 'EN' },
-  { code: 'ru',      label: 'РУ' },
-  { code: 'sr-Latn', label: 'CG' },
+  { code: 'en',      urlLang: 'en',  label: 'EN' },
+  { code: 'ru',      urlLang: 'ru',  label: 'РУ' },
+  { code: 'sr-Latn', urlLang: 'cnr', label: 'CG' },
 ] as const;
 
 interface LanguageSwitcherProps {
@@ -23,7 +30,17 @@ interface LanguageSwitcherProps {
 
 export function LanguageSwitcher({ size = 'sm' }: LanguageSwitcherProps) {
   const { i18n, t } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
   const current = LANGS.find((l) => l.code === i18n.language) ?? LANGS[0];
+
+  // URL — источник истины (§1/§5 ТЗ): меняем только языковой сегмент пути,
+  // LocaleLayout сам подхватит i18n.changeLanguage из нового :lang.
+  // Не useLocalizedNavigate — тот резолвит путь через ТЕКУЩИЙ :lang и задвоил
+  // бы префикс (swapLocaleInPath уже возвращает полный путь с НОВЫМ языком).
+  function handleSelect(urlLang: (typeof LANGS)[number]['urlLang']) {
+    navigate(swapLocaleInPath(location.pathname, urlLang) + location.search);
+  }
 
   return (
     <DropdownMenu>
@@ -43,10 +60,10 @@ export function LanguageSwitcher({ size = 'sm' }: LanguageSwitcherProps) {
         <ChevronDown className="h-3 w-3 opacity-60" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[4rem]">
-        {LANGS.map(({ code, label }) => (
+        {LANGS.map(({ code, urlLang, label }) => (
           <DropdownMenuItem
             key={code}
-            onClick={() => void i18n.changeLanguage(code)}
+            onClick={() => handleSelect(urlLang)}
             aria-current={i18n.language === code ? 'true' : undefined}
           >
             {label}

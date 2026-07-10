@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -7,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { LocalizedLink } from '../components/layout/LocalizedLink';
 import { requestPasswordReset } from '../api/auth';
 
 function makeSchema(t: TFunction) {
@@ -48,12 +48,12 @@ export default function ForgotPasswordPage() {
           <p className="text-slate-600 dark:text-slate-400 mb-6">
             {t('forgotPassword.checkEmailBody')}
           </p>
-          <Link
+          <LocalizedLink
             to="/auth"
             className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
           >
             {t('forgotPassword.backToSignIn')}
-          </Link>
+          </LocalizedLink>
         </div>
       </div>
     );
@@ -103,12 +103,12 @@ export default function ForgotPasswordPage() {
         </form>
 
         <p className="mt-4 text-center text-sm">
-          <Link
+          <LocalizedLink
             to="/auth"
             className="text-slate-500 hover:text-blue-600 dark:hover:text-blue-400"
           >
             {t('forgotPassword.backToSignIn')}
-          </Link>
+          </LocalizedLink>
         </p>
       </div>
     </div>

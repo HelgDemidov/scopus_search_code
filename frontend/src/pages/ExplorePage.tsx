@@ -1,5 +1,6 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
+import { LocalizedLink } from '../components/layout/LocalizedLink';
 import { Trans, useTranslation } from 'react-i18next';
 import { useStatsStore } from '../stores/statsStore';
 import { useAuthStore } from '../stores/authStore';
@@ -13,6 +14,7 @@ import { KpiRow } from '../components/explore/KpiRow';
 import { PersonalKpiRow } from '../components/explore/PersonalKpiRow';
 import { DimensionDrawer, PersonalDimensionDrawer } from '../components/explore/DimensionDrawer';
 import { ActiveFilterBanner } from '../components/explore/ActiveFilterBanner';
+import { useHreflangTags } from '../hooks/useHreflangTags';
 
 // PublicationsByYearChart/DocumentTypesChart/TopCountriesChart/TopJournalsChart
 // удалены (docs/explore-personal-redesign/spec.md §1.4) — personal mode теперь
@@ -96,6 +98,7 @@ function ChartErrorFallback() {
 
 export default function ExplorePage() {
   const { t } = useTranslation();
+  const hreflangTags = useHreflangTags('/explore');
   const { fetchStats } = useStatsStore();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const {
@@ -174,6 +177,7 @@ export default function ExplorePage() {
 
   return (
     <div className="mx-auto max-w-screen-xl px-4 py-8 flex flex-col gap-8">
+      {hreflangTags}
 
       {/* Заголовок раздела */}
       <div>
@@ -256,7 +260,7 @@ export default function ExplorePage() {
             <p className="text-sm text-slate-500 dark:text-slate-400">
               <Trans
                 i18nKey="explore.emptyPersonal"
-                components={{ lnk: <Link to="/" className="underline underline-offset-2 hover:text-slate-700 dark:hover:text-slate-300" /> }}
+                components={{ lnk: <LocalizedLink to="/search" className="underline underline-offset-2 hover:text-slate-700 dark:hover:text-slate-300" /> }}
               />
             </p>
           ) : (
@@ -280,12 +284,12 @@ export default function ExplorePage() {
           <p className="text-sm text-blue-900 dark:text-blue-200">
             {t('explore.anonCta')}
           </p>
-          <Link
+          <LocalizedLink
             to="/auth"
             className="flex-shrink-0 rounded-md bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400 text-white text-sm font-medium px-4 py-2 transition-colors"
           >
             {t('nav.signIn')}
-          </Link>
+          </LocalizedLink>
         </div>
       )}
     </div>

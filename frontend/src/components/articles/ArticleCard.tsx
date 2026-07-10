@@ -1,6 +1,6 @@
-import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '../ui/badge';
+import { LocalizedLink } from '../layout/LocalizedLink';
 import type { ArticleResponse } from '../../types/api';
 
 interface ArticleCardProps {
@@ -38,12 +38,12 @@ export function ArticleCard({ article }: ArticleCardProps) {
       aria-label={title}
     >
       {/* Title */}
-      <Link
+      <LocalizedLink
         to={`/article/${id}`}
         className="text-base font-semibold leading-snug text-slate-900 dark:text-slate-100 hover:text-blue-800 dark:hover:text-blue-400 transition-colors line-clamp-3"
       >
         {title}
-      </Link>
+      </LocalizedLink>
 
       {/* Author + date */}
       <div className="text-sm text-slate-500 dark:text-slate-400 flex flex-wrap gap-x-3 gap-y-0.5">

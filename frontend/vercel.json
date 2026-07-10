@@ -1,4 +1,11 @@
 {
+  "redirects": [
+    { "source": "/explore",         "destination": "/en/explore",         "permanent": true },
+    { "source": "/auth",            "destination": "/en/auth",            "permanent": true },
+    { "source": "/profile",         "destination": "/en/profile",         "permanent": true },
+    { "source": "/article/:id",     "destination": "/en/article/:id",     "permanent": true },
+    { "source": "/forgot-password", "destination": "/en/forgot-password", "permanent": true }
+  ],
   "rewrites": [
     {
       "source": "/auth/google/:path*",

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
-import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import type { Location } from 'react-router-dom';
+import { LocalizedLink } from '../components/layout/LocalizedLink';
 import { useForm, type UseFormRegisterReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -102,12 +103,12 @@ function SignInForm({ redirectTo }: { redirectTo: string }) {
           <p className="text-xs text-rose-600 dark:text-rose-400">{errors.password.message}</p>
         )}
         <div className="text-right">
-          <Link
+          <LocalizedLink
             to="/forgot-password"
             className="text-xs text-slate-500 hover:text-blue-600 dark:hover:text-blue-400"
           >
             {t('auth.forgotPassword')}
-          </Link>
+          </LocalizedLink>
         </div>
       </div>
 

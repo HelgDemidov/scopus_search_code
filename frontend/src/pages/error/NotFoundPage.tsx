@@ -1,15 +1,22 @@
 import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import { ErrorPanel } from '../../components/error/ErrorPanel';
+import { LocalizedLink } from '../../components/layout/LocalizedLink';
+import { useLocalizedNavigate } from '../../hooks/useLocalizedNavigate';
+import { useDefaultLandingPath } from '../../hooks/useDefaultLandingPath';
 import { useBlackHole } from '../../hooks/useBlackHole';
 import { useBlackHoleMessageAnchor } from '../../hooks/useBlackHoleMessageAnchor';
 import { BLACK_HOLE_POSITION } from '../../constants/blackHole';
 
 export default function NotFoundPage() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
+  const navigate = useLocalizedNavigate();
+  // Учитывает и рендер как настоящего /:lang/* catch-all, и рендер напрямую из
+  // LocaleLayout при невалидном :lang (useLocalizedPath внутри резолвит на
+  // i18n.language в обоих случаях — §5 ТЗ)
+  const landingPath = useDefaultLandingPath();
   const location = useLocation();
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -40,7 +47,7 @@ export default function NotFoundPage() {
           стандартный паттерн для равноширокой пары CTA. */}
       <Button
         variant="outline"
-        onClick={() => navigate('/')}
+        onClick={() => navigate(landingPath)}
         className="flex-1 basis-0"
       >
         {t('errors.notFound.home')}
@@ -55,10 +62,10 @@ export default function NotFoundPage() {
         asChild
         className="flex-1 basis-0 bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400 text-white"
       >
-        <Link to="/explore">
+        <LocalizedLink to="/explore">
           <span className="sm:hidden">{t('errors.notFound.exploreShort')}</span>
           <span className="hidden sm:inline">{t('errors.notFound.exploreCollection')}</span>
-        </Link>
+        </LocalizedLink>
       </Button>
     </ErrorPanel>
   );

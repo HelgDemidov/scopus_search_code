@@ -1,14 +1,15 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
 import { Trans, useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useAuthStore } from '../stores/authStore';
 import { useArticleStore } from '../stores/articleStore';
 import { SearchBar } from '../components/search/SearchBar';
+import { LocalizedLink } from '../components/layout/LocalizedLink';
 import { ArticleList } from '../components/articles/ArticleList';
 import { ScopusQuotaBadge } from '../components/articles/ScopusQuotaBadge';
 import { ScopusPaginationBar } from '../components/articles/ScopusPaginationBar';
 import { ErrorBoundary } from '../components/ui/ErrorBoundary';
+import { useHreflangTags } from '../hooks/useHreflangTags';
 import type { PageSize } from '../components/articles/PaginationBar';
 import type { LiveSize } from '../components/articles/ScopusPaginationBar';
 import type { ArticleResponse } from '../types/api';
@@ -31,12 +32,12 @@ function AnonHero({ onSearch }: { onSearch: (q: string) => void }) {
     <div className="mx-auto max-w-screen-sm px-4 py-16 flex flex-col items-center gap-6 text-center">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-          {t('home.anonTitle')}
+          {t('searchPage.anonTitle')}
         </h1>
         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
           <Trans
-            i18nKey="home.anonSubtitle"
-            components={{ lnk: <Link to="/auth" className="text-blue-800 dark:text-blue-400 hover:underline" /> }}
+            i18nKey="searchPage.anonSubtitle"
+            components={{ lnk: <LocalizedLink to="/auth" className="text-blue-800 dark:text-blue-400 hover:underline" /> }}
           />
         </p>
       </div>
@@ -45,15 +46,16 @@ function AnonHero({ onSearch }: { onSearch: (q: string) => void }) {
       </div>
       <p className="text-sm text-slate-500 dark:text-slate-400 text-center max-w-md">
         <Trans
-          i18nKey="home.anonNote"
-          components={{ lnk: <Link to="/auth" className="text-blue-800 dark:text-blue-400 hover:underline" /> }}
+          i18nKey="searchPage.anonNote"
+          components={{ lnk: <LocalizedLink to="/auth" className="text-blue-800 dark:text-blue-400 hover:underline" /> }}
         />
       </p>
     </div>
   );
 }
 
-export default function HomePage() {
+export default function SearchPage() {
+  const hreflangTags = useHreflangTags('/search');
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const {
     articles,
@@ -96,9 +98,9 @@ export default function HomePage() {
   useEffect(() => {
     if (!error || !isAuthenticated) return;
     if (error === 'QUOTA_EXCEEDED') {
-      toast.error(t('home.errorQuota'));
+      toast.error(t('searchPage.errorQuota'));
     } else {
-      toast.error(t('home.errorGeneric', { error }));
+      toast.error(t('searchPage.errorGeneric', { error }));
     }
   }, [error, isAuthenticated, t]);
 
@@ -183,6 +185,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)]">
+      {hreflangTags}
       {!isAuthenticated ? (
         <div className="flex flex-col">
           <AnonHero key={resetKey} onSearch={handleSearch} />
@@ -227,7 +230,7 @@ export default function HomePage() {
                   : 'bg-white dark:bg-[#0c1927] text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800')
               }
             >
-              {t('home.modeScopus')}
+              {t('searchPage.modeScopus')}
             </button>
             <button
               aria-pressed={searchMode === 'catalog'}
@@ -239,7 +242,7 @@ export default function HomePage() {
                   : 'bg-white dark:bg-[#0c1927] text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800')
               }
             >
-              {t('home.modeCatalog')}
+              {t('searchPage.modeCatalog')}
             </button>
           </div>
 
