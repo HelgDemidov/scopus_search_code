@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { cn } from '../../lib/utils';
 import { Skeleton } from '../ui/skeleton';
 import type { Dimension } from './chartColors';
 import { useDimensionColors } from '../../hooks/useDimensionColors';
@@ -12,6 +13,10 @@ interface ChartCardProps {
   onTitleClick?: () => void;
   // Кнопка или иной элемент в правой части заголовка (например, кнопка удаления)
   headerAction?: ReactNode;
+  // "Матовое стекло" вместо сплошной подложки в dark mode — звёздное небо видно
+  // сквозь блюр вместо глухой стены. Опционально (не на всех ChartCard, например
+  // не на карточках Table Builder/personal mode) — см. память по /explore.
+  translucent?: boolean;
 }
 
 export function ChartCard({
@@ -22,17 +27,26 @@ export function ChartCard({
   children,
   onTitleClick,
   headerAction,
+  translucent = false,
 }: ChartCardProps) {
   const dimColors = useDimensionColors(dimension ?? 'year');
   const accentColor = dimension ? dimColors.base : undefined;
 
   return (
-    <div className="relative rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#152236] p-5 flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow">
+    <div
+      className={cn(
+        'relative rounded-xl border border-slate-200 dark:border-slate-700 bg-white p-5 flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow',
+        translucent ? 'dark:bg-[#152236]/50 dark:backdrop-blur-xl' : 'dark:bg-[#152236]',
+      )}
+    >
       {/* relative обязателен: без stacking context карточка красится ДО фикс.
           StarFieldCanvas (CSS2.1 Appendix E, non-positioned блок красится раньше
           позиционированного z-index:0) — звёзды ложились поверх непрозрачного
           фона карточки, заметнее всего на Journal Landscape Scatter (самая
-          большая площадь однотонного фона). */}
+          большая площадь однотонного фона). translucent зависит от этого же
+          relative — backdrop-blur блюрит то, что нарисовано ДО карточки в
+          порядке отрисовки; без relative канвас рисовался бы ПОСЛЕ и блюр на
+          него бы не действовал. */}
       <div className="flex items-center gap-2">
         {accentColor && (
           <span

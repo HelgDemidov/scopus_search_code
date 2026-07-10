@@ -159,7 +159,7 @@ export function TopJournalsByCountryChart() {
   const { countryOrder, pivoted } = useMemo(() => pivotJournalCountryData(data), [data]);
 
   return (
-    <ChartCard title={t('explore.crossCharts.topJournalsByCountry')} isLoading={isLoading} skeletonHeight="h-96">
+    <ChartCard title={t('explore.crossCharts.topJournalsByCountry')} isLoading={isLoading} skeletonHeight="h-96" translucent>
       <ResponsiveContainer width="100%" height={420}>
         {/* margin.left=20 (не 0): угловые (-40°) подписи журналов якорятся по
             textAnchor="end" в точке тика и тянутся по диагонали влево-вверх —

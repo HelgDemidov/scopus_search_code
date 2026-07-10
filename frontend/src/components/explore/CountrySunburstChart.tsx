@@ -235,7 +235,7 @@ export function CountrySunburstChart() {
   }
 
   return (
-    <ChartCard title={t('explore.crossCharts.sunburst')} isLoading={isLoading} skeletonHeight="h-96">
+    <ChartCard title={t('explore.crossCharts.sunburst')} isLoading={isLoading} skeletonHeight="h-96" translucent>
       <ResponsiveContainer width="100%" height={420}>
         <PieChart>
           <Pie

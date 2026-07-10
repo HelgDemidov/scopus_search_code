@@ -107,7 +107,7 @@ export function TopCountriesByYearChart() {
   );
 
   return (
-    <ChartCard title={t('explore.crossCharts.topCountriesByYear')} isLoading={isLoading} skeletonHeight="h-96">
+    <ChartCard title={t('explore.crossCharts.topCountriesByYear')} isLoading={isLoading} skeletonHeight="h-96" translucent>
       <div className="flex flex-col gap-4">
         <ResponsiveContainer width="100%" height={360}>
           <LineChart data={pivoted} margin={{ top: 8, right: 16, bottom: 0, left: 8 }}>

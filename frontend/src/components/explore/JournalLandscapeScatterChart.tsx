@@ -158,6 +158,7 @@ export function JournalLandscapeScatterChart() {
       title={t('explore.crossCharts.journalImpact.title')}
       isLoading={isLoading && points.length === 0}
       skeletonHeight="h-96"
+      translucent
     >
       <div className="flex flex-col gap-4">
         <ResponsiveContainer width="100%" height={460}>
