@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AxiosAdapter } from 'axios';
 import { toast } from 'sonner';
+import * as Sentry from '@sentry/react';
 import { apiClient } from './client';
 
 // sonner типизирует action как ReactNode | { label; onClick } — в этом коде
@@ -9,6 +10,7 @@ interface ClickAction { label: string; onClick: (e: unknown) => void }
 
 // sonner — реальный toast трогать не нужно, проверяем только вызовы/аргументы
 vi.mock('sonner', () => ({ toast: { warning: vi.fn(), error: vi.fn() } }));
+vi.mock('@sentry/react', () => ({ captureException: vi.fn() }));
 
 Object.assign(navigator, { clipboard: { writeText: vi.fn() } });
 
@@ -56,6 +58,16 @@ describe('apiClient response interceptor', () => {
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('abc123');
   });
 
+  it('reports a 5xx error to Sentry tagged with the request id', async () => {
+    apiClient.defaults.adapter = respondWithError(500, { 'x-request-id': 'abc123' });
+
+    await expect(apiClient.get('/whatever')).rejects.toThrow();
+
+    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+    const [, opts] = vi.mocked(Sentry.captureException).mock.calls[0];
+    expect(opts).toEqual({ tags: { request_id: 'abc123' } });
+  });
+
   it('omits the copy action when no X-Request-ID header is present', async () => {
     apiClient.defaults.adapter = respondWithError(503);
 
@@ -63,13 +75,17 @@ describe('apiClient response interceptor', () => {
     const [, opts] = vi.mocked(toast.error).mock.calls[0];
     expect(opts?.action).toBeUndefined();
     expect(opts?.description).toBeUndefined();
+
+    const [, sentryOpts] = vi.mocked(Sentry.captureException).mock.calls[0];
+    expect(sentryOpts).toBeUndefined();
   });
 
-  it('does not toast for 4xx — left to per-store handling', async () => {
+  it('does not toast or report to Sentry for 4xx — left to per-store handling', async () => {
     apiClient.defaults.adapter = respondWithError(404);
 
     await expect(apiClient.get('/whatever')).rejects.toThrow();
     expect(toast.error).not.toHaveBeenCalled();
     expect(toast.warning).not.toHaveBeenCalled();
+    expect(Sentry.captureException).not.toHaveBeenCalled();
   });
 });

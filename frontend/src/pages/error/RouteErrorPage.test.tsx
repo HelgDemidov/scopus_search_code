@@ -1,7 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
+import * as Sentry from '@sentry/react';
 import RouteErrorPage from './RouteErrorPage';
+
+vi.mock('@sentry/react', () => ({ captureException: vi.fn() }));
 
 const mockUseRouteError = vi.fn();
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -18,6 +21,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
 // useMediaQuery('(min-width: 640px)') безусловно — jsdom не реализует
 // matchMedia, нужна заглушка перед любым рендером страницы.
 beforeEach(() => {
+  vi.clearAllMocks();
   vi.stubGlobal('matchMedia', vi.fn().mockImplementation((q: string) => ({
     matches: false,
     media: q,
@@ -58,6 +62,20 @@ describe('RouteErrorPage', () => {
     mockUseRouteError.mockReturnValue({ status: 500, statusText: 'Internal Server Error' });
     renderPage();
     expect(screen.getByText('TRANSMISSION INTERRUPTED')).toBeInTheDocument();
+  });
+
+  it('reports a plain JS error to Sentry', () => {
+    mockUseRouteError.mockReturnValue(new Error('boom'));
+    renderPage();
+    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+    const [error] = vi.mocked(Sentry.captureException).mock.calls[0];
+    expect((error as Error).message).toBe('boom');
+  });
+
+  it('does not report a route-response error to Sentry (expected navigation, not a bug)', () => {
+    mockUseRouteError.mockReturnValue({ status: 404, statusText: 'Not Found' });
+    renderPage();
+    expect(Sentry.captureException).not.toHaveBeenCalled();
   });
 
   it('does not render the report button when VITE_SUPPORT_EMAIL is unset', () => {

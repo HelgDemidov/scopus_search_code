@@ -1,49 +1,47 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import * as Sentry from '@sentry/react';
-import { RootErrorBoundary } from './RootErrorBoundary';
+import { ErrorBoundary } from './ErrorBoundary';
 
 vi.mock('@sentry/react', () => ({ captureException: vi.fn() }));
 
 function Bomb(): never {
-  throw new Error('boom');
+  throw new Error('chart boom');
 }
 
-describe('RootErrorBoundary', () => {
+describe('ErrorBoundary', () => {
   it('renders children normally when nothing throws', () => {
     render(
-      <RootErrorBoundary>
+      <ErrorBoundary>
         <p>all good</p>
-      </RootErrorBoundary>,
+      </ErrorBoundary>,
     );
     expect(screen.getByText('all good')).toBeInTheDocument();
   });
 
-  it('renders a self-contained fallback when a descendant throws', () => {
-    // React логирует ошибку в консоль при componentDidCatch — подавляем шум теста
+  it('renders the default fallback when a descendant throws', () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     render(
-      <RootErrorBoundary>
+      <ErrorBoundary>
         <Bomb />
-      </RootErrorBoundary>,
+      </ErrorBoundary>,
     );
-    expect(screen.getByText(/TRANSMISSION INTERRUPTED/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /reload/i })).toBeInTheDocument();
+    expect(screen.getByText(/Something went wrong/i)).toBeInTheDocument();
     consoleSpy.mockRestore();
   });
 
   it('reports the caught error to Sentry', () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     render(
-      <RootErrorBoundary>
+      <ErrorBoundary>
         <Bomb />
-      </RootErrorBoundary>,
+      </ErrorBoundary>,
     );
     // React DEV re-invokes render once for error-boundary diagnostics
     // (prod build does not) — assert it fired, not an exact count
     expect(Sentry.captureException).toHaveBeenCalled();
     const [error] = vi.mocked(Sentry.captureException).mock.calls[0];
-    expect((error as Error).message).toBe('boom');
+    expect((error as Error).message).toBe('chart boom');
     consoleSpy.mockRestore();
   });
 });

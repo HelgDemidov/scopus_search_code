@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from 'react';
 import type { ErrorInfo } from 'react';
+import * as Sentry from '@sentry/react';
 
 type FallbackFn = (onReset: () => void) => ReactNode;
 
@@ -53,6 +54,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     // Логируем для диагностики; не показываем toast —
     // render-ошибки принципиально отличаются от сетевых
     console.error('[ErrorBoundary] Caught render error:', error, info.componentStack);
+    Sentry.captureException(error, { contexts: { react: { componentStack: info.componentStack } } });
   }
 
   handleReset() {
