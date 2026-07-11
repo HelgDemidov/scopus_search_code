@@ -8,6 +8,11 @@ from pydantic import BaseModel
 # строка попадёт в SQL-запрос репозитория (защита от инъекции через "произвольное" имя колонки).
 PivotDimension = Literal["year", "country", "doc_type", "journal", "open_access"]
 
+# Метрика ячейки Table Builder (docs/impact-analytics/spec.md §1.1) — count (по умолчанию,
+# обратная совместимость) или avg(cited_by_count). Top-N отбор строк/столбцов всегда
+# по count независимо от metric (см. row_totals/col_totals в PivotResponse).
+PivotMetric = Literal["count", "avg_citations"]
+
 
 class ArticleResponse(BaseModel):
     # Схема одной статьи — только поля, реально доступные в Scopus free-tier API
@@ -81,9 +86,15 @@ class PivotResponse(BaseModel):
     # суженный slicer'ом (3-е измерение как фильтр, не ось — docs/explore-table-builder/spec.md §3).
     row_dim: PivotDimension
     col_dim: PivotDimension
+    metric: PivotMetric = "count"
     row_labels: List[str]
     col_labels: List[str]
-    matrix: List[List[int]]  # counts, matrix[i][j] = row_labels[i] x col_labels[j]
+    # Значение В ВЫБРАННОЙ метрике (docs/impact-analytics/spec.md §1.1) — при metric="count"
+    # те же числа, что раньше (int), просто float-типизированные (JSON/JS не различает 42 и 42.0).
+    matrix: List[List[float]]
+    # ВСЕГДА article count на ячейку, независимо от metric — источник правды для sparse-детекции
+    # и различения "нет статей" от "avg=0" (matrix[i][j]==0 легитимен при avg_citations).
+    cell_counts: List[List[int]]
     row_totals: List[int]  # маржинальные суммы ДО обрезки top_n_cols (не сумма видимых ячеек)
     col_totals: List[int]  # маржинальные суммы ДО обрезки top_n_rows
 

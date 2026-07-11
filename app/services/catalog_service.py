@@ -17,6 +17,7 @@ from app.schemas.article_schemas import (
     JournalImpactPoint,
     PaginatedArticleResponse,
     PivotDimension,
+    PivotMetric,
     PivotResponse,
     StatsResponse,
     SunburstSegment,
@@ -256,6 +257,7 @@ class CatalogService:
         top_n_cols: int,
         filter_dim: PivotDimension | None = None,
         filter_value: str | None = None,
+        metric: PivotMetric = "count",
     ) -> PivotResponse:
         """2D pivot по 2 измерениям + опциональный slicer. Без кэша, в отличие от
         get_journal_impact (там слайдер всего на 3 значения) — комбинаторное
@@ -264,6 +266,8 @@ class CatalogService:
 
         Проверка допустимости конкретной ПАРЫ измерений (§3.1) и row_dim != col_dim —
         на уровне роутера (это HTTP-контракт, а не бизнес-правило самого сервиса).
+        metric не влияет на top-N отбор строк/столбцов (docs/impact-analytics/spec.md §0.2) —
+        только на то, что именно попадает в matrix.
         """
         raw = await self.catalog_repo.get_pivot(
             row_dim=row_dim,
@@ -272,8 +276,9 @@ class CatalogService:
             top_n_cols=top_n_cols,
             filter_dim=filter_dim,
             filter_value=filter_value,
+            metric=metric,
         )
-        return PivotResponse(row_dim=row_dim, col_dim=col_dim, **raw)
+        return PivotResponse(row_dim=row_dim, col_dim=col_dim, metric=metric, **raw)
 
     # ------------------------------------------------------------------ #
     #  seed                                                                #

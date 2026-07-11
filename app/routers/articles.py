@@ -24,6 +24,7 @@ from app.schemas.article_schemas import (
     PaginatedArticleResponse,
     PersonalActivityResponse,
     PivotDimension,
+    PivotMetric,
     PivotResponse,
     SearchStatsResponse,
     StatsResponse,
@@ -140,6 +141,7 @@ async def get_pivot(
     top_n_cols: int = Query(15, ge=1, le=50, description="Топ-N столбцов по маржинальному объёму"),
     filter_dim: PivotDimension | None = Query(None, description="3-е измерение как slicer (фильтр, не ось)"),
     filter_value: str | None = Query(None, description="Значение slicer'а — обязательно, если задан filter_dim"),
+    metric: PivotMetric = Query("count", description="Метрика ячейки: count или avg_citations"),
     service: CatalogService = Depends(get_catalog_service),
 ) -> PivotResponse:
     if row_dim == col_dim:
@@ -159,6 +161,7 @@ async def get_pivot(
         top_n_cols=top_n_cols,
         filter_dim=filter_dim,
         filter_value=filter_value,
+        metric=metric,
     )
 
 

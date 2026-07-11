@@ -158,6 +158,7 @@ class FakeCatalogRepository(ICatalogRepository):
         top_n_cols: int,
         filter_dim: str | None = None,
         filter_value: str | None = None,
+        metric: str = "count",
     ) -> dict:
         self.pivot_calls.append(
             {
@@ -167,12 +168,14 @@ class FakeCatalogRepository(ICatalogRepository):
                 "top_n_cols": top_n_cols,
                 "filter_dim": filter_dim,
                 "filter_value": filter_value,
+                "metric": metric,
             }
         )
         return {
             "row_labels": ["2023", "2024"],
             "col_labels": ["USA", "China"],
             "matrix": [[10, 5], [20, 8]],
+            "cell_counts": [[10, 5], [20, 8]],
             "row_totals": [15, 28],
             "col_totals": [30, 13],
         }
@@ -650,6 +653,7 @@ async def test_get_pivot_returns_pivot_response():
     assert isinstance(result, PivotResponse)
     assert result.row_dim == "year"
     assert result.col_dim == "country"
+    assert result.metric == "count"
     assert result.row_labels == ["2023", "2024"]
     assert result.matrix == [[10, 5], [20, 8]]
 
@@ -665,6 +669,7 @@ async def test_get_pivot_passes_all_params_to_repo():
         top_n_cols=5,
         filter_dim="year",
         filter_value="2024",
+        metric="avg_citations",
     )
 
     assert cr.pivot_calls == [
@@ -675,6 +680,7 @@ async def test_get_pivot_passes_all_params_to_repo():
             "top_n_cols": 5,
             "filter_dim": "year",
             "filter_value": "2024",
+            "metric": "avg_citations",
         }
     ]
 

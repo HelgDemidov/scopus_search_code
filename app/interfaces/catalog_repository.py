@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import List
 
 from app.models.article import Article
-from app.schemas.article_schemas import PivotDimension
+from app.schemas.article_schemas import PivotDimension, PivotMetric
 
 
 class ICatalogRepository(ABC):
@@ -109,15 +109,19 @@ class ICatalogRepository(ABC):
         top_n_cols: int,
         filter_dim: PivotDimension | None = None,
         filter_value: str | None = None,
+        metric: PivotMetric = "count",
     ) -> dict:
         """
         2D pivot (Table Builder, docs/explore-table-builder/spec.md §3) по 2 whitelisted
         измерениям (row_dim/col_dim из PivotDimension — валидация типа уже на уровне FastAPI).
         top_n_rows/top_n_cols — обрезка по маржинальному объёму (не по всему множеству
-        значений измерения — journal/country высококардинальны).
+        значений измерения — journal/country высококардинальны), ВСЕГДА по count независимо
+        от metric (docs/impact-analytics/spec.md §0.2).
         filter_dim/filter_value — опциональный slicer (3-е измерение как фильтр WHERE,
         не как ось), не участвует в group by.
-        Возвращает dict с ключами row_labels, col_labels, matrix, row_totals, col_totals
-        (см. PivotResponse).
+        metric — "count" (по умолчанию) или "avg_citations": какое значение попадает в matrix;
+        cell_counts в ответе — всегда article count, независимо от metric.
+        Возвращает dict с ключами row_labels, col_labels, matrix, cell_counts, row_totals,
+        col_totals (см. PivotResponse).
         """
         pass
