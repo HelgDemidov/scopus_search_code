@@ -98,6 +98,7 @@ export default defineConfig({
         'src/pages/ResetPasswordPage.tsx',
         'src/pages/TermsPage.tsx',
         'src/seo/generateSitemapXml.ts',
+        'src/sentry.ts',
         'src/utils/localeRouting.ts',
         'src/stores/articleStore.ts',
         'src/stores/authStore.ts',
