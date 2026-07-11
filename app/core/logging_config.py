@@ -3,6 +3,7 @@ import time
 import uuid
 from collections.abc import Awaitable, Callable
 
+import sentry_sdk
 import structlog
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -42,6 +43,8 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         request_id = str(uuid.uuid4())
         structlog.contextvars.clear_contextvars()
         structlog.contextvars.bind_contextvars(request_id=request_id)
+        # Тот же id, что в JSON-логе и заголовке ответа — коррелирует Sentry-событие с логом
+        sentry_sdk.set_tag("request_id", request_id)
 
         logger = structlog.get_logger("app.request")
         start = time.perf_counter()

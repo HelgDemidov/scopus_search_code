@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 import httpx
+import sentry_sdk
 import structlog
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -80,6 +81,9 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
         path=request.url.path,
         exc_info=(type(exc), exc, exc.__traceback__),
     )
+    # Явный capture — не полагаемся на автоинструментацию SDK поверх уже
+    # зарегистрированного кастомного exception_handler(Exception) (см. спеку §2)
+    sentry_sdk.capture_exception(exc)
     response = JSONResponse(status_code=500, content={"detail": "Internal server error"})
     if request_id:
         response.headers[REQUEST_ID_HEADER] = request_id

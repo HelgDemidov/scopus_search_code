@@ -52,3 +52,46 @@ async def test_unhandled_exception_returns_generic_500(client: AsyncClient, monk
     assert resp.json() == {"detail": "Internal server error"}
     assert "boom" not in resp.text
     assert REQUEST_ID_HEADER in resp.headers
+
+
+@pytest.mark.asyncio
+async def test_unhandled_exception_captured_by_sentry(client: AsyncClient, monkeypatch):
+    """500-путь явно репортит исключение в Sentry (не полагаемся на автоинструментацию)."""
+    captured: list[BaseException] = []
+    monkeypatch.setattr("app.main.sentry_sdk.capture_exception", lambda exc: captured.append(exc))
+
+    async def broken_execute(self, *args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(AsyncSession, "execute", broken_execute)
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app, raise_app_exceptions=False),
+        base_url="http://test",
+    ) as lenient_client:
+        await lenient_client.get("/health/db")
+
+    assert len(captured) == 1
+    assert isinstance(captured[0], RuntimeError)
+
+
+@pytest.mark.asyncio
+async def test_validation_error_not_captured_by_sentry(client: AsyncClient, monkeypatch):
+    """422 — обычная невалидная заявка клиента, не серверная ошибка, не репортим."""
+    captured: list[BaseException] = []
+    monkeypatch.setattr("app.main.sentry_sdk.capture_exception", lambda exc: captured.append(exc))
+
+    resp = await client.post("/users/register", json={})
+
+    assert resp.status_code == 422
+    assert captured == []
+
+
+@pytest.mark.asyncio
+async def test_request_id_set_as_sentry_tag(client: AsyncClient, monkeypatch):
+    tags: dict[str, str] = {}
+    monkeypatch.setattr("app.core.logging_config.sentry_sdk.set_tag", lambda key, value: tags.update({key: value}))
+
+    resp = await client.get("/health")
+
+    assert tags.get("request_id") == resp.headers[REQUEST_ID_HEADER]
