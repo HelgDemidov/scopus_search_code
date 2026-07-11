@@ -248,17 +248,16 @@ export default function ExplorePage() {
                     BI-туториале. Первая позиция = первая секунда внимания рекрутера. */}
                 <JournalLandscapeScatterChart />
 
-                {/* 5-й график (docs/impact-analytics/spec.md §2) — та же тема "impact",
-                    что и Journal Landscape выше, поэтому располагается сразу за ним,
-                    до сетки объём-ориентированных графиков ниже. */}
-                <CountryImpactScatterChart />
-
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <CountrySunburstChart />
                   <TopJournalsByCountryChart />
                 </div>
 
                 <TopCountriesByYearChart />
+
+                {/* 5-й, последний график (docs/impact-analytics/spec.md §2) — замыкает
+                    ряд стационарных графиков, после Top Countries by Year. */}
+                <CountryImpactScatterChart />
 
                 {/* Table Builder — пользовательские pivot-таблицы (spec.md §3) */}
                 <TableBuilderPanel />

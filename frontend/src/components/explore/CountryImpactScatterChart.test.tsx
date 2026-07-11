@@ -86,7 +86,7 @@ describe('CountryImpactScatterChart — рендер данных', () => {
 
   it('рендерит заголовок графика', () => {
     render(<CountryImpactScatterChart />);
-    expect(screen.getByText('Country Impact')).toBeInTheDocument();
+    expect(screen.getByText('Top Country Impact')).toBeInTheDocument();
   });
 
   it('рендерит Scatter с точками из country_impact', () => {
