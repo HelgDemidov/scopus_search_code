@@ -152,6 +152,17 @@ class PivotResponse(BaseModel):
     col_totals: List[int]  # маржинальные суммы ДО обрезки top_n_rows
 
 
+class PivotGroundingContext(BaseModel):
+    # Grounding-данные для LLM-промпта NL→pivot (docs/ai-nl-pivot/spec.md §2) — та же
+    # точность, что уже питает ручной slicer Table Builder (getSlicerOptions() на фронте,
+    # тот же источник — StatsResponse.by_country/by_doc_type/by_year). journal сознательно
+    # не грундится (13 502 уникальных значения) — LLM работает по best-effort свободным
+    # текстом на этом измерении (ограничение — docs/ai-nl-pivot/spec.md, «Вне скоупа»).
+    countries: List[str]
+    doc_types: List[str]
+    years: List[int]
+
+
 class StatsResponse(BaseModel):
     # Схема публичного эндпоинта GET /articles/stats
     # Возвращает агрегированную статистику по статьям каталога (catalog_articles)

@@ -21,7 +21,10 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
-    # 4. Параметры сидера — optional, основной сервис не зависит от них
+    # 4. Параметры сидера + AI NL→pivot (docs/ai-nl-pivot/spec.md) — optional,
+    # graceful degradation: без OPENROUTER_API_KEY сидер и POST /stats/pivot/nl-query
+    # недоступны, остальной сервис не затронут. OPENROUTER_API_KEY теперь общий
+    # для сидера и NL-фичи — один и тот же ключ/бюджет ($5-10/мес суммарно, §0.2 спеки).
     SEEDER_EMAIL: str = ""
     SEEDER_PASSWORD: str = ""
     OPENROUTER_API_KEY: str = ""
@@ -76,6 +79,14 @@ class Settings(BaseSettings):
     # правка через .env — не передеплой кода (прецедент — DB_POOL_SIZE).
     NL_PIVOT_GLOBAL_DAILY_LIMIT: int = 50
     NL_PIVOT_USER_DAILY_LIMIT: int = 15
+    # 2 приоритетных кандидата (§2 спеки, оба поддерживают structured_outputs) — mistral
+    # выбран стартовым дефолтом (минимальный интеграционный риск, та же семья, что уже
+    # проверена сидером), не финальное решение. Спека сознательно оставляла это поле без
+    # дефолта («явное решение на этапе реализации») — на практике потребовало бы
+    # OPENROUTER_NL_PIVOT_MODEL в .env/CI/Railway ВЕЗДЕ до первого деплоя/теста; дефолт
+    # безопаснее (тот же паттерн graceful degradation, что у остальных полей этого класса)
+    # и по-прежнему меняется одной строкой в .env, без правки кода.
+    OPENROUTER_NL_PIVOT_MODEL: str = "mistralai/mistral-small-24b-instruct-2501"
 
     @property
     def cors_origins(self) -> list[str]:
