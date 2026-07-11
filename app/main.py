@@ -101,3 +101,11 @@ app.include_router(seeder_router)
 @app.get("/", tags=["Health"])
 async def root() -> dict[str, str]:
     return {"status": "ok", "message": "Scopus Search API is running"}
+
+
+# ВРЕМЕННЫЙ роут для ручной сквозной проверки Sentry capture на живом Railway-
+# деплое (issue #63 follow-up) — будет удалён следующим коммитом сразу после
+# верификации, не для постоянного использования.
+@app.get("/sentry-debug", tags=["Health"])
+async def sentry_debug() -> None:
+    1 / 0
