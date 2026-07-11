@@ -69,6 +69,14 @@ class Settings(BaseSettings):
     # Автоматически подставляется Railway, локально не задана
     RAILWAY_ENVIRONMENT_NAME: str = "local"
 
+    # 11. AI NL→pivot (docs/ai-nl-pivot/spec.md) — rate-limit на платную LLM-модель,
+    # 2 уровня (user + global), дневное окно (app/core/nl_pivot_rate_limit.py).
+    # Значения — стартовые placeholder'ы, НЕ финальный расчёт (§0/§1 спеки):
+    # калибруются по факту трафика через get-credits/Activity dashboard OpenRouter,
+    # правка через .env — не передеплой кода (прецедент — DB_POOL_SIZE).
+    NL_PIVOT_GLOBAL_DAILY_LIMIT: int = 50
+    NL_PIVOT_USER_DAILY_LIMIT: int = 15
+
     @property
     def cors_origins(self) -> list[str]:
         # Читаем ALLOWED_ORIGINS; если пусто — используем FRONTEND_URL как фоллбэк

@@ -1,6 +1,7 @@
 import hashlib
 import json
 import logging
+from datetime import datetime, timezone
 
 import httpx
 
@@ -50,6 +51,23 @@ class UpstashRedisClient:
             )
             resp.raise_for_status()
 
+    async def incr_with_ttl(self, key: str, ttl_seconds: int) -> int:
+        """Атомарный инкремент счётчика с TTL — fixed-window rate-limit
+        (docs/ai-nl-pivot/spec.md §1). EXPIRE ... NX выставляет TTL только при первом
+        инкременте (создании ключа) — повторные вызовы в пределах окна не сдвигают его
+        вперёд, тот же fixed-window паттерн, что уже неявно даёт SET...EX в setex().
+        Возвращает значение счётчика ПОСЛЕ инкремента.
+        """
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            resp = await client.post(
+                f"{self._url}/pipeline",
+                headers=self._headers,
+                json=[["INCR", key], ["EXPIRE", key, ttl_seconds, "NX"]],
+            )
+            resp.raise_for_status()
+            results = resp.json()
+            return int(results[0]["result"])
+
 
 def make_stats_cache_key(
     countries: list[str] | None,
@@ -93,6 +111,20 @@ def make_journal_impact_cache_key(max_year: int, *, db_namespace: str) -> str:
     """
     ns_digest = hashlib.sha256(db_namespace.encode()).hexdigest()[:8]
     return f"journal-impact:{ns_digest}:{max_year}"
+
+
+def make_nl_pivot_rate_limit_keys(user_id: int, *, db_namespace: str) -> tuple[str, str]:
+    """Ключи rate-limit для NL-pivot: (global, user) — дневное окно, docs/ai-nl-pivot/spec.md §1.
+    Дата — часть ключа (не только TTL): новый день = новый ключ = счётчик с нуля,
+    TTL нужен лишь для уборки мусора Redis'ом, а не для корректности окна.
+    db_namespace — та же изоляция prod/staging, что make_stats_cache_key (см. PR #32).
+    """
+    ns_digest = hashlib.sha256(db_namespace.encode()).hexdigest()[:8]
+    today = datetime.now(timezone.utc).date().isoformat()
+    return (
+        f"nl-pivot:global:{ns_digest}:{today}",
+        f"nl-pivot:user:{ns_digest}:{user_id}:{today}",
+    )
 
 
 def _build_client() -> "UpstashRedisClient | None":
