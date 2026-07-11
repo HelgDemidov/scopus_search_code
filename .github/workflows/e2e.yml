@@ -3,7 +3,7 @@ name: E2E — Railway Staging
 on:
   workflow_dispatch:
   push:
-    branches: [main, feature/accretion-disk-rework, feat/a11y-load-test, feat/layout-responsive-foundation, feat/i18n-url-routing, test/a11y-canvas-coverage]
+    branches: [main, feature/accretion-disk-rework, feat/a11y-load-test, feat/layout-responsive-foundation, feat/i18n-url-routing]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
