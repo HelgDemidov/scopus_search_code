@@ -1,7 +1,7 @@
 from datetime import date
 from typing import List, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # Whitelist измерений Table Builder (docs/explore-table-builder/spec.md §3.1) — Literal
 # даёт FastAPI/Pydantic автоматическую 422-валидацию на уровне запроса, до того как
@@ -161,6 +161,25 @@ class PivotGroundingContext(BaseModel):
     countries: List[str]
     doc_types: List[str]
     years: List[int]
+
+
+class NlPivotQueryRequest(BaseModel):
+    # POST /articles/stats/pivot/nl-query (docs/ai-nl-pivot/spec.md §3) — текст пользователя
+    # на естественном языке. Капы длины — токен-бюджет LLM-промпта и тривиальный барьер
+    # против prompt-injection payload'ов.
+    query: str = Field(min_length=3, max_length=300)
+
+
+class NlPivotQueryResponse(BaseModel):
+    # Ответ NL-эндпоинта — только валидированные параметры pivot (не сами данные): форма
+    # 1:1 совпадает с полями BuilderCard (минус id) для прямого addBuilderCard() на фронте
+    # без промежуточного маппинга. Пивот НЕ выполняется здесь (§3 спеки) — фактический
+    # GET /stats/pivot дёргает фронт после addBuilderCard().
+    row_dim: PivotDimension
+    col_dim: PivotDimension
+    filter_dim: PivotDimension | None = None
+    filter_value: str | None = None
+    metric: PivotMetric = "count"
 
 
 class StatsResponse(BaseModel):

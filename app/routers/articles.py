@@ -1,4 +1,5 @@
 # app/routers/articles.py
+import logging
 from typing import Any, Callable
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -9,11 +10,14 @@ from app.core.dependencies import (
     get_catalog_service,
     get_current_user,
     get_db_session,
+    get_nl_pivot_query_service,
     get_optional_current_user,
     get_search_history_service,
     get_search_service,
 )
+from app.core.nl_pivot_rate_limit import enforce_nl_pivot_rate_limit
 from app.infrastructure.postgres_search_result_repo import PostgresSearchResultRepository
+from app.interfaces.nl_pivot_parser import NlPivotParseError
 from app.interfaces.search_client import ISearchClient
 from app.models.search_history import SearchHistory
 from app.models.user import User
@@ -21,6 +25,8 @@ from app.schemas.article_schemas import (
     ArticleResponse,
     CountByField,
     JournalImpactPoint,
+    NlPivotQueryRequest,
+    NlPivotQueryResponse,
     PaginatedArticleResponse,
     PersonalActivityResponse,
     PivotDimension,
@@ -37,8 +43,11 @@ from app.schemas.search_history_schemas import (
 )
 from app.services.article_service import ArticleService
 from app.services.catalog_service import CatalogService
+from app.services.nl_pivot_query_service import NlPivotQueryService, NlPivotValidationError
 from app.services.search_history_service import SearchHistoryService
 from app.services.search_service import SearchService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/articles", tags=["Articles"])
 
@@ -141,6 +150,37 @@ async def get_pivot(
         filter_value=filter_value,
         metric=metric,
     )
+
+
+# ------------------------------------------------------------------ #
+#  POST /stats/pivot/nl-query — приватный, JWT обязателен              #
+#  AI NL→pivot (docs/ai-nl-pivot/spec.md §3). Текст → LLM → валидные   #
+#  параметры pivot; сам pivot не выполняется здесь — фронт вызывает    #
+#  GET /stats/pivot отдельно после addBuilderCard().                   #
+# ------------------------------------------------------------------ #
+
+
+@router.post("/stats/pivot/nl-query", response_model=NlPivotQueryResponse, tags=["Analytics"])
+async def post_nl_pivot_query(
+    request: NlPivotQueryRequest,
+    current_user: User = Depends(get_current_user),
+    service: NlPivotQueryService = Depends(get_nl_pivot_query_service),
+) -> NlPivotQueryResponse:
+    # JWT обязателен — нужен user_id для per-user счётчика rate-limit (прецедент —
+    # find_articles/get_find_quota выше). enforce_nl_pivot_rate_limit сама бросает
+    # 429/503 при необходимости (app/core/nl_pivot_rate_limit.py).
+    await enforce_nl_pivot_rate_limit(current_user.id)
+
+    try:
+        return await service.resolve(request.query)
+    except (NlPivotParseError, NlPivotValidationError) as exc:
+        # Текст исключения (может содержать сырой ответ LLM) — только в лог, не клиенту:
+        # prompt injection не должен контролировать текст, видимый в UI (§2 спеки).
+        logger.info("NL-pivot: запрос не удалось разрешить: %s", exc)
+        raise HTTPException(
+            status_code=400,
+            detail="Не удалось понять запрос — попробуйте переформулировать",
+        ) from exc
 
 
 # ------------------------------------------------------------------ #
