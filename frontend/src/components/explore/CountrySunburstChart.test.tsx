@@ -61,6 +61,7 @@ const MOCK_STATS = {
     { country: 'USA', open_access: true, count: 20 },
   ],
   top_journals_by_country: [],
+  country_impact: [],
 } satisfies StatsResponse;
 
 beforeEach(() => {

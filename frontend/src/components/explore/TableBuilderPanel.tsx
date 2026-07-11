@@ -9,7 +9,7 @@ import { Button } from '../ui/button';
 import { PivotTable } from './PivotTable';
 import { ALL_PIVOT_DIMENSIONS, getSlicerOptions } from './tableBuilderData';
 import type { BuilderCard } from '../../stores/dashboardStore';
-import type { PivotDimension, PivotResponse } from '../../types/api';
+import type { PivotDimension, PivotMetric, PivotResponse } from '../../types/api';
 
 // Table Builder (docs/explore-table-builder/spec.md §3) — заменяет флоский
 // ChartBuilderPanel. Пары измерений не нужно валидировать против whitelist на
@@ -21,7 +21,13 @@ import type { PivotDimension, PivotResponse } from '../../types/api';
 const TOP_N_ROWS = 20;
 const TOP_N_COLS = 15;
 
-function usePivotData(rowDim: PivotDimension, colDim: PivotDimension, filterDim?: PivotDimension, filterValue?: string) {
+function usePivotData(
+  rowDim: PivotDimension,
+  colDim: PivotDimension,
+  filterDim?: PivotDimension,
+  filterValue?: string,
+  metric?: PivotMetric,
+) {
   const [data, setData] = useState<PivotResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -30,7 +36,7 @@ function usePivotData(rowDim: PivotDimension, colDim: PivotDimension, filterDim?
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoading(true);
     getPivot(
-      { rowDim, colDim, topNRows: TOP_N_ROWS, topNCols: TOP_N_COLS, filterDim, filterValue },
+      { rowDim, colDim, topNRows: TOP_N_ROWS, topNCols: TOP_N_COLS, filterDim, filterValue, metric },
       controller.signal,
     )
       .then((res) => {
@@ -43,7 +49,7 @@ function usePivotData(rowDim: PivotDimension, colDim: PivotDimension, filterDim?
         if (!controller.signal.aborted) setIsLoading(false);
       });
     return () => controller.abort();
-  }, [rowDim, colDim, filterDim, filterValue]);
+  }, [rowDim, colDim, filterDim, filterValue, metric]);
 
   return { data, isLoading };
 }
@@ -54,7 +60,13 @@ function usePivotData(rowDim: PivotDimension, colDim: PivotDimension, filterDim?
 
 function PivotTableCard({ card, onRemove }: { card: BuilderCard; onRemove: () => void }) {
   const { t } = useTranslation();
-  const { data, isLoading } = usePivotData(card.rowDim, card.colDim, card.filterDim, card.filterValue);
+  const { data, isLoading } = usePivotData(
+    card.rowDim,
+    card.colDim,
+    card.filterDim,
+    card.filterValue,
+    card.metric ?? 'count',
+  );
   const title = t('explore.tableBuilder.pairTitle', {
     row: t(`explore.dimensionLabels.${card.rowDim}`),
     col: t(`explore.dimensionLabels.${card.colDim}`),
@@ -100,6 +112,7 @@ function AddTableForm({
   const [colDim, setColDim] = useState<PivotDimension>('country');
   const [filterDim, setFilterDim] = useState<PivotDimension | ''>('');
   const [filterValue, setFilterValue] = useState('');
+  const [metric, setMetric] = useState<PivotMetric>('count');
 
   const colOptions = ALL_PIVOT_DIMENSIONS.filter((d) => d !== rowDim);
   const filterOptions = ALL_PIVOT_DIMENSIONS.filter((d) => d !== rowDim && d !== colDim);
@@ -131,6 +144,7 @@ function AddTableForm({
       colDim,
       filterDim: filterDim || undefined,
       filterValue: filterDim ? filterValue || undefined : undefined,
+      metric,
     });
   }
 
@@ -178,6 +192,20 @@ function AddTableForm({
           </select>
         </label>
       </div>
+
+      <label className="flex flex-col gap-1.5 text-sm">
+        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+          {t('explore.tableBuilder.metricLabel')}
+        </span>
+        <select
+          value={metric}
+          onChange={(e) => setMetric(e.target.value as PivotMetric)}
+          className={selectClass}
+        >
+          <option value="count">{t('explore.tableBuilder.metricCount')}</option>
+          <option value="avg_citations">{t('explore.tableBuilder.metricAvgCitations')}</option>
+        </select>
+      </label>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <label className="flex flex-col gap-1.5 text-sm">

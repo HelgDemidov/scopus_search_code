@@ -57,6 +57,7 @@ const MOCK_STATS = {
     { journal: 'Science', country: 'USA', count: 25 },
     { journal: 'Science', country: 'Other', count: 5 },
   ],
+  country_impact: [],
 } satisfies StatsResponse;
 
 beforeEach(() => {

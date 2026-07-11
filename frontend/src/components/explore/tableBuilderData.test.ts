@@ -4,6 +4,7 @@ import {
   formatPivotLabel,
   getSlicerOptions,
   countNonEmptyCells,
+  formatMetricValue,
   pivotToCsv,
   CSV_BOM,
 } from './tableBuilderData';
@@ -83,6 +84,7 @@ const STATS = {
   by_year_top_countries: [],
   sunburst_country_open_access: [],
   top_journals_by_country: [],
+  country_impact: [],
 } satisfies StatsResponse;
 
 describe('getSlicerOptions', () => {
@@ -131,6 +133,21 @@ describe('countNonEmptyCells', () => {
 });
 
 // ---------------------------------------------------------------------------
+// formatMetricValue
+// ---------------------------------------------------------------------------
+
+describe('formatMetricValue', () => {
+  it('count — форматирует через formatCount (thousands separator)', () => {
+    expect(formatMetricValue('count', 1234)).toBe('1,234');
+  });
+
+  it('avg_citations — 1 знак после запятой, без разделителя тысяч', () => {
+    expect(formatMetricValue('avg_citations', 20.3333)).toBe('20.3');
+    expect(formatMetricValue('avg_citations', 0)).toBe('0.0');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // pivotToCsv
 // ---------------------------------------------------------------------------
 
@@ -138,9 +155,14 @@ describe('pivotToCsv', () => {
   const DATA: PivotResponse = {
     row_dim: 'country',
     col_dim: 'doc_type',
+    metric: 'count',
     row_labels: ['China', 'USA'],
     col_labels: ['Article', 'Review'],
     matrix: [
+      [30, 5],
+      [10, 2],
+    ],
+    cell_counts: [
       [30, 5],
       [10, 2],
     ],
@@ -184,5 +206,36 @@ describe('pivotToCsv', () => {
   it('CSV_BOM — символ U+FEFF (для корректной кириллицы в Excel на Windows)', () => {
     expect(CSV_BOM).toBe('﻿');
     expect(CSV_BOM.charCodeAt(0)).toBe(0xfeff);
+  });
+
+  describe('metric=avg_citations (docs/impact-analytics/spec.md §1.2)', () => {
+    const AVG_DATA: PivotResponse = {
+      ...DATA,
+      metric: 'avg_citations',
+      matrix: [
+        [20.3333, 6.5],
+        [15.0, 3.25],
+      ],
+      // cell_counts намеренно другие числа, чем matrix — доказывает, что grand
+      // total считается по cell_counts (article count), а не по значениям matrix
+      cell_counts: [
+        [3, 2],
+        [4, 4],
+      ],
+    };
+
+    it('значения ячеек — 1 знак после запятой, не сырое число', () => {
+      const csv = pivotToCsv(AVG_DATA, 'Country', ['Article', 'Review'], 'Articles (N)');
+      const lines = csv.split('\r\n');
+      expect(lines[1]).toBe('China,20.3,6.5,40');
+      expect(lines[2]).toBe('USA,15.0,3.3,15');
+    });
+
+    it('grand total — сумма cell_counts (article count), не сумма средних', () => {
+      const csv = pivotToCsv(AVG_DATA, 'Country', ['Article', 'Review'], 'Articles (N)');
+      const lines = csv.split('\r\n');
+      // 3+2+4+4 = 13, НЕ сумма matrix (20.3333+6.5+15.0+3.25 = 45.08…)
+      expect(lines[3]).toBe('Articles (N),45,8,13');
+    });
   });
 });

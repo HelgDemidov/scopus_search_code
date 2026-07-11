@@ -297,6 +297,10 @@
       "removeTable": "Remove table",
       "searchPlaceholder": "Search rows…",
       "totalColumn": "Total",
+      "totalColumnCount": "Articles (N)",
+      "metricLabel": "Metric",
+      "metricCount": "Count",
+      "metricAvgCitations": "Avg. citations",
       "csvExport": "Download CSV",
       "emptyState": "No data for this combination.",
       "sparseWarning": "Few results for this filter — try a different value.",
@@ -327,6 +331,9 @@
           "volumeFactory": "High volume",
           "peripheral": "Peripheral"
         }
+      },
+      "countryImpact": {
+        "title": "Country Impact"
       }
     }
   },

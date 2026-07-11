@@ -317,6 +317,10 @@
       "removeTable": "Удалить таблицу",
       "searchPlaceholder": "Поиск по строкам…",
       "totalColumn": "Итого",
+      "totalColumnCount": "Статей (N)",
+      "metricLabel": "Метрика",
+      "metricCount": "Количество",
+      "metricAvgCitations": "Ср. цитирований",
       "csvExport": "Скачать CSV",
       "emptyState": "Нет данных для этой комбинации.",
       "sparseWarning": "Мало результатов при этом фильтре — попробуйте другое значение.",
@@ -347,6 +351,9 @@
           "volumeFactory": "Высокий объём",
           "peripheral": "Периферия"
         }
+      },
+      "countryImpact": {
+        "title": "Импакт по странам"
       }
     }
   },

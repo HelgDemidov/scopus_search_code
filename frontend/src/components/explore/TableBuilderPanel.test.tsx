@@ -25,14 +25,17 @@ const MOCK_STATS: StatsResponse = {
   by_year_top_countries: [],
   sunburst_country_open_access: [],
   top_journals_by_country: [],
+  country_impact: [],
 };
 
 const MOCK_PIVOT: PivotResponse = {
   row_dim: 'year',
   col_dim: 'country',
+  metric: 'count',
   row_labels: ['2024'],
   col_labels: ['China'],
   matrix: [[10]],
+  cell_counts: [[10]],
   row_totals: [10],
   col_totals: [10],
 };
@@ -94,9 +97,38 @@ describe('TableBuilderPanel — форма добавления', () => {
     render(<TableBuilderPanel />);
     await user.click(screen.getByRole('button', { name: 'Add table' }));
     const region = screen.getByRole('region');
-    const [, , slicerSelect] = within(region).getAllByRole('combobox');
+    // [0]=rows, [1]=cols, [2]=metric, [3]=slicer dim
+    const [, , , slicerSelect] = within(region).getAllByRole('combobox');
     // Дефолт rows=year, cols=country → slicer из оставшихся 3: doc_type/journal/open_access + "None"
     expect(within(slicerSelect).getAllByRole('option')).toHaveLength(4);
+  });
+
+  it('метрика по умолчанию — Count, доступны 2 варианта', async () => {
+    const user = userEvent.setup();
+    render(<TableBuilderPanel />);
+    await user.click(screen.getByRole('button', { name: 'Add table' }));
+    const region = screen.getByRole('region');
+    const [, , metricSelect] = within(region).getAllByRole('combobox');
+    expect((metricSelect as HTMLSelectElement).value).toBe('count');
+    expect(within(metricSelect).getAllByRole('option').map((o) => o.textContent)).toEqual([
+      'Count',
+      'Avg. citations',
+    ]);
+  });
+
+  it('выбор AVG(citations) передаётся в addBuilderCard', async () => {
+    const user = userEvent.setup();
+    render(<TableBuilderPanel />);
+    await user.click(screen.getByRole('button', { name: 'Add table' }));
+    const region = screen.getByRole('region');
+    const [, , metricSelect] = within(region).getAllByRole('combobox');
+    await user.selectOptions(metricSelect, 'avg_citations');
+    await user.click(within(region).getByRole('button', { name: 'Add table' }));
+
+    await waitFor(() => {
+      expect(useDashboardStore.getState().builderCards).toHaveLength(1);
+    });
+    expect(useDashboardStore.getState().builderCards[0].metric).toBe('avg_citations');
   });
 
   it('добавление таблицы вызывает addBuilderCard и сворачивает форму', async () => {
@@ -122,10 +154,10 @@ describe('TableBuilderPanel — форма добавления', () => {
     render(<TableBuilderPanel />);
     await user.click(screen.getByRole('button', { name: 'Add table' }));
     const region = screen.getByRole('region');
-    const [, , slicerSelect] = within(region).getAllByRole('combobox');
+    const [, , , slicerSelect] = within(region).getAllByRole('combobox');
     await user.selectOptions(slicerSelect, 'doc_type');
 
-    const valueSelect = within(region).getAllByRole('combobox')[3];
+    const valueSelect = within(region).getAllByRole('combobox')[4];
     await user.selectOptions(valueSelect, 'Article');
 
     await user.click(within(region).getByRole('button', { name: 'Add table' }));
@@ -143,7 +175,7 @@ describe('TableBuilderPanel — форма добавления', () => {
     render(<TableBuilderPanel />);
     await user.click(screen.getByRole('button', { name: 'Add table' }));
     const region = screen.getByRole('region');
-    const [, , slicerSelect] = within(region).getAllByRole('combobox');
+    const [, , , slicerSelect] = within(region).getAllByRole('combobox');
     await user.selectOptions(slicerSelect, 'doc_type');
 
     expect(within(region).getByRole('button', { name: 'Add table' })).toBeDisabled();
@@ -176,6 +208,19 @@ describe('TableBuilderPanel — карточки', () => {
 
     await user.click(screen.getByRole('button', { name: 'Remove table' }));
     expect(useDashboardStore.getState().builderCards).toHaveLength(0);
+  });
+
+  it('старая карточка без поля metric (localStorage до этой фичи) рендерится, запрашивает count', async () => {
+    useDashboardStore.setState({
+      // Намеренно без metric — симулирует BuilderCard, сохранённый до docs/impact-analytics/spec.md §1.2
+      builderCards: [{ id: 'legacy', rowDim: 'year', colDim: 'country', filterDim: undefined, filterValue: undefined }],
+    });
+    render(<TableBuilderPanel />);
+
+    await waitFor(() =>
+      expect(getPivot).toHaveBeenCalledWith(expect.objectContaining({ metric: 'count' }), expect.any(AbortSignal)),
+    );
+    expect(await screen.findByText('Year × Country')).toBeInTheDocument();
   });
 
   it('когда есть карточки, заголовок виден отдельно, а свёрнутая кнопка показывает текст "Add table"', async () => {

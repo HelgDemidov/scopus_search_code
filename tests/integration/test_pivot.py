@@ -164,3 +164,76 @@ async def test_pivot_empty_catalog_returns_empty_lists(client: AsyncClient):
 
     assert data["row_labels"] == []
     assert data["matrix"] == []
+
+
+# ---------------------------------------------------------------------------
+# metric=avg_citations (docs/impact-analytics/spec.md §1)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_pivot_rejects_invalid_metric(client: AsyncClient):
+    resp = await client.get(
+        "/articles/stats/pivot",
+        params={"row_dim": "year", "col_dim": "country", "metric": "median"},
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_pivot_avg_citations_happy_path(client: AsyncClient, db_session: AsyncSession):
+    articles = _repeat(2, affiliation_country="USA", document_type="Article", cited_by_count=10)
+    articles += _repeat(1, affiliation_country="USA", document_type="Article", cited_by_count=40)
+    articles += _repeat(1, affiliation_country="China", document_type="Article", cited_by_count=6)
+    await _seed(db_session, articles)
+
+    resp = await client.get(
+        "/articles/stats/pivot",
+        params={"row_dim": "country", "col_dim": "doc_type", "metric": "avg_citations"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["metric"] == "avg_citations"
+
+    row_usa = data["row_labels"].index("USA")
+    col_article = data["col_labels"].index("Article")
+    row_china = data["row_labels"].index("China")
+
+    # (10 + 10 + 40) / 3 = 20.0
+    assert data["matrix"][row_usa][col_article] == pytest.approx(20.0)
+    assert data["cell_counts"][row_usa][col_article] == 3
+    assert data["matrix"][row_china][col_article] == pytest.approx(6.0)
+    assert data["cell_counts"][row_china][col_article] == 1
+
+
+@pytest.mark.asyncio
+async def test_pivot_cell_counts_unaffected_by_metric(client: AsyncClient, db_session: AsyncSession):
+    articles = _repeat(3, affiliation_country="USA", document_type="Article", cited_by_count=5)
+    await _seed(db_session, articles)
+
+    params = {"row_dim": "country", "col_dim": "doc_type"}
+    resp_count = await client.get("/articles/stats/pivot", params={**params, "metric": "count"})
+    resp_avg = await client.get("/articles/stats/pivot", params={**params, "metric": "avg_citations"})
+
+    assert resp_count.json()["cell_counts"] == resp_avg.json()["cell_counts"]
+    assert resp_count.json()["row_totals"] == resp_avg.json()["row_totals"]
+    assert resp_count.json()["col_totals"] == resp_avg.json()["col_totals"]
+
+
+@pytest.mark.asyncio
+async def test_pivot_avg_citations_empty_cell_is_zero_not_missing(client: AsyncClient, db_session: AsyncSession):
+    articles = _repeat(2, affiliation_country="USA", document_type="Article", cited_by_count=10)
+    articles += _repeat(1, affiliation_country="China", document_type="Review", cited_by_count=3)
+    await _seed(db_session, articles)
+
+    resp = await client.get(
+        "/articles/stats/pivot",
+        params={"row_dim": "country", "col_dim": "doc_type", "metric": "avg_citations"},
+    )
+    data = resp.json()
+
+    row_usa = data["row_labels"].index("USA")
+    col_review = data["col_labels"].index("Review")
+    # USA никогда не публиковала Review — ячейка должна быть (0.0, count=0), не отсутствовать
+    assert data["matrix"][row_usa][col_review] == 0.0
+    assert data["cell_counts"][row_usa][col_review] == 0

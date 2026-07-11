@@ -12,6 +12,7 @@ from app.interfaces.catalog_repository import ICatalogRepository
 from app.models.article import Article
 from app.schemas.article_schemas import (
     CountByField,
+    CountryImpactPoint,
     JournalCountryCount,
     JournalImpactPoint,
     PaginatedArticleResponse,
@@ -141,6 +142,7 @@ class FakeCatalogRepository(ICatalogRepository):
             "by_year_top_countries": [{"year": 2025, "country": "USA", "count": 18}],
             "sunburst_country_open_access": [{"country": "USA", "open_access": True, "count": 9}],
             "top_journals_by_country": [{"journal": "Nature", "country": "USA", "count": 6}],
+            "country_impact": [{"country": "USA", "count": 30, "mean_citations": 12.5}],
         }
 
     async def get_journal_impact(self, max_year: int) -> list[dict]:
@@ -158,6 +160,7 @@ class FakeCatalogRepository(ICatalogRepository):
         top_n_cols: int,
         filter_dim: str | None = None,
         filter_value: str | None = None,
+        metric: str = "count",
     ) -> dict:
         self.pivot_calls.append(
             {
@@ -167,12 +170,14 @@ class FakeCatalogRepository(ICatalogRepository):
                 "top_n_cols": top_n_cols,
                 "filter_dim": filter_dim,
                 "filter_value": filter_value,
+                "metric": metric,
             }
         )
         return {
             "row_labels": ["2023", "2024"],
             "col_labels": ["USA", "China"],
             "matrix": [[10, 5], [20, 8]],
+            "cell_counts": [[10, 5], [20, 8]],
             "row_totals": [15, 28],
             "col_totals": [30, 13],
         }
@@ -230,6 +235,7 @@ def _minimal_stats_response() -> StatsResponse:
         by_year_top_countries=[YearCountryCount(year=2025, country="USA", count=18)],
         sunburst_country_open_access=[SunburstSegment(country="USA", open_access=True, count=9)],
         top_journals_by_country=[JournalCountryCount(journal="Nature", country="USA", count=6)],
+        country_impact=[CountryImpactPoint(country="USA", count=30, mean_citations=12.5)],
     )
 
 
@@ -489,6 +495,18 @@ async def test_get_stats_maps_top_keywords():
 
 
 @pytest.mark.asyncio
+async def test_get_stats_maps_country_impact():
+    svc, _, _, _ = _mk_service()
+
+    result = await svc.get_stats()
+
+    assert len(result.country_impact) == 1
+    assert result.country_impact[0].country == "USA"
+    assert result.country_impact[0].count == 30
+    assert result.country_impact[0].mean_citations == 12.5
+
+
+@pytest.mark.asyncio
 async def test_get_stats_delegates_to_catalog_repo():
     svc, _, cr, _ = _mk_service()
 
@@ -650,6 +668,7 @@ async def test_get_pivot_returns_pivot_response():
     assert isinstance(result, PivotResponse)
     assert result.row_dim == "year"
     assert result.col_dim == "country"
+    assert result.metric == "count"
     assert result.row_labels == ["2023", "2024"]
     assert result.matrix == [[10, 5], [20, 8]]
 
@@ -665,6 +684,7 @@ async def test_get_pivot_passes_all_params_to_repo():
         top_n_cols=5,
         filter_dim="year",
         filter_value="2024",
+        metric="avg_citations",
     )
 
     assert cr.pivot_calls == [
@@ -675,6 +695,7 @@ async def test_get_pivot_passes_all_params_to_repo():
             "top_n_cols": 5,
             "filter_dim": "year",
             "filter_value": "2024",
+            "metric": "avg_citations",
         }
     ]
 

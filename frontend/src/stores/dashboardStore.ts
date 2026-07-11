@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { getFilteredStats, selectionToParams } from '../api/stats';
 import type { Dimension } from '../components/charts/chartColors';
-import type { PivotDimension, StatsResponse } from '../types/api';
+import type { PivotDimension, PivotMetric, StatsResponse } from '../types/api';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -22,6 +22,10 @@ export interface BuilderCard {
   colDim: PivotDimension;
   filterDim?: PivotDimension;
   filterValue?: string;
+  // Опционально (docs/impact-analytics/spec.md §1.2) — БЕЗ persist-миграции: старые
+  // карточки без поля читаются как 'count' в коде потребления (card.metric ?? 'count'),
+  // не через migrate().
+  metric?: PivotMetric;
 }
 
 interface DashboardStore {

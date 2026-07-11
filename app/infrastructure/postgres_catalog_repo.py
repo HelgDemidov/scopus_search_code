@@ -272,11 +272,16 @@ class PostgresCatalogRepository(ICatalogRepository):
         # Распределение по странам — аналогично материализуем для переиспользования
         # топ-5/топ-10 label'ов в 3 кросс-агрегатах ниже (garantируем, что топ-N
         # везде на странице совпадает — см. docs/explore-cross-analytics/spec.md §2.2)
+        # mean_citations — для Country Impact Scatter (docs/impact-analytics/spec.md §2.1).
+        # Без HAVING count>=N и без медианы (в отличие от get_journal_impact) — top-20 стран
+        # по объёму на ~140k-статейной коллекции гарантированно имеют N в тысячах, риска
+        # "выброс с N=1 наверху" здесь нет.
         by_country_rows = (
             await self.session.execute(
                 select(
                     catalog_articles_q.c.affiliation_country,
                     func.count().label("count"),
+                    func.avg(catalog_articles_q.c.cited_by_count).label("mean_citations"),
                 )
                 .select_from(catalog_articles_q)
                 .where(catalog_articles_q.c.affiliation_country.isnot(None))
@@ -407,6 +412,14 @@ class PostgresCatalogRepository(ICatalogRepository):
             "top_journals_by_country": [
                 {"journal": r.journal, "country": r.country_bucket, "count": r.count}
                 for r in top_journals_by_country_rows
+            ],
+            "country_impact": [
+                {
+                    "country": r.affiliation_country,
+                    "count": r.count,
+                    "mean_citations": float(r.mean_citations or 0),
+                }
+                for r in by_country_rows
             ],
         }
 
@@ -542,6 +555,7 @@ class PostgresCatalogRepository(ICatalogRepository):
         top_n_cols: int,
         filter_dim: str | None = None,
         filter_value: str | None = None,
+        metric: str = "count",
     ) -> dict:
         """2D pivot по 2 whitelisted измерениям + опциональный slicer (3-е измерение как фильтр).
 
@@ -549,7 +563,10 @@ class PostgresCatalogRepository(ICatalogRepository):
         filter_dim уже ограничены типом PivotDimension на уровне роутера (Literal → 422 до
         вызова репозитория), здесь — явная проверка вместо слепой интерполяции строки в запрос.
         top_n_rows/top_n_cols — обрезка по маржинальному объёму каждого измерения ДО пересечения
-        друг с другом (country/journal высококардинальны — без обрезки pivot нечитаем).
+        друг с другом (country/journal высококардинальны — без обрезки pivot нечитаем), ВСЕГДА
+        по count независимо от metric (docs/impact-analytics/spec.md §0.2).
+        metric — "count" или "avg_citations": какое значение попадает в matrix; cell_counts
+        всегда article count, независимо от metric.
         """
         if row_dim not in self._PIVOT_DIMENSIONS or col_dim not in self._PIVOT_DIMENSIONS:
             raise ValueError(f"Unknown pivot dimension: {row_dim!r}/{col_dim!r}")
@@ -610,27 +627,50 @@ class PostgresCatalogRepository(ICatalogRepository):
         ).all()
 
         if not row_rows or not col_rows:
-            return {"row_labels": [], "col_labels": [], "matrix": [], "row_totals": [], "col_totals": []}
+            return {
+                "row_labels": [],
+                "col_labels": [],
+                "matrix": [],
+                "cell_counts": [],
+                "row_totals": [],
+                "col_totals": [],
+            }
 
         row_values = [r.value for r in row_rows]
         col_values = [r.value for r in col_rows]
 
+        # Считаем count И avg(cited_by_count) в одном проходе — дешевле, чем два отдельных
+        # запроса, независимо от того, какая metric запрошена (docs/impact-analytics/spec.md §1.1).
         matrix_rows = await self.session.execute(
-            select(row_col.label("row_value"), col_col.label("col_value"), func.count().label("n"))
+            select(
+                row_col.label("row_value"),
+                col_col.label("col_value"),
+                func.count().label("n"),
+                func.avg(catalog_articles_q.c.cited_by_count).label("avg_citations"),
+            )
             .select_from(catalog_articles_q)
             .where(row_col.in_(row_values), col_col.in_(col_values))
             .group_by(row_col, col_col)
         )
         # Лейбл "n", не "count" — Row наследует tuple.count(), mypy иначе резолвит
         # r.count как метод (Callable), а не как подписанную колонку.
-        cell_lookup: dict[tuple, int] = {(r.row_value, r.col_value): r.n for r in matrix_rows}
+        cell_lookup: dict[tuple, tuple[int, float]] = {
+            (r.row_value, r.col_value): (r.n, float(r.avg_citations or 0)) for r in matrix_rows
+        }
 
-        matrix = [[cell_lookup.get((rv, cv), 0) for cv in col_values] for rv in row_values]
+        cell_counts = [[cell_lookup.get((rv, cv), (0, 0.0))[0] for cv in col_values] for rv in row_values]
+        if metric == "avg_citations":
+            matrix: list[list[float]] = [
+                [cell_lookup.get((rv, cv), (0, 0.0))[1] for cv in col_values] for rv in row_values
+            ]
+        else:
+            matrix = [[float(c) for c in row] for row in cell_counts]
 
         return {
             "row_labels": [self._pivot_label(row_dim, v) for v in row_values],
             "col_labels": [self._pivot_label(col_dim, v) for v in col_values],
             "matrix": matrix,
+            "cell_counts": cell_counts,
             "row_totals": [r.count for r in row_rows],
             "col_totals": [r.count for r in col_rows],
         }

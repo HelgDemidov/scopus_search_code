@@ -5,7 +5,7 @@ import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { PaginationControls } from '../ui/PaginationControls';
 import { formatCount } from '../charts/chartColors';
-import { formatPivotLabel, pivotToCsv, countNonEmptyCells, CSV_BOM } from './tableBuilderData';
+import { formatPivotLabel, formatMetricValue, pivotToCsv, countNonEmptyCells, CSV_BOM } from './tableBuilderData';
 import type { PivotDimension, PivotResponse } from '../../types/api';
 
 // Table Builder — 2D pivot таблица (docs/explore-table-builder/spec.md §3.4).
@@ -90,7 +90,11 @@ export function PivotTable({ data, rowDim, colDim }: PivotTableProps) {
   const [page, setPage] = useState(1);
 
   const rowDimLabel = t(`explore.dimensionLabels.${rowDim}`);
-  const totalLabel = t('explore.tableBuilder.totalColumn');
+  // При avg_citations "Итого" всё равно показывает article count (row_totals/col_totals
+  // не зависят от метрики) — лейбл меняется, чтобы это не читалось как "сумма средних".
+  const totalLabel = t(
+    data.metric === 'avg_citations' ? 'explore.tableBuilder.totalColumnCount' : 'explore.tableBuilder.totalColumn',
+  );
 
   const colHeaders = useMemo(
     () => data.col_labels.map((raw) => formatPivotLabel(colDim, raw, lang)),
@@ -103,6 +107,7 @@ export function PivotTable({ data, rowDim, colDim }: PivotTableProps) {
         raw,
         display: formatPivotLabel(rowDim, raw, lang),
         cells: data.matrix[i],
+        counts: data.cell_counts[i],
         total: data.row_totals[i],
       })),
     [data, rowDim, lang],
@@ -133,11 +138,14 @@ export function PivotTable({ data, rowDim, colDim }: PivotTableProps) {
   const totalPages = Math.max(1, Math.ceil(filteredSorted.length / PAGE_SIZE));
   const pageRows = filteredSorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  // Сумма cell_counts (article count), не matrix — при metric='avg_citations' суммировать
+  // средние статистически бессмысленно (docs/impact-analytics/spec.md §1.2); при metric='count'
+  // даёт то же число, что и раньше.
   const grandTotal = useMemo(
-    () => data.matrix.reduce((sum, row) => sum + row.reduce((rowSum, c) => rowSum + c, 0), 0),
+    () => data.cell_counts.reduce((sum, row) => sum + row.reduce((rowSum, c) => rowSum + c, 0), 0),
     [data],
   );
-  const nonEmptyCells = useMemo(() => countNonEmptyCells(data.matrix), [data]);
+  const nonEmptyCells = useMemo(() => countNonEmptyCells(data.cell_counts), [data]);
   const isSparse = nonEmptyCells > 0 && nonEmptyCells < SPARSE_THRESHOLD;
 
   // Клик 1 (другая колонка) → natural-направление (desc для чисел, asc для label).
@@ -221,7 +229,7 @@ export function PivotTable({ data, rowDim, colDim }: PivotTableProps) {
                 <td className="px-3 py-2 text-slate-700 dark:text-slate-300 max-w-[220px] break-words">{row.display}</td>
                 {row.cells.map((c, ci) => (
                   <td key={ci} className="px-3 py-2 text-right tabular-nums text-slate-600 dark:text-slate-400">
-                    {c > 0 ? formatCount(c) : '–'}
+                    {row.counts[ci] > 0 ? formatMetricValue(data.metric, c) : '–'}
                   </td>
                 ))}
                 <td className="px-3 py-2 text-right font-semibold tabular-nums text-slate-900 dark:text-slate-100">

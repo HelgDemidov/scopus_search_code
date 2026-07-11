@@ -13,9 +13,15 @@ import type { PivotResponse } from '../../types/api';
 const SMALL_DATA: PivotResponse = {
   row_dim: 'country',
   col_dim: 'doc_type',
+  metric: 'count',
   row_labels: ['China', 'United States', 'Germany'],
   col_labels: ['Article', 'Review'],
   matrix: [
+    [30, 5],
+    [50, 2],
+    [10, 1],
+  ],
+  cell_counts: [
     [30, 5],
     [50, 2],
     [10, 1],
@@ -31,9 +37,11 @@ function makeLargeData(rowCount: number): PivotResponse {
   return {
     row_dim: 'country',
     col_dim: 'doc_type',
+    metric: 'count',
     row_labels,
     col_labels: ['Article', 'Review'],
     matrix,
+    cell_counts: matrix,
     row_totals,
     col_totals: [500, 500],
   };
@@ -67,7 +75,15 @@ describe('PivotTable — базовый рендер', () => {
   });
 
   it('пустая матрица (нет row/col_labels) показывает emptyState вместо таблицы', () => {
-    const empty: PivotResponse = { ...SMALL_DATA, row_labels: [], col_labels: [], matrix: [], row_totals: [], col_totals: [] };
+    const empty: PivotResponse = {
+      ...SMALL_DATA,
+      row_labels: [],
+      col_labels: [],
+      matrix: [],
+      cell_counts: [],
+      row_totals: [],
+      col_totals: [],
+    };
     render(<PivotTable data={empty} rowDim="country" colDim="doc_type" />);
     expect(screen.getByText('No data for this combination.')).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
@@ -152,6 +168,11 @@ describe('PivotTable — предупреждение о вырожденном 
         [0, 0],
         [0, 0],
       ],
+      cell_counts: [
+        [1, 0],
+        [0, 0],
+        [0, 0],
+      ],
     };
     render(<PivotTable data={sparse} rowDim="country" colDim="doc_type" />);
     expect(screen.getByText(/Few results for this filter/)).toBeInTheDocument();
@@ -206,9 +227,14 @@ describe('PivotTable — a11y', () => {
     const sparse: PivotResponse = {
       row_dim: 'country',
       col_dim: 'open_access',
+      metric: 'count',
       row_labels: ['China', 'Germany'],
       col_labels: ['true', 'false'],
       matrix: [
+        [2, 0],
+        [0, 1],
+      ],
+      cell_counts: [
         [2, 0],
         [0, 1],
       ],
@@ -225,5 +251,44 @@ describe('PivotTable — CSV-экспорт', () => {
   it('кнопка экспорта CSV рендерится', () => {
     render(<PivotTable data={SMALL_DATA} rowDim="country" colDim="doc_type" />);
     expect(screen.getByRole('button', { name: 'Download CSV' })).toBeInTheDocument();
+  });
+});
+
+describe('PivotTable — metric=avg_citations (docs/impact-analytics/spec.md §1.2)', () => {
+  const AVG_DATA: PivotResponse = {
+    row_dim: 'country',
+    col_dim: 'doc_type',
+    metric: 'avg_citations',
+    row_labels: ['China', 'United States'],
+    col_labels: ['Article', 'Review'],
+    matrix: [
+      [20.333333, 0],
+      [12.5, 0],
+    ],
+    cell_counts: [
+      [3, 0],
+      [2, 0],
+    ],
+    row_totals: [3, 2],
+    col_totals: [5, 0],
+  };
+
+  it('форматирует значения ячеек с 1 знаком после запятой, не сырым числом', () => {
+    render(<PivotTable data={AVG_DATA} rowDim="country" colDim="doc_type" />);
+    const row = screen.getByText('China').closest('tr')!;
+    expect(within(row).getByText('20.3')).toBeInTheDocument();
+  });
+
+  it('cell_counts=0 рендерит "–", даже когда matrix=0.0 (avg=0 — не "нет данных")', () => {
+    render(<PivotTable data={AVG_DATA} rowDim="country" colDim="doc_type" />);
+    const row = screen.getByText('China').closest('tr')!;
+    expect(within(row).getByText('–')).toBeInTheDocument();
+    expect(within(row).queryByText('0.0')).not.toBeInTheDocument();
+  });
+
+  it('заголовок колонки "Итого" меняется на totalColumnCount при avg_citations', () => {
+    render(<PivotTable data={AVG_DATA} rowDim="country" colDim="doc_type" />);
+    expect(screen.getAllByText('Articles (N)')).toHaveLength(2);
+    expect(screen.queryByText('Total')).not.toBeInTheDocument();
   });
 });
