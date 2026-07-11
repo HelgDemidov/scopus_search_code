@@ -39,7 +39,7 @@ CI: `integration` job считает coverage по всем тестам. `front
 Node.js 22. **ESLint:** flat config `eslint.config.js` (ESLint 10 + typescript-eslint 8 + react-hooks 7 + react-refresh + `eslint-plugin-jsx-a11y`, PR #58); shadcn/ui overrides — последний блок в файле (last block wins). `react-hooks/set-state-in-effect` disable-comment — **внутри** тела useEffect, перед первым setState.
 
 ## A11y automation (PR #58, merged 2026-07-09)
-`eslint-plugin-jsx-a11y` (в `lint`) + `vitest-axe` (в `unit`, `test/setup.ts` регистрирует `toHaveNoViolations`) — переиспользуют существующие CI-джобы, без отдельной. `frontend/.npmrc` (`legacy-peer-deps=true`) обязателен — плагин не успел обновить peer-диапазон под ESLint 10. Известное ограничение: axe-core в jsdom не проверяет color-contrast (нет Canvas 2D) — страховка от структурных/ARIA-нарушений, не замена ручной/Lighthouse-проверки.
+`eslint-plugin-jsx-a11y` (в `lint`) + `vitest-axe` (в `unit`, `test/setup.ts` регистрирует `toHaveNoViolations`) — переиспользуют существующие CI-джобы, без отдельной. `frontend/.npmrc` (`legacy-peer-deps=true`) обязателен — плагин не успел обновить peer-диапазон под ESLint 10. Известное ограничение: axe-core не проверяет color-contrast в jsdom — не столько из-за Canvas 2D, сколько из-за отсутствия layout-движка (`getBoundingClientRect`/`offsetWidth` всегда 0). Пакет `canvas` **сознательно не установлен** — проверено эмпирически (2026-07-11, `docs/a11y-canvas-coverage/spec.md`): он не чинит проблему, а ухудшает диагностику (`incomplete` → `inapplicable`, см. комментарий в `test/setup.ts`). Страховка от структурных/ARIA-нарушений остаётся надёжной, замены ручной/Lighthouse-проверки контраста нет и не планируется через jsdom.
 
 ## Commands (from frontend/)
 ```bash

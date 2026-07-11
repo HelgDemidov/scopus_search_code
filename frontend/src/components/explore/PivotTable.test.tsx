@@ -197,6 +197,28 @@ describe('PivotTable — a11y', () => {
     const { container } = render(<PivotTable data={large} rowDim="country" colDim="doc_type" />);
     expect(await axe(container)).toHaveNoViolations();
   });
+
+  it('не имеет базовых нарушений a11y на разреженном результате (узкий slicer-фильтр)', async () => {
+    // nonEmptyCells=3 < SPARSE_THRESHOLD (5) — рендерит amber sparseWarning
+    // (§3.2 spec.md), не покрытую тестом выше на makeLargeData (там nonEmptyCells
+    // существенно больше порога). Типичный результат узкого slicer-фильтра
+    // (3-е измерение Table Builder) — большинство ячеек 2D-пары пустые.
+    const sparse: PivotResponse = {
+      row_dim: 'country',
+      col_dim: 'open_access',
+      row_labels: ['China', 'Germany'],
+      col_labels: ['true', 'false'],
+      matrix: [
+        [2, 0],
+        [0, 1],
+      ],
+      row_totals: [2, 1],
+      col_totals: [2, 1],
+    };
+    const { container } = render(<PivotTable data={sparse} rowDim="country" colDim="open_access" />);
+    expect(screen.getByText('Few results for this filter — try a different value.')).toBeInTheDocument();
+    expect(await axe(container)).toHaveNoViolations();
+  });
 });
 
 describe('PivotTable — CSV-экспорт', () => {

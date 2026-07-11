@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { axe } from 'vitest-axe';
 import { DimensionDrawer } from './DimensionDrawer';
 import { useDashboardStore } from '../../stores/dashboardStore';
 import { useStatsStore } from '../../stores/statsStore';
@@ -259,5 +260,23 @@ describe('DimensionDrawer — раздельные scroll-контейнеры c
     const minH0Wrapper = document.body.querySelector('.flex-1.min-h-0.flex.flex-col');
     expect(minH0Wrapper?.contains(chart)).toBe(true);
     expect(minH0Wrapper?.contains(table)).toBe(true);
+  });
+});
+
+describe('DimensionDrawer — a11y', () => {
+  // Sheet рендерится через Radix Portal в document.body, не в RTL container
+  // (см. комментарий в тесте выше) — axe(container) проверил бы пустой div
+  // и не поймал бы ни одного нарушения внутри самого drawer'а. Обязательно
+  // axe(document.body).
+  it('year: не имеет базовых нарушений a11y (Slider + area chart + range-labels)', async () => {
+    useDashboardStore.setState({ drawerDimension: 'year' });
+    render(<DimensionDrawer />);
+    expect(await axe(document.body)).toHaveNoViolations();
+  });
+
+  it('doc_type: не имеет базовых нарушений a11y (donut + Legend, отдельная flex-ветка рендера)', async () => {
+    useDashboardStore.setState({ drawerDimension: 'doc_type' });
+    render(<DimensionDrawer />);
+    expect(await axe(document.body)).toHaveNoViolations();
   });
 });
