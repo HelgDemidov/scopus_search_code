@@ -132,6 +132,14 @@ export function CountryImpactScatterChart() {
           <XAxis
             type="number"
             dataKey="count"
+            // Лог-шкала — тот же приём, что уже на Y (mean_citations), по той же причине:
+            // публикации по странам ещё сильнее скошены (Китай на порядок больше следующей
+            // страны), линейная шкала сжимала бы весь остальной график в один угол.
+            // count всегда > 0 (top-20 стран по объёму) — floor-хак, как у Y/plotMean
+            // для mean_citations=0, здесь не нужен.
+            scale="log"
+            domain={['auto', 'auto']}
+            allowDataOverflow
             tick={{ fontSize: 11, fill: axis.tickMuted }}
             tickLine={false}
             axisLine={false}
