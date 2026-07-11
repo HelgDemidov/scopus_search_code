@@ -9,6 +9,7 @@ on:
       - feat/a11y-load-test
       - feat/layout-responsive-foundation
       - feat/i18n-url-routing
+      - feat/impact-analytics
 
   pull_request:
     branches:
