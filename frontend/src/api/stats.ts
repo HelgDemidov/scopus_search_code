@@ -6,7 +6,14 @@
 
 import { apiClient } from './client';
 import type { ActiveSelection } from '../stores/dashboardStore';
-import type { JournalImpactPoint, PivotDimension, PivotMetric, PivotResponse, StatsResponse } from '../types/api';
+import type {
+  JournalImpactPoint,
+  NlPivotQueryResponse,
+  PivotDimension,
+  PivotMetric,
+  PivotResponse,
+  StatsResponse,
+} from '../types/api';
 
 export async function getStats(): Promise<StatsResponse> {
   const response = await apiClient.get<StatsResponse>('/articles/stats');
@@ -50,6 +57,18 @@ export async function getPivot(params: PivotParams, signal?: AbortSignal): Promi
     },
     signal,
   });
+  return response.data;
+}
+
+// AI NL→pivot (docs/ai-nl-pivot/spec.md §4) — текст → валидные параметры pivot
+// (не сами данные). Ответ передаётся в addBuilderCard() на фронте — фактический
+// pivot дёргается отдельно через уже существующий getPivot() выше.
+export async function postNlPivotQuery(query: string, signal?: AbortSignal): Promise<NlPivotQueryResponse> {
+  const response = await apiClient.post<NlPivotQueryResponse>(
+    '/articles/stats/pivot/nl-query',
+    { query },
+    { signal },
+  );
   return response.data;
 }
 

@@ -305,7 +305,22 @@
       "emptyState": "No data for this combination.",
       "sparseWarning": "Few results for this filter — try a different value.",
       "marginalNote": "Row/column totals reflect the full dataset, not just the cells shown.",
-      "pairTitle": "{{row}} × {{col}}"
+      "pairTitle": "{{row}} × {{col}}",
+      "manualMode": "Manual",
+      "nlQuery": {
+        "aiMode": "Ask AI",
+        "heading": "Describe the table you want",
+        "placeholder": "e.g. \"average citations by document type and open access\"",
+        "submit": "Generate",
+        "loading": "Thinking…",
+        "signInPrompt": "Sign in to use AI table generation.",
+        "error": {
+          "ambiguous": "Couldn't understand that — try rephrasing.",
+          "rateLimited": "AI query limit reached — try again later.",
+          "unavailable": "AI feature is temporarily unavailable.",
+          "generic": "Something went wrong — try again."
+        }
+      }
     },
     "crossCharts": {
       "topCountriesByYear": "Top Countries by Year",

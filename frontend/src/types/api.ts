@@ -121,6 +121,17 @@ export interface PivotResponse {
   col_totals: number[];
 }
 
+// POST /articles/stats/pivot/nl-query (docs/ai-nl-pivot/spec.md §3) — только валидные
+// параметры pivot (не сами данные), форма 1:1 с BuilderCard (минус id) для прямого
+// addBuilderCard() без промежуточного маппинга.
+export interface NlPivotQueryResponse {
+  row_dim: PivotDimension;
+  col_dim: PivotDimension;
+  filter_dim: PivotDimension | null;
+  filter_value: string | null;
+  metric: PivotMetric;
+}
+
 // ---------------------------------------------------------------------------
 // Статистика поискового запроса (GET /articles/search/stats?search=...)
 // Отдельный интерфейс — не алиас StatsResponse:
