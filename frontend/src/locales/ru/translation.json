@@ -351,6 +351,9 @@
           "volumeFactory": "Высокий объём",
           "peripheral": "Периферия"
         }
+      },
+      "countryImpact": {
+        "title": "Импакт по странам"
       }
     }
   },

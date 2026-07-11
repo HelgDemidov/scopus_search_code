@@ -18,8 +18,8 @@ import { useTheme } from '../../hooks/useTheme';
 import { ChartCard } from '../charts/ChartCard';
 import { AXIS_COLORS, formatCount } from '../charts/chartColors';
 import { Slider } from '../ui/slider';
-import { computeJournalQuadrants } from './crossChartData';
-import type { JournalQuadrant } from './crossChartData';
+import { computeImpactQuadrants } from './crossChartData';
+import type { ImpactQuadrant } from './crossChartData';
 import type { JournalImpactPoint } from '../../types/api';
 
 // График 4 — Journal Landscape Scatter (docs/explore-table-builder/spec.md §1).
@@ -41,7 +41,7 @@ const MATURITY_DEFAULT_YEAR = 2024;
 // peripheral — единственный цвет, зависящий от темы: slate-500 контрастен на белом,
 // но почти сливается с тёмным фоном #0c1927 (найдено на визуальном ревью). Остальные
 // 3 квадранта — достаточно насыщенные hex, читаются одинаково хорошо в обеих темах.
-const QUADRANT_COLORS: Record<'light' | 'dark', Record<JournalQuadrant, string>> = {
+const QUADRANT_COLORS: Record<'light' | 'dark', Record<ImpactQuadrant, string>> = {
   light: {
     flagship: '#16a34a', // green-600 — много статей И высокое цитирование
     hiddenGem: '#2563eb', // blue-600 — мало статей, но высокое цитирование
@@ -56,7 +56,7 @@ const QUADRANT_COLORS: Record<'light' | 'dark', Record<JournalQuadrant, string>>
   },
 };
 
-const QUADRANTS: JournalQuadrant[] = ['flagship', 'hiddenGem', 'volumeFactory', 'peripheral'];
+const QUADRANTS: ImpactQuadrant[] = ['flagship', 'hiddenGem', 'volumeFactory', 'peripheral'];
 
 // Полупрозрачный ореол вокруг каждой точки: radial-градиент от HALO_CORE_OPACITY
 // (в центре) до 0 (на краю) — там, где точки одного квадранта скучены, ореолы
@@ -69,7 +69,7 @@ const HALO_CORE_OPACITY = 0.3;
 
 function ScatterPointShape({ cx, cy, payload, theme }: ScatterPointItem & { theme: 'light' | 'dark' }) {
   if (cx === undefined || cy === undefined || !payload) return null;
-  const quadrant = payload.quadrant as JournalQuadrant;
+  const quadrant = payload.quadrant as ImpactQuadrant;
   return (
     <g>
       <circle cx={cx} cy={cy} r={HALO_RADIUS} fill={`url(#journal-halo-${quadrant})`} />
@@ -106,7 +106,7 @@ function JournalImpactTooltip({ active, payload }: TooltipProps<ValueType, NameT
   const { t } = useTranslation();
   const { theme } = useTheme();
   if (!active || !payload?.length) return null;
-  const point = payload[0].payload as ReturnType<typeof computeJournalQuadrants>['points'][number];
+  const point = payload[0].payload as ReturnType<typeof computeImpactQuadrants<JournalImpactPoint>>['points'][number];
 
   return (
     <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#152236] px-3 py-2 shadow-lg text-sm max-w-[220px]">
@@ -151,7 +151,7 @@ export function JournalLandscapeScatterChart() {
   const [maxYear, setMaxYear] = useState(MATURITY_DEFAULT_YEAR);
   const { data, isLoading } = useJournalImpactData(maxYear);
 
-  const { points, medianCount, medianMean } = computeJournalQuadrants(data);
+  const { points, medianCount, medianMean } = computeImpactQuadrants(data);
 
   return (
     <ChartCard

@@ -84,6 +84,7 @@ const STATS = {
   by_year_top_countries: [],
   sunburst_country_open_access: [],
   top_journals_by_country: [],
+  country_impact: [],
 } satisfies StatsResponse;
 
 describe('getSlicerOptions', () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { buildRawGroups, computeJournalQuadrants, pivotJournalCountryData } from './crossChartData';
-import type { JournalImpactPoint } from '../../types/api';
+import { buildRawGroups, computeImpactQuadrants, pivotJournalCountryData } from './crossChartData';
+import type { CountryImpactPoint, JournalImpactPoint } from '../../types/api';
 
 // ---------------------------------------------------------------------------
 // buildRawGroups
@@ -107,16 +107,17 @@ describe('pivotJournalCountryData', () => {
 });
 
 // ---------------------------------------------------------------------------
-// computeJournalQuadrants (JournalLandscapeScatterChart)
+// computeImpactQuadrants (JournalLandscapeScatterChart / CountryImpactScatterChart —
+// обобщено в docs/impact-analytics/spec.md §2.2)
 // ---------------------------------------------------------------------------
 
-describe('computeJournalQuadrants', () => {
+describe('computeImpactQuadrants', () => {
   function journal(overrides: Partial<JournalImpactPoint>): JournalImpactPoint {
     return { journal: 'J', count: 20, mean_citations: 5, median_citations: 2, ...overrides };
   }
 
   it('пустые данные не падают', () => {
-    const result = computeJournalQuadrants([]);
+    const result = computeImpactQuadrants([]);
     expect(result.points).toEqual([]);
     expect(result.medianCount).toBe(0);
     expect(result.medianMean).toBe(0);
@@ -129,7 +130,7 @@ describe('computeJournalQuadrants', () => {
       journal({ journal: 'VolumeFactory', count: 100, mean_citations: 1 }),
       journal({ journal: 'Peripheral', count: 10, mean_citations: 1 }),
     ];
-    const { points } = computeJournalQuadrants(data);
+    const { points } = computeImpactQuadrants(data);
     const byName = Object.fromEntries(points.map((p) => [p.journal, p.quadrant]));
 
     expect(byName['Flagship']).toBe('flagship');
@@ -145,7 +146,7 @@ describe('computeJournalQuadrants', () => {
       journal({ journal: 'Median', count: 20, mean_citations: 5 }),
       journal({ journal: 'High', count: 30, mean_citations: 9 }),
     ];
-    const { points, medianCount, medianMean } = computeJournalQuadrants(data);
+    const { points, medianCount, medianMean } = computeImpactQuadrants(data);
     expect(medianCount).toBe(20);
     expect(medianMean).toBe(5);
     const median = points.find((p) => p.journal === 'Median')!;
@@ -154,7 +155,7 @@ describe('computeJournalQuadrants', () => {
 
   it('plotMean floor: mean_citations=0 не ломает лог-шкалу, но в точке сохраняется истинное значение', () => {
     const data = [journal({ journal: 'Zero', count: 20, mean_citations: 0 })];
-    const { points } = computeJournalQuadrants(data);
+    const { points } = computeImpactQuadrants(data);
     expect(points[0].mean_citations).toBe(0);
     expect(points[0].plotMean).toBeGreaterThan(0);
   });
@@ -166,8 +167,21 @@ describe('computeJournalQuadrants', () => {
       journal({ count: 30, mean_citations: 3 }),
       journal({ count: 40, mean_citations: 4 }),
     ];
-    const { medianCount, medianMean } = computeJournalQuadrants(data);
+    const { medianCount, medianMean } = computeImpactQuadrants(data);
     expect(medianCount).toBe(25); // (20+30)/2
     expect(medianMean).toBe(2.5); // (2+3)/2
+  });
+
+  it('работает на CountryImpactPoint (без median_citations) — доказывает обобщение generic', () => {
+    function country(overrides: Partial<CountryImpactPoint>): CountryImpactPoint {
+      return { country: 'C', count: 20, mean_citations: 5, ...overrides };
+    }
+    const data = [
+      country({ country: 'USA', count: 100, mean_citations: 50 }),
+      country({ country: 'China', count: 10, mean_citations: 1 }),
+    ];
+    const { points } = computeImpactQuadrants(data);
+    const usa = points.find((p) => p.country === 'USA')!;
+    expect(usa.quadrant).toBe('flagship');
   });
 });

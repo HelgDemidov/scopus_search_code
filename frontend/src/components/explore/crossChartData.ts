@@ -6,7 +6,7 @@
 // с CHART_TYPE_LABELS, вынесенным в chartColors.ts, а не оставленным в
 // удалённом DynamicChart.tsx — см. frontend/CLAUDE.md).
 
-import type { JournalCountryCount, JournalImpactPoint, SunburstSegment } from '../../types/api';
+import type { JournalCountryCount, SunburstSegment } from '../../types/api';
 
 // ---------------------------------------------------------------------------
 // CountrySunburstChart — группировка Country → OpenAccess (упрощено с 3 до 2
@@ -86,18 +86,23 @@ export function pivotJournalCountryData(data: JournalCountryCount[]) {
 }
 
 // ---------------------------------------------------------------------------
-// JournalLandscapeScatterChart — квадранты объём×импакт (spec.md §1)
+// JournalLandscapeScatterChart / CountryImpactScatterChart — квадранты объём×импакт
+// (docs/explore-table-builder/spec.md §1, обобщено для CountryImpactPoint в
+// docs/impact-analytics/spec.md §2.2 — единственный call site на момент обобщения
+// переименован без alias/back-compat).
 // ---------------------------------------------------------------------------
 
-export type JournalQuadrant = 'flagship' | 'hiddenGem' | 'volumeFactory' | 'peripheral';
+export type ImpactQuadrant = 'flagship' | 'hiddenGem' | 'volumeFactory' | 'peripheral';
 
-export interface JournalScatterPoint extends JournalImpactPoint {
-  quadrant: JournalQuadrant;
+// Пересечение (не отдельное поле data) — сохраняет плоский доступ к исходным полям
+// (point.journal/point.country и т.п.), как было в JournalScatterPoint до обобщения.
+export type ImpactScatterPoint<T> = T & {
+  quadrant: ImpactQuadrant;
   // Y-позиция на графике: log-шкала не принимает 0 — для точек с mean_citations=0
-  // (статистически возможно даже при N>=20) используем пол LOG_SCALE_FLOOR только
+  // (статистически возможно даже при большом N) используем пол LOG_SCALE_FLOOR только
   // для координаты; tooltip показывает истинное mean_citations, не plotMean.
   plotMean: number;
-}
+};
 
 const LOG_SCALE_FLOOR = 0.1;
 
@@ -107,14 +112,16 @@ function median(sortedAsc: number[]): number {
 }
 
 /**
- * Делит журналы на 4 квадранта по медианам count/mean_citations ТЕКУЩЕЙ выборки
- * (той же top-N, что вернул бэкенд для выбранного окна зрелости) — не по всей
- * коллекции. Совпадающие с медианой значения считаются "высокими" (>=), поэтому
- * ровно на медиане журнал попадает в flagship/volumeFactory, а не смещается в
- * противоположный квадрант при чётном числе точек.
+ * Делит точки (журналы/страны) на 4 квадранта по медианам count/mean_citations
+ * ТЕКУЩЕЙ выборки (той же top-N, что вернул бэкенд) — не по всей коллекции.
+ * Совпадающие с медианой значения считаются "высокими" (>=), поэтому ровно на
+ * медиане точка попадает в flagship/volumeFactory, а не смещается в противоположный
+ * квадрант при чётном числе точек.
  */
-export function computeJournalQuadrants(data: JournalImpactPoint[]): {
-  points: JournalScatterPoint[];
+export function computeImpactQuadrants<T extends { count: number; mean_citations: number }>(
+  data: T[],
+): {
+  points: ImpactScatterPoint<T>[];
   medianCount: number;
   medianMean: number;
 } {
@@ -126,7 +133,7 @@ export function computeJournalQuadrants(data: JournalImpactPoint[]): {
   const points = data.map((d) => {
     const highVolume = d.count >= medianCount;
     const highImpact = d.mean_citations >= medianMean;
-    const quadrant: JournalQuadrant =
+    const quadrant: ImpactQuadrant =
       highVolume && highImpact
         ? 'flagship'
         : !highVolume && highImpact

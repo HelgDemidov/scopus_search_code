@@ -331,6 +331,9 @@
           "volumeFactory": "High volume",
           "peripheral": "Peripheral"
         }
+      },
+      "countryImpact": {
+        "title": "Country Impact"
       }
     }
   },

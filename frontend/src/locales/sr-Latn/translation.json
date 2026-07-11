@@ -341,6 +341,9 @@
           "volumeFactory": "Visok obim",
           "peripheral": "Periferni"
         }
+      },
+      "countryImpact": {
+        "title": "Uticaj po zemljama"
       }
     }
   },

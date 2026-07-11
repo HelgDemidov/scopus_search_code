@@ -39,6 +39,11 @@ const TopJournalsByCountryChart = lazy(() =>
 const JournalLandscapeScatterChart = lazy(() =>
   import('../components/explore/JournalLandscapeScatterChart').then(m => ({ default: m.JournalLandscapeScatterChart }))
 );
+// 5-й фикс-график (docs/impact-analytics/spec.md §2) — тот же принцип, что 4-й:
+// объём×impact, но по странам, без слайдера (данные из уже загруженного statsStore).
+const CountryImpactScatterChart = lazy(() =>
+  import('../components/explore/CountryImpactScatterChart').then(m => ({ default: m.CountryImpactScatterChart }))
+);
 // Table Builder (docs/explore-table-builder/spec.md §3) — заменяет удалённый
 // ChartBuilderPanel; тоже lazy, тот же принцип: не в основном чанке ExplorePage.
 const TableBuilderPanel = lazy(() =>
@@ -242,6 +247,11 @@ export default function ExplorePage() {
                     Top Countries by Year — типовой line-chart, каких много в любом
                     BI-туториале. Первая позиция = первая секунда внимания рекрутера. */}
                 <JournalLandscapeScatterChart />
+
+                {/* 5-й график (docs/impact-analytics/spec.md §2) — та же тема "impact",
+                    что и Journal Landscape выше, поэтому располагается сразу за ним,
+                    до сетки объём-ориентированных графиков ниже. */}
+                <CountryImpactScatterChart />
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <CountrySunburstChart />

@@ -58,6 +58,14 @@ export interface JournalCountryCount {
   count: number;
 }
 
+// Точка Country Impact Scatter (docs/impact-analytics/spec.md §2) — зеркало
+// JournalImpactPoint, без median_citations (обоснование — там же).
+export interface CountryImpactPoint {
+  country: string;
+  count: number;
+  mean_citations: number;
+}
+
 export interface StatsResponse {
   total_articles: number;
   total_journals: number;
@@ -73,6 +81,7 @@ export interface StatsResponse {
   by_year_top_countries: YearCountryCount[];
   sunburst_country_open_access: SunburstSegment[];
   top_journals_by_country: JournalCountryCount[];
+  country_impact: CountryImpactPoint[];
 }
 
 // ---------------------------------------------------------------------------
