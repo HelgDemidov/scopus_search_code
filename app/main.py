@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 import httpx
+import sentry_sdk
 import structlog
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -11,10 +12,12 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import settings
 from app.core.logging_config import REQUEST_ID_HEADER, RequestIDMiddleware, configure_logging
+from app.core.sentry_config import configure_sentry
 from app.routers import articles, auth, health, users
 from app.routers.seeder_router import router as seeder_router
 
 configure_logging()
+configure_sentry()
 logger = structlog.get_logger("app.error")
 
 
@@ -78,6 +81,9 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
         path=request.url.path,
         exc_info=(type(exc), exc, exc.__traceback__),
     )
+    # Явный capture — не полагаемся на автоинструментацию SDK поверх уже
+    # зарегистрированного кастомного exception_handler(Exception) (см. спеку §2)
+    sentry_sdk.capture_exception(exc)
     response = JSONResponse(status_code=500, content={"detail": "Internal server error"})
     if request_id:
         response.headers[REQUEST_ID_HEADER] = request_id

@@ -1,6 +1,7 @@
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isRouteErrorResponse, useRouteError } from 'react-router-dom';
+import * as Sentry from '@sentry/react';
 import { Button } from '../../components/ui/button';
 import { ErrorPanel } from '../../components/error/ErrorPanel';
 import { useLocalizedNavigate } from '../../hooks/useLocalizedNavigate';
@@ -31,6 +32,14 @@ export default function RouteErrorPage() {
 
   useBlackHole(BLACK_HOLE_POSITION);
   useBlackHoleMessageAnchor(panelRef);
+
+  useEffect(() => {
+    // Репортим только реальные JS-исключения — isRouteErrorResponse (404 и т.п.)
+    // это ожидаемая навигация, не баг (та же логика, что 422 не репортится на бэкенде)
+    if (error instanceof Error) {
+      Sentry.captureException(error);
+    }
+  }, [error]);
 
   const message = isRouteErrorResponse(error)
     ? `${error.status} ${error.statusText}`

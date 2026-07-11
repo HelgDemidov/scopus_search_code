@@ -63,6 +63,12 @@ class Settings(BaseSettings):
     # Если не задан — берется FRONTEND_URL как единственный origin
     ALLOWED_ORIGINS: str = ""
 
+    # 10. Sentry (Observability) — опционально, graceful degradation как Redis/Brevo
+    SENTRY_DSN: str | None = None
+    SENTRY_TRACES_SAMPLE_RATE: float = 1.0
+    # Автоматически подставляется Railway, локально не задана
+    RAILWAY_ENVIRONMENT_NAME: str = "local"
+
     @property
     def cors_origins(self) -> list[str]:
         # Читаем ALLOWED_ORIGINS; если пусто — используем FRONTEND_URL как фоллбэк

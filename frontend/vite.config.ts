@@ -1,12 +1,36 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { sentryVitePlugin } from '@sentry/vite-plugin'
 import path from 'path'
+
+// Source maps грузятся в Sentry только когда задан SENTRY_AUTH_TOKEN (Vercel:
+// только Production env) — тот же graceful-degradation паттерн, что Redis/Brevo
+// на бэкенде. Без токена: sourcemap:false, .map вообще не генерируются — CI
+// (frontend-tests.yml:build) и Preview-деплои остаются без остаточного риска
+// незапрошенных .map в dist/.
+const sentryEnabled = Boolean(process.env.SENTRY_AUTH_TOKEN)
 
 // НЕ импортируем @tailwindcss/vite — это плагин только для Tailwind v4;
 // в нашем проекте используется Tailwind v3 через PostCSS-пайплайн
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    // sentryVitePlugin() уже возвращает массив плагинов — spread без
+    // дополнительной обёртки в []
+    ...(sentryEnabled
+      ? sentryVitePlugin({
+          org: 'scopus-search',
+          project: 'scopus-react-frontend',
+          authToken: process.env.SENTRY_AUTH_TOKEN,
+          sourcemaps: {
+            // Аплоадим и сразу удаляем из dist/ — иначе исходники были бы
+            // публично скачиваемы с прод-домена
+            filesToDeleteAfterUpload: ['**/*.map'],
+          },
+        })
+      : []),
+  ],
 
   // Алиас @/ → src/ — используется в импортах вместо относительных путей
   resolve: {
@@ -28,6 +52,10 @@ export default defineConfig({
   },
 
   build: {
+    // 'hidden' — генерирует .map, но НЕ добавляет //# sourceMappingURL= в
+    // отданный бандл, браузер конечного пользователя их не подтягивает.
+    // false — без токена .map вообще не генерируются (CI/Preview)
+    sourcemap: sentryEnabled ? 'hidden' : false,
     // vendor-charts (Tremor + Recharts + D3) весит ~850 kB raw / 233 kB gzip —
     // это стабильный vendor-чанк, меняется только при обновлении библиотек,
     // а не при каждом деплое. Браузер кэширует его надолго. Порог поднят до
@@ -98,6 +126,7 @@ export default defineConfig({
         'src/pages/ResetPasswordPage.tsx',
         'src/pages/TermsPage.tsx',
         'src/seo/generateSitemapXml.ts',
+        'src/sentry.ts',
         'src/utils/localeRouting.ts',
         'src/stores/articleStore.ts',
         'src/stores/authStore.ts',

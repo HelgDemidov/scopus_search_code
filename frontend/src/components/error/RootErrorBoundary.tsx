@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from 'react';
 import type { ErrorInfo } from 'react';
+import * as Sentry from '@sentry/react';
 import blackHoleSnapshot from '../../assets/black-hole-pre-accretion-disk.webp';
 
 interface Props {
@@ -37,6 +38,9 @@ export class RootErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('[RootErrorBoundary] Fatal render error:', error, info.componentStack);
+    // React-боундари глотают ошибку — без явного вызова она не долетает до
+    // автозахвата SDK (window.onerror и т.п.)
+    Sentry.captureException(error, { contexts: { react: { componentStack: info.componentStack } } });
   }
 
   render() {

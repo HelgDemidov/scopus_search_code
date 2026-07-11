@@ -18,6 +18,7 @@
 // пропускаются без уведомления.
 
 import axios from 'axios';
+import * as Sentry from '@sentry/react';
 import { toast } from 'sonner';
 import i18n from '../i18n';
 import { getToken, setTokenValue } from '../stores/tokenStore';
@@ -163,6 +164,8 @@ apiClient.interceptors.response.use(
             }
           : undefined,
       });
+      // Та же корреляция, что backend §2: request_id тегом на Sentry-событии
+      Sentry.captureException(error, requestId ? { tags: { request_id: requestId } } : undefined);
       return Promise.reject(error);
     }
 

@@ -10,6 +10,7 @@ on:
       - feat/layout-responsive-foundation
       - feat/i18n-url-routing
       - feat/impact-analytics
+      - feat/observability-sentry
     # Запускаем только когда меняется frontend или сам воркфлоу
     paths:
       - 'frontend/**'
