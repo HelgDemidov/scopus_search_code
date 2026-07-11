@@ -187,8 +187,8 @@ jobs:
             src/App.integration.test.tsx \
             src/components/explore/KpiRow.integration.test.tsx
 
-      # Покрытие — все 179 тестов (unit + integration) против расширенного include.
-      # Порог statements=70 задан в vite.config.ts coverage.thresholds — упадёт здесь.
+      # Покрытие — все 799 тестов (unit + integration) против расширенного include.
+      # Порог statements=85 задан в vite.config.ts coverage.thresholds — упадёт здесь.
       - name: Collect coverage (all tests)
         run: npx vitest run --coverage
 

@@ -133,7 +133,7 @@ export default defineConfig({
         'src/stores/historyStore.ts',
       ],
       thresholds: {
-        statements: 70,
+        statements: 85,
       },
     },
   },
