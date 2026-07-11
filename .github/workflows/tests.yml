@@ -11,6 +11,7 @@ on:
       - feat/i18n-url-routing
       - feat/impact-analytics
       - feat/observability-sentry
+      - feat/ai-nl-pivot
 
   pull_request:
     branches:

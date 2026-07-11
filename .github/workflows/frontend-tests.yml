@@ -11,6 +11,7 @@ on:
       - feat/i18n-url-routing
       - feat/impact-analytics
       - feat/observability-sentry
+      - feat/ai-nl-pivot
     # Запускаем только когда меняется frontend или сам воркфлоу
     paths:
       - 'frontend/**'

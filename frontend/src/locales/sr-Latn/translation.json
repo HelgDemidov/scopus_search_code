@@ -315,7 +315,22 @@
       "emptyState": "Nema podataka za ovu kombinaciju.",
       "sparseWarning": "Malo rezultata za ovaj filter — probajte drugu vrijednost.",
       "marginalNote": "Zbirovi po redovima/kolonama odnose se na cijeli skup podataka, ne samo na prikazane ćelije.",
-      "pairTitle": "{{row}} × {{col}}"
+      "pairTitle": "{{row}} × {{col}}",
+      "manualMode": "Ručno",
+      "nlQuery": {
+        "aiMode": "Pitaj AI",
+        "heading": "Opišite tabelu koju želite",
+        "placeholder": "npr. „prosječan broj citata po tipu dokumenta i otvorenom pristupu“",
+        "submit": "Generiši",
+        "loading": "Razmišljam…",
+        "signInPrompt": "Prijavite se da biste koristili AI generisanje tabela.",
+        "error": {
+          "ambiguous": "Nismo razumjeli upit — probajte drugu formulaciju.",
+          "rateLimited": "Dostignut je dnevni limit AI upita — probajte kasnije.",
+          "unavailable": "AI funkcija je privremeno nedostupna.",
+          "generic": "Nešto je pošlo po zlu — probajte ponovo."
+        }
+      }
     },
     "crossCharts": {
       "topCountriesByYear": "Vodeće zemlje po godinama",

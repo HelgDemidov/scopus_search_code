@@ -6,6 +6,7 @@ import { useStatsStore } from '../../stores/statsStore';
 import { getPivot } from '../../api/stats';
 import { ChartCard } from '../charts/ChartCard';
 import { Button } from '../ui/button';
+import { NlPivotQueryForm } from './NlPivotQueryForm';
 import { PivotTable } from './PivotTable';
 import { ALL_PIVOT_DIMENSIONS, getSlicerOptions } from './tableBuilderData';
 import type { BuilderCard } from '../../stores/dashboardStore';
@@ -277,12 +278,22 @@ function AddTableForm({
 // TableBuilderPanel
 // ---------------------------------------------------------------------------
 
+// AI NL→pivot (docs/ai-nl-pivot/spec.md §4) — 2-й способ создать карточку рядом
+// с ручным AddTableForm, переключатель между ними, не замена.
+const tabClass = (active: boolean) =>
+  `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+    active
+      ? 'bg-blue-800 dark:bg-blue-500 text-white'
+      : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+  }`;
+
 export function TableBuilderPanel() {
   const { t } = useTranslation();
   const builderCards = useDashboardStore((s) => s.builderCards);
   const addBuilderCard = useDashboardStore((s) => s.addBuilderCard);
   const removeBuilderCard = useDashboardStore((s) => s.removeBuilderCard);
   const [isOpen, setIsOpen] = useState(false);
+  const [addMode, setAddMode] = useState<'manual' | 'ai'>('manual');
 
   function handleAdd(card: Omit<BuilderCard, 'id'>) {
     addBuilderCard(card);
@@ -312,7 +323,33 @@ export function TableBuilderPanel() {
       )}
 
       {isOpen ? (
-        <AddTableForm onAdd={handleAdd} onCancel={() => setIsOpen(false)} />
+        <div className="flex flex-col gap-3">
+          <div role="tablist" className="flex items-center gap-1 self-start rounded-lg bg-slate-100 dark:bg-slate-800 p-1">
+            <button
+              role="tab"
+              aria-selected={addMode === 'manual'}
+              type="button"
+              onClick={() => setAddMode('manual')}
+              className={tabClass(addMode === 'manual')}
+            >
+              {t('explore.tableBuilder.manualMode')}
+            </button>
+            <button
+              role="tab"
+              aria-selected={addMode === 'ai'}
+              type="button"
+              onClick={() => setAddMode('ai')}
+              className={tabClass(addMode === 'ai')}
+            >
+              {t('explore.tableBuilder.nlQuery.aiMode')}
+            </button>
+          </div>
+          {addMode === 'manual' ? (
+            <AddTableForm onAdd={handleAdd} onCancel={() => setIsOpen(false)} />
+          ) : (
+            <NlPivotQueryForm onAdd={handleAdd} onCancel={() => setIsOpen(false)} />
+          )}
+        </div>
       ) : (
         <button
           onClick={() => setIsOpen(true)}

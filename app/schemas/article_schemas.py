@@ -1,7 +1,7 @@
 from datetime import date
 from typing import List, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # Whitelist измерений Table Builder (docs/explore-table-builder/spec.md §3.1) — Literal
 # даёт FastAPI/Pydantic автоматическую 422-валидацию на уровне запроса, до того как
@@ -12,6 +12,49 @@ PivotDimension = Literal["year", "country", "doc_type", "journal", "open_access"
 # обратная совместимость) или avg(cited_by_count). Top-N отбор строк/столбцов всегда
 # по count независимо от metric (см. row_totals/col_totals в PivotResponse).
 PivotMetric = Literal["count", "avg_citations"]
+
+# Whitelist допустимых пар измерений Table Builder (docs/explore-table-builder/spec.md §3.1).
+# Перенесено из app/routers/articles.py (docs/ai-nl-pivot/spec.md §0-находка 3) — новому
+# сервисному слою (NlPivotQueryService) нужен тот же whitelist без обратной зависимости
+# services → routers. Порядок row/col внутри пары не важен — пользователь может поменять
+# оси местами.
+ALLOWED_PIVOT_PAIRS: frozenset[frozenset[str]] = frozenset(
+    {
+        frozenset({"year", "country"}),
+        frozenset({"year", "doc_type"}),
+        frozenset({"year", "open_access"}),
+        frozenset({"year", "journal"}),
+        frozenset({"country", "doc_type"}),
+        frozenset({"country", "open_access"}),
+        frozenset({"country", "journal"}),
+        frozenset({"doc_type", "open_access"}),
+        frozenset({"doc_type", "journal"}),
+        frozenset({"open_access", "journal"}),
+    }
+)
+
+
+def validate_pivot_pair(
+    row_dim: str,
+    col_dim: str,
+    filter_dim: str | None = None,
+    filter_value: str | None = None,
+) -> str | None:
+    """Общая валидация пары измерений Table Builder — переиспользуется GET /stats/pivot
+    (роутер) и NlPivotQueryService (LLM-парсинг NL-запроса, docs/ai-nl-pivot/spec.md §3).
+
+    Возвращает текст ошибки (для 422/400 у вызывающего) или None, если комбинация валидна.
+    """
+    if row_dim == col_dim:
+        return "row_dim и col_dim должны различаться"
+    if frozenset({row_dim, col_dim}) not in ALLOWED_PIVOT_PAIRS:
+        return f"Комбинация {row_dim}×{col_dim} не поддерживается"
+    if filter_dim is not None:
+        if filter_dim in (row_dim, col_dim):
+            return "filter_dim не может совпадать с row_dim/col_dim"
+        if filter_value is None:
+            return "filter_value обязателен, если задан filter_dim"
+    return None
 
 
 class ArticleResponse(BaseModel):
@@ -107,6 +150,36 @@ class PivotResponse(BaseModel):
     cell_counts: List[List[int]]
     row_totals: List[int]  # маржинальные суммы ДО обрезки top_n_cols (не сумма видимых ячеек)
     col_totals: List[int]  # маржинальные суммы ДО обрезки top_n_rows
+
+
+class PivotGroundingContext(BaseModel):
+    # Grounding-данные для LLM-промпта NL→pivot (docs/ai-nl-pivot/spec.md §2) — та же
+    # точность, что уже питает ручной slicer Table Builder (getSlicerOptions() на фронте,
+    # тот же источник — StatsResponse.by_country/by_doc_type/by_year). journal сознательно
+    # не грундится (13 502 уникальных значения) — LLM работает по best-effort свободным
+    # текстом на этом измерении (ограничение — docs/ai-nl-pivot/spec.md, «Вне скоупа»).
+    countries: List[str]
+    doc_types: List[str]
+    years: List[int]
+
+
+class NlPivotQueryRequest(BaseModel):
+    # POST /articles/stats/pivot/nl-query (docs/ai-nl-pivot/spec.md §3) — текст пользователя
+    # на естественном языке. Капы длины — токен-бюджет LLM-промпта и тривиальный барьер
+    # против prompt-injection payload'ов.
+    query: str = Field(min_length=3, max_length=300)
+
+
+class NlPivotQueryResponse(BaseModel):
+    # Ответ NL-эндпоинта — только валидированные параметры pivot (не сами данные): форма
+    # 1:1 совпадает с полями BuilderCard (минус id) для прямого addBuilderCard() на фронте
+    # без промежуточного маппинга. Пивот НЕ выполняется здесь (§3 спеки) — фактический
+    # GET /stats/pivot дёргает фронт после addBuilderCard().
+    row_dim: PivotDimension
+    col_dim: PivotDimension
+    filter_dim: PivotDimension | None = None
+    filter_value: str | None = None
+    metric: PivotMetric = "count"
 
 
 class StatsResponse(BaseModel):

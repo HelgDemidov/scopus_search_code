@@ -14,6 +14,7 @@ from app.core.security import decode_access_token, oauth2_scheme
 from app.infrastructure.database import async_session_maker
 from app.infrastructure.database import engine as _lock_engine
 from app.infrastructure.email_service import BrevoEmailService
+from app.infrastructure.openrouter_pivot_parser import OpenRouterPivotParser
 from app.infrastructure.postgres_article_repo import PostgresArticleRepository
 from app.infrastructure.postgres_catalog_repo import PostgresCatalogRepository
 from app.infrastructure.postgres_search_history_repo import PostgresSearchHistoryRepository
@@ -22,9 +23,11 @@ from app.infrastructure.postgres_user_repo import PostgresUserRepository
 from app.infrastructure.redis_client import redis_client as _redis_client
 from app.infrastructure.scopus_client import ScopusHTTPClient
 from app.interfaces.email_service import IEmailService
+from app.interfaces.nl_pivot_parser import INlPivotParser
 from app.models.user import User
 from app.services.article_service import ArticleService
 from app.services.catalog_service import CatalogService
+from app.services.nl_pivot_query_service import NlPivotQueryService
 from app.services.search_history_service import SearchHistoryService
 from app.services.search_service import SearchService
 from app.services.user_service import UserService
@@ -203,6 +206,17 @@ async def _real_advisory_lock(user_id: int) -> AsyncGenerator[None, None]:
 
 def get_email_service() -> IEmailService:
     return BrevoEmailService()
+
+
+def get_nl_pivot_parser() -> INlPivotParser:
+    return OpenRouterPivotParser()
+
+
+def get_nl_pivot_query_service(
+    catalog_service: CatalogService = Depends(get_catalog_service),
+    parser: INlPivotParser = Depends(get_nl_pivot_parser),
+) -> NlPivotQueryService:
+    return NlPivotQueryService(parser=parser, catalog_service=catalog_service)
 
 
 def get_advisory_lock_factory() -> Callable[[int], Any]:
