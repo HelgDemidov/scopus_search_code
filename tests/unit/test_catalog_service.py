@@ -12,6 +12,7 @@ from app.interfaces.catalog_repository import ICatalogRepository
 from app.models.article import Article
 from app.schemas.article_schemas import (
     CountByField,
+    CountryImpactPoint,
     JournalCountryCount,
     JournalImpactPoint,
     PaginatedArticleResponse,
@@ -141,6 +142,7 @@ class FakeCatalogRepository(ICatalogRepository):
             "by_year_top_countries": [{"year": 2025, "country": "USA", "count": 18}],
             "sunburst_country_open_access": [{"country": "USA", "open_access": True, "count": 9}],
             "top_journals_by_country": [{"journal": "Nature", "country": "USA", "count": 6}],
+            "country_impact": [{"country": "USA", "count": 30, "mean_citations": 12.5}],
         }
 
     async def get_journal_impact(self, max_year: int) -> list[dict]:
@@ -233,6 +235,7 @@ def _minimal_stats_response() -> StatsResponse:
         by_year_top_countries=[YearCountryCount(year=2025, country="USA", count=18)],
         sunburst_country_open_access=[SunburstSegment(country="USA", open_access=True, count=9)],
         top_journals_by_country=[JournalCountryCount(journal="Nature", country="USA", count=6)],
+        country_impact=[CountryImpactPoint(country="USA", count=30, mean_citations=12.5)],
     )
 
 
@@ -489,6 +492,18 @@ async def test_get_stats_maps_top_keywords():
     assert len(result.top_keywords) == 1
     assert result.top_keywords[0].label == "deep learning"
     assert result.top_keywords[0].count == 12
+
+
+@pytest.mark.asyncio
+async def test_get_stats_maps_country_impact():
+    svc, _, _, _ = _mk_service()
+
+    result = await svc.get_stats()
+
+    assert len(result.country_impact) == 1
+    assert result.country_impact[0].country == "USA"
+    assert result.country_impact[0].count == 30
+    assert result.country_impact[0].mean_citations == 12.5
 
 
 @pytest.mark.asyncio

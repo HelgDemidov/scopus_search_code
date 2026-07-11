@@ -84,7 +84,8 @@ class ICatalogRepository(ABC):
         Поля ответа: total_articles, total_journals, total_countries, total_authors,
         open_access_count, by_year, by_journal, by_country, by_doc_type, top_keywords, top_authors,
         by_year_top_countries, sunburst_country_open_access, top_journals_by_country
-        (кросс-агрегаты для стационарных графиков /explore, docs/explore-cross-analytics/spec.md §2).
+        (кросс-агрегаты для стационарных графиков /explore, docs/explore-cross-analytics/spec.md §2),
+        country_impact (топ-20 стран × avg(cited_by_count), docs/impact-analytics/spec.md §2).
         """
         pass
 

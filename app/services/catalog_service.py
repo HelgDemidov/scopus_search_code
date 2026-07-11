@@ -13,6 +13,7 @@ from app.models.article import Article
 from app.schemas.article_schemas import (
     ArticleResponse,
     CountByField,
+    CountryImpactPoint,
     JournalCountryCount,
     JournalImpactPoint,
     PaginatedArticleResponse,
@@ -202,6 +203,10 @@ class CatalogService:
             top_journals_by_country=[
                 JournalCountryCount(journal=r["journal"], country=r["country"], count=r["count"])
                 for r in raw["top_journals_by_country"]
+            ],
+            country_impact=[
+                CountryImpactPoint(country=r["country"], count=r["count"], mean_citations=r["mean_citations"])
+                for r in raw["country_impact"]
             ],
         )
 

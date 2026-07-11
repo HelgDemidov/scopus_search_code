@@ -1,7 +1,8 @@
 """Интеграционные тесты кросс-агрегатов GET /articles/stats (SQLite, без requires_pg).
 
-Покрывает 3 новых поля StatsResponse из docs/explore-cross-analytics/spec.md §2:
-by_year_top_countries, sunburst_country_open_access, top_journals_by_country.
+Покрывает 3 поля StatsResponse из docs/explore-cross-analytics/spec.md §2:
+by_year_top_countries, sunburst_country_open_access, top_journals_by_country,
+плюс country_impact из docs/impact-analytics/spec.md §2 (Country Impact Scatter).
 Запросы используют только .in_()/case()/extract() без func.lower() — в отличие
 от test_stats_filtered.py (requires_pg), здесь SQLite-совместимость не проблема.
 """
@@ -62,6 +63,7 @@ async def _seed(session: AsyncSession, articles: list[dict]) -> None:
                 affiliation_country=data.get("affiliation_country"),
                 document_type=data.get("document_type", "Article"),
                 open_access=data.get("open_access", False),
+                cited_by_count=data.get("cited_by_count", 0),
             )
         )
     await session.flush()
@@ -212,7 +214,43 @@ async def test_top_journals_by_country_buckets_country_outside_top5_as_other(
 
 
 # ---------------------------------------------------------------------------
-# Пустой каталог — все 3 новых поля пустые списки, без ошибок
+# country_impact (docs/impact-analytics/spec.md §2) — Country Impact Scatter
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_country_impact_order_matches_by_country_top20(client: AsyncClient, db_session: AsyncSession):
+    """country_impact — тот же top-20-по-объёму набор и порядок, что by_country."""
+    articles: list[dict] = []
+    for idx, country in enumerate(["C1", "C2", "C3"]):
+        articles += _repeat(10 - idx, affiliation_country=country, cited_by_count=5)
+    await _seed(db_session, articles)
+
+    resp = await client.get("/articles/stats")
+    data = resp.json()
+
+    by_country_order = [r["label"] for r in data["by_country"]]
+    country_impact_order = [r["country"] for r in data["country_impact"]]
+    assert country_impact_order == by_country_order
+
+
+@pytest.mark.asyncio
+async def test_country_impact_computes_mean_citations(client: AsyncClient, db_session: AsyncSession):
+    articles = _repeat(2, affiliation_country="USA", cited_by_count=10)
+    articles += _repeat(1, affiliation_country="USA", cited_by_count=40)
+    await _seed(db_session, articles)
+
+    resp = await client.get("/articles/stats")
+    data = resp.json()
+
+    usa = next(r for r in data["country_impact"] if r["country"] == "USA")
+    # (10 + 10 + 40) / 3 = 20.0
+    assert usa["mean_citations"] == pytest.approx(20.0)
+    assert usa["count"] == 3
+
+
+# ---------------------------------------------------------------------------
+# Пустой каталог — все 4 поля пустые списки, без ошибок
 # ---------------------------------------------------------------------------
 
 
@@ -225,3 +263,4 @@ async def test_empty_catalog_returns_empty_cross_analytics_lists(client: AsyncCl
     assert data["by_year_top_countries"] == []
     assert data["sunburst_country_open_access"] == []
     assert data["top_journals_by_country"] == []
+    assert data["country_impact"] == []

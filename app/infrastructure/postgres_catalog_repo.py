@@ -272,11 +272,16 @@ class PostgresCatalogRepository(ICatalogRepository):
         # Распределение по странам — аналогично материализуем для переиспользования
         # топ-5/топ-10 label'ов в 3 кросс-агрегатах ниже (garantируем, что топ-N
         # везде на странице совпадает — см. docs/explore-cross-analytics/spec.md §2.2)
+        # mean_citations — для Country Impact Scatter (docs/impact-analytics/spec.md §2.1).
+        # Без HAVING count>=N и без медианы (в отличие от get_journal_impact) — top-20 стран
+        # по объёму на ~140k-статейной коллекции гарантированно имеют N в тысячах, риска
+        # "выброс с N=1 наверху" здесь нет.
         by_country_rows = (
             await self.session.execute(
                 select(
                     catalog_articles_q.c.affiliation_country,
                     func.count().label("count"),
+                    func.avg(catalog_articles_q.c.cited_by_count).label("mean_citations"),
                 )
                 .select_from(catalog_articles_q)
                 .where(catalog_articles_q.c.affiliation_country.isnot(None))
@@ -407,6 +412,14 @@ class PostgresCatalogRepository(ICatalogRepository):
             "top_journals_by_country": [
                 {"journal": r.journal, "country": r.country_bucket, "count": r.count}
                 for r in top_journals_by_country_rows
+            ],
+            "country_impact": [
+                {
+                    "country": r.affiliation_country,
+                    "count": r.count,
+                    "mean_citations": float(r.mean_citations or 0),
+                }
+                for r in by_country_rows
             ],
         }
 

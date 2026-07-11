@@ -81,6 +81,16 @@ class JournalImpactPoint(BaseModel):
     median_citations: float
 
 
+class CountryImpactPoint(BaseModel):
+    # Точка Country Impact Scatter (docs/impact-analytics/spec.md §2) — зеркало
+    # JournalImpactPoint, но без median_citations: top-20 стран по объёму (см.
+    # postgres_catalog_repo) гарантированно имеют N в тысячах, риск "выброс с N=1
+    # наверху" (ради которого на journal-уровне вводилась медиана) здесь отсутствует.
+    country: str
+    count: int
+    mean_citations: float
+
+
 class PivotResponse(BaseModel):
     # Ответ Table Builder — 2D pivot по 2 из 5 whitelisted измерений, опционально
     # суженный slicer'ом (3-е измерение как фильтр, не ось — docs/explore-table-builder/spec.md §3).
@@ -117,6 +127,7 @@ class StatsResponse(BaseModel):
     by_year_top_countries: List[YearCountryCount]  # Топ-10 стран × год
     sunburst_country_open_access: List[SunburstSegment]  # Топ-5 стран × Open Access
     top_journals_by_country: List[JournalCountryCount]  # Топ-10 журналов × топ-5 стран
+    country_impact: List[CountryImpactPoint]  # Топ-20 стран × avg(cited_by_count) — Country Impact Scatter
 
 
 class SearchStatsResponse(BaseModel):
