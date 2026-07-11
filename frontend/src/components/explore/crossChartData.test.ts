@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { buildRawGroups, computeImpactQuadrants, pivotJournalCountryData } from './crossChartData';
+import {
+  buildRawGroups,
+  computeImpactQuadrants,
+  computeLogAxisTicks,
+  padLinearDomain,
+  padLogDomain,
+  pivotJournalCountryData,
+} from './crossChartData';
 import type { CountryImpactPoint, JournalImpactPoint } from '../../types/api';
 
 // ---------------------------------------------------------------------------
@@ -183,5 +190,81 @@ describe('computeImpactQuadrants', () => {
     const { points } = computeImpactQuadrants(data);
     const usa = points.find((p) => p.country === 'USA')!;
     expect(usa.quadrant).toBe('flagship');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// padLogDomain / padLinearDomain (docs/impact-analytics/spec.md — отступ по
+// краям scatter-графиков, чтобы экстремальные датапоинты не обрезались клипом
+// plot area в полукруг)
+// ---------------------------------------------------------------------------
+
+describe('padLogDomain', () => {
+  it('расширяет [min, max] множителем в обе стороны (лог-пространство)', () => {
+    const [lo, hi] = padLogDomain(100, 1000);
+    expect(lo).toBeLessThan(100);
+    expect(hi).toBeGreaterThan(1000);
+  });
+
+  it('множитель симметричен в лог-пространстве (одинаковый ratio к границе с обеих сторон)', () => {
+    const [lo, hi] = padLogDomain(100, 1000);
+    expect(100 / lo).toBeCloseTo(hi / 1000, 5);
+  });
+
+  it('min <= 0 не делит на 0 — возвращает min как есть, паддит только max', () => {
+    const [lo, hi] = padLogDomain(0, 5);
+    expect(lo).toBe(0);
+    expect(hi).toBeGreaterThan(5);
+  });
+});
+
+describe('padLinearDomain', () => {
+  it('расширяет [min, max] на долю диапазона в обе стороны', () => {
+    const [lo, hi] = padLinearDomain(100, 200);
+    expect(lo).toBeLessThan(100);
+    expect(hi).toBeGreaterThan(200);
+    // симметрично: одинаковый абсолютный отступ с обеих сторон для линейной шкалы
+    expect(100 - lo).toBeCloseTo(hi - 200, 5);
+  });
+
+  it('min === max (единственная точка) не даёт нулевой отступ', () => {
+    const [lo, hi] = padLinearDomain(50, 50);
+    expect(lo).toBeLessThan(50);
+    expect(hi).toBeGreaterThan(50);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeLogAxisTicks (docs/impact-analytics/spec.md — гарантирует подпись
+// строго на min/max выборки, даже когда домен растянут на много порядков)
+// ---------------------------------------------------------------------------
+
+describe('computeLogAxisTicks', () => {
+  it('пустой массив → пустой список тиков', () => {
+    expect(computeLogAxisTicks([])).toEqual([]);
+  });
+
+  it('всегда включает min и max выборки', () => {
+    const ticks = computeLogAxisTicks([1225, 3360, 4862, 55232]);
+    expect(ticks[0]).toBe(1225);
+    expect(ticks[ticks.length - 1]).toBe(55232);
+  });
+
+  it('добавляет "круглые" промежуточные тики (1/2/5 × 10^n) между min и max', () => {
+    const ticks = computeLogAxisTicks([120, 8000]);
+    expect(ticks).toContain(200);
+    expect(ticks).toContain(500);
+    expect(ticks).toContain(1000);
+    expect(ticks).toContain(5000);
+  });
+
+  it('одно уникальное значение — единственный тик, без дублей', () => {
+    expect(computeLogAxisTicks([42, 42])).toEqual([42]);
+  });
+
+  it('тики отсортированы по возрастанию без дублей', () => {
+    const ticks = computeLogAxisTicks([1000, 2000, 3000]);
+    expect(ticks).toEqual([...ticks].sort((a, b) => a - b));
+    expect(new Set(ticks).size).toBe(ticks.length);
   });
 });

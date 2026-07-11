@@ -18,7 +18,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { ChartCard } from '../charts/ChartCard';
 import { AXIS_COLORS, formatCount } from '../charts/chartColors';
 import { Slider } from '../ui/slider';
-import { computeImpactQuadrants } from './crossChartData';
+import { computeImpactQuadrants, padLinearDomain, padLogDomain } from './crossChartData';
 import type { ImpactQuadrant } from './crossChartData';
 import type { JournalImpactPoint } from '../../types/api';
 
@@ -153,6 +153,17 @@ export function JournalLandscapeScatterChart() {
 
   const { points, medianCount, medianMean } = computeImpactQuadrants(data);
 
+  // Отступ по краям (docs/impact-analytics/spec.md) — без него журналы на экстремумах
+  // выборки (мин/макс count и plotMean) сидят ровно на границе plot area и обрезаются
+  // Recharts-клипом в полукруг. X — линейная шкала (доля диапазона), Y — лог (множитель,
+  // см. padLogDomain/padLinearDomain в crossChartData.ts).
+  const xValues = points.map((p) => p.count);
+  const yValues = points.map((p) => p.plotMean);
+  const xDomain: [number, number] | ['auto', 'auto'] =
+    xValues.length > 0 ? padLinearDomain(Math.min(...xValues), Math.max(...xValues)) : ['auto', 'auto'];
+  const yDomain: [number, number] | ['auto', 'auto'] =
+    yValues.length > 0 ? padLogDomain(Math.min(...yValues), Math.max(...yValues)) : ['auto', 'auto'];
+
   return (
     <ChartCard
       title={t('explore.crossCharts.journalImpact.title')}
@@ -175,6 +186,8 @@ export function JournalLandscapeScatterChart() {
             <XAxis
               type="number"
               dataKey="count"
+              domain={xDomain}
+              allowDataOverflow
               tick={{ fontSize: 11, fill: axis.tickMuted }}
               tickLine={false}
               axisLine={false}
@@ -191,7 +204,7 @@ export function JournalLandscapeScatterChart() {
               type="number"
               dataKey="plotMean"
               scale="log"
-              domain={['auto', 'auto']}
+              domain={yDomain}
               tick={{ fontSize: 11, fill: axis.tickMuted }}
               tickLine={false}
               axisLine={false}

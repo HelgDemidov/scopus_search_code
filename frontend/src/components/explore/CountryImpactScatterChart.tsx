@@ -18,7 +18,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { ChartCard } from '../charts/ChartCard';
 import { AXIS_COLORS, formatCount } from '../charts/chartColors';
 import { getLabelMaps } from '../../constants/labelTranslations';
-import { computeImpactQuadrants } from './crossChartData';
+import { computeImpactQuadrants, computeLogAxisTicks, padLogDomain } from './crossChartData';
 import type { ImpactQuadrant } from './crossChartData';
 import type { CountryImpactPoint } from '../../types/api';
 
@@ -111,6 +111,22 @@ export function CountryImpactScatterChart() {
   const data = useMemo(() => stats?.country_impact ?? [], [stats]);
   const { points, medianCount, medianMean } = useMemo(() => computeImpactQuadrants(data), [data]);
 
+  // Отступ по краям + явные тики на X (docs/impact-analytics/spec.md) — без них
+  // Китай (на порядок больше следующей страны) сидит ровно на границе plot area
+  // и обрезается в полукруг, а подпись на самом экстремальном тике не гарантирована
+  // (см. padLogDomain/computeLogAxisTicks в crossChartData.ts).
+  const xValues = useMemo(() => points.map((p) => p.count), [points]);
+  const yValues = useMemo(() => points.map((p) => p.plotMean), [points]);
+  const xDomain = useMemo<[number, number] | ['auto', 'auto']>(
+    () => (xValues.length > 0 ? padLogDomain(Math.min(...xValues), Math.max(...xValues)) : ['auto', 'auto']),
+    [xValues],
+  );
+  const yDomain = useMemo<[number, number] | ['auto', 'auto']>(
+    () => (yValues.length > 0 ? padLogDomain(Math.min(...yValues), Math.max(...yValues)) : ['auto', 'auto']),
+    [yValues],
+  );
+  const xTicks = useMemo(() => computeLogAxisTicks(xValues), [xValues]);
+
   return (
     <ChartCard
       title={t('explore.crossCharts.countryImpact.title')}
@@ -138,7 +154,8 @@ export function CountryImpactScatterChart() {
             // count всегда > 0 (top-20 стран по объёму) — floor-хак, как у Y/plotMean
             // для mean_citations=0, здесь не нужен.
             scale="log"
-            domain={['auto', 'auto']}
+            domain={xDomain}
+            ticks={xTicks}
             allowDataOverflow
             tick={{ fontSize: 11, fill: axis.tickMuted }}
             tickLine={false}
@@ -156,12 +173,12 @@ export function CountryImpactScatterChart() {
             type="number"
             dataKey="plotMean"
             scale="log"
-            domain={['auto', 'auto']}
+            domain={yDomain}
+            allowDataOverflow
             tick={{ fontSize: 11, fill: axis.tickMuted }}
             tickLine={false}
             axisLine={false}
             width={44}
-            allowDataOverflow
             label={{
               value: t('explore.crossCharts.journalImpact.yAxisLabel'),
               angle: -90,

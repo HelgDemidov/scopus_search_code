@@ -146,3 +146,54 @@ export function computeImpactQuadrants<T extends { count: number; mean_citations
 
   return { points, medianCount, medianMean: Math.max(medianMean, LOG_SCALE_FLOOR) };
 }
+
+// ---------------------------------------------------------------------------
+// Отступ по краям оси scatter-графиков (JournalLandscapeScatterChart/
+// CountryImpactScatterChart) — без него датапоинты на экстремумах (мин/макс
+// выборки) оказываются ровно на границе plot area и обрезаются в полукруг
+// SVG-клипом Recharts. Две версии — множитель для лог-шкалы (постоянный
+// зазор в лог-пространстве вне зависимости от масштаба значений) и доля
+// диапазона для линейной (абсолютное число выглядело бы то избыточным, то
+// недостаточным на разных масштабах данных).
+// ---------------------------------------------------------------------------
+
+const LOG_DOMAIN_PAD_FACTOR = 1.1;
+const LINEAR_DOMAIN_PAD_RATIO = 0.08;
+
+export function padLogDomain(min: number, max: number): [number, number] {
+  if (min <= 0) return [min, max * LOG_DOMAIN_PAD_FACTOR]; // лог-шкала не принимает <= 0 — не делить на 0
+  return [min / LOG_DOMAIN_PAD_FACTOR, max * LOG_DOMAIN_PAD_FACTOR];
+}
+
+export function padLinearDomain(min: number, max: number): [number, number] {
+  const range = max - min;
+  const pad = range > 0 ? range * LINEAR_DOMAIN_PAD_RATIO : Math.abs(min || 1) * LINEAR_DOMAIN_PAD_RATIO;
+  return [min - pad, max + pad];
+}
+
+// ---------------------------------------------------------------------------
+// Явные тики для лог-оси X CountryImpactScatterChart (docs/impact-analytics/
+// spec.md) — без них Recharts не гарантированно ставит подпись на самом
+// экстремальном датапоинте (домен растянут на много порядков: Китай на
+// порядок опережает следующую страну). min/max выборки — ВСЕГДА в списке, это
+// и есть цель: подпись строго на границах данных, плюс "круглые" промежуточные
+// значения (1/2/5 × 10^n) для читаемости между ними.
+// ---------------------------------------------------------------------------
+
+export function computeLogAxisTicks(values: number[]): number[] {
+  if (values.length === 0) return [];
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  if (min <= 0 || min === max) return [...new Set([min, max])];
+
+  const ticks = new Set<number>([min, max]);
+  const minExp = Math.floor(Math.log10(min));
+  const maxExp = Math.ceil(Math.log10(max));
+  for (let exp = minExp; exp <= maxExp; exp++) {
+    for (const mult of [1, 2, 5]) {
+      const value = mult * 10 ** exp;
+      if (value > min && value < max) ticks.add(value);
+    }
+  }
+  return [...ticks].sort((a, b) => a - b);
+}
