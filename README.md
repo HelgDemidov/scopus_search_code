@@ -41,8 +41,9 @@ GitHub Actions ──► db_seeder (cron, every 2 h)
 | **Backend** | Python 3.12, FastAPI, SQLAlchemy 2.0 async, Alembic, Pydantic v2, httpx, Authlib | Railway |
 | **Database** | PostgreSQL 17 (Supabase), Session Pooler | Supabase (eu-west-1) |
 | **Cache** | Upstash Redis (HTTPS REST, TTL 60 s) — `GET /articles/stats` response cache | Upstash |
-| **CI/CD** | GitHub Actions — backend (`tests.yml`: pytest · ruff · mypy · alembic check · 80% coverage), frontend (`frontend-tests.yml`: Vitest · ESLint · tsc · 70% coverage · build), staging E2E (`e2e.yml`) | GitHub |
+| **CI/CD** | GitHub Actions — backend (`tests.yml`: pytest · ruff · mypy · alembic check · 80% coverage), frontend (`frontend-tests.yml`: Vitest · ESLint · tsc · 85% coverage · build), staging E2E (`e2e.yml`) | GitHub |
 | **Seeder** | Python + httpx + asyncpg + OpenRouter LLM | GitHub Actions (cron, every 2 h) |
+| **Observability** | Structured JSON logging (`structlog`) + Sentry (errors, performance tracing, source maps) — backend and frontend | Sentry (Developer, free tier) |
 
 ---
 
@@ -189,16 +190,16 @@ Supabase connection via `asyncpg` with `statement_cache_size=0` (required for Pg
 
 ## Testing
 
-**Backend:** 286 tests (`pytest` + `pytest-asyncio`), all green, across three layers:
+**Backend:** 295 tests (`pytest` + `pytest-asyncio`), all green, across three layers:
 
 | Layer | Tests | What it covers |
 |---|---|---|
-| Unit (SQLite, mocked) | 113 | Services (article, catalog, search, user), Scopus client, interface contracts, seeder router, Redis cache |
-| Integration (SQLite) | 150 | Full HTTP stack: auth, articles, search history, password reset, RT lifecycle, seeder endpoint |
+| Unit (SQLite, mocked) | 119 | Services (article, catalog, search, user), Scopus client, interface contracts, seeder router, Redis cache, Sentry config |
+| Integration (SQLite) | 153 | Full HTTP stack: auth, articles, search history, password reset, RT lifecycle, seeder endpoint, observability/Sentry capture |
 | Integration (PG) | 23 | `pg_advisory_xact_lock` concurrency; requires `DATABASE_TEST_URL` (throwaway PG, never Supabase) |
 | E2E (Staging) | — | Real Railway + Supabase staging; auto-skipped without `E2E_BASE_URL` |
 
-**Frontend:** 782 tests (`Vitest` + Testing Library), all green; statements coverage 85.9% (threshold: 70%).
+**Frontend:** 799 tests (`Vitest` + Testing Library), all green; statements coverage 86.2% (threshold: 85%).
 
 <details>
 <summary>Running the tests</summary>
@@ -307,6 +308,7 @@ npm run dev
 Frontend environment variables go in `frontend/.env.local`:
 ```
 VITE_API_BASE_URL=http://localhost:8000
+VITE_SENTRY_DSN=https://<key>@<org-id>.ingest.<region>.sentry.io/<project-id>
 ```
 
 </details>
@@ -333,6 +335,8 @@ VITE_API_BASE_URL=http://localhost:8000
 | `FROM_EMAIL` | Sender address used by Brevo |
 | `UPSTASH_REDIS_REST_URL` | Upstash Redis HTTPS endpoint (stats response cache; optional) |
 | `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST API token (optional) |
+| `SENTRY_DSN` | Sentry backend project DSN (errors + tracing; optional, SDK is inert without it) |
+| `SENTRY_TRACES_SAMPLE_RATE` | Sentry performance tracing sample rate, 0.0-1.0 (default 1.0) |
 
 > **Before publishing:** scan the README and `.env.example` for real domains, email addresses, tokens, and any secret-like strings — replace all such values with neutral placeholders.
 
