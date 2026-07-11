@@ -68,11 +68,12 @@ export function RootLayout() {
   const location = useLocation();
 
   useEffect(() => {
+    // Только pathname, без location.search — /reset-password?token=... не должен
+    // утекать ни в GA (page_path), ни в локальный breadcrumb-буфер "Report this issue"
     if (typeof window.gtag === 'function') {
-      window.gtag('event', 'page_view', { page_path: location.pathname + location.search });
+      window.gtag('event', 'page_view', { page_path: location.pathname });
     }
-    // Breadcrumb для "Report this issue" на error-страницах (docs/error-experience/spec.md)
-    recordBreadcrumb(location.pathname + location.search);
+    recordBreadcrumb(location.pathname);
   }, [location]);
 
   return (
