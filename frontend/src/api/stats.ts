@@ -6,7 +6,7 @@
 
 import { apiClient } from './client';
 import type { ActiveSelection } from '../stores/dashboardStore';
-import type { JournalImpactPoint, PivotDimension, PivotResponse, StatsResponse } from '../types/api';
+import type { JournalImpactPoint, PivotDimension, PivotMetric, PivotResponse, StatsResponse } from '../types/api';
 
 export async function getStats(): Promise<StatsResponse> {
   const response = await apiClient.get<StatsResponse>('/articles/stats');
@@ -34,6 +34,7 @@ export interface PivotParams {
   topNCols?: number;
   filterDim?: PivotDimension;
   filterValue?: string;
+  metric?: PivotMetric;
 }
 
 export async function getPivot(params: PivotParams, signal?: AbortSignal): Promise<PivotResponse> {
@@ -45,6 +46,7 @@ export async function getPivot(params: PivotParams, signal?: AbortSignal): Promi
       top_n_cols: params.topNCols,
       filter_dim: params.filterDim,
       filter_value: params.filterValue,
+      metric: params.metric,
     },
     signal,
   });

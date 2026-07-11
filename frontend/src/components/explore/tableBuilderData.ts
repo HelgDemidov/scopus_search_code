@@ -3,8 +3,9 @@
 // принцип, что crossChartData.ts: бизнес-логика тестируется полностью, JSX — лёгким
 // smoke-тестом).
 
-import type { LabelCount, PivotDimension, PivotResponse, StatsResponse } from '../../types/api';
+import type { LabelCount, PivotDimension, PivotMetric, PivotResponse, StatsResponse } from '../../types/api';
 import { getLabelMaps } from '../../constants/labelTranslations';
+import { formatCount } from '../charts/chartColors';
 
 export const ALL_PIVOT_DIMENSIONS: PivotDimension[] = [
   'year',
@@ -71,17 +72,25 @@ export function getSlicerOptions(
   return sorted.map((d) => ({ value: d.label, label: formatPivotLabel(dim, d.label, lang) }));
 }
 
-// Непустых ячеек в матрице — предупреждение "результат вырожден" при слишком
-// узком slicer'е (spec.md §3.2: "UI должен предупреждать, если результат
-// вырождается (< 5 непустых ячеек)").
-export function countNonEmptyCells(matrix: number[][]): number {
+// Непустых ячеек — предупреждение "результат вырожден" при слишком узком slicer'е
+// (spec.md §3.2: "UI должен предупреждать, если результат вырождается (< 5 непустых
+// ячеек)"). Принимает cell_counts, НЕ matrix (docs/impact-analytics/spec.md §1.2) —
+// при metric='avg_citations' matrix[i][j]==0 легитимен ("avg=0"), а cell_counts==0
+// однозначно значит "нет статей в этой ячейке".
+export function countNonEmptyCells(cellCounts: number[][]): number {
   let n = 0;
-  for (const row of matrix) {
+  for (const row of cellCounts) {
     for (const cell of row) {
       if (cell > 0) n++;
     }
   }
   return n;
+}
+
+// Форматирование значения ячейки под выбранную метрику (UI, локале-зависимое —
+// не использовать для CSV, где thousands-separator ломает численный импорт).
+export function formatMetricValue(metric: PivotMetric, value: number): string {
+  return metric === 'avg_citations' ? value.toFixed(1) : formatCount(value);
 }
 
 // ---------------------------------------------------------------------------
@@ -101,10 +110,13 @@ function escapeCsvField(value: string): string {
 /**
  * `colLabels`/`totalLabel` передаются уже переведёнными (вызывающая сторона
  * знает текущий язык) — функция остаётся чистой и не зависит от react-i18next.
- * Итог правого-нижнего угла — сумма реально показанных ячеек матрицы, а не
- * сумма row_totals/col_totals: те считаются по ПОЛНОЙ выборке для каждой оси
- * независимо (маржинально, до пересечения друг с другом, см. spec.md §3.3),
- * поэтому их сумма расходится и не является осмысленным "grand total".
+ * Итог правого-нижнего угла — сумма cell_counts (article count), НЕ сумма ячеек
+ * matrix: при metric='avg_citations' суммировать средние статистически
+ * бессмысленно (docs/impact-analytics/spec.md §1.2); при metric='count' даёт то
+ * же число, что и раньше (matrix совпадает с cell_counts поячеечно).
+ * Значения ячеек в CSV — "сырые" числа без locale-разделителей (formatCount
+ * добавляет запятые, которые ломают численный импорт CSV): count → String(n),
+ * avg_citations → toFixed(1).
  */
 export function pivotToCsv(
   data: PivotResponse,
@@ -114,12 +126,14 @@ export function pivotToCsv(
 ): string {
   const header = [rowDimLabel, ...colLabels, totalLabel].map(escapeCsvField).join(',');
 
+  const formatCell = (v: number): string => (data.metric === 'avg_citations' ? v.toFixed(1) : String(v));
+
   const rows = data.row_labels.map((label, i) => {
-    const cells = [label, ...data.matrix[i].map(String), String(data.row_totals[i])];
+    const cells = [label, ...data.matrix[i].map(formatCell), String(data.row_totals[i])];
     return cells.map(escapeCsvField).join(',');
   });
 
-  const grandTotal = data.matrix.reduce((sum, row) => sum + row.reduce((rowSum, c) => rowSum + c, 0), 0);
+  const grandTotal = data.cell_counts.reduce((sum, row) => sum + row.reduce((rowSum, c) => rowSum + c, 0), 0);
   const footer = [totalLabel, ...data.col_totals.map(String), String(grandTotal)]
     .map(escapeCsvField)
     .join(',');

@@ -92,13 +92,22 @@ export interface JournalImpactPoint {
 // (нет ORCID, риск ложной агрегации по однофамильцам).
 export type PivotDimension = 'year' | 'country' | 'doc_type' | 'journal' | 'open_access';
 
+// Метрика ячейки Table Builder (docs/impact-analytics/spec.md §1.2) — синхронизировано
+// с app.schemas.article_schemas.PivotMetric.
+export type PivotMetric = 'count' | 'avg_citations';
+
 // GET /articles/stats/pivot — 2D pivot по 2 измерениям + опциональный slicer
 export interface PivotResponse {
   row_dim: PivotDimension;
   col_dim: PivotDimension;
+  metric: PivotMetric;
   row_labels: string[];
   col_labels: string[];
+  // Значение В ВЫБРАННОЙ метрике — при metric='count' совпадает с cell_counts.
   matrix: number[][];
+  // ВСЕГДА article count на ячейку, независимо от metric — источник правды для
+  // sparse-детекции и различения "нет статей" от "avg=0".
+  cell_counts: number[][];
   row_totals: number[];
   col_totals: number[];
 }
