@@ -28,6 +28,7 @@ from app.schemas.article_schemas import (
     PivotResponse,
     SearchStatsResponse,
     StatsResponse,
+    validate_pivot_pair,
 )
 from app.schemas.search_history_schemas import (
     QuotaResponse,
@@ -68,23 +69,6 @@ def _get_search_result_repo(
 
 
 _WINDOW_DAYS = 7  # единственный источник правды для квоты
-
-# Whitelist допустимых пар измерений Table Builder (docs/explore-table-builder/spec.md §3.1).
-# Порядок row/col внутри пары не важен — пользователь может поменять оси местами.
-_ALLOWED_PIVOT_PAIRS: frozenset[frozenset[str]] = frozenset(
-    {
-        frozenset({"year", "country"}),
-        frozenset({"year", "doc_type"}),
-        frozenset({"year", "open_access"}),
-        frozenset({"year", "journal"}),
-        frozenset({"country", "doc_type"}),
-        frozenset({"country", "open_access"}),
-        frozenset({"country", "journal"}),
-        frozenset({"doc_type", "open_access"}),
-        frozenset({"doc_type", "journal"}),
-        frozenset({"open_access", "journal"}),
-    }
-)
 
 
 # ------------------------------------------------------------------ #
@@ -144,15 +128,9 @@ async def get_pivot(
     metric: PivotMetric = Query("count", description="Метрика ячейки: count или avg_citations"),
     service: CatalogService = Depends(get_catalog_service),
 ) -> PivotResponse:
-    if row_dim == col_dim:
-        raise HTTPException(status_code=422, detail="row_dim и col_dim должны различаться")
-    if frozenset({row_dim, col_dim}) not in _ALLOWED_PIVOT_PAIRS:
-        raise HTTPException(status_code=422, detail=f"Комбинация {row_dim}×{col_dim} не поддерживается")
-    if filter_dim is not None:
-        if filter_dim in (row_dim, col_dim):
-            raise HTTPException(status_code=422, detail="filter_dim не может совпадать с row_dim/col_dim")
-        if filter_value is None:
-            raise HTTPException(status_code=422, detail="filter_value обязателен, если задан filter_dim")
+    validation_error = validate_pivot_pair(row_dim, col_dim, filter_dim, filter_value)
+    if validation_error is not None:
+        raise HTTPException(status_code=422, detail=validation_error)
 
     return await service.get_pivot(
         row_dim=row_dim,

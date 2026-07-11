@@ -13,6 +13,49 @@ PivotDimension = Literal["year", "country", "doc_type", "journal", "open_access"
 # по count независимо от metric (см. row_totals/col_totals в PivotResponse).
 PivotMetric = Literal["count", "avg_citations"]
 
+# Whitelist допустимых пар измерений Table Builder (docs/explore-table-builder/spec.md §3.1).
+# Перенесено из app/routers/articles.py (docs/ai-nl-pivot/spec.md §0-находка 3) — новому
+# сервисному слою (NlPivotQueryService) нужен тот же whitelist без обратной зависимости
+# services → routers. Порядок row/col внутри пары не важен — пользователь может поменять
+# оси местами.
+ALLOWED_PIVOT_PAIRS: frozenset[frozenset[str]] = frozenset(
+    {
+        frozenset({"year", "country"}),
+        frozenset({"year", "doc_type"}),
+        frozenset({"year", "open_access"}),
+        frozenset({"year", "journal"}),
+        frozenset({"country", "doc_type"}),
+        frozenset({"country", "open_access"}),
+        frozenset({"country", "journal"}),
+        frozenset({"doc_type", "open_access"}),
+        frozenset({"doc_type", "journal"}),
+        frozenset({"open_access", "journal"}),
+    }
+)
+
+
+def validate_pivot_pair(
+    row_dim: str,
+    col_dim: str,
+    filter_dim: str | None = None,
+    filter_value: str | None = None,
+) -> str | None:
+    """Общая валидация пары измерений Table Builder — переиспользуется GET /stats/pivot
+    (роутер) и NlPivotQueryService (LLM-парсинг NL-запроса, docs/ai-nl-pivot/spec.md §3).
+
+    Возвращает текст ошибки (для 422/400 у вызывающего) или None, если комбинация валидна.
+    """
+    if row_dim == col_dim:
+        return "row_dim и col_dim должны различаться"
+    if frozenset({row_dim, col_dim}) not in ALLOWED_PIVOT_PAIRS:
+        return f"Комбинация {row_dim}×{col_dim} не поддерживается"
+    if filter_dim is not None:
+        if filter_dim in (row_dim, col_dim):
+            return "filter_dim не может совпадать с row_dim/col_dim"
+        if filter_value is None:
+            return "filter_value обязателен, если задан filter_dim"
+    return None
+
 
 class ArticleResponse(BaseModel):
     # Схема одной статьи — только поля, реально доступные в Scopus free-tier API
