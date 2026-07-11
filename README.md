@@ -13,7 +13,7 @@ Russian version: [README.ru.md](README.ru.md)
 
 | Mode | Functionality |
 |---|---|
-| **Without authentication** | Browse and search the "AI & Neural Network Technologies" thematic collection (~95,900 publications); multi-criteria filtering by year, country, document type, and open-access status; article detail pages; interactive analytics dashboard (/explore) with cross-filter charts, Chart Builder, and statistics on publication trends, geography, document types, top journals, authors, and keywords |
+| **Without authentication** | Browse and search the "AI & Neural Network Technologies" thematic collection (~95,900 publications); multi-criteria filtering by year, country, document type, and open-access status; article detail pages; interactive analytics dashboard (/explore) with cross-filter charts, a pivot Table Builder (count or average-citations metric), and statistics on publication trends, geography, document types, top journals, authors, and keywords |
 | **With authentication** | All unauthenticated features, plus: live search across the full Scopus database (up to 25 results per query); personal search history with filtering; weekly API quota counter; account management (email/password · Google OAuth · password reset via email) |
 
 ---
@@ -189,16 +189,16 @@ Supabase connection via `asyncpg` with `statement_cache_size=0` (required for Pg
 
 ## Testing
 
-**Backend:** 172 tests (`pytest` + `pytest-asyncio`), all green, across three layers:
+**Backend:** 286 tests (`pytest` + `pytest-asyncio`), all green, across three layers:
 
 | Layer | Tests | What it covers |
 |---|---|---|
-| Unit (SQLite, mocked) | ~54 | Services (article, catalog, search, user), Scopus client, interface contracts, seeder router, Redis cache |
-| Integration (SQLite) | ~97 | Full HTTP stack: auth, articles, search history, password reset, RT lifecycle, seeder endpoint |
-| Integration (PG) | 21 | `pg_advisory_xact_lock` concurrency; requires `DATABASE_TEST_URL` (throwaway PG, never Supabase) |
+| Unit (SQLite, mocked) | 113 | Services (article, catalog, search, user), Scopus client, interface contracts, seeder router, Redis cache |
+| Integration (SQLite) | 150 | Full HTTP stack: auth, articles, search history, password reset, RT lifecycle, seeder endpoint |
+| Integration (PG) | 23 | `pg_advisory_xact_lock` concurrency; requires `DATABASE_TEST_URL` (throwaway PG, never Supabase) |
 | E2E (Staging) | — | Real Railway + Supabase staging; auto-skipped without `E2E_BASE_URL` |
 
-**Frontend:** 756 tests (`Vitest` + Testing Library), all green; statements coverage 85.81% (threshold: 70%).
+**Frontend:** 782 tests (`Vitest` + Testing Library), all green; statements coverage 85.9% (threshold: 70%).
 
 <details>
 <summary>Running the tests</summary>
