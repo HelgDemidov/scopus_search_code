@@ -1,6 +1,15 @@
+import os
+
 from dotenv import load_dotenv
 
 load_dotenv(override=False)
+
+# SENTRY_DSN форсируется пустой строкой до импорта app.main. os.environ.pop()
+# здесь не сработал бы: Settings (env_file=".env") читает .env НАПРЯМУЮ через
+# pydantic-settings независимо от os.environ, и pydantic-settings резолвит
+# приоритет источников как os.environ > .env-файл — только явная перезапись
+# в os.environ маскирует реальный DSN из .env (dsn="" → SDK no-op, как None)
+os.environ["SENTRY_DSN"] = ""
 
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator

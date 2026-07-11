@@ -11,10 +11,12 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import settings
 from app.core.logging_config import REQUEST_ID_HEADER, RequestIDMiddleware, configure_logging
+from app.core.sentry_config import configure_sentry
 from app.routers import articles, auth, health, users
 from app.routers.seeder_router import router as seeder_router
 
 configure_logging()
+configure_sentry()
 logger = structlog.get_logger("app.error")
 
 
