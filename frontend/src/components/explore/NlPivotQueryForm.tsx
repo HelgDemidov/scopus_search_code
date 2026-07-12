@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { postNlPivotQuery } from '../../api/stats';
 import { useAuthStore } from '../../stores/authStore';
+import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { ALL_PIVOT_DIMENSIONS } from './tableBuilderData';
 import type { BuilderCard } from '../../stores/dashboardStore';
 
 // AI-ввод в Table Builder (docs/ai-nl-pivot/spec.md §4) — альтернатива ручному AddTableForm:
@@ -33,6 +35,13 @@ export function NlPivotQueryForm({
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorKind, setErrorKind] = useState<ErrorKind | null>(null);
+  const placeholderExamples = t('explore.tableBuilder.nlQuery.placeholderExamples', {
+    returnObjects: true,
+  }) as string[];
+  // Один пример на монтирование (не таймер-ротация) — избегаем fake-timers в тестах
+  // (feedback_vitest_testing_patterns.md), но пользователь видит разные примеры
+  // при повторном открытии формы, а не всегда одну и ту же фразу.
+  const [placeholderIndex] = useState(() => Math.floor(Math.random() * placeholderExamples.length));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -92,11 +101,24 @@ export function NlPivotQueryForm({
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={t('explore.tableBuilder.nlQuery.placeholder')}
+          placeholder={placeholderExamples[placeholderIndex]}
           disabled={isLoading}
           maxLength={300}
         />
       </label>
+
+      <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+        <span>{t('explore.tableBuilder.nlQuery.supportedLabel')}</span>
+        <ul className="flex flex-wrap gap-1 list-none m-0 p-0">
+          {ALL_PIVOT_DIMENSIONS.map((dim) => (
+            <li key={dim}>
+              <Badge variant="secondary" className="text-xs">
+                {t(`explore.dimensionLabels.${dim}`)}
+              </Badge>
+            </li>
+          ))}
+        </ul>
+      </div>
 
       {errorKind && (
         <p role="alert" className="text-sm text-rose-600 dark:text-rose-400">

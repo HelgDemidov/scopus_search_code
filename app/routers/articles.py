@@ -176,7 +176,10 @@ async def post_nl_pivot_query(
     except (NlPivotParseError, NlPivotValidationError) as exc:
         # Текст исключения (может содержать сырой ответ LLM) — только в лог, не клиенту:
         # prompt injection не должен контролировать текст, видимый в UI (§2 спеки).
-        logger.info("NL-pivot: запрос не удалось разрешить: %s", exc)
+        # warning, не info — stdlib-логгеры без structlog-обвязки (см. logging_config.py)
+        # используют Python lastResort-хендлер (порог WARNING), INFO молча терялся бы
+        # (не долетал до Railway логов — найдено при разборе прод-инцидента 2026-07-12).
+        logger.warning("NL-pivot: запрос не удалось разрешить: %s", exc)
         raise HTTPException(
             status_code=400,
             detail="Не удалось понять запрос — попробуйте переформулировать",
