@@ -54,6 +54,23 @@ describe('NlPivotQueryForm — авторизованный пользовате
     }
   });
 
+  it('справка развёрнута по умолчанию и сворачивается/разворачивается по клику', async () => {
+    const user = userEvent.setup();
+    render(<NlPivotQueryForm onAdd={vi.fn()} onCancel={vi.fn()} />);
+    const toggle = screen.getByRole('button', { name: 'What can I ask?' });
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('Year')).toBeInTheDocument();
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText('Year')).not.toBeInTheDocument();
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('Year')).toBeInTheDocument();
+  });
+
   it('успешный запрос вызывает onAdd с полями из ответа', async () => {
     mockedPost.mockResolvedValue({
       row_dim: 'doc_type',

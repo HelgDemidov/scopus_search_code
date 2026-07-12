@@ -308,7 +308,7 @@
       "pairTitle": "{{row}} × {{col}}",
       "manualMode": "Manual",
       "nlQuery": {
-        "aiMode": "Table via AI",
+        "aiMode": "AI-enabled",
         "heading": "Describe the table you want",
         "placeholderExamples": [
           "e.g. \"average citations by document type and open access\"",
@@ -316,6 +316,11 @@
           "e.g. \"open access articles by journal\"",
           "e.g. \"document types by country\""
         ],
+        "helpToggle": "What can I ask?",
+        "helpBullets": {
+          "scope": "Beta feature — generates tables only, no open-ended conversation.",
+          "structure": "Exactly 2 axes per table (rows × columns), plus one optional filter."
+        },
         "supportedLabel": "Works with:",
         "submit": "Generate",
         "loading": "Thinking…",

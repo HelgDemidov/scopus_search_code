@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { postNlPivotQuery } from '../../api/stats';
 import { useAuthStore } from '../../stores/authStore';
 import { Badge } from '../ui/badge';
@@ -35,6 +36,10 @@ export function NlPivotQueryForm({
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorKind, setErrorKind] = useState<ErrorKind | null>(null);
+  // Развёрнуто по умолчанию — тестовая фича, границы должны быть видны сразу
+  // (docs/ai-nl-pivot/spec.md, bug-fix раунд п.5 продолжение), сворачивается на
+  // случай неоднократного открытия формы в рамках одного визита.
+  const [showHelp, setShowHelp] = useState(true);
   const placeholderExamples = t('explore.tableBuilder.nlQuery.placeholderExamples', {
     returnObjects: true,
   }) as string[];
@@ -107,17 +112,37 @@ export function NlPivotQueryForm({
         />
       </label>
 
-      <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-        <span>{t('explore.tableBuilder.nlQuery.supportedLabel')}</span>
-        <ul className="flex flex-wrap gap-1 list-none m-0 p-0">
-          {ALL_PIVOT_DIMENSIONS.map((dim) => (
-            <li key={dim}>
-              <Badge variant="secondary" className="text-xs">
-                {t(`explore.dimensionLabels.${dim}`)}
-              </Badge>
-            </li>
-          ))}
-        </ul>
+      <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 text-xs text-slate-600 dark:text-slate-400">
+        <button
+          type="button"
+          onClick={() => setShowHelp((v) => !v)}
+          aria-expanded={showHelp}
+          aria-controls="nl-pivot-help"
+          className="flex w-full items-center justify-between gap-2 px-3 py-2 font-medium text-slate-700 dark:text-slate-300"
+        >
+          {t('explore.tableBuilder.nlQuery.helpToggle')}
+          {showHelp ? <ChevronUp className="size-3" aria-hidden /> : <ChevronDown className="size-3" aria-hidden />}
+        </button>
+        {showHelp && (
+          <div id="nl-pivot-help" className="flex flex-col gap-2 px-3 pb-3">
+            <ul className="list-disc pl-4 flex flex-col gap-1">
+              <li>{t('explore.tableBuilder.nlQuery.helpBullets.scope')}</li>
+              <li>{t('explore.tableBuilder.nlQuery.helpBullets.structure')}</li>
+            </ul>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span>{t('explore.tableBuilder.nlQuery.supportedLabel')}</span>
+              <ul className="flex flex-wrap gap-1 list-none m-0 p-0">
+                {ALL_PIVOT_DIMENSIONS.map((dim) => (
+                  <li key={dim}>
+                    <Badge variant="secondary" className="text-xs">
+                      {t(`explore.dimensionLabels.${dim}`)}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
       </div>
 
       {errorKind && (
