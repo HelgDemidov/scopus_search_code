@@ -14,7 +14,7 @@ Russian version: [README.ru.md](README.ru.md)
 | Mode | Functionality |
 |---|---|
 | **Without authentication** | Browse and search the "AI & Neural Network Technologies" thematic collection (~95,900 publications); multi-criteria filtering by year, country, document type, and open-access status; article detail pages; interactive analytics dashboard (/explore) with cross-filter charts, a pivot Table Builder (count or average-citations metric), and statistics on publication trends, geography, document types, top journals, authors, and keywords |
-| **With authentication** | All unauthenticated features, plus: live search across the full Scopus database (up to 25 results per query); personal search history with filtering; weekly API quota counter; account management (email/password · Google OAuth · password reset via email) |
+| **With authentication** | All unauthenticated features, plus: live search across the full Scopus database (up to 25 results per query); personal search history with filtering; weekly API quota counter; account management (email/password · Google OAuth · password reset via email); AI-assisted Table Builder — describe a table in natural language (OpenRouter LLM, rate-limited) instead of picking dimensions manually |
 
 ---
 
@@ -330,7 +330,9 @@ VITE_SENTRY_DSN=https://<key>@<org-id>.ingest.<region>.sentry.io/<project-id>
 | `FRONTEND_URL` | Frontend URL (CORS + OAuth redirect) |
 | `ALLOWED_ORIGINS` | Comma-separated list of allowed CORS origins |
 | `SEEDER_SECRET` | Static secret for `X-Seeder-Secret` header |
-| `OPENROUTER_API_KEY` | OpenRouter API key (seeder phrase generation) |
+| `OPENROUTER_API_KEY` | OpenRouter API key (seeder phrase generation + AI-assisted Table Builder) |
+| `OPENROUTER_NL_PIVOT_MODEL` | OpenRouter model slug for Table Builder NL parsing (paid tier; default is provisional, tuned from live usage) |
+| `NL_PIVOT_USER_DAILY_LIMIT` / `NL_PIVOT_GLOBAL_DAILY_LIMIT` | Daily request caps for the AI Table Builder, per user / across all users (Redis-backed; provisional values) |
 | `BREVO_API_KEY` | Brevo API key for transactional email (password reset) |
 | `FROM_EMAIL` | Sender address used by Brevo |
 | `UPSTASH_REDIS_REST_URL` | Upstash Redis HTTPS endpoint (stats response cache; optional) |
