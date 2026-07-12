@@ -47,6 +47,13 @@ describe('NlPivotQueryForm — авторизованный пользовате
     expect(screen.getByRole('button', { name: 'Generate' })).toBeDisabled();
   });
 
+  it('показывает чипы всех 5 поддерживаемых измерений (docs/ai-nl-pivot/spec.md, bug-fix раунд п.5)', () => {
+    render(<NlPivotQueryForm onAdd={vi.fn()} onCancel={vi.fn()} />);
+    for (const label of ['Year', 'Country', 'Document Type', 'Journal', 'Open Access']) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+  });
+
   it('успешный запрос вызывает onAdd с полями из ответа', async () => {
     mockedPost.mockResolvedValue({
       row_dim: 'doc_type',

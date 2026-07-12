@@ -238,7 +238,7 @@ describe('TableBuilderPanel — карточки', () => {
   });
 });
 
-describe('TableBuilderPanel — переключатель Manual/Ask AI (docs/ai-nl-pivot/spec.md §4)', () => {
+describe('TableBuilderPanel — переключатель Manual/Table via AI (docs/ai-nl-pivot/spec.md §4)', () => {
   it('по умолчанию открывается в ручном режиме (AddTableForm)', async () => {
     const user = userEvent.setup();
     render(<TableBuilderPanel />);
@@ -249,13 +249,13 @@ describe('TableBuilderPanel — переключатель Manual/Ask AI (docs/a
     expect(screen.getAllByRole('combobox').length).toBeGreaterThan(0);
   });
 
-  it('переключение на "Ask AI" показывает NlPivotQueryForm вместо AddTableForm', async () => {
+  it('переключение на "Table via AI" показывает NlPivotQueryForm вместо AddTableForm', async () => {
     const user = userEvent.setup();
     render(<TableBuilderPanel />);
     await user.click(screen.getByRole('button', { name: 'Add table' }));
-    await user.click(screen.getByRole('tab', { name: 'Ask AI' }));
+    await user.click(screen.getByRole('tab', { name: 'Table via AI' }));
 
-    expect(screen.getByRole('tab', { name: 'Ask AI', selected: true })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Table via AI', selected: true })).toBeInTheDocument();
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
     expect(screen.getByRole('textbox')).toBeInTheDocument();
   });
@@ -264,7 +264,7 @@ describe('TableBuilderPanel — переключатель Manual/Ask AI (docs/a
     const user = userEvent.setup();
     render(<TableBuilderPanel />);
     await user.click(screen.getByRole('button', { name: 'Add table' }));
-    await user.click(screen.getByRole('tab', { name: 'Ask AI' }));
+    await user.click(screen.getByRole('tab', { name: 'Table via AI' }));
     await user.click(screen.getByRole('tab', { name: 'Manual' }));
 
     expect(screen.getByRole('tab', { name: 'Manual', selected: true })).toBeInTheDocument();
@@ -283,7 +283,7 @@ describe('TableBuilderPanel — переключатель Manual/Ask AI (docs/a
     const user = userEvent.setup();
     render(<TableBuilderPanel />);
     await user.click(screen.getByRole('button', { name: 'Add table' }));
-    await user.click(screen.getByRole('tab', { name: 'Ask AI' }));
+    await user.click(screen.getByRole('tab', { name: 'Table via AI' }));
     await user.type(screen.getByRole('textbox'), 'articles per year and country');
     await user.click(screen.getByRole('button', { name: 'Generate' }));
 

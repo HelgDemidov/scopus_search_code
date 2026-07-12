@@ -308,9 +308,15 @@
       "pairTitle": "{{row}} × {{col}}",
       "manualMode": "Manual",
       "nlQuery": {
-        "aiMode": "Ask AI",
+        "aiMode": "Table via AI",
         "heading": "Describe the table you want",
-        "placeholder": "e.g. \"average citations by document type and open access\"",
+        "placeholderExamples": [
+          "e.g. \"average citations by document type and open access\"",
+          "e.g. \"articles per year and country\"",
+          "e.g. \"open access articles by journal\"",
+          "e.g. \"document types by country\""
+        ],
+        "supportedLabel": "Works with:",
         "submit": "Generate",
         "loading": "Thinking…",
         "signInPrompt": "Sign in to use AI table generation.",

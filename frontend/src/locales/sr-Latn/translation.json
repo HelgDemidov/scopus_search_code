@@ -318,9 +318,15 @@
       "pairTitle": "{{row}} × {{col}}",
       "manualMode": "Ručno",
       "nlQuery": {
-        "aiMode": "Pitaj AI",
+        "aiMode": "Tabela putem AI",
         "heading": "Opišite tabelu koju želite",
-        "placeholder": "npr. „prosječan broj citata po tipu dokumenta i otvorenom pristupu“",
+        "placeholderExamples": [
+          "npr. „prosječan broj citata po tipu dokumenta i otvorenom pristupu“",
+          "npr. „članci po godinama i zemljama“",
+          "npr. „članci u otvorenom pristupu po časopisima“",
+          "npr. „tipovi dokumenata po zemljama“"
+        ],
+        "supportedLabel": "Podržano:",
         "submit": "Generiši",
         "loading": "Razmišljam…",
         "signInPrompt": "Prijavite se da biste koristili AI generisanje tabela.",
