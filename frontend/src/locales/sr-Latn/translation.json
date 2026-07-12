@@ -318,7 +318,7 @@
       "pairTitle": "{{row}} × {{col}}",
       "manualMode": "Ručno",
       "nlQuery": {
-        "aiMode": "Tabela putem AI",
+        "aiMode": "AI graditelj",
         "heading": "Opišite tabelu koju želite",
         "placeholderExamples": [
           "npr. „prosječan broj citata po tipu dokumenta i otvorenom pristupu“",
@@ -326,6 +326,11 @@
           "npr. „članci u otvorenom pristupu po časopisima“",
           "npr. „tipovi dokumenata po zemljama“"
         ],
+        "helpToggle": "Šta mogu da uradim?",
+        "helpBullets": {
+          "scope": "Testna funkcija — generiše samo tabele, ne vodi razgovor.",
+          "structure": "Tačno 2 dimenzije po tabeli (redovi × kolone), plus jedan opcioni filter."
+        },
         "supportedLabel": "Podržano:",
         "submit": "Generiši",
         "loading": "Razmišljam…",
