@@ -161,6 +161,30 @@ async def test_ambiguous_query_returns_400_not_llm_text(authenticated_client: As
     assert "SECRET_INTERNAL_DETAIL_should_not_leak" not in resp.text
 
 
+@pytest.mark.asyncio
+async def test_filter_dim_colliding_with_col_dim_returns_400(authenticated_client: AsyncClient):
+    """Регрессия на реальный прод-баг (2026-07-12, bug-fix раунд п.3, spec.md):
+    LLM иногда дублирует названную сущность как filter_dim И col_dim одновременно
+    (найдено живым тестом на "статьи из Китая по годам"). Промпт исправлен (§2),
+    но валидация — последняя линия защиты, если модель всё же так ответит."""
+    fake = _FakeNlPivotParser(
+        response={
+            "row_dim": "year",
+            "col_dim": "country",
+            "filter_dim": "country",
+            "filter_value": "China",
+            "metric": "count",
+            "error": None,
+        }
+    )
+    with _override_parser(fake):
+        resp = await authenticated_client.post(
+            "/articles/stats/pivot/nl-query", json={"query": "статьи из Китая по годам"}
+        )
+
+    assert resp.status_code == 400
+
+
 # ---------------------------------------------------------------------------
 # Auth
 # ---------------------------------------------------------------------------
