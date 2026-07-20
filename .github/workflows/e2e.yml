@@ -39,7 +39,7 @@ jobs:
       # 2. Python — та же версия, что в production
       # -----------------------------------------------------------------------
       - name: Setup Python 3.12
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: "pip"
