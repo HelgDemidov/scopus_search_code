@@ -33,13 +33,13 @@ jobs:
       # 1. Checkout — нужен для доступа к тест-файлам и requirements.txt
       # -----------------------------------------------------------------------
       - name: Checkout
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
 
       # -----------------------------------------------------------------------
       # 2. Python — та же версия, что в production
       # -----------------------------------------------------------------------
       - name: Setup Python 3.12
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: "pip"

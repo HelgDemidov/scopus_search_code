@@ -17,7 +17,7 @@ on:
       - 'frontend/**'
       - '.github/workflows/frontend-tests.yml'
 
-# Node.js 24 обязателен для actions/setup-node@v6 начиная с 02.06.2026
+# Node.js 24 обязателен для actions/setup-node@v7 начиная с 02.06.2026
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -37,10 +37,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
 
       - name: Set up Node.js 22
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: 'npm'
@@ -69,10 +69,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
 
       - name: Set up Node.js 22
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: 'npm'
@@ -129,10 +129,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
 
       - name: Set up Node.js 22
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: 'npm'
@@ -167,10 +167,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
 
       - name: Set up Node.js 22
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: 'npm'
@@ -225,10 +225,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
 
       - name: Set up Node.js 22
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: 'npm'

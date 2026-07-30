@@ -40,10 +40,10 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v7.0.0
+      uses: actions/checkout@v7.0.1
 
     - name: set up Python 3.12
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: "3.12"
         cache: pip
@@ -103,10 +103,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -148,10 +148,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -180,10 +180,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
