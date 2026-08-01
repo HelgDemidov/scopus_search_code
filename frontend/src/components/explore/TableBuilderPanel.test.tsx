@@ -6,10 +6,10 @@ import { TableBuilderPanel } from './TableBuilderPanel';
 import { useAuthStore } from '../../stores/authStore';
 import { useDashboardStore } from '../../stores/dashboardStore';
 import { useStatsStore } from '../../stores/statsStore';
-import { getPivot, postNlPivotQuery } from '../../api/stats';
+import { getPivot } from '../../api/stats';
 import type { PivotResponse, StatsResponse } from '../../types/api';
 
-vi.mock('../../api/stats', () => ({ getPivot: vi.fn(), postNlPivotQuery: vi.fn() }));
+vi.mock('../../api/stats', () => ({ getPivot: vi.fn() }));
 
 const MOCK_STATS: StatsResponse = {
   total_articles: 100,
@@ -47,7 +47,6 @@ beforeEach(() => {
   useAuthStore.setState({ isAuthenticated: true });
   vi.mocked(getPivot).mockReset();
   vi.mocked(getPivot).mockResolvedValue(MOCK_PIVOT);
-  vi.mocked(postNlPivotQuery).mockReset();
 });
 
 describe('TableBuilderPanel — форма добавления', () => {
@@ -235,64 +234,5 @@ describe('TableBuilderPanel — карточки', () => {
 
     expect(screen.getByRole('heading', { name: 'Table Builder' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add table' })).toHaveTextContent('Add table');
-  });
-});
-
-describe('TableBuilderPanel — переключатель Manual/AI-enabled (docs/ai-nl-pivot/spec.md §4)', () => {
-  it('по умолчанию открывается в ручном режиме (AddTableForm)', async () => {
-    const user = userEvent.setup();
-    render(<TableBuilderPanel />);
-    await user.click(screen.getByRole('button', { name: 'Add table' }));
-
-    expect(screen.getByRole('tab', { name: 'Manual', selected: true })).toBeInTheDocument();
-    // AddTableForm — есть комбобоксы Rows/Columns; NlPivotQueryForm их не рендерит
-    expect(screen.getAllByRole('combobox').length).toBeGreaterThan(0);
-  });
-
-  it('переключение на "AI-enabled" показывает NlPivotQueryForm вместо AddTableForm', async () => {
-    const user = userEvent.setup();
-    render(<TableBuilderPanel />);
-    await user.click(screen.getByRole('button', { name: 'Add table' }));
-    await user.click(screen.getByRole('tab', { name: 'AI-enabled' }));
-
-    expect(screen.getByRole('tab', { name: 'AI-enabled', selected: true })).toBeInTheDocument();
-    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
-    expect(screen.getByRole('textbox')).toBeInTheDocument();
-  });
-
-  it('переключение обратно на Manual восстанавливает AddTableForm', async () => {
-    const user = userEvent.setup();
-    render(<TableBuilderPanel />);
-    await user.click(screen.getByRole('button', { name: 'Add table' }));
-    await user.click(screen.getByRole('tab', { name: 'AI-enabled' }));
-    await user.click(screen.getByRole('tab', { name: 'Manual' }));
-
-    expect(screen.getByRole('tab', { name: 'Manual', selected: true })).toBeInTheDocument();
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
-    expect(screen.getAllByRole('combobox').length).toBeGreaterThan(0);
-  });
-
-  it('успешный AI-запрос добавляет карточку и сворачивает форму, как ручной путь', async () => {
-    vi.mocked(postNlPivotQuery).mockResolvedValue({
-      row_dim: 'year',
-      col_dim: 'country',
-      filter_dim: null,
-      filter_value: null,
-      metric: 'count',
-    });
-    const user = userEvent.setup();
-    render(<TableBuilderPanel />);
-    await user.click(screen.getByRole('button', { name: 'Add table' }));
-    await user.click(screen.getByRole('tab', { name: 'AI-enabled' }));
-    await user.type(screen.getByRole('textbox'), 'articles per year and country');
-    await user.click(screen.getByRole('button', { name: 'Generate' }));
-
-    await waitFor(() => {
-      expect(useDashboardStore.getState().builderCards).toHaveLength(1);
-    });
-    const card = useDashboardStore.getState().builderCards[0];
-    expect(card.rowDim).toBe('year');
-    expect(card.colDim).toBe('country');
-    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
   });
 });
