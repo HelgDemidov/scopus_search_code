@@ -12,6 +12,7 @@ on:
       - feat/impact-analytics
       - feat/observability-sentry
       - feat/ai-nl-pivot
+      - fix/dependabot-security-alerts
     # Запускаем только когда меняется frontend или сам воркфлоу
     paths:
       - 'frontend/**'
