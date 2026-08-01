@@ -24,6 +24,7 @@ i18n: react-i18next 17 + i18next 26 + i18next-browser-languagedetector 8.
 ## Dual-mode filtering (filtering-2, merged 2026-06-25)
 **Catalog**: фильтр → `setPage(1)` + `fetchArticles()` немедленно (год debounce 400мс). **Scopus**: фильтр → amber-badge «Filters changed», ре-фетч только при следующем явном поиске.
 Источники опций: catalog → `statsStore`; scopus → `SCOPUS_DOC_TYPES`/`SCOPUS_COUNTRIES`. `ArticleFilters.tsx` экспортирует `ArticleFiltersSidebar`/`ArticleFiltersMobile`; `historyFilters` — единственный источник истины (читается через `useHistoryStore.getState()`).
+**PR #79, 2026-08-01:** анонимная ветка `SearchPage.tsx` использовала два независимых по ширине `mx-auto`-контейнера (hero `max-w-screen-sm` vs результаты `max-w-screen-lg`) — Filters визуально отрывался от строки поиска, плюс не рендерился вовсе до `hasSearched`. Оба режима (`SearchPage.tsx`) теперь делят один контейнер (`mx-auto max-w-screen-xl px-4 py-6 flex flex-col gap-4`); `ArticleList` монтируется безусловно. Общий урок: не заводить второй независимо центрированный контейнер рядом с уже существующим — при разной max-width их левые края не совпадают.
 
 ## Tests (co-location pattern: тест рядом с источником)
 Unit: `src/**/*.test.{ts,tsx}` | Integration: `*.integration.test.*`
