@@ -1,0 +1,24 @@
+name: Keep Alive – Staging Supabase
+
+# Staging Supabase ставится на паузу администраторами Supabase после ~недели
+# отсутствия активности — раз в сутки достаточно, в отличие от 14-минутного
+# кадранса keep_alive.yml (тот решает другую задачу — не даёт заснуть
+# Railway hobby-tier прод-сервису, таймаут которого ~15 минут).
+on:
+  schedule:
+    - cron: '17 4 * * *'  # раз в сутки, 04:17 UTC — смещено от ровного часа
+  workflow_dispatch:          # ручной запуск из GitHub Actions UI
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /health/db on staging (GET – wakes DB connection)
+        run: |
+          curl -f -X GET "${{ secrets.RAILWAY_STAGING_BASE_URL }}/health/db"
+          echo "Staging DB health status: $?"
+
+      - name: Ping /health on staging (GET – smoke check, no DB)
+        run: |
+          curl -f -X GET "${{ secrets.RAILWAY_STAGING_BASE_URL }}/health"
+          echo "Staging app health status: $?"
