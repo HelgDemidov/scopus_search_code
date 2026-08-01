@@ -13,6 +13,7 @@ on:
       - feat/observability-sentry
       - feat/ai-nl-pivot
       - fix/seeder-hardening
+      - fix/dependabot-security-alerts
     # Запускаем только когда меняется frontend или сам воркфлоу
     paths:
       - 'frontend/**'
@@ -86,7 +87,25 @@ jobs:
         run: npm run lint
 
       - name: Audit npm dependencies
-        run: npm audit --audit-level=high
+        # react-router/react-router-dom (GHSA-qwww-vcr4-c8h2) — принятый риск, dependabot
+        # alert #3 dismissed tolerable_risk 2026-08-01: CVE затрагивает только unstable
+        # RSC API, которых в проекте нет (чистый client-side createBrowserRouter). Патч
+        # существует только в react-router@8.3.0, а react-router-dom v8 не выпущен —
+        # реальный фикс требует убрать react-router-dom, отдельная задача. Исключаем
+        # именно эти 2 пакета из гейта — любая другая high/critical-уязвимость его валит.
+        run: |
+          npm audit --audit-level=high --json > audit.json || true
+          UNACCEPTED=$(jq '[.vulnerabilities // {} | to_entries[]
+            | select(.value.severity == "high" or .value.severity == "critical")
+            | select(.key != "react-router" and .key != "react-router-dom")] | length' audit.json)
+          if [ "$UNACCEPTED" -gt 0 ]; then
+            echo "Новые high/critical-уязвимости (не в списке принятых):"
+            jq '[.vulnerabilities // {} | to_entries[]
+              | select(.value.severity == "high" or .value.severity == "critical")
+              | select(.key != "react-router" and .key != "react-router-dom")]' audit.json
+            exit 1
+          fi
+          echo "Остались только принятые уязвимости (react-router/react-router-dom, см. dependabot alert #3) либо их нет вовсе."
 
       - name: Check translation key parity (EN ↔ RU ↔ SR-LATN)
         run: |
