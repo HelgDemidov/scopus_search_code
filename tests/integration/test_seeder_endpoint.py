@@ -85,6 +85,20 @@ async def test_seed_wrong_secret_returns_403(client: AsyncClient, monkeypatch):
     assert resp.status_code == 403
 
 
+@pytest.mark.asyncio
+async def test_seed_overlong_keyword_returns_422(client: AsyncClient, monkeypatch):
+    """keyword >100 симв. (зеркалит catalog_articles.keyword: VARCHAR(100)) → 422 до
+    любого вызова Scopus — defense-in-depth на границе API (docs/seeder-hardening/spec.md §2)."""
+    monkeypatch.setattr(seeder_module, "_SEEDER_SECRET", _TEST_SECRET)
+
+    resp = await client.post(
+        "/seeder/seed",
+        headers={"X-Seeder-Secret": _TEST_SECRET},
+        params={"keyword": "a" * 101},
+    )
+    assert resp.status_code == 422
+
+
 # ================================================================ #
 #  Пустой ответ Scopus                                             #
 # ================================================================ #

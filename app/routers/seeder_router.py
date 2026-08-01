@@ -3,7 +3,7 @@ import logging
 import os
 
 import httpx
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,7 +33,9 @@ def _check_secret(x_seeder_secret: str = Header(...)) -> None:
 
 @router.post("/seed", dependencies=[Depends(_check_secret)])
 async def seed_keyword(
-    keyword: str,
+    # Зеркалит catalog_articles.keyword: VARCHAR(100) — defense-in-depth на границе API,
+    # независимо от того, кто вызывает эндпоинт (см. docs/seeder-hardening/spec.md §2).
+    keyword: str = Query(..., max_length=100),
     count: int = 25,
     start: int = 0,
     session: AsyncSession = Depends(get_db_session),
