@@ -1,4 +1,5 @@
 # app/routers/seeder_router.py
+import logging
 import os
 
 import httpx
@@ -15,6 +16,8 @@ from app.infrastructure.redis_client import redis_client
 from app.infrastructure.scopus_client import ScopusHTTPClient
 from app.interfaces.email_service import IEmailService
 from app.services.catalog_service import CatalogService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/seeder", tags=["seeder"])
 
@@ -100,9 +103,14 @@ async def health_check_and_alert(
         return {"status": "ok"}
 
     if settings.FROM_EMAIL:
-        await email_svc.send_alert_email(
-            to_email=settings.FROM_EMAIL,
-            subject="Scopus Search — health check failed",
-            message=f"Проблемы с: {', '.join(problems)}",
-        )
+        try:
+            await email_svc.send_alert_email(
+                to_email=settings.FROM_EMAIL,
+                subject="Scopus Search — health check failed",
+                message=f"Проблемы с: {', '.join(problems)}",
+            )
+        except httpx.HTTPError:
+            # Канал уведомления (Brevo) — best-effort: его сбой не должен прятать уже
+            # обнаруженную деградацию за 500 вместо честного {"status": "degraded"}.
+            logger.error("Health-check alert email failed", exc_info=True)
     return {"status": "degraded", "problems": ",".join(problems)}
