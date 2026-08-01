@@ -13,6 +13,7 @@ on:
       - feat/observability-sentry
       - feat/ai-nl-pivot
       - fix/seeder-hardening
+      - refactor/remove-ai-nl-pivot
       - fix/dependabot-security-alerts
 
   pull_request:
