@@ -14,6 +14,7 @@ on:
       - feat/ai-nl-pivot
       - fix/seeder-hardening
       - fix/dependabot-security-alerts
+      - refactor/remove-ai-nl-pivot
     # Запускаем только когда меняется frontend или сам воркфлоу
     paths:
       - 'frontend/**'

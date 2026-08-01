@@ -315,33 +315,7 @@
       "emptyState": "Nema podataka za ovu kombinaciju.",
       "sparseWarning": "Malo rezultata za ovaj filter — probajte drugu vrijednost.",
       "marginalNote": "Zbirovi po redovima/kolonama odnose se na cijeli skup podataka, ne samo na prikazane ćelije.",
-      "pairTitle": "{{row}} × {{col}}",
-      "manualMode": "Ručno",
-      "nlQuery": {
-        "aiMode": "AI graditelj",
-        "heading": "Opišite tabelu koju želite",
-        "placeholderExamples": [
-          "npr. „prosječan broj citata po tipu dokumenta i otvorenom pristupu“",
-          "npr. „članci po godinama i zemljama“",
-          "npr. „članci u otvorenom pristupu po časopisima“",
-          "npr. „tipovi dokumenata po zemljama“"
-        ],
-        "helpToggle": "Šta mogu da uradim?",
-        "helpBullets": {
-          "scope": "Testna funkcija — generiše samo tabele, ne vodi razgovor.",
-          "structure": "Tačno 2 dimenzije po tabeli (redovi × kolone), plus jedan opcioni filter."
-        },
-        "supportedLabel": "Podržano:",
-        "submit": "Generiši",
-        "loading": "Razmišljam…",
-        "signInPrompt": "Prijavite se da biste koristili AI generisanje tabela.",
-        "error": {
-          "ambiguous": "Nismo razumjeli upit — probajte drugu formulaciju.",
-          "rateLimited": "Dostignut je dnevni limit AI upita — probajte kasnije.",
-          "unavailable": "AI funkcija je privremeno nedostupna.",
-          "generic": "Nešto je pošlo po zlu — probajte ponovo."
-        }
-      }
+      "pairTitle": "{{row}} × {{col}}"
     },
     "crossCharts": {
       "topCountriesByYear": "Vodeće zemlje po godinama",
