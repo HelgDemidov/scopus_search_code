@@ -35,7 +35,7 @@ vi.mock('../components/search/SearchBar', () => ({
 vi.mock('../components/articles/ScopusQuotaBadge', () => ({
   ScopusQuotaBadge: () => <div data-testid="quota-badge" />,
 }));
-// react-router-dom: Link используется в AnonHero (через LocalizedLink) — заглушаем,
+// react-router-dom: Link используется в AnonIntro (через LocalizedLink) — заглушаем,
 // чтобы не нужен был Router. useParams: () => ({}) — LocalizedLink читает :lang через
 // него; пустой объект имитирует рендер вне /:lang-поддерева (DEFAULT_URL_LANG-фоллбэк).
 vi.mock('react-router-dom', () => ({
@@ -129,16 +129,17 @@ beforeEach(() => {
 
 describe('SearchPage — anon hero', () => {
 
-  it('до поиска: AnonHero виден, ArticleList не рендерится', () => {
+  it('до поиска: заголовок и ArticleList оба видны сразу (Filters не ждут первого поиска)', () => {
     render(<SearchPage />);
     expect(screen.getByText(/Search Scopus Publications/i)).toBeInTheDocument();
-    expect(screen.queryByTestId('article-list')).toBeNull();
+    expect(screen.getByTestId('article-list')).toBeInTheDocument();
+    expect(capturedArticleListProps.hasSearched).toBe(false);
   });
 
-  it('после поиска: ArticleList появляется', async () => {
+  it('после поиска: hasSearched в ArticleList переключается в true', async () => {
     render(<SearchPage />);
     await userEvent.click(screen.getByTestId('search-bar'));
-    expect(screen.getByTestId('article-list')).toBeInTheDocument();
+    expect(capturedArticleListProps.hasSearched).toBe(true);
   });
 });
 

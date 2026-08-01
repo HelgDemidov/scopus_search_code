@@ -15,6 +15,7 @@ on:
       - fix/seeder-hardening
       - refactor/remove-ai-nl-pivot
       - fix/dependabot-security-alerts
+      - fix/anon-search-filters-layout
 
   pull_request:
     branches:

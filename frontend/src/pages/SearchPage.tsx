@@ -25,36 +25,27 @@ function sortArticles(
   );
 }
 
-// Анонимный hero-блок — строка поиска + CTA для регистрации
-function AnonHero({ onSearch }: { onSearch: (q: string) => void }) {
+// Анонимный intro-блок — только заголовок/подзаголовок (текстовая, центрированная
+// часть). Строка поиска вынесена в SearchPage — делит одну ширину с Filters/
+// результатами ниже (было отдельным узким max-w-screen-sm контейнером, из-за
+// чего после поиска Filters оказывался оторван от строки поиска, см. баг
+// 2026-08-02: филды не видны до поиска + после поиска съезжают влево отдельным
+// блоком).
+function AnonIntro() {
   const { t } = useTranslation();
   return (
-    <div className="mx-auto max-w-screen-sm px-4 py-16 flex flex-col items-center gap-6 text-center">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-          {t('searchPage.anonTitle')}
-        </h1>
-        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-          {/* br — принудительный перенос между двумя предложениями (locale-строка):
-              обычный inline-wrap на узких экранах смешивал слова разных
-              предложений на одной строке / оставлял слово-сироту на последней
-              строке (см. docs/layout-overhaul/spec.md). Каждое предложение
-              теперь всегда начинает свою строку. */}
-          <Trans
-            i18nKey="searchPage.anonSubtitle"
-            components={{
-              lnk: <LocalizedLink to="/auth" className="text-blue-800 dark:text-blue-400 hover:underline" />,
-              br: <br />,
-            }}
-          />
-        </p>
-      </div>
-      <div className="w-full max-w-md">
-        <SearchBar onSearch={onSearch} />
-      </div>
-      <p className="text-sm text-slate-500 dark:text-slate-400 text-center max-w-md">
+    <div className="mx-auto max-w-screen-sm text-center">
+      <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+        {t('searchPage.anonTitle')}
+      </h1>
+      <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+        {/* br — принудительный перенос между двумя предложениями (locale-строка):
+            обычный inline-wrap на узких экранах смешивал слова разных
+            предложений на одной строке / оставлял слово-сироту на последней
+            строке (см. docs/layout-overhaul/spec.md). Каждое предложение
+            теперь всегда начинает свою строку. */}
         <Trans
-          i18nKey="searchPage.anonNote"
+          i18nKey="searchPage.anonSubtitle"
           components={{
             lnk: <LocalizedLink to="/auth" className="text-blue-800 dark:text-blue-400 hover:underline" />,
             br: <br />,
@@ -200,30 +191,46 @@ export default function SearchPage() {
     <div className="min-h-full">
       {hreflangTags}
       {!isAuthenticated ? (
-        <div className="flex flex-col">
-          <AnonHero key={resetKey} onSearch={handleSearch} />
-          {hasSearched && (
-            <div className="mx-auto w-full max-w-screen-lg px-4 pb-12">
-              {/* Анонимный режим: ArticleList изолирован в ErrorBoundary */}
-              <ErrorBoundary>
-                <ArticleList
-                  articles={sortedCatalogArticles}
-                  isLoading={isLoading}
-                  hasSearched={hasSearched}
-                  sortBy={sortBy}
-                  onSortChange={setSortBy}
-                  page={page}
-                  size={size}
-                  total={total}
-                  totalIsCapped={totalIsCapped}
-                  appendMode={appendMode}
-                  onPageChange={handlePageChange}
-                  onSizeChange={handleSizeChange}
-                  onToggleMode={handleToggleMode}
-                />
-              </ErrorBoundary>
+        // Одна общая ширина на весь анонимный вид (mx-auto max-w-screen-xl px-4),
+        // та же, что у авторизованного вида ниже — Filters/результаты делят левый
+        // край со строкой поиска вместо отдельного узкого mx-auto-блока (баг
+        // 2026-08-02). ArticleList рендерится без условия hasSearched — так же,
+        // как в авторизованном виде: Filters видны сразу, ArticleList сам решает,
+        // что показать (пусто/skeleton/список) через свои isLoading/hasSearched.
+        <div className="mx-auto max-w-screen-xl px-4 py-6 flex flex-col gap-4">
+          <AnonIntro />
+          <div className="flex flex-col items-center gap-3 text-center">
+            <div className="w-full">
+              <SearchBar key={resetKey} onSearch={handleSearch} />
             </div>
-          )}
+            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md">
+              <Trans
+                i18nKey="searchPage.anonNote"
+                components={{
+                  lnk: <LocalizedLink to="/auth" className="text-blue-800 dark:text-blue-400 hover:underline" />,
+                  br: <br />,
+                }}
+              />
+            </p>
+          </div>
+          {/* Анонимный режим: ArticleList изолирован в ErrorBoundary */}
+          <ErrorBoundary>
+            <ArticleList
+              articles={sortedCatalogArticles}
+              isLoading={isLoading}
+              hasSearched={hasSearched}
+              sortBy={sortBy}
+              onSortChange={setSortBy}
+              page={page}
+              size={size}
+              total={total}
+              totalIsCapped={totalIsCapped}
+              appendMode={appendMode}
+              onPageChange={handlePageChange}
+              onSizeChange={handleSizeChange}
+              onToggleMode={handleToggleMode}
+            />
+          </ErrorBoundary>
         </div>
       ) : (
         <div className="mx-auto max-w-screen-xl px-4 py-6 flex flex-col gap-4">
