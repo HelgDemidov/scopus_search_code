@@ -51,6 +51,7 @@ Project-scope (не путать с личным `.claude/settings.local.json`).
 ## Do NOT
 - Sync SQLAlchemy calls in async routes. Hardcoded secrets. CommonJS in frontend. Bare `except:` — только конкретные типы. Pydantic v1 syntax в FastAPI схемах.
 - SMTP/aiosmtplib на Railway (порт 587 заблокирован). Использовать Brevo REST API (httpx).
+- Полагаться на статический outbound IP у Railway для интеграций с IP-allowlist на стороне провайдера (Brevo и т.п.) — egress плавающий, ловил 401 незаметно 3 недели (health-check алертинг, PR #77, 2026-08-01). Фикс на стороне провайдера — отключить IP-restriction для API-ключей, не ротация ключа.
 
 ## DB & env-var map (critical)
 Two Supabase instances: production (`btmiovdmasqufufyuokx`), staging (`gpbymgvkqtiueoyborrw`). `DATABASE_URL` → production Supabase локально (uvicorn) / staging Supabase в e2e CI (из секрета `DATABASE_SUPABASE_STAGING_URL`). `DATABASE_TEST_URL` → throwaway PG-контейнер, НИКОГДА не Supabase (тесты делают `drop_all`). GitHub Secret `DATABASE_URL` удалён (раньше указывал на staging, конфликтовал с локальным `.env`).
@@ -84,6 +85,7 @@ Advisory lock в DI-фабрике → новые тесты `GET /articles/find
 | `tests.yml` | `test` (SQLite), `test-pg` (PG16 + alembic check), `quality` (ruff/mypy/pip-audit), `coverage` (80%, после test+test-pg) | push+PR → main |
 | `frontend-tests.yml` | `typecheck`, `lint` (ESLint + npm audit), `unit`, `integration` (threshold 70%), `build` | push main (paths: frontend/**) |
 | `e2e.yml` | `e2e` — smoke-тесты против Railway staging | push main |
+| `keep_alive.yml` / `keep_alive_staging.yml` | пинг `/health/db`+`/health` — не даёт заснуть Railway/встать на паузу Supabase | cron: прод 1×/14 мин, staging 1×/сутки |
 
 **Branch protection (main):** force push и удаление запрещены; required checks для PR: `test`, `test-pg`, `Code quality` (strict). enforce_admins=false — прямой пуш owner'а работает.
 **Dependabot:** `.github/dependabot.yml` — pip + npm + github-actions, еженедельно, limit=3 PR на экосистему.
@@ -105,3 +107,6 @@ Backend (`sentry-sdk`, `app/core/sentry_config.py:configure_sentry()`) + fronten
 ## AI NL→pivot (PR #64/#65/#66, merged 2026-07-12)
 `POST /articles/stats/pivot/nl-query` (JWT) — текст на естественном языке → OpenRouter (`app/infrastructure/openrouter_pivot_parser.py`, платная модель, дефолт `OPENROUTER_NL_PIVOT_MODEL` в `config.py` — намеренно placeholder, калибруется по трафику) → структурированный ответ по существующему whitelist `ALLOWED_PIVOT_PAIRS`/`validate_pivot_pair` (`app/schemas/article_schemas.py`, общий с ручным `GET /stats/pivot`) → `NlPivotQueryService`. Rate limit — Redis 2-уровневый (`app/core/nl_pivot_rate_limit.py`, `NL_PIVOT_USER_DAILY_LIMIT`/`NL_PIVOT_GLOBAL_DAILY_LIMIT`), fail-closed 503 при недоступном Redis (осознанное отклонение от обычного fail-open паттерна проекта). Сырой текст ошибки LLM клиенту не передаётся (prompt injection в UI-текст) — только whitelist `ErrorKind` на фронте.
 **Прод-инцидент 2026-07-11/12**: `OPENROUTER_API_KEY` для сидера — GitHub Actions Secret (`seeder.yml`), никогда не был переменной самого Railway-сервиса — ложное допущение чек-листа спека привело к 100% отказам после первого мерджа (пустой Bearer-токен к OpenRouter). Добавлен вручную в Railway (prod+staging) — эта переменная нужна ОТДЕЛЬНО, если бэкенд сам вызывает OpenRouter (не только сидер из CI).
+
+## Seeder reliability (PR #77, merged 2026-08-01)
+Три прод-дефекта из недельного аудита (13/61 прогонов падали) закрыты одним PR: `generate_keywords()` (`db_seeder/seeder__scripts/keyword_generator.py`) снимает markdown code-fence перед `json.loads` и фильтрует кандидатов >100 символов (зеркалит `catalog_articles.keyword: VARCHAR(100)`, LLM иногда впадает в repetition loop при temperature=0.8); `seed_db.py` больше не роняет весь 2-часовой цикл при сбое генерации — Block B/GC/health-check выполняются даже если Block A пропущен; `/seeder/health-check` переживает сбой отправки email-алерта (`httpx.HTTPError` → `logger.error`, честный `{"status": "degraded"}` вместо 500). Заодно найден Railway-IP-инцидент — см. Do NOT.

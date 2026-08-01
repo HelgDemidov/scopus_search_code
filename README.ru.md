@@ -190,16 +190,16 @@ GitHub Actions workflow (запускается каждые 2 часа) нап�
 
 ## Тестирование
 
-**Бэкенд:** 295 тестов (`pytest` + `pytest-asyncio`), все зелёные, три слоя:
+**Бэкенд:** 324 теста (`pytest` + `pytest-asyncio`), все зелёные, три слоя:
 
 | Слой | Тестов | Что проверяет |
 |---|---|---|
-| Unit (SQLite, мокированный) | 119 | Сервисы (article, catalog, search, user), Scopus-клиент, контракты интерфейсов, seeder router, Redis-кэш, Sentry-конфигурация |
-| Integration (SQLite) | 153 | Полный HTTP-стек: auth, статьи, история поисков, сброс пароля, RT-жизненный цикл, seeder endpoint, observability/Sentry capture |
+| Unit (SQLite, мокированный) | 135 | Сервисы (article, catalog, search, user), Scopus-клиент, контракты интерфейсов, seeder router/keyword generator, Redis-кэш, Sentry-конфигурация |
+| Integration (SQLite) | 166 | Полный HTTP-стек: auth, статьи, история поисков, сброс пароля, RT-жизненный цикл, seeder endpoint, observability/Sentry capture |
 | Integration (PG) | 23 | Конкурентность `pg_advisory_xact_lock`; требует `DATABASE_TEST_URL` (throwaway PG, никогда не Supabase) |
 | E2E (Staging) | — | Реальный Railway + Supabase staging; пропускается без `E2E_BASE_URL` |
 
-**Фронтенд:** 799 тестов (`Vitest` + Testing Library), все зелёные; покрытие statements 86.2% (порог: 85%).
+**Фронтенд:** 819 тестов (`Vitest` + Testing Library), все зелёные; покрытие statements 86.2% (порог: 85%).
 
 <details>
 <summary>Запуск тестов</summary>

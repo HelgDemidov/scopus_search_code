@@ -3,7 +3,7 @@
 
 ## Stack
 React 18 + TypeScript ~5.7 + Vite ^6.0 + Tailwind CSS 3 + shadcn/ui (Radix UI).
-State: Zustand 5. HTTP: axios. Router: react-router-dom 7. Tests: Vitest 4 + Testing Library (jsdom).
+State: Zustand 5. HTTP: axios. Router: react-router-dom 7 (**намеренно не v8** — dependabot alert #3 dismissed tolerable_risk 2026-08-01: CVE только для unstable RSC API, которых нет; react-router-dom v8 не существует вообще, реальный фикс — миграция на голый `react-router` в 36 файлах, не сделана). Tests: Vitest 4 + Testing Library (jsdom).
 Charts: recharts ^2.15.4. Forms: react-hook-form + zod. Toasts: sonner. Icons: lucide-react.
 i18n: react-i18next 17 + i18next 26 + i18next-browser-languagedetector 8.
 
