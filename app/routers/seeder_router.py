@@ -1,8 +1,9 @@
 # app/routers/seeder_router.py
+import logging
 import os
 
 import httpx
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +16,8 @@ from app.infrastructure.redis_client import redis_client
 from app.infrastructure.scopus_client import ScopusHTTPClient
 from app.interfaces.email_service import IEmailService
 from app.services.catalog_service import CatalogService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/seeder", tags=["seeder"])
 
@@ -30,7 +33,9 @@ def _check_secret(x_seeder_secret: str = Header(...)) -> None:
 
 @router.post("/seed", dependencies=[Depends(_check_secret)])
 async def seed_keyword(
-    keyword: str,
+    # Зеркалит catalog_articles.keyword: VARCHAR(100) — defense-in-depth на границе API,
+    # независимо от того, кто вызывает эндпоинт (см. docs/seeder-hardening/spec.md §2).
+    keyword: str = Query(..., max_length=100),
     count: int = 25,
     start: int = 0,
     session: AsyncSession = Depends(get_db_session),
@@ -100,9 +105,14 @@ async def health_check_and_alert(
         return {"status": "ok"}
 
     if settings.FROM_EMAIL:
-        await email_svc.send_alert_email(
-            to_email=settings.FROM_EMAIL,
-            subject="Scopus Search — health check failed",
-            message=f"Проблемы с: {', '.join(problems)}",
-        )
+        try:
+            await email_svc.send_alert_email(
+                to_email=settings.FROM_EMAIL,
+                subject="Scopus Search — health check failed",
+                message=f"Проблемы с: {', '.join(problems)}",
+            )
+        except httpx.HTTPError:
+            # Канал уведомления (Brevo) — best-effort: его сбой не должен прятать уже
+            # обнаруженную деградацию за 500 вместо честного {"status": "degraded"}.
+            logger.error("Health-check alert email failed", exc_info=True)
     return {"status": "degraded", "problems": ",".join(problems)}

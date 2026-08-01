@@ -155,12 +155,18 @@ async def seed_database() -> None:
             print(f"Фраз для ре-пагинации (last_offset < {REPAG_OFFSET_CAP}): {len(repag_candidates)}\n")
 
             # Шаг 4: генерация новых фраз через OpenRouter
+            # Сбой генерации (сеть, невалидный ответ LLM) не должен ронять весь прогон —
+            # Block B/GC/health-check ниже всё равно должны выполниться в этом цикле.
             print(f"{Fore.CYAN}Генерируем ключевые фразы через OpenRouter...")
-            all_new_keywords = await generate_keywords(
-                cluster_keywords=cluster_keywords,
-                api_key=openrouter_key,
-                cluster=cluster,
-            )
+            try:
+                all_new_keywords = await generate_keywords(
+                    cluster_keywords=cluster_keywords,
+                    api_key=openrouter_key,
+                    cluster=cluster,
+                )
+            except Exception as e:
+                print(f"{Fore.RED}Генерация ключевых фраз не удалась: {e}")
+                all_new_keywords = []
             new_keywords = all_new_keywords[:NEW_KW_BUDGET]
             print(
                 f"Новых фраз от LLM: {len(all_new_keywords)}, "

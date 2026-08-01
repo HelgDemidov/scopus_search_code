@@ -7,6 +7,7 @@
 
 from datetime import date
 
+import httpx
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
@@ -33,6 +34,18 @@ class _SpyEmailService(IEmailService):
 
     async def send_alert_email(self, to_email: str, subject: str, message: str) -> None:
         self.alerts_sent.append((to_email, subject, message))
+
+
+class _ThrowingEmailService(IEmailService):
+    """Имитирует сбой Brevo (например, невалидный BREVO_API_KEY → 401 Unauthorized)."""
+
+    async def send_password_reset_email(self, to_email: str, reset_url: str) -> None:
+        pass
+
+    async def send_alert_email(self, to_email: str, subject: str, message: str) -> None:
+        request = httpx.Request("POST", "https://api.brevo.com/v3/smtp/email")
+        response = httpx.Response(401, request=request)
+        raise httpx.HTTPStatusError("401 Unauthorized", request=request, response=response)
 
 
 class _FakeRedis:
@@ -70,6 +83,20 @@ async def test_seed_wrong_secret_returns_403(client: AsyncClient, monkeypatch):
         params={"keyword": "deep learning"},
     )
     assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_seed_overlong_keyword_returns_422(client: AsyncClient, monkeypatch):
+    """keyword >100 симв. (зеркалит catalog_articles.keyword: VARCHAR(100)) → 422 до
+    любого вызова Scopus — defense-in-depth на границе API (docs/seeder-hardening/spec.md §2)."""
+    monkeypatch.setattr(seeder_module, "_SEEDER_SECRET", _TEST_SECRET)
+
+    resp = await client.post(
+        "/seeder/seed",
+        headers={"X-Seeder-Secret": _TEST_SECRET},
+        params={"keyword": "a" * 101},
+    )
+    assert resp.status_code == 422
 
 
 # ================================================================ #
@@ -279,6 +306,24 @@ async def test_health_check_redis_down_sends_alert_and_returns_degraded(client: 
     assert resp.json() == {"status": "degraded", "problems": "redis"}
     assert len(spy.alerts_sent) == 1
     assert spy.alerts_sent[0][0] == "owner@example.com"
+
+
+@pytest.mark.asyncio
+async def test_health_check_alert_email_failure_still_returns_degraded(client: AsyncClient, monkeypatch):
+    """Сбой канала уведомления (Brevo 401) не должен ронять сам health-check —
+    деградация уже обнаружена и должна остаться видимой, а не превратиться в 500."""
+    monkeypatch.setattr(seeder_module, "_SEEDER_SECRET", _TEST_SECRET)
+    monkeypatch.setattr(seeder_module, "redis_client", _FakeRedis(alive=False))
+    monkeypatch.setattr(seeder_module.settings, "FROM_EMAIL", "owner@example.com")
+
+    app.dependency_overrides[get_email_service] = lambda: _ThrowingEmailService()
+    try:
+        resp = await client.post("/seeder/health-check", headers={"X-Seeder-Secret": _TEST_SECRET})
+    finally:
+        app.dependency_overrides.pop(get_email_service, None)
+
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "degraded", "problems": "redis"}
 
 
 @pytest.mark.asyncio
