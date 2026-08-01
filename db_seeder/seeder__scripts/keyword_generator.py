@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime, timezone
 
 import httpx
@@ -93,6 +94,13 @@ async def generate_keywords(
     # Извлекаем текст из ответа модели
     raw_content = response.json()["choices"][0]["message"]["content"].strip()
 
+    # Модель иногда оборачивает ответ в markdown code fence вопреки промпту ("no code
+    # blocks") — снимаем ведущий/хвостовой фенс независимо друг от друга, до попытки
+    # json.loads. Truncation-recovery ниже остаётся вторым эшелоном для реально
+    # обрезанных ответов (когда закрывающего ] нет вовсе).
+    raw_content = re.sub(r"^```(?:json)?\s*", "", raw_content)
+    raw_content = re.sub(r"```\s*$", "", raw_content).strip()
+
     # Парсим JSON-массив из ответа
     try:
         candidates: list[str] = json.loads(raw_content)
@@ -143,7 +151,10 @@ async def generate_keywords(
         if not isinstance(kw, str):
             continue
         normalized = kw.strip().lower()
-        if normalized and normalized not in used_set and normalized not in seen_in_run:
+        # len<=100 зеркалит catalog_articles.keyword: VARCHAR(100) — модель иногда
+        # впадает в repetition loop при temperature=0.8, выдавая фразы по 100+ символов
+        # вместо заявленных "2-6 слов" (StringDataRightTruncationError иначе на INSERT).
+        if normalized and normalized not in used_set and normalized not in seen_in_run and len(kw.strip()) <= 100:
             unique.append(kw.strip())
             seen_in_run.add(normalized)
 
