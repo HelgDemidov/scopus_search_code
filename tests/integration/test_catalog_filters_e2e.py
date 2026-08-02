@@ -28,6 +28,7 @@ def _make_article(
     *,
     title: str,
     year: int,
+    author: str = "Test Author",
     document_type: str | None = None,
     open_access: bool | None = None,
     affiliation_country: str | None = None,
@@ -36,7 +37,7 @@ def _make_article(
     # Конструируем ORM-объект Article без сессии — добавим через add() позже
     return Article(
         title=title,
-        author="Test Author",
+        author=author,
         publication_date=datetime.date(year, 6, 1),
         doi=doi,
         document_type=document_type,
@@ -216,3 +217,74 @@ async def test_combined_filters_narrow_results(
     data = resp.json()
     assert data["total"] == 1
     assert data["items"][0]["title"] == "New OA"
+
+
+# ------------------------------------------------------------------ #
+#  T5-6: search (ILIKE title/author) — единственное реальное покрытие #
+#  этого пути против настоящего Postgres, где имеет значение trgm-    #
+#  индекс (docs/backend-performance/catalog-search-latency/spec.md    #
+#  Шаг 2: GiST→GIN — семантика ILIKE не меняется, эти тесты должны    #
+#  остаться зелёными без правок после миграции индекса)               #
+# ------------------------------------------------------------------ #
+
+
+@pytest.mark.requires_pg
+@pytest.mark.asyncio
+async def test_search_matches_by_title_substring(
+    pg_session: AsyncSession,
+    pg_client: AsyncClient,
+) -> None:
+    # Arrange: только одна статья содержит искомую подстроку в title
+    matching = _make_article(title="Neural Accelerator Design", year=2023, doi="10.7/match")
+    other = _make_article(title="Unrelated Paper", year=2023, doi="10.7/other")
+    await _seed(pg_session, [matching, other])
+
+    # Act: ILIKE-поиск по подстроке, регистр не совпадает с исходным
+    resp = await pg_client.get("/articles/", params={"search": "accelerator"})
+
+    # Assert: находит только статью с совпадением в title
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["items"][0]["title"] == "Neural Accelerator Design"
+
+
+@pytest.mark.requires_pg
+@pytest.mark.asyncio
+async def test_search_matches_by_author_substring(
+    pg_session: AsyncSession,
+    pg_client: AsyncClient,
+) -> None:
+    # Arrange: совпадение только по author, не по title
+    matching = _make_article(title="Some Paper", year=2023, author="Dr. Transformer Expert", doi="10.7/auth")
+    other = _make_article(title="Other Paper", year=2023, author="Dr. Someone Else", doi="10.7/noauth")
+    await _seed(pg_session, [matching, other])
+
+    # Act
+    resp = await pg_client.get("/articles/", params={"search": "transformer"})
+
+    # Assert: находит только статью с совпадением в author
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["items"][0]["title"] == "Some Paper"
+
+
+@pytest.mark.requires_pg
+@pytest.mark.asyncio
+async def test_search_no_match_returns_empty(
+    pg_session: AsyncSession,
+    pg_client: AsyncClient,
+) -> None:
+    # Arrange: ни title, ни author не содержат искомый терм
+    article = _make_article(title="Some Paper", year=2023, author="Dr. Someone", doi="10.7/nomatch")
+    await _seed(pg_session, [article])
+
+    # Act
+    resp = await pg_client.get("/articles/", params={"search": "quantum-computing-xyz"})
+
+    # Assert: 0 результатов, не ошибка
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 0
+    assert data["items"] == []
