@@ -25,18 +25,19 @@ function sortArticles(
   );
 }
 
-// Анонимный intro-блок — заголовок + оба пояснительных абзаца (текстовая,
+// Анонимный intro-блок — заголовок + пояснительный абзац (текстовая,
 // центрированная часть). Строка поиска вынесена в SearchPage — делит одну
 // ширину с Filters/результатами ниже (было отдельным узким max-w-screen-sm
 // контейнером, из-за чего после поиска Filters оказывался оторван от строки
 // поиска, см. баг 2026-08-02: филды не видны до поиска + после поиска
 // съезжают влево отдельным блоком).
-// anonNote раньше рендерился отдельным блоком МЕЖДУ строкой поиска и Filters
-// (баг 2026-08-02 #2: Filters оказывался заметно дальше от строки поиска,
-// чем в авторизованном режиме, где после SearchBar сразу идёт gap-4 до
-// Filters). Перенесён сюда, в intro — оба пояснения теперь над строкой
-// поиска, а SearchBar становится прямым соседом ArticleList с тем же gap-4,
-// что и в авторизованном виде.
+// anonSubtitle (раньше был здесь первым абзацем, "Preview results below.
+// Sign in for full search access.") удалён 2026-08-02 — дублировал по сути
+// anonNote ниже ("Sign in for full Scopus access."), два почти одинаковых
+// абзаца подряд читались как явная избыточность. anonNote сам раньше
+// рендерился отдельным блоком МЕЖДУ строкой поиска и Filters (см. историю
+// коммитов) — перенесён сюда, в intro, чтобы SearchBar стал прямым соседом
+// ArticleList с тем же gap-4 до Filters, что и в авторизованном виде.
 function AnonIntro() {
   const { t } = useTranslation();
   return (
@@ -44,20 +45,6 @@ function AnonIntro() {
       <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
         {t('searchPage.anonTitle')}
       </h1>
-      <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-        {/* br — принудительный перенос между двумя предложениями (locale-строка):
-            обычный inline-wrap на узких экранах смешивал слова разных
-            предложений на одной строке / оставлял слово-сироту на последней
-            строке (см. docs/layout-overhaul/spec.md). Каждое предложение
-            теперь всегда начинает свою строку. */}
-        <Trans
-          i18nKey="searchPage.anonSubtitle"
-          components={{
-            lnk: <LocalizedLink to="/auth" className="text-blue-800 dark:text-blue-400 hover:underline" />,
-            br: <br />,
-          }}
-        />
-      </p>
       <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
         <Trans
           i18nKey="searchPage.anonNote"
