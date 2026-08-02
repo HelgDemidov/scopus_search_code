@@ -16,6 +16,7 @@ on:
       - refactor/remove-ai-nl-pivot
       - fix/dependabot-security-alerts
       - fix/anon-search-filters-layout
+      - docs/readme-lessons-learned
 
   pull_request:
     branches:

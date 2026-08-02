@@ -15,6 +15,7 @@ on:
       - fix/seeder-hardening
       - fix/dependabot-security-alerts
       - fix/anon-search-filters-layout
+      - docs/readme-lessons-learned
       - refactor/remove-ai-nl-pivot
     # Запускаем только когда меняется frontend или сам воркфлоу
     paths:
