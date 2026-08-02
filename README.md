@@ -267,6 +267,18 @@ the app.
 
 ---
 
+## Engineering decisions / Lessons learned
+
+Real production incidents from this project's history — not sanitized case studies — each with the concrete fix and the general lesson it left behind.
+
+**Prod showed staging's numbers for 60 seconds — twice a build** (PR #32). Both environments share one physical Upstash Redis instance; the stats cache-aside key wasn't scoped per environment, only per query shape. Every push to `main` triggered `e2e.yml` against staging, which happily warmed the shared key with staging data — for the next 60s (the cache TTL), production's `/stats` endpoint served staging's numbers to real users. Fixed by folding a `db_namespace` (sha256 of `DATABASE_URL`) into every cache key. Lesson: a shared piece of infrastructure across environments needs its own explicit isolation boundary — different databases don't imply different cache keys.
+
+**A 100%-broken code path, invisible to its own test suite** (PR #45). `postgres_article_repo.py`'s personal-visibility check built an `EXISTS` subquery starting from `select(sa.literal(1))` and then called `.join(SearchHistory, ...)` — with no ORM entity to anchor the left side, SQLAlchemy can't resolve the join and raises on any real engine, not just Postgres. Every logged-in user hit a 500 opening any of their own past articles, from the moment this code shipped — not intermittent, not data-dependent. The only test covering it mocked the repository entirely and asserted just that `user_id` was passed through, so the actual SQL never ran in CI. Found by writing a one-off script that called the repo directly against the production database (the project's usual outlet, since Railway's log tooling was itself broken that day) and reproducing the exact traceback from the browser. Fixed with an explicit `.select_from(SearchResultArticle)`. Lesson: a mocked unit test can certify code that has never actually executed a single real query — join correctness needs an integration test against a real engine, even SQLite.
+
+**A 20-minute check that saved a wasted GUC-tuning ticket.** The original load-test writeup blamed the Performance section's multi-second P95 tail on "each request's own parallel workers competing for CPU cores" under 20 concurrent VUs — a plausible-sounding theory that was never actually checked against production. A read-only pass against the real Supabase instance found `max_parallel_workers_per_gather=1` — Supabase had already capped intra-query parallelism below Postgres's own default, so there was essentially nothing for workers to compete over. Running the identical `EXPLAIN (ANALYZE, BUFFERS)` twice in a row, with identical buffer hits and zero other sessions, still swung from 1.95s to 9.24s — the real culprit is CPU-time instability inherent to a burstable/shared compute tier, not intra-query contention. No code changed; the theory was simply wrong as stated, and the Performance section above has been corrected to match. Lesson: 20 minutes of read-only verification against the real infrastructure is cheaper than a ticket to tune a GUC based on an untested theory. *(Real prod P95/P99 from live traffic wasn't pulled for this note — Railway's log-query tooling needs an account-level token this session didn't have; the honest baseline above remains the one measured on a dedicated, production-scale instance.)*
+
+---
+
 ## Local Launch
 
 <details>
