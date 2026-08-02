@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - fix/catalog-search-latency
     # Запускаем только когда меняется frontend или сам воркфлоу
     paths:
       - 'frontend/**'
