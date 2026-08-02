@@ -13,8 +13,8 @@ Russian version: [README.ru.md](README.ru.md)
 
 | Mode | Functionality |
 |---|---|
-| **Without authentication** | Browse and search the "AI & Neural Network Technologies" thematic collection (~95,900 publications); multi-criteria filtering by year, country, document type, and open-access status; article detail pages; interactive analytics dashboard (/explore) with cross-filter charts, a pivot Table Builder (count or average-citations metric), and statistics on publication trends, geography, document types, top journals, authors, and keywords |
-| **With authentication** | All unauthenticated features, plus: live search across the full Scopus database (up to 25 results per query); personal search history with filtering; weekly API quota counter; account management (email/password · Google OAuth · password reset via email) |
+| **Without authentication** | Browse and search the "AI & Neural Network Technologies" thematic collection (~227,400 publications); multi-criteria filtering by year, country, document type, and open-access status; article detail pages; interactive analytics dashboard (/explore) with cross-filter charts, a pivot Table Builder (count or average-citations metric), Journal Landscape scatter, and statistics on publication trends, geography, document types, top journals, authors, and keywords |
+| **With authentication** | All unauthenticated features, plus: live search across the full Scopus database (up to 25 results per query); personal search history with filtering and a personal analytics view (/explore?mode=personal); weekly API quota counter; account management (email/password · Google OAuth · password reset via email) |
 
 ---
 
@@ -40,7 +40,7 @@ GitHub Actions ──► db_seeder (cron, every 2 h)
 | **Frontend** | React 18, TypeScript, Vite, Zustand, Axios, Recharts, shadcn/ui, Tailwind CSS | Vercel |
 | **Backend** | Python 3.12, FastAPI, SQLAlchemy 2.0 async, Alembic, Pydantic v2, httpx, Authlib | Railway |
 | **Database** | PostgreSQL 17 (Supabase), Session Pooler | Supabase (eu-west-1) |
-| **Cache** | Upstash Redis (HTTPS REST, TTL 60 s) — `GET /articles/stats` response cache | Upstash |
+| **Cache** | Upstash Redis (HTTPS REST, TTL 60 s) — cache-aside for `/articles/stats`, `/stats/journal-impact`, and catalog search pagination count | Upstash |
 | **CI/CD** | GitHub Actions — backend (`tests.yml`: pytest · ruff · mypy · alembic check · 80% coverage), frontend (`frontend-tests.yml`: Vitest · ESLint · tsc · 85% coverage · build), staging E2E (`e2e.yml`) | GitHub |
 | **Seeder** | Python + httpx + asyncpg + OpenRouter LLM | GitHub Actions (cron, every 2 h) |
 | **Observability** | Structured JSON logging (`structlog`) + Sentry (errors, performance tracing, source maps) — backend and frontend | Sentry (Developer, free tier) |
@@ -60,7 +60,7 @@ app/
 │                     #   ArticleService, SearchHistoryService, UserService
 ├── infrastructure/   # PostgreSQL repositories + ScopusHTTPClient + UpstashRedisClient
 ├── interfaces/       # ABC interfaces for repositories, clients, IEmailService
-├── models/           # SQLAlchemy ORM models (5 tables)
+├── models/           # SQLAlchemy ORM models (8 tables)
 ├── schemas/          # Pydantic v2 request/response schemas
 ├── core/             # DI, JWT, refresh-token utilities, dependencies
 ├── config.py         # Pydantic Settings — single source of configuration
@@ -74,12 +74,14 @@ React SPA with routing via React Router and global state via Zustand:
 ```
 frontend/src/
 ├── api/              # Axios client (client.ts) + articles, auth, stats, users modules
-├── stores/           # articleStore, authStore, historyStore, quotaStore,
-│                     #   statsStore, dashboardStore, tokenStore (AT in-memory, no localStorage)
-├── pages/            # HomePage, ExplorePage, ProfilePage, AuthPage, ArticlePage,
-│                     #   OAuthCallback, ForgotPasswordPage, ResetPasswordPage
+├── stores/           # articleStore, authStore, historyStore, quotaStore, statsStore,
+│                     #   dashboardStore, blackHoleStore, tokenStore (AT in-memory, no localStorage)
+├── pages/            # MainPage, SearchPage, ExplorePage, ProfilePage, AuthPage, ArticlePage,
+│                     #   About/Privacy/TermsPage, OAuthCallback, Forgot/ResetPasswordPage,
+│                     #   error/ (NotFoundPage, RouteErrorPage)
 ├── components/       # articles/, charts/, layout/, profile/, search/, ui/
-├── hooks/            # usePagination
+├── hooks/            # usePagination + 8 more (theme, media query, i18n-aware routing/hreflang,
+│                     #   dashboard dimension colors, black-hole positioning)
 └── types/            # TypeScript types and API interfaces
 ```
 
@@ -93,8 +95,12 @@ frontend/src/
 |---|---|---|
 | `GET` | `/articles/` | Paginated catalog list; keyword/full-text search + multi-criteria filtering (year range, country, document type, open-access status) |
 | `GET` | `/articles/stats` | Aggregated collection statistics (by year, journal, country, type) |
+| `GET` | `/articles/stats/journal-impact` | Journal Landscape scatter (volume × avg citations, by max-year window) |
+| `GET` | `/articles/stats/pivot` | Table Builder 2D pivot (row/col dimension pair, count or avg-citations metric) |
 | `GET` | `/articles/{id}` | Article detail page |
-| `GET` | `/health` | Health check |
+| `GET` | `/health` | Health check (process liveness only) |
+| `GET` | `/health/db` | Health check — database connectivity |
+| `GET` | `/health/redis` | Health check — Redis connectivity (`not_configured` if unset, not an error) |
 
 ### Authentication
 
@@ -117,7 +123,18 @@ frontend/src/
 | `GET` | `/articles/find` | Live Scopus search (up to 25 results); accepts same filters as `GET /articles/`; checks quota; saves result and history |
 | `GET` | `/articles/find/quota` | Weekly quota status: `limit`, `used`, `remaining`, `reset_at` |
 | `GET` | `/articles/history` | User search history (up to 100 records) |
+| `GET` | `/articles/history/{id}/results` | Articles from one specific past search |
 | `GET` | `/articles/search/stats` | Aggregates over personal search articles |
+| `GET` | `/articles/stats/personal` | Personal-mode KPI stats (same shape as `/articles/stats`, scoped to the user's own searches) |
+| `GET` | `/articles/stats/personal/activity` | Personal activity timeline (auto week/month granularity) for `/explore?mode=personal` |
+
+### Internal (service-to-service, `X-Seeder-Secret` header, not a user JWT)
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/seeder/seed` | Seed one keyword's Scopus results into the catalog |
+| `POST` | `/seeder/gc` | Delete orphaned `articles` rows left by retention trimming |
+| `POST` | `/seeder/health-check` | DB/Redis health probe; emails an alert via Brevo on degradation |
 
 <details>
 <summary>Quota and concurrent access</summary>
@@ -138,13 +155,13 @@ Current migration version: `0018_trgm_gin_indices`.
 
 | Table | Purpose | Records (prod) |
 |---|---|---|
-| `articles` | Normalized Scopus publication registry | ~96,700 |
-| `catalog_articles` | Thematic collection membership (seeder keyword) | ~95,900 |
-| `search_history` | User live-search history (JSONB `filters`) | ~100 |
-| `search_result_articles` | Junction table: search → articles with `rank` | ~2,300 |
-| `seeder_keywords` | Used seeder phrases with clusters and timestamps | ~19,100 |
-| `users` | Service users | ~9 |
-| `refresh_tokens` | Active refresh tokens with rotation support | ~77 |
+| `articles` | Normalized Scopus publication registry | ~228,300 |
+| `catalog_articles` | Thematic collection membership (seeder keyword) | ~227,400 |
+| `search_history` | User live-search history (JSONB `filters`) | ~110 |
+| `search_result_articles` | Junction table: search → articles with `rank` | ~2,370 |
+| `seeder_keywords` | Used seeder phrases with clusters and timestamps | ~25,700 |
+| `users` | Service users | ~10 |
+| `refresh_tokens` | Active refresh tokens with rotation support | ~79 |
 | `password_reset_tokens` | One-time password reset tokens (short-lived) | — |
 
 ---
@@ -190,13 +207,13 @@ Supabase connection via `asyncpg` with `statement_cache_size=0` (required for Pg
 
 ## Testing
 
-**Backend:** 303 tests (`pytest` + `pytest-asyncio`), all green, across three layers:
+**Backend:** 322 tests (`pytest` + `pytest-asyncio`), all green, across three layers:
 
 | Layer | Tests | What it covers |
 |---|---|---|
-| Unit (SQLite, mocked) | 125 | Services (article, catalog, search, user), Scopus client, interface contracts, seeder router/keyword generator, Redis cache, Sentry config |
+| Unit (SQLite, mocked) | 141 | Services (article, catalog, search, user), Scopus client, interface contracts, seeder router/keyword generator, Redis cache, Sentry config |
 | Integration (SQLite) | 155 | Full HTTP stack: auth, articles, search history, password reset, RT lifecycle, seeder endpoint, observability/Sentry capture |
-| Integration (PG) | 23 | `pg_advisory_xact_lock` concurrency; requires `DATABASE_TEST_URL` (throwaway PG, never Supabase) |
+| Integration (PG) | 26 | `pg_advisory_xact_lock` concurrency, catalog `search=` filtering; requires `DATABASE_TEST_URL` (throwaway PG, never Supabase) |
 | E2E (Staging) | — | Real Railway + Supabase staging; auto-skipped without `E2E_BASE_URL` |
 
 **Frontend:** 799 tests (`Vitest` + Testing Library), all green; statements coverage 86.2% (threshold: 85%).
@@ -383,6 +400,8 @@ VITE_SENTRY_DSN=https://<key>@<org-id>.ingest.<region>.sentry.io/<project-id>
 |---|---|
 | `SCOPUS_API_KEY` | Elsevier API key (dev.elsevier.com) |
 | `DATABASE_URL` | Supabase Session Pooler connection string (asyncpg) |
+| `DB_ECHO` | Log every SQL statement (dev/debug only — noisy under load, default `true`) |
+| `DB_POOL_SIZE` / `DB_MAX_OVERFLOW` | SQLAlchemy connection pool sizing (defaults: 5 / 10) |
 | `SECRET_KEY` | JWT signing secret |
 | `ALGORITHM` | JWT algorithm (HS256) |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Access token TTL (30) |

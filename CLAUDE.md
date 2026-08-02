@@ -80,11 +80,11 @@ Advisory lock in the DI factory → new `GET /articles/find` tests don't need `r
 | Workflow | Jobs | Trigger |
 |---|---|---|
 | `tests.yml` | `test` (SQLite), `test-pg` (PG16 + alembic check), `quality` (ruff/mypy/pip-audit), `coverage` (80%, after test+test-pg) | push+PR → main |
-| `frontend-tests.yml` | `typecheck`, `lint` (ESLint + npm audit), `unit`, `integration` (70% threshold), `build` | push main (paths: frontend/**) |
+| `frontend-tests.yml` | `typecheck`, `lint` (ESLint + npm audit), `unit`, `integration` (85% threshold), `build` | push main (paths: frontend/**) |
 | `e2e.yml` | `e2e` — smoke tests against Railway staging | push main |
 | `keep_alive.yml` / `keep_alive_staging.yml` | ping `/health/db`+`/health` — keeps Railway awake / Supabase unpaused | cron: prod 1×/14min, staging 1×/day |
 
-**Branch protection (main):** force-push and deletion blocked; required PR checks: `test`, `test-pg`, `Code quality` (strict). `enforce_admins=false` — owner can push directly.
+**Branch protection (main):** force-push and deletion blocked; required PR checks: `test`, `test-pg`, `Code quality (ruff + mypy + pip-audit)` (strict). `enforce_admins=false` — owner can push directly.
 **Dependabot:** `.github/dependabot.yml` — pip + npm + github-actions, weekly, limit 3 PRs/ecosystem.
 
 ## Migration chain note

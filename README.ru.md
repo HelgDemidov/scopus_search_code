@@ -13,8 +13,8 @@
 
 | Режим | Функциональность |
 |---|---|
-| **Без авторизации** | Просмотр и поиск тематической коллекции «AI & Neural Network Technologies» (~95 900 публикаций); многокритериальная фильтрация по году, стране, типу документа и статусу open access; детальные страницы статей; интерактивный аналитический дашборд (/explore) с cross-filter графиками, конструктором pivot-таблиц Table Builder (метрика — количество или среднее число цитирований) и статистикой по трендам, географии, типам документов, ведущим журналам, авторам и ключевым словам |
-| **С авторизацией** | Все возможности без авторизации плюс: live-поиск по всей базе Scopus (до 25 результатов за запрос); личная история поисков с фильтрацией; счётчик недельной квоты API; управление аккаунтом (email/пароль · Google OAuth · сброс пароля по email) |
+| **Без авторизации** | Просмотр и поиск тематической коллекции «AI & Neural Network Technologies» (~227 400 публикаций); многокритериальная фильтрация по году, стране, типу документа и статусу open access; детальные страницы статей; интерактивный аналитический дашборд (/explore) с cross-filter графиками, конструктором pivot-таблиц Table Builder (метрика — количество или среднее число цитирований), Journal Landscape scatter, и статистикой по трендам, географии, типам документов, ведущим журналам, авторам и ключевым словам |
+| **С авторизацией** | Все возможности без авторизации плюс: live-поиск по всей базе Scopus (до 25 результатов за запрос); личная история поисков с фильтрацией и персональная аналитика (/explore?mode=personal); счётчик недельной квоты API; управление аккаунтом (email/пароль · Google OAuth · сброс пароля по email) |
 
 ---
 
@@ -40,7 +40,7 @@ GitHub Actions ──► db_seeder (cron, каждые 2 ч)
 | **Frontend** | React 18, TypeScript, Vite, Zustand, Axios, Recharts, shadcn/ui, Tailwind CSS | Vercel |
 | **Backend** | Python 3.12, FastAPI, SQLAlchemy 2.0 async, Alembic, Pydantic v2, httpx, Authlib | Railway |
 | **База данных** | PostgreSQL 17 (Supabase), Session Pooler | Supabase (eu-west-1) |
-| **Кэш** | Upstash Redis (HTTPS REST, TTL 60 с) — кэш ответов `GET /articles/stats` | Upstash |
+| **Кэш** | Upstash Redis (HTTPS REST, TTL 60 с) — cache-aside для `/articles/stats`, `/stats/journal-impact` и счётчика пагинации каталожного поиска | Upstash |
 | **CI/CD** | GitHub Actions — backend (`tests.yml`: pytest · ruff · mypy · alembic check · coverage 80%), frontend (`frontend-tests.yml`: Vitest · ESLint · tsc · coverage 85% · build), staging E2E (`e2e.yml`) | GitHub |
 | **Сидер** | Python + httpx + asyncpg + OpenRouter LLM | GitHub Actions (cron, каждые 2 ч) |
 | **Observability** | Структурное JSON-логирование (`structlog`) + Sentry (ошибки, performance tracing, source maps) — backend и frontend | Sentry (Developer, free tier) |
@@ -60,7 +60,7 @@ app/
 │                     #   ArticleService, SearchHistoryService, UserService
 ├── infrastructure/   # Репозитории PostgreSQL + ScopusHTTPClient + UpstashRedisClient
 ├── interfaces/       # ABC-интерфейсы репозиториев, клиентов, IEmailService
-├── models/           # SQLAlchemy ORM-модели (5 таблиц)
+├── models/           # SQLAlchemy ORM-модели (8 таблиц)
 ├── schemas/          # Pydantic v2 схемы запросов и ответов
 ├── core/             # DI, JWT, refresh-token утилиты, зависимости
 ├── config.py         # Pydantic Settings — единый источник конфигурации
@@ -74,12 +74,14 @@ React SPA с маршрутизацией через React Router и глоба�
 ```
 frontend/src/
 ├── api/              # Axios-клиент (client.ts) + модули articles, auth, stats, users
-├── stores/           # articleStore, authStore, historyStore, quotaStore,
-│                     #   statsStore, dashboardStore, tokenStore (AT in-memory, без localStorage)
-├── pages/            # HomePage, ExplorePage, ProfilePage, AuthPage, ArticlePage,
-│                     #   OAuthCallback, ForgotPasswordPage, ResetPasswordPage
+├── stores/           # articleStore, authStore, historyStore, quotaStore, statsStore,
+│                     #   dashboardStore, blackHoleStore, tokenStore (AT in-memory, без localStorage)
+├── pages/            # MainPage, SearchPage, ExplorePage, ProfilePage, AuthPage, ArticlePage,
+│                     #   About/Privacy/TermsPage, OAuthCallback, Forgot/ResetPasswordPage,
+│                     #   error/ (NotFoundPage, RouteErrorPage)
 ├── components/       # articles/, charts/, layout/, profile/, search/, ui/
-├── hooks/            # usePagination
+├── hooks/            # usePagination + ещё 8 (тема, media query, i18n-роутинг/hreflang,
+│                     #   цвета измерений дашборда, позиционирование чёрной дыры)
 └── types/            # TypeScript-типы и интерфейсы API
 ```
 
@@ -93,8 +95,12 @@ frontend/src/
 |---|---|---|
 | `GET` | `/articles/` | Пагинированный список каталога; поиск по ключевому слову / полнотекстовый + многокритериальная фильтрация (диапазон лет, страна, тип документа, open access) |
 | `GET` | `/articles/stats` | Агрегированная статистика коллекции (по годам, журналам, странам, типам) |
+| `GET` | `/articles/stats/journal-impact` | Journal Landscape scatter (объём × среднее цитирование, по окну max-year) |
+| `GET` | `/articles/stats/pivot` | Table Builder — 2D pivot (пара измерений строка/столбец, метрика count или avg-citations) |
 | `GET` | `/articles/{id}` | Детальная страница статьи |
-| `GET` | `/health` | Health-check |
+| `GET` | `/health` | Health-check (только живость процесса) |
+| `GET` | `/health/db` | Health-check — доступность базы данных |
+| `GET` | `/health/redis` | Health-check — доступность Redis (`not_configured`, если не настроен — не ошибка) |
 
 ### Авторизация
 
@@ -117,7 +123,18 @@ frontend/src/
 | `GET` | `/articles/find` | Live-поиск в Scopus (до 25 результатов); принимает те же фильтры, что и `GET /articles/`; проверяет квоту; сохраняет результат и историю |
 | `GET` | `/articles/find/quota` | Состояние недельной квоты: `limit`, `used`, `remaining`, `reset_at` |
 | `GET` | `/articles/history` | История поисков пользователя (до 100 записей) |
+| `GET` | `/articles/history/{id}/results` | Статьи из конкретного прошлого поиска |
 | `GET` | `/articles/search/stats` | Агрегаты по статьям из личных поисков |
+| `GET` | `/articles/stats/personal` | Персональная KPI-статистика (та же форма, что `/articles/stats`, но по своим поискам) |
+| `GET` | `/articles/stats/personal/activity` | Лента активности (авто week/month granularity) для `/explore?mode=personal` |
+
+### Внутренние (service-to-service, заголовок `X-Seeder-Secret`, не JWT пользователя)
+
+| Метод | Путь | Описание |
+|---|---|---|
+| `POST` | `/seeder/seed` | Засеять результаты Scopus по одному ключевому слову в каталог |
+| `POST` | `/seeder/gc` | Удалить осиротевшие строки `articles`, оставшиеся после обрезки retention |
+| `POST` | `/seeder/health-check` | Проверка доступности БД/Redis; email-алерт через Brevo при деградации |
 
 <details>
 <summary>Квота и конкурентный доступ</summary>
@@ -138,13 +155,13 @@ frontend/src/
 
 | Таблица | Назначение | Записей (prod) |
 |---|---|---|
-| `articles` | Нормализованный реестр публикаций Scopus | ~96 700 |
-| `catalog_articles` | Принадлежность статей к тематической коллекции (keyword сидера) | ~95 900 |
-| `search_history` | История live-поисков пользователей (JSONB `filters`) | ~100 |
-| `search_result_articles` | Junction-таблица: поиск → статьи с `rank` | ~2 300 |
-| `seeder_keywords` | Использованные фразы сидера с кластерами и датами | ~19 100 |
-| `users` | Пользователи сервиса | ~9 |
-| `refresh_tokens` | Активные refresh-токены с поддержкой ротации | ~77 |
+| `articles` | Нормализованный реестр публикаций Scopus | ~228 300 |
+| `catalog_articles` | Принадлежность статей к тематической коллекции (keyword сидера) | ~227 400 |
+| `search_history` | История live-поисков пользователей (JSONB `filters`) | ~110 |
+| `search_result_articles` | Junction-таблица: поиск → статьи с `rank` | ~2 370 |
+| `seeder_keywords` | Использованные фразы сидера с кластерами и датами | ~25 700 |
+| `users` | Пользователи сервиса | ~10 |
+| `refresh_tokens` | Активные refresh-токены с поддержкой ротации | ~79 |
 | `password_reset_tokens` | Одноразовые токены сброса пароля (короткоживущие) | — |
 
 ---
@@ -190,13 +207,13 @@ GitHub Actions workflow (запускается каждые 2 часа) нап�
 
 ## Тестирование
 
-**Бэкенд:** 303 теста (`pytest` + `pytest-asyncio`), все зелёные, три слоя:
+**Бэкенд:** 322 теста (`pytest` + `pytest-asyncio`), все зелёные, три слоя:
 
 | Слой | Тестов | Что проверяет |
 |---|---|---|
-| Unit (SQLite, мокированный) | 125 | Сервисы (article, catalog, search, user), Scopus-клиент, контракты интерфейсов, seeder router/keyword generator, Redis-кэш, Sentry-конфигурация |
+| Unit (SQLite, мокированный) | 141 | Сервисы (article, catalog, search, user), Scopus-клиент, контракты интерфейсов, seeder router/keyword generator, Redis-кэш, Sentry-конфигурация |
 | Integration (SQLite) | 155 | Полный HTTP-стек: auth, статьи, история поисков, сброс пароля, RT-жизненный цикл, seeder endpoint, observability/Sentry capture |
-| Integration (PG) | 23 | Конкурентность `pg_advisory_xact_lock`; требует `DATABASE_TEST_URL` (throwaway PG, никогда не Supabase) |
+| Integration (PG) | 26 | Конкурентность `pg_advisory_xact_lock`, фильтрация каталога по `search=`; требует `DATABASE_TEST_URL` (throwaway PG, никогда не Supabase) |
 | E2E (Staging) | — | Реальный Railway + Supabase staging; пропускается без `E2E_BASE_URL` |
 
 **Фронтенд:** 799 тестов (`Vitest` + Testing Library), все зелёные; покрытие statements 86.2% (порог: 85%).
@@ -384,6 +401,8 @@ VITE_SENTRY_DSN=https://<key>@<org-id>.ingest.<region>.sentry.io/<project-id>
 |---|---|
 | `SCOPUS_API_KEY` | API-ключ Elsevier (dev.elsevier.com) |
 | `DATABASE_URL` | Connection string Supabase Session Pooler (asyncpg) |
+| `DB_ECHO` | Логировать каждый SQL-запрос (только для dev/debug — шумно под нагрузкой, по умолчанию `true`) |
+| `DB_POOL_SIZE` / `DB_MAX_OVERFLOW` | Размер пула соединений SQLAlchemy (по умолчанию: 5 / 10) |
 | `SECRET_KEY` | Секрет для подписи JWT |
 | `ALGORITHM` | Алгоритм JWT (HS256) |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | TTL access token (30) |
