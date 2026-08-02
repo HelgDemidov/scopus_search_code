@@ -25,12 +25,18 @@ function sortArticles(
   );
 }
 
-// Анонимный intro-блок — только заголовок/подзаголовок (текстовая, центрированная
-// часть). Строка поиска вынесена в SearchPage — делит одну ширину с Filters/
-// результатами ниже (было отдельным узким max-w-screen-sm контейнером, из-за
-// чего после поиска Filters оказывался оторван от строки поиска, см. баг
-// 2026-08-02: филды не видны до поиска + после поиска съезжают влево отдельным
-// блоком).
+// Анонимный intro-блок — заголовок + оба пояснительных абзаца (текстовая,
+// центрированная часть). Строка поиска вынесена в SearchPage — делит одну
+// ширину с Filters/результатами ниже (было отдельным узким max-w-screen-sm
+// контейнером, из-за чего после поиска Filters оказывался оторван от строки
+// поиска, см. баг 2026-08-02: филды не видны до поиска + после поиска
+// съезжают влево отдельным блоком).
+// anonNote раньше рендерился отдельным блоком МЕЖДУ строкой поиска и Filters
+// (баг 2026-08-02 #2: Filters оказывался заметно дальше от строки поиска,
+// чем в авторизованном режиме, где после SearchBar сразу идёт gap-4 до
+// Filters). Перенесён сюда, в intro — оба пояснения теперь над строкой
+// поиска, а SearchBar становится прямым соседом ArticleList с тем же gap-4,
+// что и в авторизованном виде.
 function AnonIntro() {
   const { t } = useTranslation();
   return (
@@ -46,6 +52,15 @@ function AnonIntro() {
             теперь всегда начинает свою строку. */}
         <Trans
           i18nKey="searchPage.anonSubtitle"
+          components={{
+            lnk: <LocalizedLink to="/auth" className="text-blue-800 dark:text-blue-400 hover:underline" />,
+            br: <br />,
+          }}
+        />
+      </p>
+      <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+        <Trans
+          i18nKey="searchPage.anonNote"
           components={{
             lnk: <LocalizedLink to="/auth" className="text-blue-800 dark:text-blue-400 hover:underline" />,
             br: <br />,
@@ -199,19 +214,11 @@ export default function SearchPage() {
         // что показать (пусто/skeleton/список) через свои isLoading/hasSearched.
         <div className="mx-auto max-w-screen-xl px-4 py-6 flex flex-col gap-4">
           <AnonIntro />
-          <div className="flex flex-col items-center gap-3 text-center">
-            <div className="w-full">
-              <SearchBar key={resetKey} onSearch={handleSearch} />
-            </div>
-            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md">
-              <Trans
-                i18nKey="searchPage.anonNote"
-                components={{
-                  lnk: <LocalizedLink to="/auth" className="text-blue-800 dark:text-blue-400 hover:underline" />,
-                  br: <br />,
-                }}
-              />
-            </p>
+          {/* Прямой сосед ArticleList в общем gap-4 — та же вертикальная дистанция
+              до Filters, что и в авторизованном виде ниже (там же gap-4 от
+              строки поиска до ArticleList, без блока текста между ними). */}
+          <div className="w-full">
+            <SearchBar key={resetKey} onSearch={handleSearch} />
           </div>
           {/* Анонимный режим: ArticleList изолирован в ErrorBoundary */}
           <ErrorBoundary>
