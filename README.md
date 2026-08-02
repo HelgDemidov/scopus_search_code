@@ -240,9 +240,9 @@ the app.
     `title ILIKE '%term%' OR author ILIKE '%term%'` (leading wildcard defeats every btree, including
     the existing `ix_articles_lower_*`) and `EXTRACT(year FROM publication_date) <= max_year`
     (a function over the column also defeats indexing). Individually both were sub-300ms and
-    invisible in the browser; at 20 concurrent VUs, every request's own parallel workers competed
-    for the container's CPU cores — that queueing, not per-query cost, produced the multi-second
-    tail latency.
+    invisible in the browser; at 20 concurrent VUs the full sequential scans queued for the
+    container's shared CPU — see Lessons learned #3 for why an initial "parallel workers" theory
+    for this queueing didn't hold up under direct verification.
 *   **Fixed in 3 measured steps, cheapest first** (see `docs/project_context` for the full trade-off
     discussion — GiST over GIN, sargable predicates over functional indexes):
     1. Cap the pagination `COUNT(*)` at 2000 (`SELECT count(*) FROM (... LIMIT 2001) t` — the planner
