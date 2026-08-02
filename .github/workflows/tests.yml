@@ -5,18 +5,6 @@ on:
   push:
     branches:
       - main
-      - feature/accretion-disk-rework
-      - feat/a11y-load-test
-      - feat/layout-responsive-foundation
-      - feat/i18n-url-routing
-      - feat/impact-analytics
-      - feat/observability-sentry
-      - feat/ai-nl-pivot
-      - fix/seeder-hardening
-      - refactor/remove-ai-nl-pivot
-      - fix/dependabot-security-alerts
-      - fix/anon-search-filters-layout
-      - docs/readme-lessons-learned
 
   pull_request:
     branches:

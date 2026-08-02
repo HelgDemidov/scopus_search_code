@@ -190,16 +190,16 @@ Supabase connection via `asyncpg` with `statement_cache_size=0` (required for Pg
 
 ## Testing
 
-**Backend:** 324 tests (`pytest` + `pytest-asyncio`), all green, across three layers:
+**Backend:** 303 tests (`pytest` + `pytest-asyncio`), all green, across three layers:
 
 | Layer | Tests | What it covers |
 |---|---|---|
-| Unit (SQLite, mocked) | 135 | Services (article, catalog, search, user), Scopus client, interface contracts, seeder router/keyword generator, Redis cache, Sentry config |
-| Integration (SQLite) | 166 | Full HTTP stack: auth, articles, search history, password reset, RT lifecycle, seeder endpoint, observability/Sentry capture |
+| Unit (SQLite, mocked) | 125 | Services (article, catalog, search, user), Scopus client, interface contracts, seeder router/keyword generator, Redis cache, Sentry config |
+| Integration (SQLite) | 155 | Full HTTP stack: auth, articles, search history, password reset, RT lifecycle, seeder endpoint, observability/Sentry capture |
 | Integration (PG) | 23 | `pg_advisory_xact_lock` concurrency; requires `DATABASE_TEST_URL` (throwaway PG, never Supabase) |
 | E2E (Staging) | — | Real Railway + Supabase staging; auto-skipped without `E2E_BASE_URL` |
 
-**Frontend:** 819 tests (`Vitest` + Testing Library), all green; statements coverage 86.2% (threshold: 85%).
+**Frontend:** 799 tests (`Vitest` + Testing Library), all green; statements coverage 86.2% (threshold: 85%).
 
 <details>
 <summary>Running the tests</summary>

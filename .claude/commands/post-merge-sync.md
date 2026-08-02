@@ -49,9 +49,13 @@ Read both files. Update ONLY the parts whose content is now factually outdated b
 - README.ru.md — зеркало README.md по содержанию: любая правка в одном файле дублируется по смыслу в другом.
 - Если изменения PR не затрагивают ничего, отражённого в README, — пропустить этот шаг.
 
-## Step 6 — Commit documentation changes
+## Step 6 — Remove the merged branch from CI workflow triggers
 
-Stage only documentation files (CLAUDE.md, frontend/CLAUDE.md, README.md, README.ru.md). Do NOT stage `docs/**` (gitignored, local-only) or memory files (they live outside the repo). Commit with message:
+Check `.github/workflows/tests.yml`, `frontend-tests.yml`, and `e2e.yml` for the just-merged branch name in their `push: branches:` lists — this project adds each new branch there when work starts (see `feedback_ci_branch_triggers.md`), but nothing removes it after merge, so these lists only ever grow. Remove the merged branch's name from all three files if present. Leave `main` and any other still-open branch names untouched. Validate the YAML still parses after editing.
+
+## Step 7 — Commit documentation changes
+
+Stage only documentation files (CLAUDE.md, frontend/CLAUDE.md, README.md, README.ru.md, and the three `.github/workflows/*.yml` files if Step 6 changed them). Do NOT stage `docs/**` (gitignored, local-only) or memory files (they live outside the repo). Commit with message:
 `docs: обновить CLAUDE.md и документацию после мерджа <branch-name>`
 
 Then report a short summary: what was updated and why.
