@@ -6,7 +6,12 @@ from typing import List, cast
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infrastructure.redis_client import STATS_CACHE_TTL, make_journal_impact_cache_key, make_stats_cache_key
+from app.infrastructure.redis_client import (
+    STATS_CACHE_TTL,
+    make_catalog_count_cache_key,
+    make_journal_impact_cache_key,
+    make_stats_cache_key,
+)
 from app.interfaces.article_repository import IArticleRepository
 from app.interfaces.catalog_repository import ICatalogRepository
 from app.models.article import Article
@@ -452,6 +457,131 @@ async def test_get_catalog_paginated_total_above_cap_is_capped():
 
     assert result.total == CatalogService.TOTAL_COUNT_CAP
     assert result.total_is_capped is True
+
+
+# ================================================================ #
+#  Тесты get_catalog_paginated — кэш Redis для get_total_count     #
+#  (docs/backend-performance/catalog-search-latency/spec.md §1/Шаг 1)  #
+#  get_all() (сами строки страницы) кэшу НЕ подлежит — должен      #
+#  оставаться live при любом состоянии кэша count.                 #
+# ================================================================ #
+
+
+@pytest.mark.asyncio
+async def test_get_catalog_paginated_count_uses_cache_on_hit():
+    """Cache hit по count: catalog_repo.get_total_count не вызывается, get_all — вызывается всегда."""
+    cached = json.dumps({"total": 777, "capped": False})
+    redis = FakeRedis(cached_value=cached)
+    svc, _, cr, _ = _mk_service(articles=[_mk_article(1)], redis=redis)
+
+    result = await svc.get_catalog_paginated(page=1, size=10, search="accelerator")
+
+    assert cr.get_count_calls == [], "get_total_count не должен вызываться при cache hit"
+    assert len(cr.get_all_calls) == 1, "get_all должен вызываться всегда, независимо от кэша count"
+    assert redis.get_call_count == 1
+    assert result.total == 777
+    assert result.total_is_capped is False
+
+
+@pytest.mark.asyncio
+async def test_get_catalog_paginated_count_writes_cache_on_miss():
+    """Cache miss: DB вызывается, результат записывается в Redis с правильным ключом/TTL."""
+    redis = FakeRedis(cached_value=None)
+    svc, _, cr, _ = _mk_service(articles=[], total=42, redis=redis)
+
+    result = await svc.get_catalog_paginated(page=1, size=10, search="accelerator")
+
+    assert len(cr.get_count_calls) == 1, "При cache miss get_total_count должен вызываться"
+    assert len(redis.setex_calls) == 1, "После DB должна быть запись в Redis"
+
+    key, ttl, value = redis.setex_calls[0]
+    expected_key = make_catalog_count_cache_key(
+        None, "accelerator", None, None, None, None, None, db_namespace=_TEST_DB_NAMESPACE
+    )
+    assert key == expected_key
+    assert ttl == STATS_CACHE_TTL
+    payload = json.loads(value)
+    assert payload == {"total": 42, "capped": False}
+    assert result.total == 42
+
+
+@pytest.mark.asyncio
+async def test_get_catalog_paginated_count_capped_value_cached_correctly():
+    """Капнутый total (total_is_capped=True) сохраняется в кэше корректно, не как точное число."""
+    redis = FakeRedis(cached_value=None)
+    svc, _, _, _ = _mk_service(articles=[], total=CatalogService.TOTAL_COUNT_CAP + 500, redis=redis)
+
+    await svc.get_catalog_paginated(page=1, size=10, search="accelerator")
+
+    _, _, value = redis.setex_calls[0]
+    payload = json.loads(value)
+    assert payload == {"total": CatalogService.TOTAL_COUNT_CAP, "capped": True}
+
+
+@pytest.mark.asyncio
+async def test_get_catalog_paginated_count_different_search_different_cache_key():
+    """Разные поисковые термы не должны делить один ключ кэша count."""
+    redis = FakeRedis(cached_value=None)
+    svc, _, _, _ = _mk_service(articles=[], redis=redis)
+
+    await svc.get_catalog_paginated(page=1, size=10, search="accelerator")
+    await svc.get_catalog_paginated(page=1, size=10, search="transformer")
+
+    key1, _, _ = redis.setex_calls[0]
+    key2, _, _ = redis.setex_calls[1]
+    assert key1 != key2
+
+
+@pytest.mark.asyncio
+async def test_get_catalog_paginated_count_different_db_namespace_different_cache_key():
+    """prod/staging, делящие один физический Redis, не должны делить ключ (см. get_stats)."""
+    redis_a = FakeRedis(cached_value=None)
+    redis_b = FakeRedis(cached_value=None)
+    svc_a, _, _, _ = _mk_service(redis=redis_a, db_namespace="postgresql://prod-host/db")
+    svc_b, _, _, _ = _mk_service(redis=redis_b, db_namespace="postgresql://staging-host/db")
+
+    await svc_a.get_catalog_paginated(page=1, size=10, search="accelerator")
+    await svc_b.get_catalog_paginated(page=1, size=10, search="accelerator")
+
+    key_a, _, _ = redis_a.setex_calls[0]
+    key_b, _, _ = redis_b.setex_calls[0]
+    assert key_a != key_b
+
+
+@pytest.mark.asyncio
+async def test_get_catalog_paginated_count_degrades_on_redis_get_error():
+    """Redis GET бросает исключение → graceful degradation: DB вызывается, результат корректен."""
+    redis = FakeRedis(raise_on_get=True)
+    svc, _, cr, _ = _mk_service(articles=[], total=42, redis=redis)
+
+    result = await svc.get_catalog_paginated(page=1, size=10, search="accelerator")
+
+    assert len(cr.get_count_calls) == 1, "При ошибке Redis должен быть fallback на DB"
+    assert result.total == 42
+
+
+@pytest.mark.asyncio
+async def test_get_catalog_paginated_count_skips_setex_on_redis_error():
+    """Redis SETEX бросает исключение → результат всё равно возвращается корректно."""
+    redis = FakeRedis(cached_value=None, raise_on_setex=True)
+    svc, _, cr, _ = _mk_service(articles=[], total=42, redis=redis)
+
+    result = await svc.get_catalog_paginated(page=1, size=10, search="accelerator")
+
+    assert len(cr.get_count_calls) == 1
+    assert len(redis.setex_calls) == 0
+    assert result.total == 42
+
+
+@pytest.mark.asyncio
+async def test_get_catalog_paginated_count_no_redis_goes_directly_to_db():
+    """redis=None → прямой вызов DB без попыток Redis."""
+    svc, _, cr, _ = _mk_service(articles=[], total=42, redis=None)
+
+    result = await svc.get_catalog_paginated(page=1, size=10, search="accelerator")
+
+    assert len(cr.get_count_calls) == 1
+    assert result.total == 42
 
 
 # ================================================================ #

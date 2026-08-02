@@ -27,7 +27,7 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-from app.core.dependencies import get_db_session
+from app.core.dependencies import get_catalog_service, get_db_session
 from app.infrastructure.postgres_article_repo import PostgresArticleRepository
 from app.infrastructure.postgres_catalog_repo import PostgresCatalogRepository
 from app.main import app
@@ -89,6 +89,32 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _bypass_real_redis_cache(db_session: AsyncSession):
+    """GET /articles/ теперь кэширует get_total_count в общем Upstash Redis (db_namespace=
+    DATABASE_URL из .env, см. app/core/dependencies.get_catalog_service, docs/backend-performance/
+    catalog-search-latency/spec.md Шаг 1) — этот ключ ОДИН И ТОТ ЖЕ для всех тестов в рамках
+    локального запуска, независимо от того, какая SQLite in-memory БД стоит за конкретным
+    тестом. Без этой фикстуры тесты в этом файле либо читают чужой (реальный, production/
+    staging) кэш вместо своей засеянной SQLite-фикстуры, либо пишут в него мусор с TTL=60с
+    (тот же класс инцидента, что test_stats_cross_analytics.py/test_journal_impact.py —
+    см. project_redis_upstash память). Форсируем redis=None (уже поддерживаемый
+    graceful-degradation путь) только для тестов этого файла."""
+
+    def _override_catalog_service() -> CatalogService:
+        return CatalogService(
+            article_repo=PostgresArticleRepository(db_session),
+            catalog_repo=PostgresCatalogRepository(db_session),
+            session=db_session,
+            redis=None,
+            db_namespace="",
+        )
+
+    app.dependency_overrides[get_catalog_service] = _override_catalog_service
+    yield
+    app.dependency_overrides.pop(get_catalog_service, None)
 
 
 @pytest_asyncio.fixture(scope="function")

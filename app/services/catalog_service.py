@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 
 from app.infrastructure.redis_client import (
     STATS_CACHE_TTL,
+    make_catalog_count_cache_key,
     make_journal_impact_cache_key,
     make_stats_cache_key,
 )
@@ -108,8 +109,7 @@ class CatalogService:
             open_access=open_access,
             countries=countries,
         )
-        total, total_is_capped = await self.catalog_repo.get_total_count(
-            cap=self.TOTAL_COUNT_CAP,
+        total, total_is_capped = await self._get_total_count(
             keyword=keyword,
             search=search,
             year_from=year_from,
@@ -122,6 +122,67 @@ class CatalogService:
         # ORM-объекты → Pydantic-схемы
         article_responses = [ArticleResponse.model_validate(article) for article in db_articles]
         return PaginatedArticleResponse(items=article_responses, total=total, total_is_capped=total_is_capped)
+
+    async def _get_total_count(
+        self,
+        keyword: str | None,
+        search: str | None,
+        year_from: int | None,
+        year_to: int | None,
+        doc_types: list[str] | None,
+        open_access: bool | None,
+        countries: list[str] | None,
+    ) -> tuple[int, bool]:
+        """Cache-aside вокруг catalog_repo.get_total_count — TTL=60s, паттерн как get_stats.
+
+        Убивает повторную стоимость дорогого BitmapOr/seq-скана для одного и того же
+        поискового терма в пределах TTL (docs/backend-performance/catalog-search-latency/spec.md §1).
+        get_all() (сами строки страницы) кэшу не подлежит — должен оставаться live.
+        Graceful degradation: redis=None или сбой Redis → прямой запрос, как в get_stats.
+        """
+        if self.redis is None:
+            return await self.catalog_repo.get_total_count(
+                cap=self.TOTAL_COUNT_CAP,
+                keyword=keyword,
+                search=search,
+                year_from=year_from,
+                year_to=year_to,
+                doc_types=doc_types,
+                open_access=open_access,
+                countries=countries,
+            )
+
+        cache_key = make_catalog_count_cache_key(
+            keyword, search, year_from, year_to, doc_types, open_access, countries, db_namespace=self.db_namespace
+        )
+
+        try:
+            cached = await self.redis.get(cache_key)
+            if cached is not None:
+                data = json.loads(cached)
+                return data["total"], data["capped"]
+        except Exception:
+            logger.warning("Redis GET failed, falling back to DB", exc_info=True)
+
+        total, total_is_capped = await self.catalog_repo.get_total_count(
+            cap=self.TOTAL_COUNT_CAP,
+            keyword=keyword,
+            search=search,
+            year_from=year_from,
+            year_to=year_to,
+            doc_types=doc_types,
+            open_access=open_access,
+            countries=countries,
+        )
+
+        try:
+            await self.redis.setex(
+                cache_key, STATS_CACHE_TTL, json.dumps({"total": total, "capped": total_is_capped})
+            )
+        except Exception:
+            logger.warning("Redis SETEX failed, cache skipped", exc_info=True)
+
+        return total, total_is_capped
 
     # ------------------------------------------------------------------ #
     #  get_stats                                                           #

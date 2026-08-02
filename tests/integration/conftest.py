@@ -7,10 +7,13 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.core.dependencies import get_db_session
+from app.core.dependencies import get_catalog_service, get_db_session
 from app.infrastructure.database import engine as _app_engine
+from app.infrastructure.postgres_article_repo import PostgresArticleRepository
+from app.infrastructure.postgres_catalog_repo import PostgresCatalogRepository
 from app.main import app
 from app.models.base import Base
+from app.services.catalog_service import CatalogService
 
 # Переменная задаётся в GitHub Actions env для джоба test-pg
 # Локально: export DATABASE_TEST_URL=postgresql+asyncpg://...
@@ -58,7 +61,26 @@ async def pg_client(pg_engine) -> AsyncGenerator[AsyncClient, None]:
         async with maker() as session:
             yield session
 
+    # redis=None: CatalogService кэширует get_stats/get_total_count в общем Upstash Redis
+    # (db_namespace=DATABASE_URL из .env, см. get_catalog_service) — тот же ключ у ЛЮБОГО
+    # requires_pg-прогона на любой машине, независимо от одноразового DATABASE_TEST_URL за
+    # конкретным тестом. Без этого override requires_pg-тесты либо читают чужой реальный
+    # production/staging кэш, либо пишут в него мусор с TTL=60с (тот же класс инцидента,
+    # что test_stats_cross_analytics.py/test_journal_impact.py — см. project_redis_upstash
+    # память; docs/backend-performance/catalog-search-latency/spec.md Шаг 1 сделал GET /articles/
+    # вторым кэшируемым эндпоинтом, задетым этим же классом бага).
+    async def override_get_catalog_service() -> AsyncGenerator[CatalogService, None]:
+        async with maker() as session:
+            yield CatalogService(
+                article_repo=PostgresArticleRepository(session),
+                catalog_repo=PostgresCatalogRepository(session),
+                session=session,
+                redis=None,
+                db_namespace="",
+            )
+
     app.dependency_overrides[get_db_session] = override_get_db
+    app.dependency_overrides[get_catalog_service] = override_get_catalog_service
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
