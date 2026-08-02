@@ -315,6 +315,19 @@ No code changed; the theory was simply wrong as stated, and the Performance sect
 
 </details>
 
+<details>
+<summary><strong>Indices heavier than the data itself — and the "dead weight" index that wasn't</strong> (PR #81)</summary>
+
+`GET /articles/?search=` took 0.5–9.8s depending on the moment. `VACUUM ANALYZE` — the obvious first fix after a 60% table-size increase — changed nothing: `EXPLAIN (ANALYZE, BUFFERS)` showed the worst-case query was already 100% buffer-cache hits, zero disk reads. The cost wasn't a cache miss or stale statistics; it was CPU time spent walking a genuinely oversized `pg_trgm` GiST index (145MB combined, on a 65MB table).
+
+The real fix: switching those two GiST indices to GIN — same ILIKE-substring semantics, 65% and 53% smaller respectively, ~30x faster on the worst-case query once warm (measured on prod after deploy). This reverses an earlier, deliberate decision from PR #58 ("GiST, not GIN — cheaper writes for the seeder's bulk updates") — valid now only because the seeder is currently frozen; the write-cost trade-off needs re-checking before ever unfreezing it.
+
+One of the two indices looked like dead weight from a single test term (`rows=0`). Testing 20 real terms instead of 1 flipped the conclusion: for common author surnames ("wang", "zhang", "chen"...) it returns thousands of matches that title search alone would never find — the single-term sample was a false negative, not a real signal.
+
+**Lesson:** a query that's already all cache hits won't be fixed by `VACUUM`/`ANALYZE` — check `Buffers: shared hit` vs `read` before reaching for statistics-refresh fixes. And never decide "this index adds no value" from one test term — sample broadly, especially for anything matching free-text names.
+
+</details>
+
 ---
 
 ## Local Launch
