@@ -223,6 +223,9 @@ cd frontend && npm run test
 
 We use [k6](https://k6.io/) for load testing critical read-only endpoints (full-text search, journal-impact stats).
 
+<details>
+<summary><strong>Methodology and baseline — 11.89s → 632ms P95 in 3 measured steps</strong></summary>
+
 **Methodology.** Run against an isolated, disposable Postgres — never the shared Supabase instance
 (a load test has no business generating synthetic traffic there). Seeded at production scale via a
 one-time read-only copy of `articles` + `catalog_articles` from production (no user/auth tables —
@@ -264,6 +267,8 @@ the app.
     docker run --rm --network host -i grafana/k6 run - < tests/load/baseline.js
     ```
     *(Requires the backend running on `http://localhost:8000` against an isolated, production-scale-seeded database)*
+
+</details>
 
 ---
 

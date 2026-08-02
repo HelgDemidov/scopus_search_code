@@ -224,6 +224,9 @@ cd frontend && npm run test
 Для нагрузочного тестирования критичных read-only эндпоинтов (полнотекстовый поиск,
 `journal-impact` статистика) используется [k6](https://k6.io/).
 
+<details>
+<summary><strong>Методология и baseline — 11.89с → 632мс P95 за 3 измеренных шага</strong></summary>
+
 **Методология.** Прогон — на изолированной одноразовой Postgres, никогда не на общем Supabase
 (нагрузочному тесту нечего делать в его трафике). Засеяна в масштабе продакшна через разовое
 чтение-копирование `articles` + `catalog_articles` из прода (без таблиц пользователей/auth — там
@@ -265,6 +268,8 @@ cd frontend && npm run test
     docker run --rm --network host -i grafana/k6 run - < tests/load/baseline.js
     ```
     *(требуется бэкенд на `http://localhost:8000`, направленный на изолированную БД, засеянную в масштабе продакшна)*
+
+</details>
 
 ---
 
