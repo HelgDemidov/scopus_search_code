@@ -404,3 +404,78 @@ describe('SearchPage — auth mode (searchMode toggle)', () => {
     expect(screen.queryByTestId('scopus-pagination-bar')).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Блок 7: filtersOpen переживает поиск (регрессия 2026-08-03)
+//
+// Баг: пользователь раскрывал меню фильтров кликом, затем выполнял поиск
+// (Enter/кнопка Search) — меню сворачивалось само, хотя явного клика по
+// кнопке Filters не было. Причина: open-состояние жило локально в
+// ArticleFiltersSidebar, а ArticleList рендерит его из разных условных веток
+// (skeleton/empty/results) — поиск переключает ветку → remount → local state
+// сбрасывается. Фикс поднимает состояние сюда, в SearchPage, который не
+// размонтируется при поиске.
+// ---------------------------------------------------------------------------
+
+describe('SearchPage — filtersOpen переживает поиск', () => {
+  it('анон: filtersOpen остаётся true после отправки поиска', async () => {
+    render(<SearchPage />);
+    expect(capturedArticleListProps.filtersOpen).toBe(false);
+
+    await act(async () => {
+      (capturedArticleListProps.onToggleFilters as () => void)();
+    });
+    expect(capturedArticleListProps.filtersOpen).toBe(true);
+
+    // Отправка поиска — то самое действие, которое раньше сворачивало фильтры
+    await act(async () => {
+      await userEvent.click(screen.getByTestId('search-bar'));
+    });
+    expect(capturedArticleListProps.filtersOpen).toBe(true);
+  });
+
+  it('авторизованный, режим scopus: filtersOpen остаётся true после поиска', async () => {
+    authIsAuthenticated = true;
+    render(<SearchPage />);
+
+    await act(async () => {
+      (capturedArticleListProps.onToggleFilters as () => void)();
+    });
+    expect(capturedArticleListProps.filtersOpen).toBe(true);
+
+    await act(async () => {
+      await userEvent.click(screen.getByTestId('search-bar'));
+    });
+    expect(capturedArticleListProps.filtersOpen).toBe(true);
+  });
+
+  it('авторизованный, режим catalog: filtersOpen остаётся true после поиска', async () => {
+    authIsAuthenticated = true;
+    articleState = makeArticleState({ searchMode: 'catalog' });
+    render(<SearchPage />);
+
+    await act(async () => {
+      (capturedArticleListProps.onToggleFilters as () => void)();
+    });
+    expect(capturedArticleListProps.filtersOpen).toBe(true);
+
+    await act(async () => {
+      await userEvent.click(screen.getByTestId('search-bar'));
+    });
+    expect(capturedArticleListProps.filtersOpen).toBe(true);
+  });
+
+  it('повторный клик onToggleFilters сворачивает обратно — единственный способ закрыть', async () => {
+    render(<SearchPage />);
+
+    await act(async () => {
+      (capturedArticleListProps.onToggleFilters as () => void)();
+    });
+    expect(capturedArticleListProps.filtersOpen).toBe(true);
+
+    await act(async () => {
+      (capturedArticleListProps.onToggleFilters as () => void)();
+    });
+    expect(capturedArticleListProps.filtersOpen).toBe(false);
+  });
+});

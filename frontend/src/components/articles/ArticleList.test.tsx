@@ -15,8 +15,17 @@ type ArticleListProps = Parameters<typeof ArticleList>[0];
 // Мок ArticleFilters: ArticleList встраивает оба компонента напрямую.
 // Заменяем реальные компоненты на stub, чтобы изолировать юнит-тест
 // от Zustand-сторов (useHistoryStore, useStatsStore) и Radix Sheet.
+// ArticleFiltersSidebar — захватываем open/onToggle, ArticleList рендерит его
+// из 3 разных условных веток ниже (skeleton/empty/results) и должен
+// прокидывать filtersOpen/onToggleFilters во все три одинаково (регрессия
+// 2026-08-03 — раньше состояние раскрытия жило локально в самом сайдбаре и
+// сбрасывалось при переключении между этими ветками).
+let capturedSidebarProps: Record<string, unknown> = {};
 vi.mock('./ArticleFilters', () => ({
-  ArticleFiltersSidebar: () => <div data-testid="filters-sidebar" />,
+  ArticleFiltersSidebar: (props: Record<string, unknown>) => {
+    capturedSidebarProps = props;
+    return <div data-testid="filters-sidebar" />;
+  },
   ArticleFiltersMobile: () => <div data-testid="filters-mobile" />,
 }));
 
@@ -101,6 +110,8 @@ function makeProps(overrides: Partial<ArticleListProps> = {}): ArticleListProps 
     onPageChange: vi.fn(),
     onSizeChange: vi.fn(),
     onToggleMode: vi.fn(),
+    filtersOpen: false,
+    onToggleFilters: vi.fn(),
     ...overrides,
   };
 }
@@ -115,6 +126,7 @@ const ioDisconnectMock = vi.fn();
 
 beforeEach(() => {
   capturedPaginationProps = {};
+  capturedSidebarProps = {};
   vi.clearAllMocks();
 
   vi.stubGlobal(
@@ -291,5 +303,54 @@ describe('ArticleList — callbacks', () => {
     render(<ArticleList {...makeProps({ onSortChange, articles: [makeArticle(1)], total: 10 })} />);
     await userEvent.click(screen.getByRole('button', { name: 'By citations' }));
     expect(onSortChange).toHaveBeenCalledWith('citations');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Блок 5: filtersOpen/onToggleFilters прокидываются во ArticleFiltersSidebar
+// одинаково из всех 3 условных JSX-веток (регрессия 2026-08-03 — раньше
+// ArticleFiltersSidebar сам владел open через local useState, и переключение
+// между этими ветками при поиске — skeleton → results — размонтировало и
+// заново монтировало компонент, сбрасывая open в false)
+// ---------------------------------------------------------------------------
+
+describe('ArticleList — filtersOpen прокидывается во всех 3 ветках рендера', () => {
+  it('skeleton-ветка (isLoading=true, articles=[]): filtersOpen=true доходит до сайдбара', () => {
+    render(<ArticleList {...makeProps({ isLoading: true, articles: [], filtersOpen: true })} />);
+    expect(capturedSidebarProps.open).toBe(true);
+  });
+
+  it('empty-ветка (!isLoading, articles=[]): filtersOpen=true доходит до сайдбара', () => {
+    render(<ArticleList {...makeProps({ isLoading: false, articles: [], filtersOpen: true })} />);
+    expect(capturedSidebarProps.open).toBe(true);
+  });
+
+  it('results-ветка (articles>0): filtersOpen=true доходит до сайдбара', () => {
+    render(<ArticleList {...makeProps({ articles: [makeArticle(1)], total: 1, filtersOpen: true })} />);
+    expect(capturedSidebarProps.open).toBe(true);
+  });
+
+  it('переключение skeleton → results с тем же filtersOpen=true (имитация: поиск завершился) — open остаётся true во всех рендерах', () => {
+    const onToggleFilters = vi.fn();
+    const { rerender } = render(
+      <ArticleList {...makeProps({ isLoading: true, articles: [], filtersOpen: true, onToggleFilters })} />,
+    );
+    expect(capturedSidebarProps.open).toBe(true);
+
+    // Поиск завершился: isLoading=false, пришли статьи — другая условная ветка
+    rerender(
+      <ArticleList
+        {...makeProps({ isLoading: false, articles: [makeArticle(1)], total: 1, filtersOpen: true, onToggleFilters })}
+      />,
+    );
+    // До фикса ArticleFiltersSidebar сам инициализировал бы open=false здесь —
+    // теперь значение целиком приходит через prop и не зависит от remount
+    expect(capturedSidebarProps.open).toBe(true);
+  });
+
+  it('onToggleFilters, переданный в ArticleList, доходит до сайдбара как onToggle', () => {
+    const onToggleFilters = vi.fn();
+    render(<ArticleList {...makeProps({ articles: [makeArticle(1)], total: 1, onToggleFilters })} />);
+    expect(capturedSidebarProps.onToggle).toBe(onToggleFilters);
   });
 });
