@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import NotFoundPage from './NotFoundPage';
 import { getBlackHole } from '../../stores/blackHoleStore';
 
-// ErrorPanel (§10.4 post-prod, docs/layout-overhaul/spec.md) вызывает
+// ErrorPanel (§10.4 post-prod, docs/frontend-ui/layout-overhaul/spec.md) вызывает
 // useMediaQuery('(min-width: 640px)') безусловно — jsdom не реализует
 // matchMedia, нужна заглушка перед любым рендером страницы (тот же паттерн,
 // что в ThemeToggle.test.tsx/useMediaQuery.test.ts).
@@ -50,7 +50,7 @@ describe('NotFoundPage', () => {
     expect(link).toHaveAttribute('href', '/en/explore');
   });
 
-  // §10.4 post-prod (docs/layout-overhaul/spec.md): jsdom не считает layout —
+  // §10.4 post-prod (docs/frontend-ui/layout-overhaul/spec.md): jsdom не считает layout —
   // "sm:hidden"/"hidden sm:inline" не скрывают элементы по-настоящему в
   // тестах (нет реального Tailwind CSS), поэтому проверяем ПРИСУТСТВИЕ
   // классов на нужных span, а не видимый на экране текст ссылки.
@@ -61,7 +61,7 @@ describe('NotFoundPage', () => {
     expect(within(link).getByText('Explore collection')).toHaveClass('hidden', 'sm:inline');
   });
 
-  // Пост-пост-фикс 2026-07-09 (§10, docs/layout-overhaul/spec.md): Go home
+  // Пост-пост-фикс 2026-07-09 (§10, docs/frontend-ui/layout-overhaul/spec.md): Go home
   // равна по ширине Explore collection на ВСЕХ размерах (не только ниже sm) —
   // раньше на ≥sm кнопка возвращалась к auto-ширине, оставляя неоправданно
   // широкий зазор между кнопками.

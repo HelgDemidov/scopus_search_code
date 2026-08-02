@@ -144,7 +144,7 @@ export function RootLayout() {
 }
 
 // ---------------------------------------------------------------------------
-// Редиректы для локализованной URL-архитектуры (docs/i18n-url-routing/spec.md §5)
+// Редиректы для локализованной URL-архитектуры (docs/frontend-ui/i18n-url-routing/spec.md §5)
 // ---------------------------------------------------------------------------
 
 // Общая role-based (анон → /main, авторизован → /search) index-редирект-цель —
@@ -216,14 +216,14 @@ export const appRoutes: RouteObject[] = [
         // вложенном pathless-роуте errorElement подменяет только Outlet
         // внутри RootLayout — Header остаётся смонтирован при краше.
         // Ловит непойманные исключения из loader/action/render дочерних
-        // роутов (docs/error-experience/spec.md) — 404 обрабатывается
+        // роутов (docs/frontend-ui/error-experience/spec.md) — 404 обрабатывается
         // ОТДЕЛЬНЫМ path:'*' роутом ниже, не через errorElement: «такой
         // страницы нет» семантически не «ошибка».
         errorElement: <RouteErrorPage />,
         children: [
           { index: true, element: <RootRedirect /> },
 
-          // Исключения из локализации (docs/i18n-url-routing/spec.md §7) — бэкенд
+          // Исключения из локализации (docs/frontend-ui/i18n-url-routing/spec.md §7) — бэкенд
           // хардкодит эти 2 URL без понятия о локали (app/routers/auth.py:112,187:
           // OAuth-редирект и ссылка в письме password-reset от Brevo). Остаются
           // без /{lang}-префикса навсегда, не только на переходный период.

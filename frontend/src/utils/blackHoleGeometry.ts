@@ -17,7 +17,7 @@ function clamp(min: number, value: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-// Адаптивная геометрия ЧД (§4.4 ТЗ, docs/layout-overhaul/spec.md) — чистая
+// Адаптивная геометрия ЧД (§4.4 ТЗ, docs/frontend-ui/layout-overhaul/spec.md) — чистая
 // функция, вынесенная из StarFieldCanvas, чтобы быть тестируемой без канваса.
 //
 // Радиус — единая непрерывная кривая (без скачка на 768px, см. §1.2):
@@ -36,7 +36,7 @@ function clamp(min: number, value: number, max: number): number {
 // уже учитывал radius в исходном pseudo-коде). spec.md обновлён вслед за
 // этим фиксом.
 //
-// vortexClearancePx (§10.4 post-prod, docs/layout-overhaul/spec.md) — клиренс
+// vortexClearancePx (§10.4 post-prod, docs/frontend-ui/layout-overhaul/spec.md) — клиренс
 // под декоративный вихрь вокруг ЧД (generateVortexCluster в StarFieldCanvas.tsx),
 // который на узких экранах на порядок шире самого диска (bh.radius). floor
 // защищает БОЛЬШИЙ из двух: диск (как раньше) или вихрь. Канвас — единственный

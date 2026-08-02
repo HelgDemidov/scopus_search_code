@@ -30,7 +30,7 @@ def _mock_openrouter(monkeypatch: pytest.MonkeyPatch, content: str, status_code:
 
 
 # ================================================================ #
-#  Markdown code fence — Дефект 1 из docs/seeder-hardening/spec.md #
+#  Markdown code fence — Дефект 1 из docs/seeder/seeder-hardening/spec.md #
 # ================================================================ #
 
 
@@ -66,7 +66,7 @@ async def test_leading_fence_with_clean_truncation_still_recovers(monkeypatch: p
 
 
 # ================================================================ #
-#  Length-фильтр — Дефект 2 из docs/seeder-hardening/spec.md       #
+#  Length-фильтр — Дефект 2 из docs/seeder/seeder-hardening/spec.md       #
 # ================================================================ #
 
 

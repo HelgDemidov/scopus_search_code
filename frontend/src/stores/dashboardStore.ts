@@ -13,7 +13,7 @@ export interface ActiveSelection {
   value: string;
 }
 
-// Table Builder (docs/explore-table-builder/spec.md §3) — заменяет флоский Chart
+// Table Builder (docs/explore-analytics/explore-table-builder/spec.md §3) — заменяет флоский Chart
 // Builder (dimension+chartType). filterDim/filterValue — опциональный slicer
 // (3-е измерение как фильтр, не ось).
 export interface BuilderCard {
@@ -22,7 +22,7 @@ export interface BuilderCard {
   colDim: PivotDimension;
   filterDim?: PivotDimension;
   filterValue?: string;
-  // Опционально (docs/impact-analytics/spec.md §1.2) — БЕЗ persist-миграции: старые
+  // Опционально (docs/explore-analytics/impact-analytics/spec.md §1.2) — БЕЗ persist-миграции: старые
   // карточки без поля читаются как 'count' в коде потребления (card.metric ?? 'count'),
   // не через migrate().
   metric?: PivotMetric;
@@ -135,7 +135,7 @@ export const useDashboardStore = create<DashboardStore>()(
       // Только builderCards персистируются — всё остальное сессионное
       partialize: (state) => ({ builderCards: state.builderCards }),
       // v2: BuilderCard сменил форму (dimension+chartType → rowDim/colDim/filterDim,
-      // Table Builder вместо Chart Builder, docs/explore-table-builder/spec.md §2/§3) —
+      // Table Builder вместо Chart Builder, docs/explore-analytics/explore-table-builder/spec.md §2/§3) —
       // старые сохранённые карточки несовместимы, сбрасываем в пустой список, а не
       // пытаемся смэппить поля из другой предметной области.
       version: 2,

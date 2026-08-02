@@ -4,7 +4,7 @@ Revision ID: 0017_publication_date_index
 Revises: 0016_trgm_gist_search_indices
 Create Date: 2026-07-09
 
-Шаг 3 индексирования под нагрузку (docs/project_context/scopus-search-feedback-2026-07-03.md).
+Шаг 3 индексирования под нагрузку (docs/project-meta/project_context/scopus-search-feedback-2026-07-03.md).
 Сопровождает переход get_journal_impact() на sargable-предикат
 (publication_date < make_date(max_year+1,1,1)) вместо extract(year FROM publication_date) —
 без него sargable-предикат по-прежнему упирался бы в seq scan, просто без функции над колонкой.

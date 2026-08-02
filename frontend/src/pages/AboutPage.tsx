@@ -5,7 +5,7 @@ const GITHUB_REPO_URL = 'https://github.com/HelgDemidov/scopus_search_code';
 
 const LINK_CLASSES = 'text-blue-600 dark:text-blue-400 hover:underline';
 
-// Каркас страницы (docs/i18n-url-routing/spec.md §4.2) — структура, не копирайтинг:
+// Каркас страницы (docs/frontend-ui/i18n-url-routing/spec.md §4.2) — структура, не копирайтинг:
 // что за проект / источник данных / как это сделано (стек не скрываем, портфолио) / контакты.
 // VITE_SUPPORT_EMAIL опционален (тот же паттерн graceful degradation, что utils/errorReport.ts) —
 // секция "Контакты" просто не рендерится, если переменная не задана.

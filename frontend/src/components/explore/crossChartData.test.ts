@@ -115,7 +115,7 @@ describe('pivotJournalCountryData', () => {
 
 // ---------------------------------------------------------------------------
 // computeImpactQuadrants (JournalLandscapeScatterChart / CountryImpactScatterChart —
-// обобщено в docs/impact-analytics/spec.md §2.2)
+// обобщено в docs/explore-analytics/impact-analytics/spec.md §2.2)
 // ---------------------------------------------------------------------------
 
 describe('computeImpactQuadrants', () => {
@@ -194,7 +194,7 @@ describe('computeImpactQuadrants', () => {
 });
 
 // ---------------------------------------------------------------------------
-// padLogDomain / padLinearDomain (docs/impact-analytics/spec.md — отступ по
+// padLogDomain / padLinearDomain (docs/explore-analytics/impact-analytics/spec.md — отступ по
 // краям scatter-графиков, чтобы экстремальные датапоинты не обрезались клипом
 // plot area в полукруг)
 // ---------------------------------------------------------------------------
@@ -235,7 +235,7 @@ describe('padLinearDomain', () => {
 });
 
 // ---------------------------------------------------------------------------
-// computeLogAxisTicks (docs/impact-analytics/spec.md — гарантирует подпись
+// computeLogAxisTicks (docs/explore-analytics/impact-analytics/spec.md — гарантирует подпись
 // строго на min/max выборки, даже когда домен растянут на много порядков)
 // ---------------------------------------------------------------------------
 

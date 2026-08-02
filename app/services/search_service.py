@@ -90,7 +90,7 @@ class SearchService:
         # Шаг 4: retention — новая строка всегда самая свежая (largest created_at/id)
         # и гарантированно переживает trim; 101-я по счету (самая старая) тихо
         # удаляется здесь же, в той же транзакции. Блока/ошибки для пользователя нет
-        # (docs/personal-search-data/spec.md §1). Cascade на search_result_articles —
+        # (docs/explore-analytics/personal-search-data/spec.md §1). Cascade на search_result_articles —
         # через ondelete="CASCADE" в модели, отдельного шага не требует.
         #
         # keep_since обязателен: HISTORY_DEPTH_LIMIT(100) < QUOTA_LIMIT(200) за то же

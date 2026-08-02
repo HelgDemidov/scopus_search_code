@@ -1,5 +1,5 @@
 """Тесты get_personal_activity_for_user + GET /articles/stats/personal/activity
-(docs/explore-personal-redesign/spec.md §2.1) — поисковая активность пользователя
+(docs/explore-analytics/explore-personal-redesign/spec.md §2.1) — поисковая активность пользователя
 по времени: successful/zero_result поиски по периодам + накопление уникальных
 статей (по первому появлению, не по сумме result_count).
 

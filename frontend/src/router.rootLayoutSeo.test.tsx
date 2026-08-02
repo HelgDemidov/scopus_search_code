@@ -6,7 +6,7 @@ import { RootLayout } from './router';
 
 // Header имеет тяжёлое дерево зависимостей (authStore/themeStore/stats и т.д.),
 // не относящееся к тому, что здесь тестируется (fallback/override Helmet-тегов
-// на уровне RootLayout, docs/i18n-url-routing/spec.md §6) — заглушка.
+// на уровне RootLayout, docs/frontend-ui/i18n-url-routing/spec.md §6) — заглушка.
 vi.mock('./components/layout/Header', () => ({ Header: () => null }));
 
 // Дочерняя страница со своим Helmet — имитирует одну из 6 "wired" страниц

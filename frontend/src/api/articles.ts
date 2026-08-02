@@ -101,7 +101,7 @@ export async function getSearchStats(
 
 // ---------------------------------------------------------------------------
 // GET /articles/stats/personal — агрегаты по ВСЕЙ истории поиска пользователя
-// (docs/personal-search-data/spec.md §2) — источник /explore?mode=personal.
+// (docs/explore-analytics/personal-search-data/spec.md §2) — источник /explore?mode=personal.
 // Требует JWT; не кэшируется (см. роутер)
 // ---------------------------------------------------------------------------
 
@@ -112,7 +112,7 @@ export async function getPersonalStats(): Promise<SearchStatsResponse> {
 
 // ---------------------------------------------------------------------------
 // GET /articles/stats/personal/activity — поисковая активность по времени
-// (docs/explore-personal-redesign/spec.md §2.1)
+// (docs/explore-analytics/explore-personal-redesign/spec.md §2.1)
 // ---------------------------------------------------------------------------
 
 export async function getPersonalActivity(): Promise<PersonalActivityResponse> {
@@ -226,7 +226,7 @@ export async function getScopusQuota(): Promise<QuotaResponse> {
 
 // ---------------------------------------------------------------------------
 // GET /articles/history/:searchId/results — статьи конкретного прошлого поиска
-// (docs/personal-search-data/spec.md §3) — ownership-проверка на бэкенде;
+// (docs/explore-analytics/personal-search-data/spec.md §3) — ownership-проверка на бэкенде;
 // вызывать строго по клику на expand в SearchHistoryList, не при монтировании
 // ---------------------------------------------------------------------------
 

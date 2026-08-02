@@ -5,7 +5,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Anti-overflow guard (docs/layout-overhaul/spec.md §4.6). "clip" — не "hidden":
+/* Anti-overflow guard (docs/frontend-ui/layout-overhaul/spec.md §4.6). "clip" — не "hidden":
    overflow-x:hidden на предке создаёт новый scroll-container и ломает
    position:sticky у шапки; "clip" обрезает контент без scroll-контейнера,
    sticky остаётся рабочим. Вне @layer — иначе Tailwind v3 content-scan не

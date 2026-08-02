@@ -180,7 +180,7 @@ function generateStarClumps(
 }
 
 // Единый источник isMobile/ratio-решения для радиуса вихря (§10.4 post-prod,
-// docs/layout-overhaul/spec.md) — используется и здесь (генерация звёзд
+// docs/frontend-ui/layout-overhaul/spec.md) — используется и здесь (генерация звёзд
 // облака), и в getCurrentBlackHoleGeometry (клиренс floor'а под это же
 // облако), чтобы два места не могли разъехаться в допущении о размере вихря.
 function vortexNebulaRadiusPx(w: number, diagonal: number): number {
@@ -924,7 +924,7 @@ function updateCursorDrift(
 }
 
 // Обёртка над чистой resolveBlackHoleGeometry (utils/blackHoleGeometry.ts,
-// §4.4 ТЗ docs/layout-overhaul/spec.md, Шаг 5): решает, ЕСТЬ ли вообще ЧД на
+// §4.4 ТЗ docs/frontend-ui/layout-overhaul/spec.md, Шаг 5): решает, ЕСТЬ ли вообще ЧД на
 // этой странице (getBlackHole()) и её X-ratio (десктоп/мобильный — оставлено
 // дискретным, см. комментарий у MOBILE_BREAKPOINT_PX в constants/blackHole.ts),
 // затем делегирует Y/радиус чистой clamp-модели.

@@ -8,7 +8,7 @@ import { buildFingerprintColumns, rowRelativeIntensity } from './fingerprintData
 import type { SearchHistoryItem } from '../../types/api';
 
 // Filter fingerprint — таймлайн-полоса состава фильтров за последние N поисков
-// (docs/explore-personal-redesign/spec.md §2.2). Второй автобиографический разрез:
+// (docs/explore-analytics/explore-personal-redesign/spec.md §2.2). Второй автобиографический разрез:
 // «как менялся состав моих фильтров», которого нет ни в collection, ни в старом
 // personal-наборе. Данные — из уже существующего GET /articles/history, без нового
 // backend-эндпоинта (filters JSON уже содержит всё нужное).

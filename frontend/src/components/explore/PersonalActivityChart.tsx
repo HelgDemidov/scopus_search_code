@@ -16,7 +16,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { AXIS_COLORS, DIMENSION_COLORS, formatCount, formatAxisTick } from '../charts/chartColors';
 import type { PersonalActivityResponse } from '../../types/api';
 
-// Поисковая активность пользователя по времени (docs/explore-personal-redesign/
+// Поисковая активность пользователя по времени (docs/explore-analytics/explore-personal-redesign/
 // spec.md §2.1) — автобиографический разрез, которого нет ни в collection, ни
 // в старом personal-наборе: у collection нет понятия "время поиска" вообще.
 // Комбо: stacked-бар (successful/zero-result поиски за период) + линия

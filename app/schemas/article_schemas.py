@@ -3,17 +3,17 @@ from typing import List, Literal
 
 from pydantic import BaseModel
 
-# Whitelist измерений Table Builder (docs/explore-table-builder/spec.md §3.1) — Literal
+# Whitelist измерений Table Builder (docs/explore-analytics/explore-table-builder/spec.md §3.1) — Literal
 # даёт FastAPI/Pydantic автоматическую 422-валидацию на уровне запроса, до того как
 # строка попадёт в SQL-запрос репозитория (защита от инъекции через "произвольное" имя колонки).
 PivotDimension = Literal["year", "country", "doc_type", "journal", "open_access"]
 
-# Метрика ячейки Table Builder (docs/impact-analytics/spec.md §1.1) — count (по умолчанию,
+# Метрика ячейки Table Builder (docs/explore-analytics/impact-analytics/spec.md §1.1) — count (по умолчанию,
 # обратная совместимость) или avg(cited_by_count). Top-N отбор строк/столбцов всегда
 # по count независимо от metric (см. row_totals/col_totals в PivotResponse).
 PivotMetric = Literal["count", "avg_citations"]
 
-# Whitelist допустимых пар измерений Table Builder (docs/explore-table-builder/spec.md §3.1).
+# Whitelist допустимых пар измерений Table Builder (docs/explore-analytics/explore-table-builder/spec.md §3.1).
 # Порядок row/col внутри пары не важен — пользователь может поменять оси местами.
 ALLOWED_PIVOT_PAIRS: frozenset[frozenset[str]] = frozenset(
     {
@@ -87,7 +87,7 @@ class CountByField(BaseModel):
 
 
 class YearCountryCount(BaseModel):
-    # Кросс-агрегат для графика Top Countries by Year (docs/explore-cross-analytics/spec.md §4)
+    # Кросс-агрегат для графика Top Countries by Year (docs/explore-analytics/explore-cross-analytics/spec.md §4)
     year: int
     country: str
     count: int
@@ -111,7 +111,7 @@ class JournalCountryCount(BaseModel):
 
 
 class JournalImpactPoint(BaseModel):
-    # Точка Journal Landscape Scatter (docs/explore-table-builder/spec.md §1).
+    # Точка Journal Landscape Scatter (docs/explore-analytics/explore-table-builder/spec.md §1).
     # Считается по статьям, опубликованным <= max_year (интерактивный слайдер
     # окна зрелости), только для журналов с count >= 20 (см. postgres_catalog_repo).
     journal: str
@@ -121,7 +121,7 @@ class JournalImpactPoint(BaseModel):
 
 
 class CountryImpactPoint(BaseModel):
-    # Точка Country Impact Scatter (docs/impact-analytics/spec.md §2) — зеркало
+    # Точка Country Impact Scatter (docs/explore-analytics/impact-analytics/spec.md §2) — зеркало
     # JournalImpactPoint, но без median_citations: top-20 стран по объёму (см.
     # postgres_catalog_repo) гарантированно имеют N в тысячах, риск "выброс с N=1
     # наверху" (ради которого на journal-уровне вводилась медиана) здесь отсутствует.
@@ -132,13 +132,14 @@ class CountryImpactPoint(BaseModel):
 
 class PivotResponse(BaseModel):
     # Ответ Table Builder — 2D pivot по 2 из 5 whitelisted измерений, опционально
-    # суженный slicer'ом (3-е измерение как фильтр, не ось — docs/explore-table-builder/spec.md §3).
+    # суженный slicer'ом (3-е измерение как фильтр, не ось —
+    # docs/explore-analytics/explore-table-builder/spec.md §3).
     row_dim: PivotDimension
     col_dim: PivotDimension
     metric: PivotMetric = "count"
     row_labels: List[str]
     col_labels: List[str]
-    # Значение В ВЫБРАННОЙ метрике (docs/impact-analytics/spec.md §1.1) — при metric="count"
+    # Значение В ВЫБРАННОЙ метрике (docs/explore-analytics/impact-analytics/spec.md §1.1) — при metric="count"
     # те же числа, что раньше (int), просто float-типизированные (JSON/JS не различает 42 и 42.0).
     matrix: List[List[float]]
     # ВСЕГДА article count на ячейку, независимо от metric — источник правды для sparse-детекции
@@ -179,13 +180,13 @@ class SearchStatsResponse(BaseModel):
     by_country: List[CountByField]  # Топ-20 стран аффилиации
     by_doc_type: List[CountByField]  # Распределение по типу документа
     # label: "true"/"false" (та же конвенция, что PivotDimension="open_access" в pivot,
-    # см. postgres_catalog_repo._stringify_dim) — docs/personal-search-data/spec.md §2.1
+    # см. postgres_catalog_repo._stringify_dim) — docs/explore-analytics/personal-search-data/spec.md §2.1
     by_open_access: List[CountByField]
 
 
 class PersonalActivityBucket(BaseModel):
     # Один период (неделя/месяц) поисковой активности пользователя
-    # (docs/explore-personal-redesign/spec.md §2.1)
+    # (docs/explore-analytics/explore-personal-redesign/spec.md §2.1)
     period_start: date
     successful_searches: int  # result_count > 0
     zero_result_searches: int  # result_count == 0 — потраченная впустую квота Scopus

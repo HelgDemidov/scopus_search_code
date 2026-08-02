@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { Sheet, SheetContent } from './sheet';
 
 // ---------------------------------------------------------------------------
-// Regression-тест на docs/explore-charts-refactor/spec.md §2: базовый
+// Regression-тест на docs/explore-analytics/explore-charts-refactor/spec.md §2: базовый
 // SheetContent раньше хардкодил per-side размеры (data-[side=right]:w-3/4,
 // data-[side=right]:h-full, data-[side=right]:sm:max-w-sm и т.д.) прямо в
 // className. Атрибутный селектор data-[side=X] имеет более высокую

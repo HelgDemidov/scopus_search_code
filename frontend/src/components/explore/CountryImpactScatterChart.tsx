@@ -22,7 +22,7 @@ import { computeImpactQuadrants, computeLogAxisTicks, padLogDomain } from './cro
 import type { ImpactQuadrant } from './crossChartData';
 import type { CountryImpactPoint } from '../../types/api';
 
-// 5-й стационарный график /explore — Country Impact Scatter (docs/impact-analytics/spec.md §2).
+// 5-й стационарный график /explore — Country Impact Scatter (docs/explore-analytics/impact-analytics/spec.md §2).
 // Прямое расширение паттерна Journal Landscape Scatter: объём × avg(cited_by_count),
 // но БЕЗ слайдера окна зрелости (данные из уже загруженного statsStore, тот же
 // top-20-по-объёму набор, что и по остальным 3 кросс-агрегатам) и БЕЗ median_citations
@@ -111,7 +111,7 @@ export function CountryImpactScatterChart() {
   const data = useMemo(() => stats?.country_impact ?? [], [stats]);
   const { points, medianCount, medianMean } = useMemo(() => computeImpactQuadrants(data), [data]);
 
-  // Отступ по краям + явные тики на X (docs/impact-analytics/spec.md) — без них
+  // Отступ по краям + явные тики на X (docs/explore-analytics/impact-analytics/spec.md) — без них
   // Китай (на порядок больше следующей страны) сидит ровно на границе plot area
   // и обрезается в полукруг, а подпись на самом экстремальном тике не гарантирована
   // (см. padLogDomain/computeLogAxisTicks в crossChartData.ts).

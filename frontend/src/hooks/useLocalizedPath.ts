@@ -6,7 +6,7 @@ import { DEFAULT_URL_LANG, buildLocalizedPath, i18nToUrlLang, isSupportedUrlLang
 /**
  * Резолвит текущий :lang из URL и возвращает функцию "канонический путь
  * приложения" → "путь браузера с языковым префиксом". Общая точка для
- * LocalizedLink/useLocalizedNavigate/PrivateRoute (docs/i18n-url-routing/spec.md §5).
+ * LocalizedLink/useLocalizedNavigate/PrivateRoute (docs/frontend-ui/i18n-url-routing/spec.md §5).
  *
  * Фоллбэк вне /:lang-поддерева — уже определившийся язык i18next (localStorage/
  * navigator), не жёстко DEFAULT_URL_LANG: используется на 2 исключённых из схемы

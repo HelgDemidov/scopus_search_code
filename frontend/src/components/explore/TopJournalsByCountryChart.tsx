@@ -23,7 +23,7 @@ import { getLabelMaps } from '../../constants/labelTranslations';
 import { pivotJournalCountryData } from './crossChartData';
 import type { JournalCountryCount } from '../../types/api';
 
-// График 3 — Top Journals × Country, вертикальные stacked-бары (docs/explore-cross-analytics/spec.md §6).
+// График 3 — Top Journals × Country, вертикальные stacked-бары (docs/explore-analytics/explore-cross-analytics/spec.md §6).
 // Сегменты — тот же топ-5 стран (+ "Other"), что в CountrySunburstChart — единая
 // легенда цветов по всему дашборду (см. spec.md §3.2).
 

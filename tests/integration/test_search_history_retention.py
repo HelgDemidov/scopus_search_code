@@ -1,4 +1,4 @@
-"""Integration tests for retention/trim (docs/personal-search-data/spec.md §1).
+"""Integration tests for retention/trim (docs/explore-analytics/personal-search-data/spec.md §1).
 
 SearchService.find_and_save тримит search_history до
 SearchHistoryService.HISTORY_DEPTH_LIMIT (100) строк на пользователя сразу

@@ -1,8 +1,8 @@
 """Интеграционные тесты кросс-агрегатов GET /articles/stats (SQLite, без requires_pg).
 
-Покрывает 3 поля StatsResponse из docs/explore-cross-analytics/spec.md §2:
+Покрывает 3 поля StatsResponse из docs/explore-analytics/explore-cross-analytics/spec.md §2:
 by_year_top_countries, sunburst_country_open_access, top_journals_by_country,
-плюс country_impact из docs/impact-analytics/spec.md §2 (Country Impact Scatter).
+плюс country_impact из docs/explore-analytics/impact-analytics/spec.md §2 (Country Impact Scatter).
 Запросы используют только .in_()/case()/extract() без func.lower() — в отличие
 от test_stats_filtered.py (requires_pg), здесь SQLite-совместимость не проблема.
 """
@@ -214,7 +214,7 @@ async def test_top_journals_by_country_buckets_country_outside_top5_as_other(
 
 
 # ---------------------------------------------------------------------------
-# country_impact (docs/impact-analytics/spec.md §2) — Country Impact Scatter
+# country_impact (docs/explore-analytics/impact-analytics/spec.md §2) — Country Impact Scatter
 # ---------------------------------------------------------------------------
 
 

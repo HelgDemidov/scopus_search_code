@@ -43,7 +43,7 @@ export function Header() {
   return (
     <header
       // Safe-area: env(safe-area-inset-*) — следствие viewport-fit=cover (§4.1
-      // ТЗ, docs/layout-overhaul/spec.md); без этого паддинга шапка на notched-
+      // ТЗ, docs/frontend-ui/layout-overhaul/spec.md); без этого паддинга шапка на notched-
       // устройствах (особенно landscape) уходит под жестовую зону/чёлку. На
       // не-notched устройствах env(...) резолвится в 0 — поведение не меняется.
       className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] backdrop-blur dark:border-slate-700 dark:bg-[#0c1927]/95"
@@ -78,7 +78,7 @@ export function Header() {
         {/* Правый кластер шапки. ThemeToggle/LanguageSwitcher — ВСЕГДА видимы
             (в т.ч. <sm): без них на мобильном пользователь не может сменить
             тему/язык, не открывая бургер (см. правку "вернуть в шапку",
-            docs/layout-overhaul/spec.md §10 upd.). Остальное (nav-ссылки,
+            docs/frontend-ui/layout-overhaul/spec.md §10 upd.). Остальное (nav-ссылки,
             Sign in/аватар) по-прежнему скрыто <sm — замеры показали, что
             именно эта часть группы не влезает на узких экранах
             (RU-шапка ≈353px без ThemeToggle/LanguageSwitcher уже с запасом
@@ -90,7 +90,7 @@ export function Header() {
           <div className="hidden items-center gap-2 sm:flex">
             <NavigationMenu>
               <NavigationMenuList>
-                {/* "Search" link — always visible (docs/i18n-url-routing/spec.md §4.1:
+                {/* "Search" link — always visible (docs/frontend-ui/i18n-url-routing/spec.md §4.1:
                     раньше поиск был достижим только через логотип/'/') */}
                 <NavigationMenuItem>
                   <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
@@ -105,7 +105,7 @@ export function Header() {
                   </NavigationMenuLink>
                 </NavigationMenuItem>
 
-                {/* "About" link — always visible (docs/i18n-url-routing/spec.md §4.2) */}
+                {/* "About" link — always visible (docs/frontend-ui/i18n-url-routing/spec.md §4.2) */}
                 <NavigationMenuItem>
                   <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
                     <LocalizedLink to="/about">{t('nav.about')}</LocalizedLink>

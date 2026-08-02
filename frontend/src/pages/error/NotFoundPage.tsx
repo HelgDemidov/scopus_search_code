@@ -31,14 +31,14 @@ export default function NotFoundPage() {
       monoValue={location.pathname}
       title={t('errors.notFound.title')}
       description={t('errors.notFound.description')}
-      // Равноправная outline/solid пара (п.9.4/9.5, docs/error-experience/
+      // Равноправная outline/solid пара (п.9.4/9.5, docs/frontend-ui/error-experience/
       // spec.md) — прижаты к краям ОТРИСОВАННОГО текста description (ширина
       // измеряется в ErrorPanel через Range, не max-w-sm блока — тот шире
       // центрированного внутри него текста), а не по центру.
       actionsClassName="mx-auto justify-between"
     >
       {/* flex-1 basis-0 на ВСЕХ размерах (не только ниже sm) — пост-пост-фикс
-          2026-07-09, docs/layout-overhaul/spec.md §10: раньше на ≥sm кнопка
+          2026-07-09, docs/frontend-ui/layout-overhaul/spec.md §10: раньше на ≥sm кнопка
           возвращалась к auto-ширине (только по своему тексту, короче Explore
           collection), из-за чего между кнопками внутри maxWidth-контейнера
           оставался неоправданно широкий зазор. Теперь Go home всегда равна по

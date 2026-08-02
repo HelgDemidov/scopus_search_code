@@ -11,7 +11,7 @@ import { cn } from '../../lib/utils';
 import { swapLocaleInPath } from '../../utils/localeRouting';
 
 // code — канонический i18next-код (сравнение с i18n.language); urlLang — его
-// URL-сегмент, передаётся в swapLocaleInPath (docs/i18n-url-routing/spec.md §5).
+// URL-сегмент, передаётся в swapLocaleInPath (docs/frontend-ui/i18n-url-routing/spec.md §5).
 // cnr (не sr-Latn) — ISO 639-3 код черногорского языка, URL-сегмент/hreflang
 // намеренно расходятся с i18next-кодом ресурса (см. localeRouting.ts). Label
 // "CG" — тот же, что использует gov.me для этой локали в UI (не в URL).
@@ -23,7 +23,7 @@ const LANGS = [
 
 // Всегда видим в Header (<sm тоже, см. Header.tsx) — размер респонсивный,
 // не JS-проп: min-h-11/min-w-11 (44×44, WCAG 2.2 touch target, §4.3 ТЗ
-// docs/layout-overhaul/spec.md) на <sm, компактный вид на ≥sm (мышиный
+// docs/frontend-ui/layout-overhaul/spec.md) на <sm, компактный вид на ≥sm (мышиный
 // десктоп-контекст, прежний вид не меняется).
 export function LanguageSwitcher() {
   const { i18n, t } = useTranslation();

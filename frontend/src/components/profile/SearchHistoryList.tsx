@@ -7,7 +7,7 @@ import { Skeleton } from '../ui/skeleton';
 import type { ArticleResponse } from '../../types/api';
 
 // Lazy: полнодетальный просмотр статей — не должен попасть в основной чанк
-// ProfilePage (docs/personal-search-data/spec.md §3)
+// ProfilePage (docs/explore-analytics/personal-search-data/spec.md §3)
 const SearchResultsList = lazy(() =>
   import('./SearchResultsList').then((m) => ({ default: m.SearchResultsList }))
 );

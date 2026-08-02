@@ -34,7 +34,7 @@ def _check_secret(x_seeder_secret: str = Header(...)) -> None:
 @router.post("/seed", dependencies=[Depends(_check_secret)])
 async def seed_keyword(
     # Зеркалит catalog_articles.keyword: VARCHAR(100) — defense-in-depth на границе API,
-    # независимо от того, кто вызывает эндпоинт (см. docs/seeder-hardening/spec.md §2).
+    # независимо от того, кто вызывает эндпоинт (см. docs/seeder/seeder-hardening/spec.md §2).
     keyword: str = Query(..., max_length=100),
     count: int = 25,
     start: int = 0,
@@ -88,7 +88,7 @@ async def health_check_and_alert(
     """Piggyback health-check на seeder cron (issue #48) — БД/Redis деградировали → письмо.
 
     Реалтайм-алертинга не даёт: латентность до 2ч, привязана к циклу cron —
-    осознанный trade-off вместо Sentry/OTel (см. docs/project_context/
+    осознанный trade-off вместо Sentry/OTel (см. docs/project-meta/project_context/
     scopus-search-feedback-2026-07-03.md).
     """
     problems: list[str] = []

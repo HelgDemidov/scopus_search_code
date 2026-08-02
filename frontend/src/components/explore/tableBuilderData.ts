@@ -1,4 +1,4 @@
-// Чистые функции Table Builder (docs/explore-table-builder/spec.md §3) — вынесены
+// Чистые функции Table Builder (docs/explore-analytics/explore-table-builder/spec.md §3) — вынесены
 // из TableBuilderPanel/PivotTable для исчерпывающего юнит-тестирования (тот же
 // принцип, что crossChartData.ts: бизнес-логика тестируется полностью, JSX — лёгким
 // smoke-тестом).
@@ -74,7 +74,7 @@ export function getSlicerOptions(
 
 // Непустых ячеек — предупреждение "результат вырожден" при слишком узком slicer'е
 // (spec.md §3.2: "UI должен предупреждать, если результат вырождается (< 5 непустых
-// ячеек)"). Принимает cell_counts, НЕ matrix (docs/impact-analytics/spec.md §1.2) —
+// ячеек)"). Принимает cell_counts, НЕ matrix (docs/explore-analytics/impact-analytics/spec.md §1.2) —
 // при metric='avg_citations' matrix[i][j]==0 легитимен ("avg=0"), а cell_counts==0
 // однозначно значит "нет статей в этой ячейке".
 export function countNonEmptyCells(cellCounts: number[][]): number {
@@ -112,7 +112,7 @@ function escapeCsvField(value: string): string {
  * знает текущий язык) — функция остаётся чистой и не зависит от react-i18next.
  * Итог правого-нижнего угла — сумма cell_counts (article count), НЕ сумма ячеек
  * matrix: при metric='avg_citations' суммировать средние статистически
- * бессмысленно (docs/impact-analytics/spec.md §1.2); при metric='count' даёт то
+ * бессмысленно (docs/explore-analytics/impact-analytics/spec.md §1.2); при metric='count' даёт то
  * же число, что и раньше (matrix совпадает с cell_counts поячеечно).
  * Значения ячеек в CSV — "сырые" числа без locale-разделителей (formatCount
  * добавляет запятые, которые ломают численный импорт CSV): count → String(n),

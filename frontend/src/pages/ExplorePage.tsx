@@ -17,9 +17,9 @@ import { ActiveFilterBanner } from '../components/explore/ActiveFilterBanner';
 import { useHreflangTags } from '../hooks/useHreflangTags';
 
 // PublicationsByYearChart/DocumentTypesChart/TopCountriesChart/TopJournalsChart
-// удалены (docs/explore-personal-redesign/spec.md §1.4) — personal mode теперь
+// удалены (docs/explore-analytics/explore-personal-redesign/spec.md §1.4) — personal mode теперь
 // переиспользует KpiRow/DimensionDrawer вместо отдельного набора старых чартов.
-// OpenAccessChart/TopAuthorsChart удалены (docs/explore-cross-analytics/spec.md §1) —
+// OpenAccessChart/TopAuthorsChart удалены (docs/explore-analytics/explore-cross-analytics/spec.md §1) —
 // не рендерились нигде (ни collection, ни personal mode), подтверждённый мёртвый код.
 // Их drawer-эквиваленты (DimensionDrawer) продолжают работать без изменений.
 
@@ -34,27 +34,27 @@ const CountrySunburstChart = lazy(() =>
 const TopJournalsByCountryChart = lazy(() =>
   import('../components/explore/TopJournalsByCountryChart').then(m => ({ default: m.TopJournalsByCountryChart }))
 );
-// 4-й фикс-график (docs/explore-table-builder/spec.md §1) — объём×импакт по журналам,
+// 4-й фикс-график (docs/explore-analytics/explore-table-builder/spec.md §1) — объём×импакт по журналам,
 // единственное измерение на 2 метриках, поэтому не часть Table Builder (§3).
 const JournalLandscapeScatterChart = lazy(() =>
   import('../components/explore/JournalLandscapeScatterChart').then(m => ({ default: m.JournalLandscapeScatterChart }))
 );
-// 5-й фикс-график (docs/impact-analytics/spec.md §2) — тот же принцип, что 4-й:
+// 5-й фикс-график (docs/explore-analytics/impact-analytics/spec.md §2) — тот же принцип, что 4-й:
 // объём×impact, но по странам, без слайдера (данные из уже загруженного statsStore).
 const CountryImpactScatterChart = lazy(() =>
   import('../components/explore/CountryImpactScatterChart').then(m => ({ default: m.CountryImpactScatterChart }))
 );
-// Table Builder (docs/explore-table-builder/spec.md §3) — заменяет удалённый
+// Table Builder (docs/explore-analytics/explore-table-builder/spec.md §3) — заменяет удалённый
 // ChartBuilderPanel; тоже lazy, тот же принцип: не в основном чанке ExplorePage.
 const TableBuilderPanel = lazy(() =>
   import('../components/explore/TableBuilderPanel').then(m => ({ default: m.TableBuilderPanel }))
 );
-// Автобиографический раздел personal mode (docs/explore-personal-redesign/spec.md §2.1) —
+// Автобиографический раздел personal mode (docs/explore-analytics/explore-personal-redesign/spec.md §2.1) —
 // тоже lazy, тот же принцип: новый Recharts-чанк не должен попадать в основной ExplorePage.
 const PersonalActivityChart = lazy(() =>
   import('../components/explore/PersonalActivityChart').then(m => ({ default: m.PersonalActivityChart }))
 );
-// Filter fingerprint (docs/explore-personal-redesign/spec.md §2.2) — тоже lazy,
+// Filter fingerprint (docs/explore-analytics/explore-personal-redesign/spec.md §2.2) — тоже lazy,
 // тот же принцип: не в основном чанке ExplorePage.
 const FilterFingerprintStrip = lazy(() =>
   import('../components/explore/FilterFingerprintStrip').then(m => ({ default: m.FilterFingerprintStrip }))
@@ -119,12 +119,12 @@ export default function ExplorePage() {
     isAuthenticated && modeParam === 'personal' ? 'personal' : 'collection';
 
   // Personal mode: реальная агрегация по найденным статьям, не по фильтрам поиска
-  // (docs/personal-search-data/spec.md §2/§4) — заменяет клиентские selectByYear/
+  // (docs/explore-analytics/personal-search-data/spec.md §2/§4) — заменяет клиентские selectByYear/
   // DocType/Country/Journal из historyStore, которые агрегировали параметры
   // фильтров, а не атрибуты фактически найденных статей.
   const [personalStats, setPersonalStats] = useState<SearchStatsResponse | null>(null);
   const [personalLoading, setPersonalLoading] = useState(false);
-  // Автобиографический раздел (docs/explore-personal-redesign/spec.md §2.1) —
+  // Автобиографический раздел (docs/explore-analytics/explore-personal-redesign/spec.md §2.1) —
   // отдельный эндпоинт/state, фетчится параллельно с personalStats в том же эффекте.
   const [personalActivity, setPersonalActivity] = useState<PersonalActivityResponse | null>(null);
   const [personalActivityLoading, setPersonalActivityLoading] = useState(false);
@@ -136,7 +136,7 @@ export default function ExplorePage() {
   useEffect(() => { fetchStats(); }, [fetchStats]);
 
   // Единственный Sheet-instance (dashboardStore.drawerDimension) используется обоими
-  // режимами (docs/explore-personal-redesign/spec.md §1.2 п.5) — при переключении
+  // режимами (docs/explore-analytics/explore-personal-redesign/spec.md §1.2 п.5) — при переключении
   // mode закрываем drawer, иначе он может остаться открытым с "залипшим" измерением
   // от предыдущего режима (напр. 'author' из collection недостижим в personal).
   useEffect(() => {
@@ -236,13 +236,13 @@ export default function ExplorePage() {
                 <ActiveFilterBanner />
 
                 {/* 6 старых стационарных чартов отключены здесь (дублировали KpiRow →
-                    DimensionDrawer, см. docs/explore-charts-refactor/spec.md §0–1).
+                    DimensionDrawer, см. docs/explore-analytics/explore-charts-refactor/spec.md §0–1).
                     На их месте — 3 новых кросс-аналитических графика (spec.md §4-6):
                     комбинированные разрезы, которых KPI/drawer (всегда одномерные) не дают. */}
 
                 {/* Journal Landscape Scatter поднят на первую позицию (было — 4-й график,
                     spec.md §1): единственный по-настоящему авторский визуал проекта
-                    (docs/project_context/scopus-feedback-07-03.md §6 — «Scatter с
+                    (docs/project-meta/project_context/scopus-feedback-07-03.md §6 — «Scatter с
                     квадрантами — ваш единственный по-настоящему авторский элемент»),
                     Top Countries by Year — типовой line-chart, каких много в любом
                     BI-туториале. Первая позиция = первая секунда внимания рекрутера. */}
@@ -255,7 +255,7 @@ export default function ExplorePage() {
 
                 <TopCountriesByYearChart />
 
-                {/* 5-й, последний график (docs/impact-analytics/spec.md §2) — замыкает
+                {/* 5-й, последний график (docs/explore-analytics/impact-analytics/spec.md §2) — замыкает
                     ряд стационарных графиков, после Top Countries by Year. */}
                 <CountryImpactScatterChart />
 
@@ -268,7 +268,7 @@ export default function ExplorePage() {
       )}
 
       {/* ================================================================ */}
-      {/* PERSONAL MODE — KPI + Drawer (docs/explore-personal-redesign/spec.md §1) */}
+      {/* PERSONAL MODE — KPI + Drawer (docs/explore-analytics/explore-personal-redesign/spec.md §1) */}
       {/* ================================================================ */}
       {mode === 'personal' && (
         <ErrorBoundary fallback={<ChartErrorFallback />}>

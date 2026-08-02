@@ -1,5 +1,5 @@
 
-// Адаптивная геометрия ЧД (Шаг 5, §4.4 ТЗ docs/layout-overhaul/spec.md) —
+// Адаптивная геометрия ЧД (Шаг 5, §4.4 ТЗ docs/frontend-ui/layout-overhaul/spec.md) —
 // единая непрерывная clamp-модель вместо двух дискретных наборов (было:
 // BLACK_HOLE_DIAMETER_RATIO/_MOBILE + BLACK_HOLE_POSITION_Y_PX/_MOBILE_Y_PX,
 // переключаемых по MOBILE_BREAKPOINT_PX — отсюда скачок размера/позиции на
@@ -11,7 +11,7 @@ export const BH_MAX_RADIUS_PX = 32;  // защита от раздувания �
 export const BH_TARGET_Y_RATIO = 0.70; // мягкая цель — доля высоты вьюпорта (калибровано по §1.2: десктоп/планшет-портрет)
 export const BH_MESSAGE_GAP_PX = 24;   // зазор МЕЖДУ краем ЧД (не центром — см. blackHoleGeometry.ts) и низом сообщения
 
-// §10.4 post-prod (docs/layout-overhaul/spec.md): floor раньше защищал только
+// §10.4 post-prod (docs/frontend-ui/layout-overhaul/spec.md): floor раньше защищал только
 // диск ЧД (bh.radius), не декоративный вихрь вокруг неё (generateVortexCluster
 // в StarFieldCanvas.tsx) — тот на узких экранах ~7× шире диска и залезал на
 // сообщение. Визуально-калибровочный множитель (не выводится формулой — вихрь
@@ -22,7 +22,7 @@ export const BH_VORTEX_CLEARANCE_FACTOR = 1.3; // × nebulaRadius
 //
 export const BLACK_HOLE_POSITION = { xRatio: 0.713 };
 
-// §4.2 ТЗ (docs/layout-overhaul/spec.md): 768 — НЕ баг корректности геометрии,
+// §4.2 ТЗ (docs/frontend-ui/layout-overhaul/spec.md): 768 — НЕ баг корректности геометрии,
 // порог только для ПРОИЗВОДИТЕЛЬНОСТИ канваса (плотность звёзд/точек контура
 // ниже, см. VORTEX_STAR_COUNT_MOBILE и т.п.) И X-позиции ЧД (§4.4: «X —
 // оставить пропорциональной», разница 0.713 vs 0.70 не была измеренной

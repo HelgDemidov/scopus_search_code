@@ -74,7 +74,7 @@ export const DIMENSION_COLORS: Record<Dimension, DimensionColors> = {
 };
 
 // ---------------------------------------------------------------------------
-// Оси/сетка графиков — theme-aware (см. docs/explore-charts-refactor/spec.md §5).
+// Оси/сетка графиков — theme-aware (см. docs/explore-analytics/explore-charts-refactor/spec.md §5).
 // Recharts принимает только инлайн fill/stroke — Tailwind dark:-классы на них
 // не действуют, поэтому цвет нужно выбирать явно через useTheme() на стороне
 // компонента и передавать сюда актуальную тему.
@@ -96,7 +96,7 @@ export const AXIS_COLORS: Record<'light' | 'dark', AxisColorSet> = {
 };
 
 // ---------------------------------------------------------------------------
-// Затухание цвета бара по рангу (см. docs/explore-charts-refactor/spec.md §8)
+// Затухание цвета бара по рангу (см. docs/explore-analytics/explore-charts-refactor/spec.md §8)
 // ---------------------------------------------------------------------------
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -232,7 +232,7 @@ export function zeroFillYears(data: LabelCount[], start: number, end: number): L
 
 // ---------------------------------------------------------------------------
 // Top Countries by Year — сведение плоских (year, country, count) в
-// wide-формат для мультисерийного Recharts (docs/explore-cross-analytics/spec.md §3.1,
+// wide-формат для мультисерийного Recharts (docs/explore-analytics/explore-cross-analytics/spec.md §3.1,
 // §4). Отдельная функция, а не расширение zeroFillYears() — та работает с одной
 // серией и возвращает другую форму данных (LabelCount[], не wide-объекты);
 // развести одну сигнатуру на два несовместимых shape было бы хуже, чем два имени.

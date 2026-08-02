@@ -96,7 +96,7 @@ async def get_stats(
 
 # ------------------------------------------------------------------ #
 #  GET /stats/journal-impact — публичный, без JWT                     #
-#  Journal Landscape Scatter (docs/explore-table-builder/spec.md §1)  #
+#  Journal Landscape Scatter (docs/explore-analytics/explore-table-builder/spec.md §1)  #
 #  Кэшируется (CatalogService.get_journal_impact, TTL=60s) — max_year  #
 #  всего 3 значения (2022-2024), в отличие от /stats/pivot ниже.       #
 # ------------------------------------------------------------------ #
@@ -112,7 +112,7 @@ async def get_journal_impact(
 
 # ------------------------------------------------------------------ #
 #  GET /stats/pivot — публичный, без JWT                              #
-#  Table Builder (docs/explore-table-builder/spec.md §3). Не кэшируется —#
+#  Table Builder (docs/explore-analytics/explore-table-builder/spec.md §3). Не кэшируется —#
 #  ленивая загрузка по выбору пользователя в конкретную комбинацию.   #
 # ------------------------------------------------------------------ #
 
@@ -237,7 +237,7 @@ async def get_personal_stats(
 ) -> SearchStatsResponse:
     # Приватный эндпоинт — источник инфографики /explore?mode=personal (не кэшируется:
     # низкий QPS, join на ≤HISTORY_DEPTH_LIMIT записей истории на пользователя, по
-    # аналогии с /stats/pivot — docs/personal-search-data/spec.md §2.2).
+    # аналогии с /stats/pivot — docs/explore-analytics/personal-search-data/spec.md §2.2).
     # search=None — агрегат по ВСЕЙ (не по одному ключевому слову) истории пользователя.
     # Отдельный роут, а не search=None через /search/stats: тот путь никогда не
     # выполнялся и не тестировался (роутер требовал min_length=2).
@@ -258,7 +258,7 @@ async def get_personal_activity(
     result_repo: PostgresSearchResultRepository = Depends(_get_search_result_repo),
     current_user: User = Depends(get_current_user),
 ) -> PersonalActivityResponse:
-    # Автобиографический раздел /explore?mode=personal (docs/explore-personal-redesign/
+    # Автобиографический раздел /explore?mode=personal (docs/explore-analytics/explore-personal-redesign/
     # spec.md §2.1) — поисковая активность по времени + накопление уникальных статей.
     # Без кэша — та же логика, что /stats/personal.
     data = await result_repo.get_personal_activity_for_user(user_id=int(current_user.id))

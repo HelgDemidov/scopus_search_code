@@ -1,5 +1,5 @@
 /**
- * SearchHistoryList — первое тестовое покрытие компонента (docs/personal-search-data/spec.md §3).
+ * SearchHistoryList — первое тестовое покрытие компонента (docs/explore-analytics/personal-search-data/spec.md §3).
  *
  * Покрывает и уже существовавшую (loading/empty/pagination/refresh), и новую
  * (expand/collapse полнодетального просмотра статей) функциональность —
@@ -137,7 +137,7 @@ describe('SearchHistoryList — рендер строк', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Expand/collapse полнодетального просмотра (docs/personal-search-data/spec.md §3)
+// Expand/collapse полнодетального просмотра (docs/explore-analytics/personal-search-data/spec.md §3)
 // ---------------------------------------------------------------------------
 
 describe('SearchHistoryList — expand/collapse статей', () => {

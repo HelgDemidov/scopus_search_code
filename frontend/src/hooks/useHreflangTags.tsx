@@ -15,7 +15,7 @@ import {
 const SITE_ORIGIN = 'https://scopus-search-code.vercel.app';
 
 /**
- * Per-page SEO-теги через react-helmet-async (docs/i18n-url-routing/spec.md §6):
+ * Per-page SEO-теги через react-helmet-async (docs/frontend-ui/i18n-url-routing/spec.md §6):
  * title/description (i18n `seo.*`, из общего манифеста indexableSections.json —
  * того же, что использует scripts/generate-sitemap.ts, чтобы hreflang-пары
  * не разъезжались с самим sitemap), canonical на текущую локаль + 3 alternate

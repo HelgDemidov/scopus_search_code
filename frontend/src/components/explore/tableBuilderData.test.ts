@@ -208,7 +208,7 @@ describe('pivotToCsv', () => {
     expect(CSV_BOM.charCodeAt(0)).toBe(0xfeff);
   });
 
-  describe('metric=avg_citations (docs/impact-analytics/spec.md §1.2)', () => {
+  describe('metric=avg_citations (docs/explore-analytics/impact-analytics/spec.md §1.2)', () => {
     const AVG_DATA: PivotResponse = {
       ...DATA,
       metric: 'avg_citations',

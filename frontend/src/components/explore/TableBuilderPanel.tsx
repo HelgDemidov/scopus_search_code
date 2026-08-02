@@ -11,7 +11,7 @@ import { ALL_PIVOT_DIMENSIONS, getSlicerOptions } from './tableBuilderData';
 import type { BuilderCard } from '../../stores/dashboardStore';
 import type { PivotDimension, PivotMetric, PivotResponse } from '../../types/api';
 
-// Table Builder (docs/explore-table-builder/spec.md §3) — заменяет флоский
+// Table Builder (docs/explore-analytics/explore-table-builder/spec.md §3) — заменяет флоский
 // ChartBuilderPanel. Пары измерений не нужно валидировать против whitelist на
 // клиенте: 5 базовых измерений дают ровно C(5,2)=10 пар — столько же, сколько
 // в _ALLOWED_PIVOT_PAIRS на бэкенде (app/routers/articles.py). Форма просто

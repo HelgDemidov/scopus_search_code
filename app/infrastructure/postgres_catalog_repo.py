@@ -271,8 +271,8 @@ class PostgresCatalogRepository(ICatalogRepository):
 
         # Распределение по странам — аналогично материализуем для переиспользования
         # топ-5/топ-10 label'ов в 3 кросс-агрегатах ниже (garantируем, что топ-N
-        # везде на странице совпадает — см. docs/explore-cross-analytics/spec.md §2.2)
-        # mean_citations — для Country Impact Scatter (docs/impact-analytics/spec.md §2.1).
+        # везде на странице совпадает — см. docs/explore-analytics/explore-cross-analytics/spec.md §2.2)
+        # mean_citations — для Country Impact Scatter (docs/explore-analytics/impact-analytics/spec.md §2.1).
         # Без HAVING count>=N и без медианы (в отличие от get_journal_impact) — top-20 стран
         # по объёму на ~140k-статейной коллекции гарантированно имеют N в тысячах, риска
         # "выброс с N=1 наверху" здесь нет.
@@ -308,7 +308,7 @@ class PostgresCatalogRepository(ICatalogRepository):
 
         # ------------------------------------------------------------------ #
         #  Кросс-агрегаты для стационарных графиков /explore                  #
-        #  (docs/explore-cross-analytics/spec.md §2.2)                        #
+        #  (docs/explore-analytics/explore-cross-analytics/spec.md §2.2)                        #
         # ------------------------------------------------------------------ #
         top10_countries = [r.affiliation_country for r in by_country_rows[:10]]
         top5_countries = [r.affiliation_country for r in by_country_rows[:5]]
@@ -329,7 +329,7 @@ class PostgresCatalogRepository(ICatalogRepository):
 
         # График 2 — Sunburst Country(топ-5) → OpenAccess. Изначально был 3-уровневым
         # (+ DocType посередине), упрощён до 2 уровней по итогам визуального ревью —
-        # третий слой был нечитаем, см. docs/explore-cross-analytics/spec.md §5.
+        # третий слой был нечитаем, см. docs/explore-analytics/explore-cross-analytics/spec.md §5.
         sunburst_rows = await self.session.execute(
             select(
                 catalog_articles_q.c.affiliation_country,
@@ -425,7 +425,7 @@ class PostgresCatalogRepository(ICatalogRepository):
 
     # ------------------------------------------------------------------ #
     #  get_journal_impact — Journal Landscape Scatter                     #
-    #  (docs/explore-table-builder/spec.md §1)                            #
+    #  (docs/explore-analytics/explore-table-builder/spec.md §1)                            #
     # ------------------------------------------------------------------ #
 
     _JOURNAL_IMPACT_MIN_COUNT = 20
@@ -446,7 +446,7 @@ class PostgresCatalogRepository(ICatalogRepository):
         Фильтр по году — sargable-диапазон (< 1 января следующего года), не
         extract(year FROM publication_date) <= max_year: функция над колонкой не может
         использовать обычный btree-индекс на publication_date (root cause прогона
-        2026-07-09, Шаг 3 индексирования — docs/project_context/...).
+        2026-07-09, Шаг 3 индексирования — docs/project-meta/project_context/...).
         """
         stmt = (
             select(Article)
@@ -534,7 +534,7 @@ class PostgresCatalogRepository(ICatalogRepository):
 
     # ------------------------------------------------------------------ #
     #  get_pivot — Table Builder                                          #
-    #  (docs/explore-table-builder/spec.md §3)                            #
+    #  (docs/explore-analytics/explore-table-builder/spec.md §3)                            #
     # ------------------------------------------------------------------ #
 
     _PIVOT_DIMENSIONS = frozenset({"year", "country", "doc_type", "journal", "open_access"})
@@ -564,7 +564,7 @@ class PostgresCatalogRepository(ICatalogRepository):
         вызова репозитория), здесь — явная проверка вместо слепой интерполяции строки в запрос.
         top_n_rows/top_n_cols — обрезка по маржинальному объёму каждого измерения ДО пересечения
         друг с другом (country/journal высококардинальны — без обрезки pivot нечитаем), ВСЕГДА
-        по count независимо от metric (docs/impact-analytics/spec.md §0.2).
+        по count независимо от metric (docs/explore-analytics/impact-analytics/spec.md §0.2).
         metric — "count" или "avg_citations": какое значение попадает в matrix; cell_counts
         всегда article count, независимо от metric.
         """
@@ -640,7 +640,8 @@ class PostgresCatalogRepository(ICatalogRepository):
         col_values = [r.value for r in col_rows]
 
         # Считаем count И avg(cited_by_count) в одном проходе — дешевле, чем два отдельных
-        # запроса, независимо от того, какая metric запрошена (docs/impact-analytics/spec.md §1.1).
+        # запроса, независимо от того, какая metric запрошена
+        # (docs/explore-analytics/impact-analytics/spec.md §1.1).
         matrix_rows = await self.session.execute(
             select(
                 row_col.label("row_value"),

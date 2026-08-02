@@ -193,7 +193,7 @@ class PostgresSearchResultRepository(ISearchResultRepository):
             .order_by(sa.text("count DESC"))
         )
 
-        # Распределение по Open Access (docs/personal-search-data/spec.md §2.1) —
+        # Распределение по Open Access (docs/explore-analytics/personal-search-data/spec.md §2.1) —
         # единственное осмысленное новое категориальное измерение: bool → 2 бакета
         by_open_access_rows = await self.session.execute(
             select(

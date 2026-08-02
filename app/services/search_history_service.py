@@ -14,7 +14,7 @@ class SearchHistoryService:
     QUOTA_LIMIT = 200  # максимум запросов за скользящее 7-дневное окно
     WINDOW_DAYS = 7
     # Retention: единственный источник правды для лимита хранимой истории на юзера
-    # (docs/personal-search-data/spec.md §1). Используется и в GET /articles/history
+    # (docs/explore-analytics/personal-search-data/spec.md §1). Используется и в GET /articles/history
     # (предел выдачи), и в SearchService.find_and_save (физический предел хранения —
     # trim_to_last_n после каждого поиска).
     HISTORY_DEPTH_LIMIT = 100

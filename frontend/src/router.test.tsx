@@ -11,11 +11,11 @@ function lastMatch(path: string) {
   return matches ? matches[matches.length - 1] : null;
 }
 
-// docs/error-experience/spec.md: path:'*' → NotFoundPage (404 семантически
+// docs/frontend-ui/error-experience/spec.md: path:'*' → NotFoundPage (404 семантически
 // «такой страницы нет», не «ошибка» — отдельно от errorElement) +
 // errorElement на корневом роуте для непойманных исключений.
 //
-// docs/i18n-url-routing/spec.md §5: /:lang — родительский роут, валидирующий
+// docs/frontend-ui/i18n-url-routing/spec.md §5: /:lang — родительский роут, валидирующий
 // языковой сегмент РАНТАЙМ-проверкой внутри LocaleLayout (isSupportedUrlLang),
 // не через саму структуру дерева роутов. matchRoutes видит только форму
 // дерева — что реально рендерится (NotFoundPage при невалидном :lang) звёздным
@@ -79,7 +79,7 @@ describe('локализованные роуты (/:lang/*)', () => {
   });
 });
 
-describe('legacy bare-пути — редирект на /en/... (docs/i18n-url-routing/spec.md §3)', () => {
+describe('legacy bare-пути — редирект на /en/... (docs/frontend-ui/i18n-url-routing/spec.md §3)', () => {
   it.each([
     ['/explore', 'explore'],
     ['/auth', 'auth'],
@@ -95,7 +95,7 @@ describe('legacy bare-пути — редирект на /en/... (docs/i18n-url-
   });
 });
 
-describe('исключения из локализации (docs/i18n-url-routing/spec.md §7)', () => {
+describe('исключения из локализации (docs/frontend-ui/i18n-url-routing/spec.md §7)', () => {
   it('/auth/callback и /reset-password резолвятся без /:lang-префикса', () => {
     expect(lastMatch('/auth/callback')?.route.path).toBe('auth/callback');
     expect(lastMatch('/reset-password')?.route.path).toBe('reset-password');

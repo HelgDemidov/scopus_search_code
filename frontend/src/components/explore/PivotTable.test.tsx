@@ -254,7 +254,7 @@ describe('PivotTable — CSV-экспорт', () => {
   });
 });
 
-describe('PivotTable — metric=avg_citations (docs/impact-analytics/spec.md §1.2)', () => {
+describe('PivotTable — metric=avg_citations (docs/explore-analytics/impact-analytics/spec.md §1.2)', () => {
   const AVG_DATA: PivotResponse = {
     row_dim: 'country',
     col_dim: 'doc_type',

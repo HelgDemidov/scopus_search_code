@@ -39,7 +39,7 @@ export interface LabelCount {
 // Алиас для обратной совместимости с chart-компонентами
 export type StatsItem = LabelCount;
 
-// Кросс-агрегаты для стационарных графиков /explore (docs/explore-cross-analytics/spec.md §2)
+// Кросс-агрегаты для стационарных графиков /explore (docs/explore-analytics/explore-cross-analytics/spec.md §2)
 export interface YearCountryCount {
   year: number;
   country: string;
@@ -58,7 +58,7 @@ export interface JournalCountryCount {
   count: number;
 }
 
-// Точка Country Impact Scatter (docs/impact-analytics/spec.md §2) — зеркало
+// Точка Country Impact Scatter (docs/explore-analytics/impact-analytics/spec.md §2) — зеркало
 // JournalImpactPoint, без median_citations (обоснование — там же).
 export interface CountryImpactPoint {
   country: string;
@@ -85,7 +85,7 @@ export interface StatsResponse {
 }
 
 // ---------------------------------------------------------------------------
-// Journal Landscape Scatter + Table Builder (docs/explore-table-builder/spec.md)
+// Journal Landscape Scatter + Table Builder (docs/explore-analytics/explore-table-builder/spec.md)
 // ---------------------------------------------------------------------------
 
 // Точка scatter — GET /articles/stats/journal-impact?max_year=
@@ -101,7 +101,7 @@ export interface JournalImpactPoint {
 // (нет ORCID, риск ложной агрегации по однофамильцам).
 export type PivotDimension = 'year' | 'country' | 'doc_type' | 'journal' | 'open_access';
 
-// Метрика ячейки Table Builder (docs/impact-analytics/spec.md §1.2) — синхронизировано
+// Метрика ячейки Table Builder (docs/explore-analytics/impact-analytics/spec.md §1.2) — синхронизировано
 // с app.schemas.article_schemas.PivotMetric.
 export type PivotMetric = 'count' | 'avg_citations';
 
@@ -136,13 +136,13 @@ export interface SearchStatsResponse {
   by_journal: LabelCount[];
   by_country: LabelCount[];
   by_doc_type: LabelCount[];
-  // label: "true"/"false" (docs/personal-search-data/spec.md §2.1) — та же конвенция,
+  // label: "true"/"false" (docs/explore-analytics/personal-search-data/spec.md §2.1) — та же конвенция,
   // что и канонический DimensionStatsSource.by_open_access ниже
   by_open_access: LabelCount[];
 }
 
 // ---------------------------------------------------------------------------
-// Общий интерфейс данных KPI/Drawer (docs/explore-personal-redesign/spec.md §1.2) —
+// Общий интерфейс данных KPI/Drawer (docs/explore-analytics/explore-personal-redesign/spec.md §1.2) —
 // объединяет StatsResponse (collection) и SearchStatsResponse (personal) для
 // переиспользования DimensionDrawer между режимами. by_open_access — канонически
 // РОВНО 2 элемента с лейблами 'true'/'false' (конвенция PivotDimension/
@@ -164,7 +164,7 @@ export interface DimensionStatsSource {
 
 // ---------------------------------------------------------------------------
 // Поисковая активность по времени (GET /articles/stats/personal/activity)
-// docs/explore-personal-redesign/spec.md §2.1
+// docs/explore-analytics/explore-personal-redesign/spec.md §2.1
 // ---------------------------------------------------------------------------
 
 export interface PersonalActivityBucket {

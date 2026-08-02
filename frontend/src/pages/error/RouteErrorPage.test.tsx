@@ -17,7 +17,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
   };
 });
 
-// ErrorPanel (§10.4 post-prod, docs/layout-overhaul/spec.md) вызывает
+// ErrorPanel (§10.4 post-prod, docs/frontend-ui/layout-overhaul/spec.md) вызывает
 // useMediaQuery('(min-width: 640px)') безусловно — jsdom не реализует
 // matchMedia, нужна заглушка перед любым рендером страницы.
 beforeEach(() => {

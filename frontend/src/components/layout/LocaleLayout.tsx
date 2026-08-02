@@ -5,7 +5,7 @@ import { isSupportedUrlLang, urlLangToI18n } from '../../utils/localeRouting';
 import NotFoundPage from '../../pages/error/NotFoundPage';
 
 /**
- * Элемент родительского роута /:lang (docs/i18n-url-routing/spec.md §5).
+ * Элемент родительского роута /:lang (docs/frontend-ui/i18n-url-routing/spec.md §5).
  *
  * Невалидный :lang (не из SUPPORTED_URL_LANGS) → честный 404, без редиректа —
  * мусорный URL не должен зацикливаться, а не резолвиться в догадку.

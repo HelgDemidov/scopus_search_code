@@ -4,7 +4,7 @@ Revision ID: 0015_trim_search_history_over_limit
 Revises: 0014_functional_indices_lower
 Create Date: 2026-07-04
 
-Разовый бэкфилл под retention-механизм (docs/personal-search-data/spec.md §1):
+Разовый бэкфилл под retention-механизм (docs/explore-analytics/personal-search-data/spec.md §1):
 SearchService.find_and_save теперь тримит историю до HISTORY_DEPTH_LIMIT=100
 на каждый новый поиск, но эта миграция закрывает случай, если у какого-то
 пользователя УЖЕ накопилось больше 100 строк до включения trim-механизма.

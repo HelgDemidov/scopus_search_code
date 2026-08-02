@@ -113,7 +113,7 @@ vi.mock('../stores/authStore', () => ({
 }));
 
 // Personal mode теперь получает данные из GET /articles/stats/personal, а не
-// из historyStore-селекторов (docs/personal-search-data/spec.md §4)
+// из historyStore-селекторов (docs/explore-analytics/personal-search-data/spec.md §4)
 vi.mock('../api/articles', () => ({
   getPersonalStats: mockGetPersonalStats,
   getPersonalActivity: mockGetPersonalActivity,
@@ -210,7 +210,7 @@ describe('ExplorePage — cross-filter V2 useEffect', () => {
 
 // ---------------------------------------------------------------------------
 // Collection mode: KpiRow/DimensionDrawer (не Personal*) — единственный путь
-// к деталям (docs/explore-personal-redesign/spec.md §1; старые 4 personal-only
+// к деталям (docs/explore-analytics/explore-personal-redesign/spec.md §1; старые 4 personal-only
 // чарта и OpenAccessChart/TopAuthorsChart удалены целиком, были мёртвым кодом)
 // ---------------------------------------------------------------------------
 
@@ -236,7 +236,7 @@ describe('ExplorePage — collection mode: KpiRow/DimensionDrawer, не Personal
 
 // ---------------------------------------------------------------------------
 // Personal mode: реальная агрегация через GET /articles/stats/personal
-// (docs/personal-search-data/spec.md §2/§4 — заменяет клиентские селекторы
+// (docs/explore-analytics/personal-search-data/spec.md §2/§4 — заменяет клиентские селекторы
 // по фильтрам поиска)
 // ---------------------------------------------------------------------------
 
@@ -256,7 +256,7 @@ describe('ExplorePage — personal mode', () => {
     expect(mockGetSearchHistory).toHaveBeenCalledWith(15);
   });
 
-  it('PersonalKpiRow/PersonalDimensionDrawer/PersonalActivityChart/FilterFingerprintStrip рендерятся, когда total > 0 (docs/explore-personal-redesign/spec.md §1-2)', async () => {
+  it('PersonalKpiRow/PersonalDimensionDrawer/PersonalActivityChart/FilterFingerprintStrip рендерятся, когда total > 0 (docs/explore-analytics/explore-personal-redesign/spec.md §1-2)', async () => {
     await act(async () => {
       render(<ExplorePage />);
     });
@@ -309,7 +309,7 @@ describe('ExplorePage — personal mode', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Единый Sheet-instance между режимами (docs/explore-personal-redesign/spec.md
+// Единый Sheet-instance между режимами (docs/explore-analytics/explore-personal-redesign/spec.md
 // §1.2 п.5) — при смене mode drawer обязан закрываться, иначе может остаться
 // открытым с "залипшим" измерением от предыдущего режима.
 // ---------------------------------------------------------------------------

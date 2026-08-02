@@ -1,6 +1,6 @@
 """Интеграционные тесты GET /articles/stats/pivot (SQLite, без requires_pg).
 
-Table Builder — docs/explore-table-builder/spec.md §3. Как и journal-impact,
+Table Builder — docs/explore-analytics/explore-table-builder/spec.md §3. Как и journal-impact,
 эндпоинт не кэшируется — фикстуры client/db_session без переопределения get_catalog_service.
 """
 
@@ -167,7 +167,7 @@ async def test_pivot_empty_catalog_returns_empty_lists(client: AsyncClient):
 
 
 # ---------------------------------------------------------------------------
-# metric=avg_citations (docs/impact-analytics/spec.md §1)
+# metric=avg_citations (docs/explore-analytics/impact-analytics/spec.md §1)
 # ---------------------------------------------------------------------------
 
 

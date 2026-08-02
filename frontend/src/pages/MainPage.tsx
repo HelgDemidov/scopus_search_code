@@ -4,7 +4,7 @@ import { Button } from '../components/ui/button';
 import { LocalizedLink } from '../components/layout/LocalizedLink';
 import { useHreflangTags } from '../hooks/useHreflangTags';
 
-// Маркетинговый лендинг (docs/i18n-url-routing/spec.md §4.1) — разведён из
+// Маркетинговый лендинг (docs/frontend-ui/i18n-url-routing/spec.md §4.1) — разведён из
 // прежнего HomePage.tsx, где эта роль (герой + CTA) была слита с самим поиском
 // (теперь SearchPage.tsx). Копирайтинг/визуальный дизайн — вне скоупа этого
 // ТЗ, здесь только структура: заголовок/подзаголовок + CTA на /search и /auth.

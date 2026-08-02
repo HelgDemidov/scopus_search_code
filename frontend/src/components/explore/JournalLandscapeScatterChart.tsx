@@ -22,7 +22,7 @@ import { computeImpactQuadrants, padLinearDomain, padLogDomain } from './crossCh
 import type { ImpactQuadrant } from './crossChartData';
 import type { JournalImpactPoint } from '../../types/api';
 
-// График 4 — Journal Landscape Scatter (docs/explore-table-builder/spec.md §1).
+// График 4 — Journal Landscape Scatter (docs/explore-analytics/explore-table-builder/spec.md §1).
 // Единственное измерение (journal) на 2 метриках (объём×импакт) — не комбинация
 // 2 категориальных разрезов, как остальные 3 фиксированных графика, поэтому
 // не встроен в Table Builder (там ось = категориальное измерение, не метрика).
@@ -153,7 +153,7 @@ export function JournalLandscapeScatterChart() {
 
   const { points, medianCount, medianMean } = computeImpactQuadrants(data);
 
-  // Отступ по краям (docs/impact-analytics/spec.md) — без него журналы на экстремумах
+  // Отступ по краям (docs/explore-analytics/impact-analytics/spec.md) — без него журналы на экстремумах
   // выборки (мин/макс count и plotMean) сидят ровно на границе plot area и обрезаются
   // Recharts-клипом в полукруг. X — линейная шкала (доля диапазона), Y — лог (множитель,
   // см. padLogDomain/padLinearDomain в crossChartData.ts).

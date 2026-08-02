@@ -86,7 +86,7 @@ describe('resolveBlackHoleGeometry', () => {
     expect(result).toBeNull();
   });
 
-  describe('vortexClearancePx (§10.4 post-prod, docs/layout-overhaul/spec.md)', () => {
+  describe('vortexClearancePx (§10.4 post-prod, docs/frontend-ui/layout-overhaul/spec.md)', () => {
     it('defaults to 0 — behaves exactly as before when omitted', () => {
       const withDefault = resolveBlackHoleGeometry(1000, 700, 0.713, 550, 0);
       const withExplicitZero = resolveBlackHoleGeometry(1000, 700, 0.713, 550, 0, 0);

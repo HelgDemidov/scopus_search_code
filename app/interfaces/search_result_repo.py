@@ -54,7 +54,7 @@ class ISearchResultRepository(ABC):
     @abstractmethod
     async def get_personal_activity_for_user(self, user_id: int) -> dict:
         """
-        Поисковая активность пользователя по времени (docs/explore-personal-redesign/
+        Поисковая активность пользователя по времени (docs/explore-analytics/explore-personal-redesign/
         spec.md §2.1): granularity (week/month, авто по разбросу истории) + buckets
         (period_start, successful_searches, zero_result_searches,
         cumulative_unique_articles — нарастающим итогом, статья считается «найденной»

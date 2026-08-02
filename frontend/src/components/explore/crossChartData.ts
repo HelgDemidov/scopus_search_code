@@ -87,8 +87,8 @@ export function pivotJournalCountryData(data: JournalCountryCount[]) {
 
 // ---------------------------------------------------------------------------
 // JournalLandscapeScatterChart / CountryImpactScatterChart — квадранты объём×импакт
-// (docs/explore-table-builder/spec.md §1, обобщено для CountryImpactPoint в
-// docs/impact-analytics/spec.md §2.2 — единственный call site на момент обобщения
+// (docs/explore-analytics/explore-table-builder/spec.md §1, обобщено для CountryImpactPoint в
+// docs/explore-analytics/impact-analytics/spec.md §2.2 — единственный call site на момент обобщения
 // переименован без alias/back-compat).
 // ---------------------------------------------------------------------------
 
@@ -172,7 +172,7 @@ export function padLinearDomain(min: number, max: number): [number, number] {
 }
 
 // ---------------------------------------------------------------------------
-// Явные тики для лог-оси X CountryImpactScatterChart (docs/impact-analytics/
+// Явные тики для лог-оси X CountryImpactScatterChart (docs/explore-analytics/impact-analytics/
 // spec.md) — без них Recharts не гарантированно ставит подпись на самом
 // экстремальном датапоинте (домен растянут на много порядков: Китай на
 // порядок опережает следующую страну). min/max выборки — ВСЕГДА в списке, это

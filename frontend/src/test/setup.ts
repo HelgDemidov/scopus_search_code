@@ -12,7 +12,7 @@ import '../i18n';
 // реализует layout: getBoundingClientRect/offsetWidth/getClientRects всегда
 // возвращают 0, и axe не может определить видимый размер текста. Пакет
 // `canvas` (devDependency) сюда НЕ добавлен — проверено эмпирически
-// (2026-07-11, docs/a11y-canvas-coverage/spec.md): он не чинит эту
+// (2026-07-11, docs/a11y-qa/a11y-canvas-coverage/spec.md): он не чинит эту
 // проблему, а ухудшает диагностику — без него color-contrast попадает в
 // axe-результатах в `incomplete` ("нужна ручная проверка", видимо), с ним —
 // в `inapplicable` (тихо исключается: node-canvas без системных шрифтов

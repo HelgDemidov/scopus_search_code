@@ -4,7 +4,7 @@ import { useTheme } from '../../hooks/useTheme';
 
 // Всегда видима в Header (<sm тоже, см. Header.tsx) — размер респонсивный,
 // не JS-проп: h-11/w-11 (44×44, WCAG 2.2 touch target, §4.3 ТЗ
-// docs/layout-overhaul/spec.md) на <sm, компактные h-8/w-8 на ≥sm (мышиный
+// docs/frontend-ui/layout-overhaul/spec.md) на <sm, компактные h-8/w-8 на ≥sm (мышиный
 // десктоп-контекст, прежний вид не меняется).
 export function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();

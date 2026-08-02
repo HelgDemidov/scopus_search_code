@@ -1,7 +1,7 @@
 import type { SearchHistoryItem } from '../../types/api';
 
 // Filter fingerprint — таймлайн-полоса состава фильтров за последние N поисков
-// (docs/explore-personal-redesign/spec.md §2.2). Чистые функции подготовки
+// (docs/explore-analytics/explore-personal-redesign/spec.md §2.2). Чистые функции подготовки
 // данных — тестируются полностью, отдельно от JSX (тот же принцип, что
 // crossChartData.ts/tableBuilderData.ts).
 

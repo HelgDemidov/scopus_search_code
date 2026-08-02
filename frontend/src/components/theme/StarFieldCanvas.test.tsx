@@ -124,7 +124,7 @@ describe('StarFieldCanvas', () => {
     expect(cancelAnimationFrame).toHaveBeenCalled();
   });
 
-  it('draws the black hole disk when one is registered (docs/error-experience/spec.md)', () => {
+  it('draws the black hole disk when one is registered (docs/frontend-ui/error-experience/spec.md)', () => {
     localStorage.setItem('theme', 'dark');
     const captured: { loop: FrameRequestCallback | null } = { loop: null };
     vi.stubGlobal('requestAnimationFrame', vi.fn((cb: FrameRequestCallback) => {
@@ -149,7 +149,7 @@ describe('StarFieldCanvas', () => {
     setBlackHole(null);
   });
 
-  // Регрессия 2026-07-09 (§10.4 post-prod, docs/layout-overhaul/spec.md):
+  // Регрессия 2026-07-09 (§10.4 post-prod, docs/frontend-ui/layout-overhaul/spec.md):
   // vortexClearancePx изначально считался БЕЗ учёта isMobile — на десктопе
   // (clientWidth=1024 из beforeAll, >= MOBILE_BREAKPOINT_PX) это толкало ЧД к
   // самому низу вьюпорта вместо нормальной позиции ~70% высоты (десктопный

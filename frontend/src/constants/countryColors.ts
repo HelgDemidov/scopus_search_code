@@ -1,7 +1,7 @@
 // Стабильная привязка цвета к НАЗВАНИЮ страны (не к позиции в топ-N) — используется
 // графиками /explore, показывающими несколько стран одновременно: TopCountriesByYearChart
 // (топ-10), CountrySunburstChart и TopJournalsByCountryChart (топ-5, подмножество той же
-// палитры — см. docs/explore-cross-analytics/spec.md §3.2).
+// палитры — см. docs/explore-analytics/explore-cross-analytics/spec.md §3.2).
 //
 // Топ-N стран — результат живого запроса к БД, не константа: при повторном сидинге
 // ранжирование может немного сдвинуться. Если бы цвет назначался по индексу в
@@ -75,7 +75,7 @@ export function getCountryColor(country: string, theme: 'light' | 'dark'): strin
 // наследует ровно getCountryColor(), второй сегмент — тот же hue/насыщенность,
 // но светлота сдвинута к контрастной точке темы (белый в dark, чёрный в light),
 // частично — остаётся "близким по спектру" к материнскому цвету, не превращается
-// в отдельный несвязанный оттенок (см. docs/explore-cross-analytics/spec.md §2.4).
+// в отдельный несвязанный оттенок (см. docs/explore-analytics/explore-cross-analytics/spec.md §2.4).
 const MINOR_VARIANT_LIGHTNESS_DELTA: Record<'light' | 'dark', number> = {
   light: -16,
   dark: 16,

@@ -22,7 +22,7 @@ function xmlEscape(value: string): string {
 }
 
 /**
- * Строит sitemap.xml с перекрёстными hreflang-блоками (docs/i18n-url-routing/spec.md
+ * Строит sitemap.xml с перекрёстными hreflang-блоками (docs/frontend-ui/i18n-url-routing/spec.md
  * §6) из общего манифеста индексируемых секций — того же, что читает useHreflangTags.tsx.
  * `xhtml:link` — Google поддерживает hreflang прямо в sitemap как первичный канал,
  * не зависящий от JS-рендеринга страницы.

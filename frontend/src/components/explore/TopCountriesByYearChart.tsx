@@ -21,7 +21,7 @@ import { YEAR_HARD_MAX, YEAR_MIN_WINDOW } from '../../constants/yearRange';
 import { getLabelMaps } from '../../constants/labelTranslations';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 
-// График 1 — Top Countries by Year (docs/explore-cross-analytics/spec.md §4).
+// График 1 — Top Countries by Year (docs/explore-analytics/explore-cross-analytics/spec.md §4).
 // Расширение уже готового пайплайна Publications by Year (тот же year-range slider,
 // YEAR_HARD_MAX/zero-fill), но 10 линий (топ-10 стран) вместо одной суммарной.
 

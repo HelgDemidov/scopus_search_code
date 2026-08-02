@@ -11,7 +11,7 @@ import { getCountryColor, getCountryColorVariant } from '../../constants/country
 import { getLabelMaps } from '../../constants/labelTranslations';
 import { buildRawGroups } from './crossChartData';
 
-// График 2 — Sunburst Country → OpenAccess (docs/explore-cross-analytics/spec.md §5).
+// График 2 — Sunburst Country → OpenAccess (docs/explore-analytics/explore-cross-analytics/spec.md §5).
 // Изначально был 3-уровневым (+ DocType посередине), упрощён до 2 уровней по итогам
 // визуального ревью — третий слой был визуально нечитаем, а разное число сегментов
 // между 3 кольцами (в сочетании с разным paddingAngle на каждом) ломало выравнивание
@@ -172,7 +172,7 @@ const BRIGHTEN_DELTA_PERCENT = 10;
 
 // Осветляет hsl(...)-строку на фиксированное число процентных пунктов светлоты —
 // используется для клика по сегменту sunburst (сам сегмент + все его дочерние
-// становятся на 10% ярче, см. docs/explore-cross-analytics/spec.md).
+// становятся на 10% ярче, см. docs/explore-analytics/explore-cross-analytics/spec.md).
 function brightenHsl(hsl: string, deltaPercent: number): string {
   const match = hsl.match(/^hsl\(([\d.]+),\s*(\d+)%,\s*(\d+)%\)$/);
   if (!match) return hsl;

@@ -14,7 +14,7 @@ interface KpiConfig {
 }
 
 // ---------------------------------------------------------------------------
-// KpiTileRow — общая презентационная сердцевина (docs/explore-personal-redesign/
+// KpiTileRow — общая презентационная сердцевина (docs/explore-analytics/explore-personal-redesign/
 // spec.md §1.2 п.4): не читает никакой стор, только рендерит уже вычисленные
 // тайлы. Формулы вычисления value у collection/personal разные (см. spec.md
 // §1.1) — переиспользуется только оболочка, не сама формула.

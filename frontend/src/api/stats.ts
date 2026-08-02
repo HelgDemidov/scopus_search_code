@@ -13,7 +13,7 @@ export async function getStats(): Promise<StatsResponse> {
   return response.data;
 }
 
-// Journal Landscape Scatter (docs/explore-table-builder/spec.md §1) — не часть
+// Journal Landscape Scatter (docs/explore-analytics/explore-table-builder/spec.md §1) — не часть
 // StatsResponse/get_stats(): значение зависит от рантайм-параметра слайдера
 // окна зрелости, отдельный некэшируемый запрос при каждой смене maxYear.
 export async function getJournalImpact(maxYear: number, signal?: AbortSignal): Promise<JournalImpactPoint[]> {
@@ -24,7 +24,7 @@ export async function getJournalImpact(maxYear: number, signal?: AbortSignal): P
   return response.data;
 }
 
-// Table Builder (docs/explore-table-builder/spec.md §3) — тоже вне StatsResponse:
+// Table Builder (docs/explore-analytics/explore-table-builder/spec.md §3) — тоже вне StatsResponse:
 // ленивый запрос по клику пользователя в конкретную rowDim×colDim комбинацию,
 // не кэшируется ни на клиенте, ни на сервере.
 export interface PivotParams {

@@ -4,7 +4,7 @@ Revision ID: 0016_trgm_gist_search_indices
 Revises: 0015_trim_search_history_over_limit
 Create Date: 2026-07-09
 
-Шаг 2 индексирования под нагрузку (docs/project_context/scopus-search-feedback-2026-07-03.md).
+Шаг 2 индексирования под нагрузку (docs/project-meta/project_context/scopus-search-feedback-2026-07-03.md).
 Root cause (прогон 2026-07-09): GET /articles/?search= — title/author ILIKE '%...%' с ведущим
 wildcard'ом не может использовать ни один btree (в т.ч. ix_articles_lower_*). Применяется только
 после Шага 1 (кап точного COUNT) — тот один не закрыл порог P95<500ms/P99<1000ms.

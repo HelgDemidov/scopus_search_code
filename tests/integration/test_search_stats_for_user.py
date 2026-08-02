@@ -1,4 +1,4 @@
-"""Первое тестовое покрытие get_search_stats_for_user (docs/personal-search-data/spec.md §2).
+"""Первое тестовое покрытие get_search_stats_for_user (docs/explore-analytics/personal-search-data/spec.md §2).
 
 Метод существовал до этого тикета (используется /articles/search/stats на HomePage),
 но не имел ни одного теста, кроме Fake-заглушки в test_search_service.py — ветка
@@ -121,7 +121,7 @@ async def test_by_country_and_doc_type_and_journal(db_session: AsyncSession):
 
 @pytest.mark.asyncio
 async def test_by_open_access_two_buckets(db_session: AsyncSession):
-    """Новое измерение docs/personal-search-data/spec.md §2.1."""
+    """Новое измерение docs/explore-analytics/personal-search-data/spec.md §2.1."""
     repo = PostgresSearchResultRepository(db_session)
     await _seed_search(
         db_session,

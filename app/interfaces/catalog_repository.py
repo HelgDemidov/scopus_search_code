@@ -84,8 +84,9 @@ class ICatalogRepository(ABC):
         Поля ответа: total_articles, total_journals, total_countries, total_authors,
         open_access_count, by_year, by_journal, by_country, by_doc_type, top_keywords, top_authors,
         by_year_top_countries, sunburst_country_open_access, top_journals_by_country
-        (кросс-агрегаты для стационарных графиков /explore, docs/explore-cross-analytics/spec.md §2),
-        country_impact (топ-20 стран × avg(cited_by_count), docs/impact-analytics/spec.md §2).
+        (кросс-агрегаты для стационарных графиков /explore,
+        docs/explore-analytics/explore-cross-analytics/spec.md §2),
+        country_impact (топ-20 стран × avg(cited_by_count), docs/explore-analytics/impact-analytics/spec.md §2).
         """
         pass
 
@@ -94,7 +95,7 @@ class ICatalogRepository(ABC):
         """
         Топ-N журналов по объёму (count) + среднее/медианное цитирование среди статей,
         опубликованных <= max_year — для Journal Landscape Scatter (интерактивный слайдер
-        окна зрелости, docs/explore-table-builder/spec.md §1). Журналы с count < 20
+        окна зрелости, docs/explore-analytics/explore-table-builder/spec.md §1). Журналы с count < 20
         не включаются (статистически шумная выборка).
         Возвращает [{"journal": str, "count": int, "mean_citations": float,
         "median_citations": float}, ...], отсортировано по count DESC.
@@ -113,11 +114,11 @@ class ICatalogRepository(ABC):
         metric: PivotMetric = "count",
     ) -> dict:
         """
-        2D pivot (Table Builder, docs/explore-table-builder/spec.md §3) по 2 whitelisted
+        2D pivot (Table Builder, docs/explore-analytics/explore-table-builder/spec.md §3) по 2 whitelisted
         измерениям (row_dim/col_dim из PivotDimension — валидация типа уже на уровне FastAPI).
         top_n_rows/top_n_cols — обрезка по маржинальному объёму (не по всему множеству
         значений измерения — journal/country высококардинальны), ВСЕГДА по count независимо
-        от metric (docs/impact-analytics/spec.md §0.2).
+        от metric (docs/explore-analytics/impact-analytics/spec.md §0.2).
         filter_dim/filter_value — опциональный slicer (3-е измерение как фильтр WHERE,
         не как ось), не участвует в group by.
         metric — "count" (по умолчанию) или "avg_citations": какое значение попадает в matrix;

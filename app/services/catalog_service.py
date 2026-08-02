@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 class CatalogService:
     # Верхняя граница точного подсчёта total для GET /articles (пагинация каталога).
     # За её пределами точный COUNT(*) по всей таблице доминирует над стоимостью запроса на
-    # широких ILIKE-фильтрах без подходящего индекса (см. docs/project_context — root cause
+    # широких ILIKE-фильтрах без подходящего индекса (см. docs/project-meta/project_context — root cause
     # нагрузочного прогона 2026-07-09); показываем "cap+", а не точное число.
     TOTAL_COUNT_CAP = 2000
 
@@ -212,7 +212,7 @@ class CatalogService:
 
     # ------------------------------------------------------------------ #
     #  get_journal_impact — Journal Landscape Scatter                     #
-    #  (docs/explore-table-builder/spec.md §1)                            #
+    #  (docs/explore-analytics/explore-table-builder/spec.md §1)                            #
     # ------------------------------------------------------------------ #
 
     async def get_journal_impact(self, max_year: int) -> list[JournalImpactPoint]:
@@ -251,7 +251,7 @@ class CatalogService:
 
     # ------------------------------------------------------------------ #
     #  get_pivot — Table Builder                                          #
-    #  (docs/explore-table-builder/spec.md §3)                            #
+    #  (docs/explore-analytics/explore-table-builder/spec.md §3)                            #
     # ------------------------------------------------------------------ #
 
     async def get_pivot(
@@ -271,7 +271,7 @@ class CatalogService:
 
         Проверка допустимости конкретной ПАРЫ измерений (§3.1) и row_dim != col_dim —
         на уровне роутера (это HTTP-контракт, а не бизнес-правило самого сервиса).
-        metric не влияет на top-N отбор строк/столбцов (docs/impact-analytics/spec.md §0.2) —
+        metric не влияет на top-N отбор строк/столбцов (docs/explore-analytics/impact-analytics/spec.md §0.2) —
         только на то, что именно попадает в matrix.
         """
         raw = await self.catalog_repo.get_pivot(

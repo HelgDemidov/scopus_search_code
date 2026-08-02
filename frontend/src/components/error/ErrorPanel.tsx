@@ -13,13 +13,13 @@ interface ErrorPanelProps {
   description: string;
   children?: ReactNode; // кнопки действий
   // Переопределяет layout ряда кнопок (по умолчанию — по центру).
-  // NotFoundPage (п.9.4, docs/error-experience/spec.md) выравнивает кнопки
+  // NotFoundPage (п.9.4, docs/frontend-ui/error-experience/spec.md) выравнивает кнопки
   // по краям того же `max-w-sm`-блока, что и description — RouteErrorPage
   // с его 3 кнопками остаётся на дефолтном центрировании без изменений.
   actionsClassName?: string;
 }
 
-// Панель error-страниц (404/route error) — см. docs/error-experience/spec.md,
+// Панель error-страниц (404/route error) — см. docs/frontend-ui/error-experience/spec.md,
 // раздел «Дизайн» и п.5.6.4 (раунд 5, редизайн). Никакой сплошной
 // карточки (bg/border/shadow) в любой из тем — раньше панель была всегда
 // тёмной (bg-[#152236]) независимо от темы сайта, что в light выглядело
@@ -33,7 +33,7 @@ interface ErrorPanelProps {
 // фона, без острой границы) + угловые риски видоискателя вокруг всего блока.
 // forwardRef (см. [[feedback-shadcn-button-forwardref]]) — ref пробрасывается
 // на контейнер контента (статус/title/description/кнопки), НЕ на внешнюю
-// fixed-обёртку: useBlackHoleMessageAnchor (§4.4 ТЗ, docs/layout-overhaul/
+// fixed-обёртку: useBlackHoleMessageAnchor (§4.4 ТЗ, docs/frontend-ui/layout-overhaul/
 // spec.md, Шаг 5) меряет через него нижнюю границу СООБЩЕНИЯ (вплоть до ряда
 // кнопок) — внешняя обёртка включает лишний py-8, который не относится к
 // видимому контенту.
@@ -44,7 +44,7 @@ export const ErrorPanel = forwardRef<HTMLDivElement, ErrorPanelProps>(function E
   const [copied, setCopied] = useState(false);
   const descRef = useRef<HTMLParagraphElement>(null);
   const [actionsWidth, setActionsWidth] = useState<number | null>(null);
-  // §10.4 post-prod (docs/layout-overhaul/spec.md): выравнивание ряда кнопок
+  // §10.4 post-prod (docs/frontend-ui/layout-overhaul/spec.md): выравнивание ряда кнопок
   // по ширине текста description — десктопный приём (см. actionsClassName
   // ветку ниже). Ниже sm кнопки растягиваются flex-1 на всю ширину ряда, там
   // maxWidth-ограничение только мешало бы (актуально для узкого экрана,
@@ -59,7 +59,7 @@ export const ErrorPanel = forwardRef<HTMLDivElement, ErrorPanelProps>(function E
   };
 
   // Ряд кнопок выравнивается по фактической ширине ОТРИСОВАННОГО текста
-  // description (п.9.4, docs/error-experience/spec.md), не по ширине его
+  // description (п.9.4, docs/frontend-ui/error-experience/spec.md), не по ширине его
   // max-w-sm блока — текст центрирован внутри блока и почти всегда УЖЕ
   // самого блока (в EN — на ~16.5px с каждой стороны), поэтому выравнивание
   // по границам блока визуально «разъезжалось» с видимым текстом. Меряем
@@ -101,7 +101,7 @@ export const ErrorPanel = forwardRef<HTMLDivElement, ErrorPanelProps>(function E
 
   return (
     // fixed + top-14 (=header h-14) + h-[calc(100dvh-3.5rem)] (п.8.5.2,
-    // docs/error-experience/spec.md) — раньше был document-flow div с
+    // docs/frontend-ui/error-experience/spec.md) — раньше был document-flow div с
     // min-h-[70vh]: на iPad landscape Safari `vh` считается от высоты при
     // скрытой адресной строке, реально видимая область меньше на высоту
     // тулбара → появлялся паразитный скролл страницы, и панель (flow) при
@@ -114,7 +114,7 @@ export const ErrorPanel = forwardRef<HTMLDivElement, ErrorPanelProps>(function E
     // случай легитимно длинного контента (другая локаль/очень короткий
     // вьюпорт) — скролл уйдёт ВНУТРЬ панели, а не потеряется совсем.
     // pt-[38px] ≈ условный «1см» от нижней рамки шапки — сохранён как есть на
-    // ≥sm; ниже sm поджат до pt-6 (§10.4 post-prod, docs/layout-overhaul/
+    // ≥sm; ниже sm поджат до pt-6 (§10.4 post-prod, docs/frontend-ui/layout-overhaul/
     // spec.md) — на узких экранах панель занимала >50% высоты вьюпорта
     // (цель ~40%), верхний отступ был частью проблемы.
     <div className="fixed inset-x-0 top-14 z-10 flex h-[calc(100dvh-3.5rem)] items-start justify-center overflow-y-auto px-4 pt-6 sm:pt-[38px]">
@@ -145,7 +145,7 @@ export const ErrorPanel = forwardRef<HTMLDivElement, ErrorPanelProps>(function E
               под ним (проверено вживую на обоих текстах). Только в light —
               в dark этот резерв держит место под light-only SVG-кольцо ниже,
               которого в dark нет вообще, поэтому статус-лейбл «висел» в
-              пустом круге (п.9.3, docs/error-experience/spec.md, вариант А):
+              пустом круге (п.9.3, docs/frontend-ui/error-experience/spec.md, вариант А):
               dark:h-auto/w-auto убирает фиксированный резерв, текст занимает
               только свою естественную высоту — панель и её нижние угловые
               риски (позиционированы от той же обёртки) подтягиваются вверх
@@ -156,7 +156,7 @@ export const ErrorPanel = forwardRef<HTMLDivElement, ErrorPanelProps>(function E
               <path d="M 50 6 A 44 44 0 1 1 6 50" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
             {/* whitespace-pre-line — только RU статус-лейбл содержит явный
-                \n (п.9.5, docs/error-experience/spec.md): "НЕТ СИГНАЛА"
+                \n (п.9.5, docs/frontend-ui/error-experience/spec.md): "НЕТ СИГНАЛА"
                 помещалось в одну строку впритык к light-only кольцу, в
                 отличие от sr-Latn "NEMA SIGNALA", который переносится сам
                 по себе на узком w-32 (128px). dark:whitespace-normal —

@@ -60,13 +60,13 @@ interface DrawerConfig {
 
 // Ранжированные измерения (country/journal/author) — открытые списки, потенциально
 // десятки/сотни значений; показываем только «голову» распределения (см.
-// docs/explore-charts-refactor/spec.md §6). doc_type — закрытая таксономия, не режем.
+// docs/explore-analytics/explore-charts-refactor/spec.md §6). doc_type — закрытая таксономия, не режем.
 const TOP_N_RANKED = 15;
 
 // YEAR_HARD_MAX/YEAR_DEFAULT_MIN/YEAR_MIN_WINDOW — см. constants/yearRange.ts
 // (вынесены оттуда же, используются также в TopCountriesByYearChart).
 
-// Общий источник данных для обоих режимов (docs/explore-personal-redesign/spec.md
+// Общий источник данных для обоих режимов (docs/explore-analytics/explore-personal-redesign/spec.md
 // §1.2) — StatsResponse (collection) адаптируется через toDimensionStatsSource()
 // ниже, SearchStatsResponse (personal) структурно совместим уже как есть.
 function getConfig(
@@ -595,7 +595,7 @@ function DimensionDrawerCore({ source }: { source: DimensionStatsSource | null }
                 таблица получает весь остаток высоты (flex-1). min-h-0 обязателен
                 на растягивающихся блоках — иначе flex-item не сжимается меньше
                 своего контента и overflow-y-auto ничего не скроллит (см.
-                docs/explore-charts-refactor/spec.md §4, §14 п.3). */}
+                docs/explore-analytics/explore-charts-refactor/spec.md §4, §14 п.3). */}
             <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
               {isDonut ? (
                 <>
@@ -659,7 +659,7 @@ export function DimensionDrawer() {
 }
 
 // ---------------------------------------------------------------------------
-// PersonalDimensionDrawer — personal mode (docs/explore-personal-redesign/spec.md
+// PersonalDimensionDrawer — personal mode (docs/explore-analytics/explore-personal-redesign/spec.md
 // §1.2 п.3). SearchStatsResponse структурно satisfies DimensionStatsSource —
 // передаётся как есть, без адаптера.
 // ---------------------------------------------------------------------------

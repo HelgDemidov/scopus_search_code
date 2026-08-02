@@ -1,4 +1,4 @@
-// URL — источник истины для текущей локали на время сессии (docs/i18n-url-routing/spec.md
+// URL — источник истины для текущей локали на время сессии (docs/frontend-ui/i18n-url-routing/spec.md
 // §1/§5): здесь только чистые функции сопоставления URL-сегмента ↔ код i18next и построения
 // локализованных путей. Синхронизация с рантаймом i18next (changeLanguage/document.lang) —
 // в LocaleLayout.tsx, не здесь.
@@ -25,7 +25,7 @@ export const i18nToUrlLang: Record<string, UrlLang> = {
   'sr-Latn': 'cnr',
 };
 
-// URL-сегмент → значение hreflang-атрибута (docs/i18n-url-routing/spec.md §6). Отдельная
+// URL-сегмент → значение hreflang-атрибута (docs/frontend-ui/i18n-url-routing/spec.md §6). Отдельная
 // от urlLangToI18n карта: hreflang — публичное SEO-заявление языка, i18next-код — реальный
 // загружаемый ресурс. Для 'cnr' они расходятся (i18next грузит 'sr-Latn' — hreflang должен
 // сказать 'cnr', иначе URL заявляет "черногорский", а разметка — "сербский", рассогласование).

@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { useHreflangTags } from '../hooks/useHreflangTags';
 
-// Плейсхолдер (docs/i18n-url-routing/spec.md §4.3) — резервирует URL/роут/i18n-каркас.
+// Плейсхолдер (docs/frontend-ui/i18n-url-routing/spec.md §4.3) — резервирует URL/роут/i18n-каркас.
 // Юридический текст условий использования — отдельная задача, не в скоупе этого ТЗ.
 export default function TermsPage() {
   const { t } = useTranslation();

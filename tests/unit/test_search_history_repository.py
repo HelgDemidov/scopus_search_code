@@ -200,7 +200,7 @@ async def test_reset_at_calculation():
 
 
 # ================================================================ #
-#  Тесты trim_to_last_n — retention (docs/personal-search-data/spec.md §1)   #
+#  Тесты trim_to_last_n — retention (docs/explore-analytics/personal-search-data/spec.md §1)   #
 # ================================================================ #
 
 
@@ -275,7 +275,7 @@ async def test_trim_to_last_n_keep_since_protects_rows_within_quota_window():
 
     Без keep_since retention удалил бы строки, ещё актуальные для count_in_window(),
     и used никогда не смог бы дойти до 200 — 429 стал бы недостижим (найдено при
-    проектировании интеграционного теста, docs/personal-search-data/spec.md §1).
+    проектировании интеграционного теста, docs/explore-analytics/personal-search-data/spec.md §1).
     """
     repo = FakeSearchHistoryRepository()
     now = datetime.datetime.now(tz=datetime.timezone.utc)

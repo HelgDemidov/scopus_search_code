@@ -14,7 +14,7 @@ import {
 } from '../ui/sheet';
 import { getInitials } from '../../utils/userDisplay';
 
-// <sm бургер-меню (§4.3 ТЗ, docs/layout-overhaul/spec.md): дублирует
+// <sm бургер-меню (§4.3 ТЗ, docs/frontend-ui/layout-overhaul/spec.md): дублирует
 // навигацию/auth-действия правой группы плоской шапки, которая на <sm
 // скрыта в Header.tsx (ThemeToggle/LanguageSwitcher из бургера убраны —
 // теперь всегда видны в самой шапке, см. Header.tsx). Focus-trap

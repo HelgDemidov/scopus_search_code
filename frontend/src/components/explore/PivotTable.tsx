@@ -8,7 +8,7 @@ import { formatCount } from '../charts/chartColors';
 import { formatPivotLabel, formatMetricValue, pivotToCsv, countNonEmptyCells, CSV_BOM } from './tableBuilderData';
 import type { PivotDimension, PivotResponse } from '../../types/api';
 
-// Table Builder — 2D pivot таблица (docs/explore-table-builder/spec.md §3.4).
+// Table Builder — 2D pivot таблица (docs/explore-analytics/explore-table-builder/spec.md §3.4).
 // Сортировка/поиск/пагинация — над уже загруженным PivotResponse (top-N с
 // бэкенда), никаких доп. запросов. CSV-экспорт см. tableBuilderData.ts —
 // генерация строки протестирована отдельно от DOM-скачивания (второе не
@@ -139,7 +139,7 @@ export function PivotTable({ data, rowDim, colDim }: PivotTableProps) {
   const pageRows = filteredSorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   // Сумма cell_counts (article count), не matrix — при metric='avg_citations' суммировать
-  // средние статистически бессмысленно (docs/impact-analytics/spec.md §1.2); при metric='count'
+  // средние статистически бессмысленно (docs/explore-analytics/impact-analytics/spec.md §1.2); при metric='count'
   // даёт то же число, что и раньше.
   const grandTotal = useMemo(
     () => data.cell_counts.reduce((sum, row) => sum + row.reduce((rowSum, c) => rowSum + c, 0), 0),

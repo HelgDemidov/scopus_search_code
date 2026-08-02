@@ -72,7 +72,8 @@ class ISearchHistoryRepository(ABC):
         (по created_at DESC, id DESC как tie-break). Возвращает число удалённых строк.
         Идемпотентно — если строк <= n, ничего не удаляет.
         Вызывается внутри SearchService.find_and_save сразу после insert_row —
-        новая запись всегда самая свежая и переживает trim (docs/personal-search-data/spec.md §1).
+        новая запись всегда самая свежая и переживает trim
+        (docs/explore-analytics/personal-search-data/spec.md §1).
 
         keep_since: если задан — строки с created_at >= keep_since НИКОГДА не удаляются,
         даже если их больше n. Обязателен для прод-вызова: без этого предохранителя

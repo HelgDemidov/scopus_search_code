@@ -87,7 +87,7 @@ def make_journal_impact_cache_key(max_year: int, *, db_namespace: str) -> str:
     """Ключ кэша для /stats/journal-impact: journal-impact:{ns_digest}:{max_year}.
 
     В отличие от make_stats_cache_key — без хэша параметров: max_year это слайдер
-    ровно на 3 значения (2022-2024, docs/explore-table-builder/spec.md §1.1), а не
+    ровно на 3 значения (2022-2024, docs/explore-analytics/explore-table-builder/spec.md §1.1), а не
     произвольная комбинация фильтров, поэтому читаемый прямой ключ нагляднее хэша.
     db_namespace — та же изоляция prod/staging, что и в make_stats_cache_key.
     """

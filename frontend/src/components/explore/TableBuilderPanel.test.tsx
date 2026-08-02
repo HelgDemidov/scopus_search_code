@@ -214,7 +214,7 @@ describe('TableBuilderPanel — карточки', () => {
 
   it('старая карточка без поля metric (localStorage до этой фичи) рендерится, запрашивает count', async () => {
     useDashboardStore.setState({
-      // Намеренно без metric — симулирует BuilderCard, сохранённый до docs/impact-analytics/spec.md §1.2
+      // Намеренно без metric — симулирует BuilderCard, сохранённый до docs/explore-analytics/impact-analytics/spec.md §1.2
       builderCards: [{ id: 'legacy', rowDim: 'year', colDim: 'country', filterDim: undefined, filterValue: undefined }],
     });
     render(<TableBuilderPanel />);

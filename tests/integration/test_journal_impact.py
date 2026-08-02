@@ -1,6 +1,6 @@
 """Интеграционные тесты GET /articles/stats/journal-impact (SQLite, без requires_pg).
 
-Journal Landscape Scatter — docs/explore-table-builder/spec.md §1. Эндпоинт теперь
+Journal Landscape Scatter — docs/explore-analytics/explore-table-builder/spec.md §1. Эндпоинт теперь
 кэшируется (max_year — слайдер всего на 3 значения, см. CatalogService.get_journal_impact) —
 поэтому, как и test_stats_cross_analytics.py, переопределяем get_catalog_service, чтобы
 форсировать redis=None для тестов этого файла.
@@ -138,7 +138,7 @@ async def test_journal_impact_ordered_by_count_desc(client: AsyncClient, db_sess
 @pytest.mark.parametrize("max_year", [2021, 2025])
 @pytest.mark.asyncio
 async def test_journal_impact_rejects_max_year_outside_allowed_range(client: AsyncClient, max_year: int):
-    """Слайдер окна зрелости ограничен 2022-2024 (docs/explore-table-builder/spec.md §1.1)."""
+    """Слайдер окна зрелости ограничен 2022-2024 (docs/explore-analytics/explore-table-builder/spec.md §1.1)."""
     resp = await client.get("/articles/stats/journal-impact", params={"max_year": max_year})
     assert resp.status_code == 422
 

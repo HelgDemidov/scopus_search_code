@@ -1,13 +1,13 @@
 // Границы диапазона года для графиков /explore, работающих с временной осью
 // (DimensionDrawer.year, TopCountriesByYearChart). Единая точка объявления —
 // используется и таблицей/слайдером в DimensionDrawer, и графиком 1
-// (docs/explore-cross-analytics/spec.md §3.1): раньше эти константы были
+// (docs/explore-analytics/explore-cross-analytics/spec.md §3.1): раньше эти константы были
 // объявлены только внутри DimensionDrawer.tsx, дублирование между двумя
 // файлами рисковало рассинхронизацией границ при будущих правках.
 
 // Правый край жёстко зафиксирован на 2030 (не от данных): реальный max(year) в БД
 // технически доходит до 2074, но это одиночные мусорные строки (ошибки метаданных
-// Scopus, см. docs/explore-charts-refactor/spec.md §14 п.6) — фиксация естественно
+// Scopus, см. docs/explore-analytics/explore-charts-refactor/spec.md §14 п.6) — фиксация естественно
 // отсекает их и из таблицы, и из графика.
 export const YEAR_HARD_MAX = 2030;
 

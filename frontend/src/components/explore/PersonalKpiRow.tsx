@@ -7,7 +7,7 @@ import type { Dimension } from '../charts/chartColors';
 import type { SearchStatsResponse } from '../../types/api';
 
 // 5 тайлов, без author — SearchStatsResponse не предоставляет by_author/top_authors
-// (docs/explore-personal-redesign/spec.md §1.1: добавлять агрегат ради одного тайла
+// (docs/explore-analytics/explore-personal-redesign/spec.md §1.1: добавлять агрегат ради одного тайла
 // не оправдано, personal и так закрывает автобиографический пробел работой 2).
 type PersonalDimension = Exclude<Dimension, 'author'>;
 
