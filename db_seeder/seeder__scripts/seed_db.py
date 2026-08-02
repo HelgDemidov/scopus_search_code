@@ -2,9 +2,9 @@
 import asyncio
 import os
 
+import asyncpg
 import httpx
 from colorama import Fore, Style, init
-
 from keyword_generator import generate_keywords, get_todays_cluster
 
 init(autoreset=True)
@@ -29,26 +29,25 @@ def _get_secrets() -> tuple[str, str]:
     )
 
 
-async def _open_db(db_url: str):
+async def _open_db(db_url: str) -> asyncpg.Connection:
     """Открывает одно asyncpg-соединение для всего прогона.
 
     statement_cache_size=0 обязателен для Supabase Session Pooler (PgBouncer transaction mode).
     """
-    import asyncpg
     return await asyncpg.connect(
         db_url.replace("postgresql+asyncpg://", "postgresql://"),
         statement_cache_size=0,
     )
 
 
-async def _fetch_used_keywords(conn) -> tuple[list[str], dict[str, str]]:
+async def _fetch_used_keywords(conn: asyncpg.Connection) -> tuple[list[str], dict[str, str]]:
     rows = await conn.fetch("SELECT keyword, cluster FROM seeder_keywords ORDER BY used_at ASC")
     keywords = [row["keyword"] for row in rows]
     cluster_map = {row["keyword"]: row["cluster"] for row in rows}
     return keywords, cluster_map
 
 
-async def _fetch_repag_keywords(conn, limit: int) -> list[dict]:
+async def _fetch_repag_keywords(conn: asyncpg.Connection, limit: int) -> list[dict]:
     """Кандидаты для ре-пагинации: last_offset < REPAG_OFFSET_CAP, сначала наименьший offset."""
     rows = await conn.fetch(
         """
@@ -65,7 +64,7 @@ async def _fetch_repag_keywords(conn, limit: int) -> list[dict]:
 
 
 async def _save_keyword_result(
-    conn, keyword: str, cluster: str, articles_found: int, next_offset: int
+    conn: asyncpg.Connection, keyword: str, cluster: str, articles_found: int, next_offset: int
 ) -> None:
     await conn.execute(
         """

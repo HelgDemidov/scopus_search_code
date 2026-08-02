@@ -19,3 +19,4 @@ itsdangerous>=2.2.0
 pytest-timeout>=2.3.0
 structlog>=26.1.0
 sentry-sdk>=2.0.0
+colorama>=0.4.6  # цветной вывод db_seeder/seeder__scripts/seed_db.py

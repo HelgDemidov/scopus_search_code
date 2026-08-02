@@ -49,8 +49,3 @@ CLAUDE.local.md
 
 # Рабочие спеки/ТЗ и заметки по проекту — не для публичного репо
 docs/
-
-# Файлы и настройки агента Antigravity
-.agents/
-.antigravity/
-.gemini/
