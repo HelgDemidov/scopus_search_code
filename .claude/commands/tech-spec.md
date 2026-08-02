@@ -2,9 +2,9 @@ Turn a feature/refactor/large-task request into a structured spec (ТЗ), follow
 
 Take the task description from the user's message (and any command args) as the primary input. Everything below is a DEFAULT — an explicit instruction in that message (different length, different process, different location) overrides it.
 
-## Сквозной принцип — современные практики и стандарты
+## Cross-cutting principle — modern practices and standards
 
-ТЗ разрабатывается исходя из лучших практик и передовых стандартов, принятых в индустриальной разработке ПО на сегодняшний день — с точки зрения системной архитектуры (в т.ч. соответствия принципам SOLID), устойчивости и чистоты кода, а также безопасной разработки. Для фронтенд-фич дополнительно учитывать актуальные тренды, паттерны и лучшие мировые практики веб-дизайна в релевантных нишах. Это не отдельный шаг, а критерий, который применяется на всех этапах — черновик (Step 2), самокритика (Step 3), финализация (Step 4).
+The spec is built against current industry best practices and leading standards — system architecture (including SOLID compliance), code robustness and cleanliness, and secure development. For frontend features, also weigh current trends, patterns, and leading global web-design practices in the relevant niche. This isn't a separate step but a criterion applied at every stage — draft (Step 2), self-critique (Step 3), finalization (Step 4).
 
 ## Step 1 — Ground the spec in reality
 

@@ -44,10 +44,10 @@ If the merge closes a feature branch with a spec in `docs/`, append a concise §
 
 ## Step 5 — Update README.md and README.ru.md
 
-Read both files. Update ONLY the parts whose content is now factually outdated because of the merged changes (new feature, changed command, stack/architecture change, etc.) — точечно и минимально, не раздувая объём файла.
-- Сохранять существующий стиль и форматирование README (структура разделов, тон, длина формулировок).
-- README.ru.md — зеркало README.md по содержанию: любая правка в одном файле дублируется по смыслу в другом.
-- Если изменения PR не затрагивают ничего, отражённого в README, — пропустить этот шаг.
+Read both files. Update ONLY the parts whose content is now factually outdated because of the merged changes (new feature, changed command, stack/architecture change, etc.) — surgical and minimal, don't bloat the file.
+- Preserve README's existing style and formatting (section structure, tone, wording length).
+- README.ru.md mirrors README.md's content — any edit to one is duplicated in meaning in the other.
+- If the PR's changes touch nothing reflected in README, skip this step.
 
 ## Step 6 — Remove the merged branch from CI workflow triggers
 

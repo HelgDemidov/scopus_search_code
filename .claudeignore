@@ -1,16 +1,42 @@
-# Сash and logs
+# Cache and logs
 *.log
 .pytest_cache/
 .coverage
 htmlcov/
 
+# Python cache / bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.mypy_cache/
+.ruff_cache/
+.import_linter_cache/
+
+# Python / Node environments
+.venv/
+venv/
+env/
+node_modules/
+
 # deploy configs
 .vercel/
 .railway/
 
-# frontend coverage report
+# frontend build/cache artifacts
 frontend/coverage/
+frontend/dist/
+frontend/dist-ssr/
+frontend/.vite/
+*.tsbuildinfo
+
+# editor / OS
+.vscode/
+.idea/
+.DS_Store
 
 # DBs / migrations
 *.db
 *.sqlite
+*.sqlite3
+postgres_data/

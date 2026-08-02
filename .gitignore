@@ -41,10 +41,11 @@ node_modules/
 .coverage
 htmlcov/
 
-# Claude CLI files — сессии и память вне репо; skills версионируются
+# Claude CLI files — сессии и память вне репо; skills и project-scope settings версионируются
 .claude/*
 !.claude/commands/
 !.claude/commands/*.md
+!.claude/settings.json
 CLAUDE.local.md
 
 # Рабочие спеки/ТЗ и заметки по проекту — не для публичного репо

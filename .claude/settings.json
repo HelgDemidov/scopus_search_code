@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run ruff check *)",
+      "Bash(uv run ruff format --check *)",
+      "Bash(uv run mypy *)",
+      "Bash(uv run pytest -m \"not requires_pg\")",
+      "Bash(cd frontend && npm run test)",
+      "Bash(cd frontend && npm run lint)",
+      "Bash(cd frontend && npm run build)"
+    ]
+  }
+}
