@@ -5,7 +5,6 @@ on:
   push:
     branches:
       - main
-      - fix/catalog-search-latency
 
   pull_request:
     branches:

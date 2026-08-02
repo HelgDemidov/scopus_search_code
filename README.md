@@ -134,7 +134,7 @@ Scopus rate limit headers (`X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-Rate
 
 ## Database
 
-Current migration version: `0014_functional_indices_lower`.
+Current migration version: `0018_trgm_gin_indices`.
 
 | Table | Purpose | Records (prod) |
 |---|---|---|
