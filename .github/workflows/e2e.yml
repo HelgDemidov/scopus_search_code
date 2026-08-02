@@ -3,7 +3,7 @@ name: E2E — Railway Staging
 on:
   workflow_dispatch:
   push:
-    branches: [main, feature/accretion-disk-rework, feat/a11y-load-test, feat/layout-responsive-foundation, feat/i18n-url-routing, feat/impact-analytics, feat/observability-sentry, feat/ai-nl-pivot, fix/seeder-hardening, fix/dependabot-security-alerts, refactor/remove-ai-nl-pivot, fix/anon-search-filters-layout]
+    branches: [main, feature/accretion-disk-rework, feat/a11y-load-test, feat/layout-responsive-foundation, feat/i18n-url-routing, feat/impact-analytics, feat/observability-sentry, feat/ai-nl-pivot, fix/seeder-hardening, fix/dependabot-security-alerts, refactor/remove-ai-nl-pivot, fix/anon-search-filters-layout, docs/readme-lessons-learned]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
