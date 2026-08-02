@@ -3,7 +3,6 @@ import { ThemeToggle } from '../theme/ThemeToggle';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { LocalizedLink } from './LocalizedLink';
 import { useLocalizedNavigate } from '../../hooks/useLocalizedNavigate';
-import { useDefaultLandingPath } from '../../hooks/useDefaultLandingPath';
 import { useArticleStore } from '../../stores/articleStore';
 import {
   NavigationMenu,
@@ -29,9 +28,6 @@ export function Header() {
   const navigate = useLocalizedNavigate();
   const resetSearch = useArticleStore((s) => s.resetSearch);
   const { t } = useTranslation();
-  // Логотип — role-based цель (§4.1 ТЗ): /main для анонимных, /search для
-  // авторизованных, вместо голого '/' (лишний прыжок через RootRedirect)
-  const landingPath = useDefaultLandingPath();
 
   // Display name: username ?? part of email before @
   const displayName = user
@@ -53,9 +49,15 @@ export function Header() {
       className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] backdrop-blur dark:border-slate-700 dark:bg-[#0c1927]/95"
     >
       <div className="mx-auto flex h-14 max-w-screen-xl items-center justify-between px-4">
-        {/* Logo — aria-label kept in English per spec §1.6 */}
+        {/* Logo — aria-label kept in English per spec §1.6.
+            Всегда ведёт на /main, вне зависимости от auth-статуса (баг
+            2026-08-02: раньше был role-based через useDefaultLandingPath —
+            /search для авторизованных — что мешало логотипу работать как
+            "домой" для уже залогиненного пользователя). Bare '/' и '/:lang'
+            редиректы (RootRedirect/LangIndexRedirect) остаются role-based —
+            это отдельная логика, не тронута. */}
         <LocalizedLink
-          to={landingPath}
+          to="/main"
           onClick={resetSearch}
           className="flex items-center gap-2 text-slate-900 no-underline dark:text-slate-100"
         >

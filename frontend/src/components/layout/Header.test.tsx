@@ -60,4 +60,14 @@ describe('Header', () => {
     expect(logo).not.toBeNull();
     expect(logo?.parentElement?.parentElement?.tagName).toBe('HEADER');
   });
+
+  it('логотип ведёт на /main и для авторизованного пользователя (баг 2026-08-02: раньше вёл на /search)', () => {
+    useAuthStore.setState({
+      isAuthenticated: true,
+      user: { id: 1, email: 'a@b.com', username: null, created_at: null },
+    });
+    const { container } = renderHeader();
+    const logo = container.querySelector('a[href="/en/main"]');
+    expect(logo).not.toBeNull();
+  });
 });
