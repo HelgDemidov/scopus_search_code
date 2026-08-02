@@ -83,6 +83,38 @@ def make_stats_cache_key(
     return f"stats:{ns_digest}:{digest}"
 
 
+def make_catalog_count_cache_key(
+    keyword: str | None,
+    search: str | None,
+    year_from: int | None,
+    year_to: int | None,
+    doc_types: list[str] | None,
+    open_access: bool | None,
+    countries: list[str] | None,
+    *,
+    db_namespace: str,
+) -> str:
+    """Детерминированный ключ кэша: catalog-count:{ns_digest}:{sha256[:16](sorted_params_json)}.
+
+    Та же sha256-схема и db_namespace-изоляция prod/staging, что make_stats_cache_key —
+    единый ключ для любой комбинации фильтров, без спецкейса под search. Кэширует
+    CatalogService._get_total_count (docs/backend-performance/catalog-search-latency/spec.md §1:
+    get_total_count() — до 4.9с на частых ILIKE-термах из-за BitmapOr/seq-скана без кэша).
+    """
+    params = {
+        "k": keyword,
+        "s": search,
+        "yf": year_from,
+        "yt": year_to,
+        "d": sorted(doc_types) if doc_types else None,
+        "oa": open_access,
+        "c": sorted(countries) if countries else None,
+    }
+    digest = hashlib.sha256(json.dumps(params, sort_keys=True).encode()).hexdigest()[:16]
+    ns_digest = hashlib.sha256(db_namespace.encode()).hexdigest()[:8]
+    return f"catalog-count:{ns_digest}:{digest}"
+
+
 def make_journal_impact_cache_key(max_year: int, *, db_namespace: str) -> str:
     """Ключ кэша для /stats/journal-impact: journal-impact:{ns_digest}:{max_year}.
 

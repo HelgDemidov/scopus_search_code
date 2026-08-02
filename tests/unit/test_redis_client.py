@@ -1,7 +1,7 @@
 # tests/unit/test_redis_client.py
 import pytest
 
-from app.infrastructure.redis_client import make_stats_cache_key
+from app.infrastructure.redis_client import make_catalog_count_cache_key, make_stats_cache_key
 
 _NS = "postgresql+asyncpg://user:pass@prod-host:5432/db"
 _NS_OTHER = "postgresql+asyncpg://user:pass@staging-host:5432/db"
@@ -100,3 +100,79 @@ def test_make_stats_cache_key_namespace_never_appears_in_plaintext():
     key = make_stats_cache_key(None, None, None, None, None, db_namespace=_NS)
     assert _NS not in key
     assert "pass" not in key
+
+
+# ---------------------------------------------------------------------------
+# make_catalog_count_cache_key — кэш CatalogService._get_total_count
+# (docs/backend-performance/catalog-search-latency/spec.md §1/Шаг 1)
+# ---------------------------------------------------------------------------
+
+
+def test_make_catalog_count_cache_key_starts_with_prefix():
+    key = make_catalog_count_cache_key(None, None, None, None, None, None, None, db_namespace=_NS)
+    assert key.startswith("catalog-count:")
+
+
+def test_make_catalog_count_cache_key_deterministic():
+    """Одни параметры всегда дают один и тот же ключ."""
+    key1 = make_catalog_count_cache_key(
+        "LLM", "transformer", 2020, 2024, ["Article"], True, ["USA"], db_namespace=_NS
+    )
+    key2 = make_catalog_count_cache_key(
+        "LLM", "transformer", 2020, 2024, ["Article"], True, ["USA"], db_namespace=_NS
+    )
+    assert key1 == key2
+
+
+def test_make_catalog_count_cache_key_list_order_insensitive():
+    """Порядок элементов в doc_types/countries не влияет на ключ."""
+    key1 = make_catalog_count_cache_key(
+        None, None, None, None, ["Review", "Article"], None, ["China", "USA"], db_namespace=_NS
+    )
+    key2 = make_catalog_count_cache_key(
+        None, None, None, None, ["Article", "Review"], None, ["USA", "China"], db_namespace=_NS
+    )
+    assert key1 == key2
+
+
+def test_make_catalog_count_cache_key_different_search_terms():
+    """Разные поисковые термы → разные ключи (основной сценарий этого кэша)."""
+    key1 = make_catalog_count_cache_key(None, "accelerator", None, None, None, None, None, db_namespace=_NS)
+    key2 = make_catalog_count_cache_key(None, "transformer", None, None, None, None, None, db_namespace=_NS)
+    assert key1 != key2
+
+
+def test_make_catalog_count_cache_key_different_keyword():
+    """Разные keyword (точный фильтр сидера, отдельно от search) → разные ключи."""
+    key1 = make_catalog_count_cache_key("LLM", None, None, None, None, None, None, db_namespace=_NS)
+    key2 = make_catalog_count_cache_key("NLP", None, None, None, None, None, None, db_namespace=_NS)
+    assert key1 != key2
+
+
+def test_make_catalog_count_cache_key_none_vs_value():
+    """None-параметр и заполненный параметр → разные ключи."""
+    key_none = make_catalog_count_cache_key(None, None, None, None, None, None, None, db_namespace=_NS)
+    key_oa = make_catalog_count_cache_key(None, None, None, None, None, True, None, db_namespace=_NS)
+    assert key_none != key_oa
+
+
+def test_make_catalog_count_cache_key_digest_length():
+    """Формат ключа: 'catalog-count:{8 hex}:{16 hex}'."""
+    key = make_catalog_count_cache_key(
+        "LLM", "accelerator", 2019, 2023, ["Article"], False, ["Germany"], db_namespace=_NS
+    )
+    prefix, ns_digest, digest = key.split(":")
+    assert prefix == "catalog-count"
+    assert len(ns_digest) == 8
+    assert all(c in "0123456789abcdef" for c in ns_digest)
+    assert len(digest) == 16
+    assert all(c in "0123456789abcdef" for c in digest)
+
+
+def test_make_catalog_count_cache_key_different_namespace_different_key():
+    """prod/staging, делящие один физический Redis, не должны делить ключ (см. make_stats_cache_key)."""
+    key_prod = make_catalog_count_cache_key(None, "accelerator", None, None, None, None, None, db_namespace=_NS)
+    key_staging = make_catalog_count_cache_key(
+        None, "accelerator", None, None, None, None, None, db_namespace=_NS_OTHER
+    )
+    assert key_prod != key_staging
