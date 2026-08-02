@@ -390,6 +390,8 @@ npm run dev
 ```
 VITE_API_BASE_URL=http://localhost:8000
 VITE_SENTRY_DSN=https://<key>@<org-id>.ingest.<region>.sentry.io/<project-id>
+VITE_GA_MEASUREMENT_ID=G-XXXXXXXXXX
+VITE_SUPPORT_EMAIL=support@example.com
 ```
 
 </details>
