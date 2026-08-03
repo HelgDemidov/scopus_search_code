@@ -134,6 +134,7 @@ frontend/src/
 |---|---|---|
 | `POST` | `/seeder/seed` | Seed one keyword's Scopus results into the catalog |
 | `POST` | `/seeder/gc` | Delete orphaned `articles` rows left by retention trimming |
+| `POST` | `/seeder/vacuum` | Every 10th call, `VACUUM ANALYZE articles` — keeps the `pg_trgm` GIN pending-list buffer from degrading catalog search reads |
 | `POST` | `/seeder/health-check` | DB/Redis health probe; emails an alert via Brevo on degradation |
 
 <details>
@@ -151,7 +152,7 @@ Scopus rate limit headers (`X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-Rate
 
 ## Database
 
-Current migration version: `0018_trgm_gin_indices`.
+Current migration version: `0019_seeder_run_state`.
 
 | Table | Purpose | Records (prod) |
 |---|---|---|
@@ -160,6 +161,7 @@ Current migration version: `0018_trgm_gin_indices`.
 | `search_history` | User live-search history (JSONB `filters`) | ~110 |
 | `search_result_articles` | Junction table: search → articles with `rank` | ~2,370 |
 | `seeder_keywords` | Used seeder phrases with clusters and timestamps | ~25,700 |
+| `seeder_run_state` | Single-row counter driving `POST /seeder/vacuum`'s every-10th-run trigger | 1 |
 | `users` | Service users | ~10 |
 | `refresh_tokens` | Active refresh tokens with rotation support | ~79 |
 | `password_reset_tokens` | One-time password reset tokens (short-lived) | — |
@@ -191,6 +193,7 @@ A GitHub Actions workflow (runs every 2 hours) populates the thematic collection
 4. **Block B — re-pagination (up to 188):** for each candidate with a saved offset, call `POST /seeder/seed` at the next page to retrieve additional Scopus results for already-indexed keywords.
 5. The backend queries Scopus, atomically upserts into `articles` + `catalog_articles`, returns `rate_remaining`.
 6. Stop either block when `rate_remaining < 500`.
+7. Garbage-collect orphaned `articles` (`POST /seeder/gc`), then check the run counter (`POST /seeder/vacuum`) — every 10th run, `VACUUM ANALYZE articles`.
 
 <details>
 <summary>Seeder configuration</summary>
@@ -207,13 +210,13 @@ Supabase connection via `asyncpg` with `statement_cache_size=0` (required for Pg
 
 ## Testing
 
-**Backend:** 322 tests (`pytest` + `pytest-asyncio`), all green, across three layers:
+**Backend:** 332 tests (`pytest` + `pytest-asyncio`), all green, across three layers:
 
 | Layer | Tests | What it covers |
 |---|---|---|
-| Unit (SQLite, mocked) | 141 | Services (article, catalog, search, user), Scopus client, interface contracts, seeder router/keyword generator, Redis cache, Sentry config |
-| Integration (SQLite) | 155 | Full HTTP stack: auth, articles, search history, password reset, RT lifecycle, seeder endpoint, observability/Sentry capture |
-| Integration (PG) | 26 | `pg_advisory_xact_lock` concurrency, catalog `search=` filtering; requires `DATABASE_TEST_URL` (throwaway PG, never Supabase) |
+| Unit (SQLite, mocked) | 145 | Services (article, catalog, search, user), Scopus client, interface contracts, seeder router/keyword generator, Redis cache, Sentry config |
+| Integration (SQLite) | 159 | Full HTTP stack: auth, articles, search history, password reset, RT lifecycle, seeder endpoint, observability/Sentry capture |
+| Integration (PG) | 28 | `pg_advisory_xact_lock` concurrency, catalog `search=` filtering, `VACUUM ANALYZE` via `POST /seeder/vacuum`; requires `DATABASE_TEST_URL` (throwaway PG, never Supabase) |
 | E2E (Staging) | — | Real Railway + Supabase staging; auto-skipped without `E2E_BASE_URL` |
 
 **Frontend:** 832 tests (`Vitest` + Testing Library), all green; statements coverage 86.8% (threshold: 85%).
@@ -337,11 +340,13 @@ No code changed; the theory was simply wrong as stated, and the Performance sect
 
 `GET /articles/?search=` took 0.5–9.8s depending on the moment. `VACUUM ANALYZE` — the obvious first fix after a 60% table-size increase — changed nothing: `EXPLAIN (ANALYZE, BUFFERS)` showed the worst-case query was already 100% buffer-cache hits, zero disk reads. The cost wasn't a cache miss or stale statistics; it was CPU time spent walking a genuinely oversized `pg_trgm` GiST index (145MB combined, on a 65MB table).
 
-The real fix: switching those two GiST indices to GIN — same ILIKE-substring semantics, 65% and 53% smaller respectively, ~30x faster on the worst-case query once warm (measured on prod after deploy). This reverses an earlier, deliberate decision from PR #58 ("GiST, not GIN — cheaper writes for the seeder's bulk updates") — valid now only because the seeder is currently frozen; the write-cost trade-off needs re-checking before ever unfreezing it.
+The real fix: switching those two GiST indices to GIN — same ILIKE-substring semantics, 65% and 53% smaller respectively, ~30x faster on the worst-case query once warm (measured on prod after deploy). This reverses an earlier, deliberate decision from PR #58 ("GiST, not GIN — cheaper writes for the seeder's bulk updates") — valid at the time only because the seeder was frozen during the migration; see the follow-up below for how the write-cost trade-off was actually re-checked before unfreezing it, not just assumed safe.
 
 One of the two indices looked like dead weight from a single test term (`rows=0`). Testing 20 real terms instead of 1 flipped the conclusion: for common author surnames ("wang", "zhang", "chen"...) it returns thousands of matches that title search alone would never find — the single-term sample was a false negative, not a real signal.
 
 **Lesson:** a query that's already all cache hits won't be fixed by `VACUUM`/`ANALYZE` — check `Buffers: shared hit` vs `read` before reaching for statistics-refresh fixes. And never decide "this index adds no value" from one test term — sample broadly, especially for anything matching free-text names.
+
+**Follow-up — re-checking the write-cost trade-off before unfreezing the seeder:** production's own `pg_stat_user_tables` showed 92.3% of the seeder's lifetime updates on `articles` were HOT updates — re-discovering an already-known article rewrites byte-identical title/author values, so Postgres skips index maintenance entirely regardless of index type. The real risk was narrower and measured on an isolated, disposable Neon branch (same data, converted to GIN, deleted after the experiment): GIN's `fastupdate` pending-list buffer (`gin_pending_list_limit`, 4MB by default — confirmed identical on Supabase) makes catalog search reads progressively slower as new rows accumulate, roughly 2x by ~2 days' worth of inserts at the seeder's historical growth rate, and the planner can abandon the trgm index for a full sequential scan (~20x slower) before the next `VACUUM` cleans it. Fix: `POST /seeder/vacuum` now runs `VACUUM ANALYZE articles` every 10 seeder runs (~20h at the resumed 2-hour cadence) — comfortably inside that window; Postgres's own `autovacuum_vacuum_insert_threshold` would only have triggered on its own after ~13 days at this growth rate, too slow to rely on alone. The seeder is back on its 2-hour schedule.
 
 </details>
 
