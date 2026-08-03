@@ -10,10 +10,10 @@ export default function PrivacyPage() {
   return (
     <div className="mx-auto max-w-screen-sm px-4 py-16">
       {hreflangTags}
-      <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
+      <h1 className="text-balance text-3xl font-bold text-slate-900 dark:text-slate-100">
         {t('privacy.title')}
       </h1>
-      <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">{t('privacy.placeholder')}</p>
+      <p className="text-balance mt-3 text-sm text-slate-600 dark:text-slate-400">{t('privacy.placeholder')}</p>
     </div>
   );
 }

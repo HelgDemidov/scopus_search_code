@@ -16,7 +16,7 @@
   },
   "main": {
     "heroTitle": "Discover AI & Neural Network Research",
-    "heroSubtitle": "A curated, searchable collection of Scopus-indexed publications on artificial intelligence and neural networks.",
+    "heroSubtitle": "A curated, searchable collection of Scopus-indexed publications on artificial intelligence and neural networks",
     "ctaSearch": "Start searching",
     "ctaSignIn": "Sign in"
   },
@@ -30,7 +30,7 @@
   },
   "about": {
     "title": "About this project",
-    "intro": "Scopus Search is a personal project — a searchable, analytics-ready collection of Scopus-indexed publications on artificial intelligence and neural networks.",
+    "intro": "Scopus Search is a personal project — a searchable, analytics-ready collection of Scopus-indexed publications on artificial intelligence and neural networks",
     "dataSourceTitle": "Data source",
     "dataSourceBody": "Articles are pulled from the Scopus Search API and refreshed on a recurring schedule. The collection tracks open-access status and includes only DOI-indexed articles.",
     "howBuiltTitle": "How it's built",
@@ -41,11 +41,11 @@
   },
   "privacy": {
     "title": "Privacy Policy",
-    "placeholder": "This page is a placeholder. A full privacy policy — covering data collected (email, password, search history) and third-party services in use (Google OAuth, GA4, Brevo) — will be published here."
+    "placeholder": "This page is a placeholder. A full privacy policy — covering data collected (email, password, search history) and third-party services in use (Google OAuth, GA4, Brevo) — will be published here"
   },
   "terms": {
     "title": "Terms of Service",
-    "placeholder": "This page is a placeholder. Full terms of service will be published here."
+    "placeholder": "This page is a placeholder. Full terms of service will be published here"
   },
   "seo": {
     "main": {
@@ -160,10 +160,10 @@
   },
   "forgotPassword": {
     "checkEmailTitle": "Check your email",
-    "checkEmailBody": "If this address is registered, you'll receive a reset link shortly.",
+    "checkEmailBody": "If this address is registered, you'll receive a reset link shortly",
     "backToSignIn": "Back to sign in",
     "title": "Reset your password",
-    "subtitle": "Enter your email and we'll send you a reset link.",
+    "subtitle": "Enter your email and we'll send you a reset link",
     "btnSend": "Send reset link",
     "btnSending": "Sending…"
   },
@@ -171,7 +171,7 @@
     "invalidLink": "Invalid or missing reset link.",
     "requestNew": "Request a new reset link",
     "title": "Set new password",
-    "subtitle": "Choose a strong password for your account.",
+    "subtitle": "Choose a strong password for your account",
     "labelNew": "New password",
     "labelConfirm": "Confirm new password",
     "btnUpdate": "Update password",
@@ -210,7 +210,7 @@
   },
   "explore": {
     "title": "Collection Analytics",
-    "subtitlePersonal": "Statistics from your own live searches.",
+    "subtitlePersonal": "Statistics from your own live searches",
     "subtitleCollection": "AI & Neural Network Technologies — DOI-indexed articles only",
     "modeCollection": "Collection",
     "modePersonal": "My searches",
@@ -339,7 +339,7 @@
   "article": {
     "backHome": "← Back to home",
     "notFound": "Article not found",
-    "notFoundSub": "The article may have been removed or the URL is incorrect.",
+    "notFoundSub": "The article may have been removed or the URL is incorrect",
     "metaAuthor": "Author",
     "metaJournal": "Journal",
     "metaDate": "Date",
@@ -361,7 +361,7 @@
       "status": "NO SIGNAL",
       "queryLabel": "QUERY:",
       "title": "Page not found",
-      "description": "This link may be outdated, or the page may have moved.",
+      "description": "This link may be outdated, or the page may have moved",
       "home": "Go home",
       "exploreCollection": "Explore collection",
       "exploreShort": "Explore"
@@ -370,7 +370,7 @@
       "status": "TRANSMISSION INTERRUPTED",
       "idLabel": "ID:",
       "title": "Something went wrong",
-      "description": "An unexpected error occurred. You can try again or go back home.",
+      "description": "An unexpected error occurred. You can try again or go back home",
       "retry": "Try again",
       "home": "Go home",
       "report": "Report this issue",

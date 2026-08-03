@@ -309,10 +309,10 @@ export default function AuthPage() {
         <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#152236] px-6 py-8 shadow-sm">
         {/* Page heading */}
         <div className="mb-6 text-center">
-          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+          <h1 className="text-balance text-xl font-semibold text-slate-900 dark:text-slate-100">
             {t('auth.pageTitle')}
           </h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-balance mt-1 text-sm text-slate-500 dark:text-slate-400">
             {t('auth.pageSubtitle')}
           </p>
         </div>

@@ -100,10 +100,10 @@ export default function ArticlePage() {
         </LocalizedLink>
         <div className="text-center py-16">
           <p className="text-5xl mb-4">🔍</p>
-          <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-200 mb-2">
+          <h1 className="text-balance text-xl font-semibold text-slate-800 dark:text-slate-200 mb-2">
             {t('article.notFound')}
           </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-balance text-sm text-slate-500 dark:text-slate-400">
             {t('article.notFoundSub')}
           </p>
         </div>

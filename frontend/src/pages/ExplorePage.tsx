@@ -186,10 +186,10 @@ export default function ExplorePage() {
 
       {/* Заголовок раздела */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+        <h1 className="text-balance text-2xl font-bold text-slate-900 dark:text-slate-100">
           {t('explore.title')}
         </h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <p className="text-balance mt-1 text-sm text-slate-500 dark:text-slate-400">
           {mode === 'personal'
             ? t('explore.subtitlePersonal')
             : t('explore.subtitleCollection')}

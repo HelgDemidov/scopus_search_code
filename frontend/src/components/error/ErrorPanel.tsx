@@ -186,8 +186,8 @@ export const ErrorPanel = forwardRef<HTMLDivElement, ErrorPanelProps>(function E
             </div>
           )}
 
-          <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:mt-4">{title}</h1>
-          <p ref={descRef} className="mx-auto mt-2 max-w-sm text-sm text-slate-500 dark:text-slate-400">{description}</p>
+          <h1 className="text-balance mt-3 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:mt-4">{title}</h1>
+          <p ref={descRef} className="text-balance mx-auto mt-2 max-w-sm text-sm text-slate-500 dark:text-slate-400">{description}</p>
 
           {/* Ряд не переносится (flex-nowrap, w-full) на ВСЕХ размерах: дети —
               flex-1 basis-0 (см. NotFoundPage) — всегда делят ширину ряда

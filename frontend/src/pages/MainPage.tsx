@@ -14,13 +14,13 @@ export default function MainPage() {
   const hreflangTags = useHreflangTags('/main');
 
   return (
-    <div className="mx-auto max-w-screen-sm px-4 py-16 flex flex-col items-center gap-6 text-center">
+    <div className="mx-auto max-w-screen-sm px-4 py-16 flex flex-col items-center gap-8 text-center">
       {hreflangTags}
       <div>
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
+        <h1 className="text-balance text-3xl font-bold text-slate-900 dark:text-slate-100">
           {t('main.heroTitle')}
         </h1>
-        <p className="mt-3 text-base text-slate-500 dark:text-slate-400">
+        <p className="text-balance mt-4 text-base text-slate-500 dark:text-slate-400">
           {t('main.heroSubtitle')}
         </p>
       </div>
