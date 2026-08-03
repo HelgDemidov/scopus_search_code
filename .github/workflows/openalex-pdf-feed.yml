@@ -32,6 +32,14 @@ jobs:
         # Минимальный набор — не тянем requirements.txt целиком (по образцу seeder.yml)
         run: pip install httpx boto3 pyyaml colorama
 
+      - name: Restore terms.yaml from secret
+        # terms.yaml больше не в репозитории (личные поисковые фразы, см. .gitignore) —
+        # содержимое хранится в секрете OPENALEX_TERMS_YAML и материализуется здесь,
+        # до запуска run.py (который читает файл с диска, см. _load_terms()).
+        env:
+          OPENALEX_TERMS_YAML: ${{ secrets.OPENALEX_TERMS_YAML }}
+        run: printf '%s\n' "$OPENALEX_TERMS_YAML" > openalex_pdf_feed/terms.yaml
+
       - name: Run openalex_pdf_feed
         # -m, не прямой путь к файлу: run.py использует пакетные импорты
         # (from openalex_pdf_feed.X import ...), нужен корень репозитория в sys.path

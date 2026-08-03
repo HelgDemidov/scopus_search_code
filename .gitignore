@@ -50,3 +50,10 @@ CLAUDE.local.md
 
 # Рабочие спеки/ТЗ и заметки по проекту — не для публичного репо
 docs/
+
+# openalex_pdf_feed — личный сайд-проект (не часть продукта, см. openalex_pdf_feed/README.md
+# в истории до этого коммита). Код остаётся публичным (нужен GitHub Actions), но личные
+# детали — поисковые фразы и инструкция с упоминанием конкретного человека — нет.
+# terms.yaml материализуется в CI из секрета OPENALEX_TERMS_YAML, см. workflow.
+openalex_pdf_feed/terms.yaml
+openalex_pdf_feed/README.md
