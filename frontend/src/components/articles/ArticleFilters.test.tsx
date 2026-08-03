@@ -5,13 +5,13 @@ import { useState } from 'react';
 import { render, screen, fireEvent, act, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
-import { SCOPUS_DOC_TYPES, SCOPUS_COUNTRIES } from '../../constants/scopusFilters';
+import { SCOPUS_DOC_TYPES } from '../../constants/scopusFilters';
 import {
-  DOC_TYPE_TRANSLATIONS_RU,
+  ALL_COUNTRIES,
   COUNTRY_TRANSLATIONS_RU,
-  DOC_TYPE_TRANSLATIONS_SR_LATN,
   COUNTRY_TRANSLATIONS_SR_LATN,
-} from '../../constants/labelTranslations';
+} from '../../constants/countries';
+import { DOC_TYPE_TRANSLATIONS_RU, DOC_TYPE_TRANSLATIONS_SR_LATN } from '../../constants/labelTranslations';
 import type { ArticleResponse, ArticleClientFilters, StatsResponse, SearchMode } from '../../types/api';
 
 // ---------------------------------------------------------------------------
@@ -608,8 +608,35 @@ describe('режимно-зависимые опции', () => {
     renderFilters();
     expect(screen.getByTestId('item-Russia')).toBeInTheDocument();
     expect(screen.getByTestId('item-USA')).toBeInTheDocument();
-    // 'China' есть в SCOPUS_COUNTRIES, но не в MOCK_STATS → не рендерится в catalog
+    // 'China' есть в ALL_COUNTRIES, но не в MOCK_STATS → не рендерится в catalog
     expect(screen.queryByTestId('item-China')).not.toBeInTheDocument();
+  });
+
+  // Регрессия единой подложки (2026-08-03): раньше COUNTRY_TRANSLATIONS_RU/
+  // SR_LATN покрывали только 80 стран старого SCOPUS_COUNTRIES — страна из
+  // statsStore.by_country вне этого множества (полностью реалистично на
+  // растущей коллекции) тихо откатывалась на непереведённый английский текст.
+  // 'Moldova' сюда никогда не входила — теперь переводится и в catalog-режиме.
+  it('catalog: страна вне старых 80 (Moldova) корректно переводится на RU', async () => {
+    statsState.stats = {
+      ...MOCK_STATS,
+      by_country: [{ label: 'Moldova', count: 1 }],
+    };
+    await i18n.changeLanguage('ru');
+    renderFilters();
+    expect(screen.getByTestId(/item-Moldova/)).toHaveTextContent(COUNTRY_TRANSLATIONS_RU['Moldova']);
+    expect(screen.queryByText('Moldova')).not.toBeInTheDocument();
+  });
+
+  it('catalog: страна вне старых 80 (Moldova) корректно переводится на sr-Latn', async () => {
+    statsState.stats = {
+      ...MOCK_STATS,
+      by_country: [{ label: 'Moldova', count: 1 }],
+    };
+    await i18n.changeLanguage('sr-Latn');
+    renderFilters();
+    expect(screen.getByTestId(/item-Moldova/)).toHaveTextContent(COUNTRY_TRANSLATIONS_SR_LATN['Moldova']);
+    expect(screen.queryByText('Moldova')).not.toBeInTheDocument();
   });
 });
 
@@ -643,12 +670,16 @@ describe('badge «Filters changed» — lifecycle', () => {
 // ===========================================================================
 // Блок 11: алфавитная сортировка опций (doc types / countries), все локали
 //
-// SCOPUS_DOC_TYPES/SCOPUS_COUNTRIES упорядочены по значимости, не по алфавиту
-// (см. scopusFilters.ts) — оба списка в дропдауне шли вперемежку. Сортировка
+// SCOPUS_DOC_TYPES упорядочен по значимости, не по алфавиту (см.
+// scopusFilters.ts) — список в дропдауне шёл вперемежку. Сортировка
 // применяется в MultiSelectCombobox по ОТОБРАЖАЕМОМУ (переведённому) лейблу
 // через localeCompare(i18n.language), поэтому проверяем все 3 локали
 // отдельно — порядок в кириллице (RU) и в переводах sr-Latn (cnr) не совпадает
-// с английским алфавитным порядком.
+// с английским алфавитным порядком. ALL_COUNTRIES (constants/countries.ts) в
+// исходнике уже отсортирован по EN для читаемости файла — для этого списка
+// «санити»-проверка «сырой порядок ≠ алфавитный» больше не показательна для
+// EN конкретно, но RU/sr-Latn кейсы ниже всё равно надёжно доказывают, что
+// сортировка в компоненте реально работает (переводы переставляют порядок).
 // ===========================================================================
 
 // Находит корневой <div> конкретного MultiSelectCombobox по aria-label его
@@ -674,13 +705,13 @@ describe('MultiSelectCombobox — алфавитная сортировка оп
     expect([...SCOPUS_DOC_TYPES]).not.toEqual(expected);
   });
 
-  it('EN, countries (scopus): алфавитный порядок, не порядок SCOPUS_COUNTRIES', () => {
+  it('EN, countries (scopus): алфавитный порядок (все 250, ALL_COUNTRIES)', () => {
     articleState.searchMode = 'scopus';
     renderFilters();
     const rendered = renderedItemLabels('filters.countryLabel');
-    const expected = [...SCOPUS_COUNTRIES].sort((a, b) => a.localeCompare(b, 'en'));
+    const expected = [...ALL_COUNTRIES].sort((a, b) => a.localeCompare(b, 'en'));
     expect(rendered).toEqual(expected);
-    expect([...SCOPUS_COUNTRIES]).not.toEqual(expected);
+    expect(rendered).toHaveLength(250);
   });
 
   it('RU, doc types (scopus): сортировка по переведённому (кириллица) лейблу', async () => {
@@ -699,7 +730,7 @@ describe('MultiSelectCombobox — алфавитная сортировка оп
     await i18n.changeLanguage('ru');
     renderFilters();
     const rendered = renderedItemLabels('filters.countryLabel');
-    const expected = [...SCOPUS_COUNTRIES]
+    const expected = [...ALL_COUNTRIES]
       .map((opt) => COUNTRY_TRANSLATIONS_RU[opt] ?? opt)
       .sort((a, b) => a.localeCompare(b, 'ru'));
     expect(rendered).toEqual(expected);
@@ -721,7 +752,7 @@ describe('MultiSelectCombobox — алфавитная сортировка оп
     await i18n.changeLanguage('sr-Latn');
     renderFilters();
     const rendered = renderedItemLabels('filters.countryLabel');
-    const expected = [...SCOPUS_COUNTRIES]
+    const expected = [...ALL_COUNTRIES]
       .map((opt) => COUNTRY_TRANSLATIONS_SR_LATN[opt] ?? opt)
       .sort((a, b) => a.localeCompare(b, 'sr-Latn'));
     expect(rendered).toEqual(expected);

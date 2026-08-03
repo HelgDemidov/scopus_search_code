@@ -23,7 +23,8 @@ import {
 import { useStatsStore } from '../../stores/statsStore';
 import { useHistoryStore } from '../../stores/historyStore';
 import { useArticleStore } from '../../stores/articleStore';
-import { SCOPUS_DOC_TYPES, SCOPUS_COUNTRIES } from '../../constants/scopusFilters';
+import { SCOPUS_DOC_TYPES } from '../../constants/scopusFilters';
+import { ALL_COUNTRIES } from '../../constants/countries';
 
 // ---------------------------------------------------------------------------
 // MultiSelectCombobox — переиспользуемый Popover + Command multi-select
@@ -52,12 +53,13 @@ function MultiSelectCombobox({
   const [open, setOpen] = useState(false);
   const display = (opt: string) => getDisplayLabel ? getDisplayLabel(opt) : opt;
 
-  // Опции приходят из источника, упорядоченного по популярности/частоте
-  // (SCOPUS_DOC_TYPES/SCOPUS_COUNTRIES — вручную по значимости; catalog-режим —
-  // по count из statsStore), из-за чего оба списка выглядели вперемежку.
-  // Сортируем по отображаемому (переведённому) лейблу через localeCompare —
-  // алфавитный порядок для EN/RU/sr-Latn(cnr) в их собственном алфавите, а не
-  // по исходному английскому значению.
+  // Опции приходят из источника, не гарантирующего алфавитный порядок
+  // (SCOPUS_DOC_TYPES — вручную по значимости; catalog-режим — по count из
+  // statsStore; ALL_COUNTRIES в scopus-режиме отсортирован по EN в исходнике,
+  // но не по RU/sr-Latn), из-за чего списки могли идти вперемежку. Сортируем
+  // по отображаемому (переведённому) лейблу через localeCompare — алфавитный
+  // порядок для EN/RU/sr-Latn(cnr) в их собственном алфавите, а не по
+  // исходному английскому значению.
   const sortedOptions = [...options].sort((a, b) =>
     display(a).localeCompare(display(b), i18n.language),
   );
@@ -156,7 +158,7 @@ function FiltersContent() {
 
   const countries = searchMode === 'catalog'
     ? (stats?.by_country?.map((c) => c.label) ?? [])
-    : [...SCOPUS_COUNTRIES];
+    : [...ALL_COUNTRIES];
 
   const years = searchMode === 'catalog'
     ? (stats?.by_year?.map((y) => parseInt(y.label, 10)).filter(Boolean) ?? [])
