@@ -1,0 +1,40 @@
+name: OpenAlex PDF Feed
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # раз в неделю, понедельник 06:00 UTC — реальный поток десятки статей/месяц
+  workflow_dispatch: {}
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  run:
+    name: Run OpenAlex PDF Feed
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        # Минимальный набор — не тянем requirements.txt целиком (по образцу seeder.yml)
+        run: pip install httpx boto3 pyyaml colorama
+
+      - name: Run openalex_pdf_feed
+        # -m, не прямой путь к файлу: run.py использует пакетные импорты
+        # (from openalex_pdf_feed.X import ...), нужен корень репозитория в sys.path
+        env:
+          OPENALEX_API_KEY: ${{ secrets.OPENALEX_API_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: python -m openalex_pdf_feed.run
