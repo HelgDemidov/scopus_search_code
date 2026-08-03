@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - feat/openalex-pdf-feed
 
   pull_request:
     branches:
