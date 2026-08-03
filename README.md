@@ -216,7 +216,7 @@ Supabase connection via `asyncpg` with `statement_cache_size=0` (required for Pg
 | Integration (PG) | 26 | `pg_advisory_xact_lock` concurrency, catalog `search=` filtering; requires `DATABASE_TEST_URL` (throwaway PG, never Supabase) |
 | E2E (Staging) | — | Real Railway + Supabase staging; auto-skipped without `E2E_BASE_URL` |
 
-**Frontend:** 799 tests (`Vitest` + Testing Library), all green; statements coverage 86.2% (threshold: 85%).
+**Frontend:** 832 tests (`Vitest` + Testing Library), all green; statements coverage 86.8% (threshold: 85%).
 
 <details>
 <summary>Running the tests</summary>

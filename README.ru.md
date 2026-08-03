@@ -216,7 +216,7 @@ GitHub Actions workflow (запускается каждые 2 часа) нап�
 | Integration (PG) | 26 | Конкурентность `pg_advisory_xact_lock`, фильтрация каталога по `search=`; требует `DATABASE_TEST_URL` (throwaway PG, никогда не Supabase) |
 | E2E (Staging) | — | Реальный Railway + Supabase staging; пропускается без `E2E_BASE_URL` |
 
-**Фронтенд:** 799 тестов (`Vitest` + Testing Library), все зелёные; покрытие statements 86.2% (порог: 85%).
+**Фронтенд:** 832 теста (`Vitest` + Testing Library), все зелёные; покрытие statements 86.8% (порог: 85%).
 
 <details>
 <summary>Запуск тестов</summary>
