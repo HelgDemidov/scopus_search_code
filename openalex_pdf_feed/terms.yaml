@@ -1,0 +1,20 @@
+# openalex_pdf_feed/terms.yaml
+#
+# Словарь точных фраз для discovery (title_and_abstract.search в
+# openalex_client.py). Фразы пишутся БЕЗ кавычек — квотирование делает
+# build_filter() автоматически (обязательно: без кавычек — стемминг-матч,
+# см. регрессионный тест в tests/test_openalex_client.py).
+#
+# Курируется вручную, вне рамок исходного ТЗ (docs/side-projects/openalex-pdf-feed/spec.md).
+# Стартовый список ниже — фразы, уже проверенные live в ходе исследования
+# (реальные счётчики на 2026-08-03 — см. историю переписки/спеку §1).
+# Дополнять/менять по мере уточнения интересов без изменения кода.
+
+- existential analysis
+- existential psychotherapy
+- phenomenological psychotherapy
+- logotherapy
+- anthropology of technology
+- psychological anthropology
+- anthropology of psychology
+- medical anthropology

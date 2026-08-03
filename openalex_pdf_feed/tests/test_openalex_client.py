@@ -33,6 +33,13 @@ class TestBuildFilter:
         f = build_filter("logotherapy", None)
         assert "from_publication_date" not in f
 
+    def test_require_content_pdf_false_omits_has_content(self):
+        # Используется только OpenAlexClient.count() для метрики "сколько
+        # совпадений без кэша PDF" — сама discover() всегда require_content_pdf=True
+        f = build_filter("logotherapy", None, require_content_pdf=False)
+        assert "has_content.pdf:true" not in f
+        assert "open_access.is_oa:true" in f
+
 
 class TestWorkShortId:
     def test_strips_url_prefix(self):
@@ -110,6 +117,45 @@ async def test_discover_raises_on_non_200(monkeypatch):
         with pytest.raises(OpenAlexError):
             async for _ in client.discover("logotherapy"):
                 pass
+
+
+@pytest.mark.asyncio
+async def test_count_returns_meta_count(monkeypatch):
+    class MockResponse:
+        status_code = 200
+        headers = {"x-ratelimit-remaining-usd": "0.5"}
+
+        def json(self):
+            return {"meta": {"count": 72}}
+
+    async def mock_get(*args, **kwargs):
+        return MockResponse()
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+
+    async with httpx.AsyncClient() as http_client:
+        client = OpenAlexClient(http_client, api_key="test-key")
+        total = await client.count("anthropology of technology", None, require_content_pdf=False)
+
+    assert total == 72
+
+
+@pytest.mark.asyncio
+async def test_count_raises_on_non_200(monkeypatch):
+    class MockResponse:
+        status_code = 500
+        headers: dict = {}
+        text = "server error"
+
+    async def mock_get(*args, **kwargs):
+        return MockResponse()
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+
+    async with httpx.AsyncClient() as http_client:
+        client = OpenAlexClient(http_client, api_key="test-key")
+        with pytest.raises(OpenAlexError):
+            await client.count("logotherapy", None, require_content_pdf=True)
 
 
 @pytest.mark.asyncio

@@ -23,20 +23,21 @@ class OpenAlexError(Exception):
     pass
 
 
-def build_filter(term: str, since: date | None) -> str:
+def build_filter(term: str, since: date | None, require_content_pdf: bool = True) -> str:
     """Собирает filter-строку для discovery.
 
     Кавычки вокруг фразы обязательны: без них title_and_abstract.search
     делает нестрогий стемминг-матч и даёт кратное шумовое раздутие —
     проверено live: "existential analysis" без кавычек = 18271 результат,
-    с кавычками = 433. has_content.pdf:true — чтобы не тратить платный
-    content-download на работы без кэша.
+    с кавычками = 433. has_content.pdf:true (require_content_pdf=True,
+    дефолт) — чтобы не тратить платный content-download на работы без кэша;
+    require_content_pdf=False используется только для метрики "сколько
+    совпадений всего вне зависимости от наличия кэша" (см. OpenAlexClient.count).
     """
-    parts = [
-        "open_access.is_oa:true",
-        "has_content.pdf:true",
-        f'title_and_abstract.search:"{term}"',
-    ]
+    parts = ["open_access.is_oa:true"]
+    if require_content_pdf:
+        parts.append("has_content.pdf:true")
+    parts.append(f'title_and_abstract.search:"{term}"')
     if since is not None:
         parts.append(f"from_publication_date:{since.isoformat()}")
     return ",".join(parts)
@@ -95,6 +96,25 @@ class OpenAlexClient:
             for work in data.get("results", []):
                 yield work
             cursor = data.get("meta", {}).get("next_cursor")
+
+    async def count(self, term: str, since: date | None, require_content_pdf: bool) -> int:
+        """Возвращает meta.count без итерации по страницам — используется для
+        метрики "сколько совпадений матчится без кэша PDF" (has_content.pdf:false,
+        ~35-45% по спеке §1) — задел под Phase 2 (CORE.ac.uk fallback), сами
+        такие работы в MVP не скачиваются."""
+        response = await self._client.get(
+            API_BASE_URL,
+            params={
+                "filter": build_filter(term, since, require_content_pdf=require_content_pdf),
+                "per-page": 1,
+                "api_key": self._api_key,
+            },
+        )
+        self._record_budget(response)
+        if response.status_code != 200:
+            raise OpenAlexError(f"count '{term}' → {response.status_code}: {response.text[:200]}")
+        count = response.json().get("meta", {}).get("count", 0)
+        return int(count)
 
     async def download_content(self, openalex_id: str) -> bytes:
         """Скачивает закэшированный PDF ($0.01/вызов, см. build_filter про
