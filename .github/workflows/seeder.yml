@@ -1,10 +1,12 @@
 name: Scheduled DB Seeder
 
 on:
-  # ЗАМОРОЖЕНО 2026-08-02: автозапуск по расписанию отключён (сохранено ниже для быстрого
-  # восстановления — раскомментировать schedule, чтобы вернуть прогон раз в 2 часа).
-  # schedule:
-  #   - cron: "0 */2 * * *"
+  # Разморожено 2026-08-03 — прогон раз в 2 часа снова активен. Был заморожен 2026-08-02
+  # на время перехода GiST→GIN (docs/backend-performance/catalog-search-latency/spec.md);
+  # риск write-cost на bulk-апдейтах закрыт POST /seeder/vacuum (VACUUM ANALYZE раз в 10
+  # прогонов, см. миграцию 0019_seeder_run_state) — держать замороженным дальше не нужно.
+  schedule:
+    - cron: "0 */2 * * *"
   # Ручной запуск: выбор среды через input
   workflow_dispatch:
     inputs:

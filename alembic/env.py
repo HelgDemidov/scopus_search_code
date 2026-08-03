@@ -27,6 +27,7 @@ from app.models.base import Base
 from app.models.user import User  # noqa: F401
 from app.models.article import Article  # noqa: F401
 from app.models.seeder_keyword import SeederKeyword  # noqa: F401
+from app.models.seeder_run_state import SeederRunState  # noqa: F401
 from app.models.refresh_token import RefreshToken  # noqa: F401  — fix Risk 6
 from app.models.password_reset_token import PasswordResetToken  # noqa: F401
 from app.models.search_history import SearchHistory  # noqa: F401

@@ -267,6 +267,60 @@ async def test_gc_no_orphans_returns_zero(client: AsyncClient, monkeypatch):
 
 
 # ================================================================ #
+#  Vacuum по счётчику прогонов (POST /seeder/vacuum)                #
+# ================================================================ #
+
+
+@pytest.mark.asyncio
+async def test_vacuum_wrong_secret_returns_403(client: AsyncClient, monkeypatch):
+    monkeypatch.setattr(seeder_module, "_SEEDER_SECRET", _TEST_SECRET)
+
+    resp = await client.post("/seeder/vacuum", headers={"X-Seeder-Secret": "totally_wrong"})
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_vacuum_increments_counter_each_call(client: AsyncClient, monkeypatch):
+    monkeypatch.setattr(seeder_module, "_SEEDER_SECRET", _TEST_SECRET)
+
+    first = await client.post("/seeder/vacuum", headers={"X-Seeder-Secret": _TEST_SECRET})
+    second = await client.post("/seeder/vacuum", headers={"X-Seeder-Secret": _TEST_SECRET})
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["run_count"] == 1
+    assert second.json()["run_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_vacuum_not_due_before_tenth_run(client: AsyncClient, monkeypatch):
+    monkeypatch.setattr(seeder_module, "_SEEDER_SECRET", _TEST_SECRET)
+    headers = {"X-Seeder-Secret": _TEST_SECRET}
+
+    for _ in range(9):
+        resp = await client.post("/seeder/vacuum", headers=headers)
+        assert resp.json()["vacuumed"] is False
+
+
+@pytest.mark.asyncio
+async def test_vacuum_skipped_on_sqlite_even_when_due(client: AsyncClient, monkeypatch):
+    """На 10-м прогоне порог достигнут, но SQLite (тесты) не умеет VACUUM ANALYZE
+    <table> — dialect-check должен вернуть vacuumed=False, не бросить исключение."""
+    monkeypatch.setattr(seeder_module, "_SEEDER_SECRET", _TEST_SECRET)
+    headers = {"X-Seeder-Secret": _TEST_SECRET}
+
+    for _ in range(9):
+        await client.post("/seeder/vacuum", headers=headers)
+
+    tenth = await client.post("/seeder/vacuum", headers=headers)
+    assert tenth.status_code == 200
+    data = tenth.json()
+    assert data["run_count"] == 10
+    assert data["vacuumed"] is False
+    assert data["every_n_runs"] == 10
+
+
+# ================================================================ #
 #  Health-check алертинг (POST /seeder/health-check, issue #48)     #
 # ================================================================ #
 

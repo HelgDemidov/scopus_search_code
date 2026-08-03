@@ -112,6 +112,22 @@ async def _call_gc_endpoint(client: httpx.AsyncClient, headers: dict) -> int | N
     return response.json().get("deleted", 0)
 
 
+async def _call_vacuum_endpoint(client: httpx.AsyncClient, headers: dict) -> dict | None:
+    """POST /seeder/vacuum — раз в 10 прогонов VACUUM ANALYZE articles.
+
+    Piggyback на цикл сидера, как GC/health-check — GIN pending list (pg_trgm
+    title/author) деградирует чтение каталога без периодического VACUUM (см.
+    docs/backend-performance/catalog-search-latency/spec.md), а штатный
+    autovacuum_vacuum_insert_threshold сработал бы сам не раньше ~13 дней при
+    историческом темпе прироста — недостаточно быстро.
+    """
+    response = await client.post(f"{BASE_URL}/seeder/vacuum", headers=headers)
+    if response.status_code != 200:
+        print(f"{Fore.RED}Vacuum-эндпоинт ошибка {response.status_code}: {response.text[:100]}")
+        return None
+    return response.json()
+
+
 async def _call_health_check_endpoint(client: httpx.AsyncClient, headers: dict) -> str | None:
     """POST /seeder/health-check — health-check алертинг piggyback на cron (issue #48).
 
@@ -243,6 +259,18 @@ async def seed_database() -> None:
             deleted = await _call_gc_endpoint(client, headers)
             if deleted is not None:
                 print(f"{Fore.GREEN}Удалено статей-сирот: {deleted}")
+
+            # ── Vacuum: раз в 10 прогонов VACUUM ANALYZE articles ──────────
+            print(f"\n{Fore.CYAN}── Vacuum: проверяем счётчик прогонов ──")
+            vacuum_result = await _call_vacuum_endpoint(client, headers)
+            if vacuum_result is not None:
+                if vacuum_result.get("vacuumed"):
+                    print(f"{Fore.GREEN}VACUUM ANALYZE articles выполнен (прогон #{vacuum_result['run_count']})")
+                else:
+                    print(
+                        f"Прогон #{vacuum_result['run_count']} — не время "
+                        f"(раз в {vacuum_result['every_n_runs']})"
+                    )
 
             # ── Health-check: алерт при недоступности БД/Redis ─────────────
             print(f"\n{Fore.CYAN}── Health-check: проверяем зависимости ──")

@@ -7,7 +7,7 @@ import pytest
 from fastapi import HTTPException
 
 import app.routers.seeder_router as seeder_module
-from app.routers.seeder_router import _check_secret
+from app.routers.seeder_router import _check_secret, _is_vacuum_due
 
 
 def test_check_secret_correct_passes(monkeypatch):
@@ -31,3 +31,20 @@ def test_check_secret_empty_env_always_rejects(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         _check_secret("")
     assert exc.value.status_code == 403
+
+
+class TestIsVacuumDue:
+    def test_not_due_before_threshold(self):
+        assert _is_vacuum_due(1) is False
+        assert _is_vacuum_due(9) is False
+
+    def test_due_exactly_at_threshold(self):
+        assert _is_vacuum_due(10) is True
+
+    def test_due_at_every_multiple(self):
+        assert _is_vacuum_due(20) is True
+        assert _is_vacuum_due(100) is True
+
+    def test_not_due_between_multiples(self):
+        assert _is_vacuum_due(11) is False
+        assert _is_vacuum_due(19) is False
