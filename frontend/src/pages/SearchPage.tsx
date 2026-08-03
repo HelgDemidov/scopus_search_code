@@ -37,15 +37,15 @@ function sortArticles(
 // абзаца подряд читались как явная избыточность. anonNote сам раньше
 // рендерился отдельным блоком МЕЖДУ строкой поиска и Filters (см. историю
 // коммитов) — перенесён сюда, в intro, чтобы SearchBar стал прямым соседом
-// ArticleList с тем же gap-4 до Filters, что и в авторизованном виде.
+// ArticleList с тем же gap-6 до Filters, что и в авторизованном виде.
 function AnonIntro() {
   const { t } = useTranslation();
   return (
     <div className="mx-auto max-w-screen-sm text-center">
-      <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+      <h1 className="text-balance text-2xl font-bold text-slate-900 dark:text-slate-100">
         {t('searchPage.anonTitle')}
       </h1>
-      <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+      <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
         <Trans
           i18nKey="searchPage.anonNote"
           components={{
@@ -209,10 +209,10 @@ export default function SearchPage() {
         // 2026-08-02). ArticleList рендерится без условия hasSearched — так же,
         // как в авторизованном виде: Filters видны сразу, ArticleList сам решает,
         // что показать (пусто/skeleton/список) через свои isLoading/hasSearched.
-        <div className="mx-auto max-w-screen-xl px-4 py-6 flex flex-col gap-4">
+        <div className="mx-auto max-w-screen-xl px-4 py-6 flex flex-col gap-6">
           <AnonIntro />
-          {/* Прямой сосед ArticleList в общем gap-4 — та же вертикальная дистанция
-              до Filters, что и в авторизованном виде ниже (там же gap-4 от
+          {/* Прямой сосед ArticleList в общем gap-6 — та же вертикальная дистанция
+              до Filters, что и в авторизованном виде ниже (там же gap-6 от
               строки поиска до ArticleList, без блока текста между ними). */}
           <div className="w-full">
             <SearchBar key={resetKey} onSearch={handleSearch} />
@@ -239,7 +239,7 @@ export default function SearchPage() {
           </ErrorBoundary>
         </div>
       ) : (
-        <div className="mx-auto max-w-screen-xl px-4 py-6 flex flex-col gap-4">
+        <div className="mx-auto max-w-screen-xl px-4 py-6 flex flex-col gap-6">
 
           {/* Переключатель режима поиска */}
           <div

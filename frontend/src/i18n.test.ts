@@ -216,3 +216,63 @@ describe('i18n — паритет ключей EN ↔ SR-LATN', () => {
     expect(missing, `SR-LATN-ключи отсутствующие в EN: ${missing.join(', ')}`).toHaveLength(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Заголовки/подзаголовки — без точки в конце (правило дизайна 2026-08-03):
+// h1 + парный подзаголовок на каждой странице-хиро не заканчиваются точкой.
+// jsdom не реализует layout — переносы строк (text-balance) визуально
+// проверены вручную через chrome-devtools в этой же задаче, автоматически
+// проверяется только то, что реально тестируемо: содержимое строки.
+// ---------------------------------------------------------------------------
+
+describe('i18n — заголовки/подзаголовки без точки в конце', () => {
+  const HEADING_KEYS = [
+    'main.heroTitle',
+    'main.heroSubtitle',
+    'searchPage.anonTitle',
+    'privacy.title',
+    'privacy.placeholder',
+    'about.title',
+    'about.intro',
+    'resetPassword.title',
+    'resetPassword.subtitle',
+    'terms.title',
+    'terms.placeholder',
+    'article.notFound',
+    'article.notFoundSub',
+    'auth.pageTitle',
+    'auth.pageSubtitle',
+    'forgotPassword.checkEmailTitle',
+    'forgotPassword.checkEmailBody',
+    'forgotPassword.title',
+    'forgotPassword.subtitle',
+    'explore.title',
+    'explore.subtitlePersonal',
+    'explore.subtitleCollection',
+    'errors.notFound.title',
+    'errors.notFound.description',
+    'errors.routeError.title',
+    'errors.routeError.description',
+  ] as const;
+
+  function get(bundle: Record<string, unknown>, path: string): unknown {
+    return path.split('.').reduce<unknown>(
+      (node, part) => (node && typeof node === 'object' ? (node as Record<string, unknown>)[part] : undefined),
+      bundle,
+    );
+  }
+
+  for (const locale of ['en', 'ru', 'sr-Latn'] as const) {
+    it(`${locale}: ни один из ${HEADING_KEYS.length} ключей не заканчивается точкой`, () => {
+      const bundle = i18n.getResourceBundle(locale, 'translation') as Record<string, unknown>;
+      const withTrailingPeriod = HEADING_KEYS.filter((key) => {
+        const value = get(bundle, key);
+        return typeof value === 'string' && value.endsWith('.');
+      });
+      expect(
+        withTrailingPeriod,
+        `${locale}: ключи с точкой в конце: ${withTrailingPeriod.join(', ')}`,
+      ).toEqual([]);
+    });
+  }
+});

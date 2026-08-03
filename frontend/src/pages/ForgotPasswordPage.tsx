@@ -42,10 +42,10 @@ export default function ForgotPasswordPage() {
     return (
       <div className="flex min-h-[60vh] items-center justify-center px-4">
         <div className="w-full max-w-sm text-center">
-          <h1 className="text-2xl font-semibold mb-4 text-slate-900 dark:text-slate-100">
+          <h1 className="text-balance text-2xl font-semibold mb-4 text-slate-900 dark:text-slate-100">
             {t('forgotPassword.checkEmailTitle')}
           </h1>
-          <p className="text-slate-600 dark:text-slate-400 mb-6">
+          <p className="text-balance text-slate-600 dark:text-slate-400 mb-6">
             {t('forgotPassword.checkEmailBody')}
           </p>
           <LocalizedLink
@@ -62,10 +62,10 @@ export default function ForgotPasswordPage() {
   return (
     <div className="flex min-h-[60vh] items-center justify-center px-4">
       <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-semibold mb-2 text-slate-900 dark:text-slate-100">
+        <h1 className="text-balance text-2xl font-semibold mb-2 text-slate-900 dark:text-slate-100">
           {t('forgotPassword.title')}
         </h1>
-        <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+        <p className="text-balance text-sm text-slate-600 dark:text-slate-400 mb-6">
           {t('forgotPassword.subtitle')}
         </p>
 

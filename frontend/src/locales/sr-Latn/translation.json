@@ -16,7 +16,7 @@
   },
   "main": {
     "heroTitle": "Istražite publikacije o vještačkoj inteligenciji i neuronskim mrežama",
-    "heroSubtitle": "Kurirana kolekcija Scopus publikacija o vještačkoj inteligenciji i neuronskim mrežama, spremna za pretragu.",
+    "heroSubtitle": "Kurirana kolekcija Scopus publikacija o vještačkoj inteligenciji i neuronskim mrežama, spremna za pretragu",
     "ctaSearch": "Započni pretragu",
     "ctaSignIn": "Prijavi se"
   },
@@ -30,7 +30,7 @@
   },
   "about": {
     "title": "O projektu",
-    "intro": "Scopus Search je lični projekat — kolekcija Scopus publikacija o vještačkoj inteligenciji i neuronskim mrežama, spremna za pretragu i analitiku.",
+    "intro": "Scopus Search je lični projekat — kolekcija Scopus publikacija o vještačkoj inteligenciji i neuronskim mrežama, spremna za pretragu i analitiku",
     "dataSourceTitle": "Izvor podataka",
     "dataSourceBody": "Članci se preuzimaju putem Scopus Search API-ja i redovno ažuriraju. Kolekcija uzima u obzir status otvorenog pristupa i uključuje samo članke sa DOI-jem.",
     "howBuiltTitle": "Kako je napravljeno",
@@ -41,11 +41,11 @@
   },
   "privacy": {
     "title": "Politika privatnosti",
-    "placeholder": "Ova stranica je privremeni sadržaj. Puni tekst politike privatnosti (koji podaci se prikupljaju — email, lozinka, istorija pretrage — i koje se treće strane koriste — Google OAuth, GA4, Brevo) biće objavljen ovdje."
+    "placeholder": "Ova stranica je privremeni sadržaj. Puni tekst politike privatnosti (koji podaci se prikupljaju — email, lozinka, istorija pretrage — i koje se treće strane koriste — Google OAuth, GA4, Brevo) biće objavljen ovdje"
   },
   "terms": {
     "title": "Uslovi korišćenja",
-    "placeholder": "Ova stranica je privremeni sadržaj. Puni tekst uslova korišćenja biće objavljen ovdje."
+    "placeholder": "Ova stranica je privremeni sadržaj. Puni tekst uslova korišćenja biće objavljen ovdje"
   },
   "seo": {
     "main": {
@@ -163,10 +163,10 @@
   },
   "forgotPassword": {
     "checkEmailTitle": "Provjerite e-poštu",
-    "checkEmailBody": "Ako je ova adresa registrovana, dobit ćete link za resetovanje lozinke.",
+    "checkEmailBody": "Ako je ova adresa registrovana, dobit ćete link za resetovanje lozinke",
     "backToSignIn": "Nazad na prijavu",
     "title": "Resetovanje lozinke",
-    "subtitle": "Unesite e-poštu — poslat ćemo vam link za resetovanje.",
+    "subtitle": "Unesite e-poštu — poslat ćemo vam link za resetovanje",
     "btnSend": "Pošalji link",
     "btnSending": "Slanje…"
   },
@@ -174,7 +174,7 @@
     "invalidLink": "Nevažeći ili nedostajući link za resetovanje.",
     "requestNew": "Zatraži novi link",
     "title": "Nova lozinka",
-    "subtitle": "Odaberite jaku lozinku za vaš nalog.",
+    "subtitle": "Odaberite jaku lozinku za vaš nalog",
     "labelNew": "Nova lozinka",
     "labelConfirm": "Potvrdite lozinku",
     "btnUpdate": "Sačuvaj lozinku",
@@ -214,7 +214,7 @@
   },
   "explore": {
     "title": "Analitika kolekcije",
-    "subtitlePersonal": "Statistika vaših live pretraga.",
+    "subtitlePersonal": "Statistika vaših live pretraga",
     "subtitleCollection": "«Vještačka inteligencija i neuronske mreže» — samo članci s DOI",
     "modeCollection": "Kolekcija",
     "modePersonal": "Moje pretrage",
@@ -349,7 +349,7 @@
   "article": {
     "backHome": "← Na početnu",
     "notFound": "Članak nije pronađen",
-    "notFoundSub": "Članak je možda uklonjen ili je URL netačan.",
+    "notFoundSub": "Članak je možda uklonjen ili je URL netačan",
     "metaAuthor": "Autor",
     "metaJournal": "Časopis",
     "metaDate": "Datum",
@@ -371,7 +371,7 @@
       "status": "NEMA SIGNALA",
       "queryLabel": "UPIT:",
       "title": "Stranica nije pronađena",
-      "description": "Link je možda zastareo ili je stranica premeštena.",
+      "description": "Link je možda zastareo ili je stranica premeštena",
       "home": "Početna",
       "exploreCollection": "Istražite kolekciju",
       "exploreShort": "Istraži"
@@ -380,7 +380,7 @@
       "status": "VEZA PREKINUTA",
       "idLabel": "ID:",
       "title": "Nešto je pošlo po zlu",
-      "description": "Došlo je do neočekivane greške. Pokušajte ponovo ili se vratite na početnu.",
+      "description": "Došlo je do neočekivane greške. Pokušajte ponovo ili se vratite na početnu",
       "retry": "Pokušaj ponovo",
       "home": "Početna",
       "report": "Prijavi problem",

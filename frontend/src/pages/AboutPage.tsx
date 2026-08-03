@@ -18,10 +18,10 @@ export default function AboutPage() {
     <div className="mx-auto max-w-screen-md px-4 py-16 flex flex-col gap-10">
       {hreflangTags}
       <div>
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
+        <h1 className="text-balance text-3xl font-bold text-slate-900 dark:text-slate-100">
           {t('about.title')}
         </h1>
-        <p className="mt-3 text-base text-slate-600 dark:text-slate-400">{t('about.intro')}</p>
+        <p className="text-balance mt-3 text-base text-slate-600 dark:text-slate-400">{t('about.intro')}</p>
       </div>
 
       <section>
