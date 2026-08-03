@@ -33,8 +33,27 @@ def build_filter(term: str, since: date | None, require_content_pdf: bool = True
     дефолт) — чтобы не тратить платный content-download на работы без кэша;
     require_content_pdf=False используется только для метрики "сколько
     совпадений всего вне зависимости от наличия кэша" (см. OpenAlexClient.count).
+
+    Дополнительные ограничения выборки (решение пользователя 2026-08-03):
+    - type:article|review — журнальные статьи и обзоры; препринты (type
+      "preprint" у OpenAlex — отдельное, взаимоисключающее с "article"
+      значение того же поля, не version) отсекаются этим же вайтлистом
+      автоматически, без отдельного фильтра — проверено live.
+    - language:en|ru|fr — только английский/русский/французский.
+    - is_retracted:false — отозванные работы исключены. НЕ "!true": для
+      boolean-полей OpenAlex это невалидное значение (проверено live —
+      400 "Value for is_retracted must be true, false null, or !null: not
+      !true"), корректный синтаксис отрицания для bool — прямое false/true,
+      "!" зарезервирован для non-bool полей (см. type:!paratext в доках).
+    Диапазон дат по публикации сверх курсора и порог cited_by_count
+    сознательно не выставляются — по решению пользователя.
     """
-    parts = ["open_access.is_oa:true"]
+    parts = [
+        "open_access.is_oa:true",
+        "type:article|review",
+        "language:en|ru|fr",
+        "is_retracted:false",
+    ]
     if require_content_pdf:
         parts.append("has_content.pdf:true")
     parts.append(f'title_and_abstract.search:"{term}"')

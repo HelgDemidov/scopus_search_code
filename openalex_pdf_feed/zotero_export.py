@@ -9,6 +9,7 @@ local API — вне скоупа.
 from typing import Any
 
 from openalex_pdf_feed.openalex_client import work_short_id
+from openalex_pdf_feed.text_utils import split_author_name
 
 # OpenAlex type -> CSL type. Не покрывает всю таксономию OpenAlex — сознательно:
 # подавляющее большинство результатов discovery (§1 спеки) это журнальные
@@ -25,16 +26,6 @@ CSL_TYPE_MAP = {
 DEFAULT_CSL_TYPE = "article-journal"
 
 
-def _split_author_name(display_name: str) -> dict[str, str]:
-    # CSL-JSON ожидает family/given; OpenAlex отдаёт только цельное display_name.
-    # Эвристика: последнее слово — family, остальное — given. Однословные
-    # имена (организации и т.п.) кладём в literal, не гадаем split.
-    parts = display_name.split()
-    if len(parts) < 2:
-        return {"literal": display_name}
-    return {"family": parts[-1], "given": " ".join(parts[:-1])}
-
-
 def _strip_doi_prefix(doi: str | None) -> str | None:
     if doi is None:
         return None
@@ -47,7 +38,7 @@ def work_to_csl_json(work: dict) -> dict[str, Any]:
     csl_type = CSL_TYPE_MAP.get(work.get("type", ""), DEFAULT_CSL_TYPE)
 
     authors = [
-        _split_author_name(a["author"]["display_name"])
+        split_author_name(a["author"]["display_name"])
         for a in work.get("authorships", [])
         if a.get("author", {}).get("display_name")
     ]

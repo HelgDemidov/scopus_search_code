@@ -25,6 +25,32 @@ class TestBuildFilter:
         assert "open_access.is_oa:true" in f
         assert "has_content.pdf:true" in f
 
+    def test_restricts_to_article_and_review_types(self):
+        # Фильтр type:article|review заодно отсекает препринты: у OpenAlex
+        # "preprint" отдельное, взаимоисключающее значение того же поля type
+        # (не version), проверено live (пересечение type:article|review и
+        # значения preprint даёт 0 результатов).
+        f = build_filter("logotherapy", None)
+        assert "type:article|review" in f
+
+    def test_restricts_to_en_ru_fr_languages(self):
+        f = build_filter("logotherapy", None)
+        assert "language:en|ru|fr" in f
+
+    def test_excludes_retracted_works(self):
+        # Регрессия: is_retracted:!true — невалидный синтаксис для boolean-поля,
+        # OpenAlex API отвечает 400 ("Value for is_retracted must be true,
+        # false null, or !null: not !true") — проверено live. Корректно false.
+        f = build_filter("logotherapy", None)
+        assert "is_retracted:false" in f
+        assert "is_retracted:!true" not in f
+
+    def test_no_citation_or_date_range_threshold_by_default(self):
+        # По решению пользователя 2026-08-03 — порог cited_by_count и
+        # произвольный диапазон дат публикации (сверх курсора) не выставляются.
+        f = build_filter("logotherapy", None)
+        assert "cited_by_count" not in f
+
     def test_since_appends_from_publication_date(self):
         f = build_filter("logotherapy", date(2026, 7, 1))
         assert "from_publication_date:2026-07-01" in f
