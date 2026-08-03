@@ -95,6 +95,16 @@ export default function SearchPage() {
   const [sortBy, setSortBy] = useState<'date' | 'citations'>('date');
   const [hasSearched, setHasSearched] = useState(false);
 
+  // Раскрытие десктопного сайдбара фильтров — поднято сюда из
+  // ArticleFiltersSidebar: тот рендерится ArticleList из 3 разных условных
+  // JSX-веток (skeleton/empty/results), и local state там сбрасывался бы в
+  // false при каждом поиске (isLoading меняет ветку на время запроса), даже
+  // если пользователь ничего не сворачивал. Здесь, в SearchPage, состояние
+  // переживает любое число поисков и сбрасывается только естественным
+  // размонтированием при уходе со страницы (баг 2026-08-03).
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const handleToggleFilters = useCallback(() => setFiltersOpen((v) => !v), []);
+
   // livePage — эфемерное UI-состояние вне стора;
   // сбрасывается при каждом новом поиске и при смене liveSize
   const [livePage, setLivePage] = useState(1);
@@ -223,6 +233,8 @@ export default function SearchPage() {
               onPageChange={handlePageChange}
               onSizeChange={handleSizeChange}
               onToggleMode={handleToggleMode}
+              filtersOpen={filtersOpen}
+              onToggleFilters={handleToggleFilters}
             />
           </ErrorBoundary>
         </div>
@@ -292,6 +304,8 @@ export default function SearchPage() {
                     onPageChange={() => {}}
                     onSizeChange={() => {}}
                     onToggleMode={() => {}}
+                    filtersOpen={filtersOpen}
+                    onToggleFilters={handleToggleFilters}
                   />
                 </ErrorBoundary>
 
@@ -323,6 +337,8 @@ export default function SearchPage() {
                   onPageChange={handlePageChange}
                   onSizeChange={handleSizeChange}
                   onToggleMode={handleToggleMode}
+                  filtersOpen={filtersOpen}
+                  onToggleFilters={handleToggleFilters}
                 />
               </ErrorBoundary>
             </div>

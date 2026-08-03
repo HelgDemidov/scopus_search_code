@@ -1,8 +1,17 @@
 // Тесты для ArticleFilters — рефакторинг filtering-2:
 //   режимная логика (catalog/scopus), Popover+Command, debounce, badge «Filters changed»
 
-import { render, screen, fireEvent, act } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useState } from 'react';
+import { render, screen, fireEvent, act, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import i18n from '../../i18n';
+import { SCOPUS_DOC_TYPES } from '../../constants/scopusFilters';
+import {
+  ALL_COUNTRIES,
+  COUNTRY_TRANSLATIONS_RU,
+  COUNTRY_TRANSLATIONS_SR_LATN,
+} from '../../constants/countries';
+import { DOC_TYPE_TRANSLATIONS_RU, DOC_TYPE_TRANSLATIONS_SR_LATN } from '../../constants/labelTranslations';
 import type { ArticleResponse, ArticleClientFilters, StatsResponse, SearchMode } from '../../types/api';
 
 // ---------------------------------------------------------------------------
@@ -203,12 +212,30 @@ beforeEach(() => {
   statsState.stats = null;
 });
 
-// ArticleFiltersSidebar теперь по умолчанию свёрнут (компактная кнопка) —
-// раскрываем клик по кнопке, чтобы существующие тесты видели FiltersContent
-// сразу, как и раньше со стационарным сайдбаром
+// Сброс языка i18n после каждого теста — несколько тестов ниже переключают
+// его на ru/sr-Latn для проверки локале-зависимой алфавитной сортировки
+afterEach(async () => {
+  await i18n.changeLanguage('en');
+});
+
+// ArticleFiltersSidebar — управляемый компонент (open/onToggle props, не
+// local useState — баг 2026-08-03: local state сбрасывался в false при
+// каждом unmount/remount между условными JSX-ветками ArticleList). Обёртка
+// с local state имитирует владельца состояния (в проде — SearchPage).
+function ControlledSidebar() {
+  const [open, setOpen] = useState(false);
+  return <ArticleFiltersSidebar open={open} onToggle={() => setOpen((v) => !v)} />;
+}
+
+// По умолчанию свёрнут (компактная кнопка) — раскрываем клик по кнопке, чтобы
+// существующие тесты видели FiltersContent сразу, как и раньше со
+// стационарным сайдбаром
 function renderFilters() {
-  const utils = render(<ArticleFiltersSidebar />);
-  fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+  const utils = render(<ControlledSidebar />);
+  // Имя кнопки зависит от текущего языка (тесты сортировки ниже переключают
+  // i18n.language на ru/sr-Latn перед рендером) — ищем по переводу, не по
+  // хардкоженной английской строке
+  fireEvent.click(screen.getByRole('button', { name: i18n.t('filters.filtersButton') }));
   return utils;
 }
 
@@ -253,13 +280,13 @@ describe('базовый рендер', () => {
 
 describe('ArticleFiltersSidebar — toggle', () => {
   it('по умолчанию (без клика) FiltersContent не отображается', () => {
-    render(<ArticleFiltersSidebar />);
+    render(<ControlledSidebar />);
     expect(screen.queryByLabelText('Year from')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument();
   });
 
   it('клик по кнопке Filters разворачивает FiltersContent inline (aria-expanded=true)', () => {
-    render(<ArticleFiltersSidebar />);
+    render(<ControlledSidebar />);
     const btn = screen.getByRole('button', { name: 'Filters' });
     expect(btn).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(btn);
@@ -268,7 +295,7 @@ describe('ArticleFiltersSidebar — toggle', () => {
   });
 
   it('повторный клик сворачивает панель обратно', () => {
-    render(<ArticleFiltersSidebar />);
+    render(<ControlledSidebar />);
     const btn = screen.getByRole('button', { name: 'Filters' });
     fireEvent.click(btn);
     fireEvent.click(btn);
@@ -278,7 +305,47 @@ describe('ArticleFiltersSidebar — toggle', () => {
 });
 
 // ===========================================================================
-// Блок 1b: ArticleFiltersMobile — Sheet с горизонтальным паддингом контента
+// Блок 1a2: ArticleFiltersSidebar — управляемый компонент (регрессия 2026-08-03)
+//
+// Контракт: open/onToggle — controlled props, компонент не хранит собственный
+// useState. Это то, что чинит баг «раскрыл фильтры кликом → нажал Enter/Search
+// → фильтры сворачиваются сами»: ArticleList рендерит ArticleFiltersSidebar из
+// 3 разных условных JSX-веток (skeleton/empty/results), поиск переключает
+// ветку (isLoading) → React unmount+remount компонента. Local useState
+// сбросился бы в false при таком remount; controlled-проп — нет, потому что
+// значение приходит от владельца (SearchPage), который не размонтируется.
+// ===========================================================================
+
+describe('ArticleFiltersSidebar — управляемый компонент (open/onToggle props)', () => {
+  it('open=true рендерит FiltersContent сразу, без клика', () => {
+    render(<ArticleFiltersSidebar open={true} onToggle={vi.fn()} />);
+    expect(screen.getByLabelText('Year from')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Filters' })).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('клик вызывает onToggle; компонент сам не переключает видимость (не владеет state)', () => {
+    const onToggle = vi.fn();
+    render(<ArticleFiltersSidebar open={false} onToggle={onToggle} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+    expect(onToggle).toHaveBeenCalledTimes(1);
+    // open остаётся false, пока владелец не передаст новое значение через props
+    expect(screen.queryByLabelText('Year from')).not.toBeInTheDocument();
+  });
+
+  it('remount с тем же open=true (имитация переключения ArticleList между ветками при поиске) сохраняет FiltersContent видимым', () => {
+    const { unmount } = render(<ArticleFiltersSidebar open={true} onToggle={vi.fn()} />);
+    expect(screen.getByLabelText('Year from')).toBeInTheDocument();
+    // Unmount + свежий render в новый корень — ровно то, что React делает,
+    // переключаясь между двумя структурно разными JSX-ветками ArticleList
+    unmount();
+    render(<ArticleFiltersSidebar open={true} onToggle={vi.fn()} />);
+    // До фикса это было бы false (local useState всегда инициализируется заново)
+    expect(screen.getByLabelText('Year from')).toBeInTheDocument();
+  });
+});
+
+// ===========================================================================
+// Блок 1c: ArticleFiltersMobile — Sheet с горизонтальным паддингом контента
 // ===========================================================================
 
 describe('ArticleFiltersMobile', () => {
@@ -541,8 +608,35 @@ describe('режимно-зависимые опции', () => {
     renderFilters();
     expect(screen.getByTestId('item-Russia')).toBeInTheDocument();
     expect(screen.getByTestId('item-USA')).toBeInTheDocument();
-    // 'China' есть в SCOPUS_COUNTRIES, но не в MOCK_STATS → не рендерится в catalog
+    // 'China' есть в ALL_COUNTRIES, но не в MOCK_STATS → не рендерится в catalog
     expect(screen.queryByTestId('item-China')).not.toBeInTheDocument();
+  });
+
+  // Регрессия единой подложки (2026-08-03): раньше COUNTRY_TRANSLATIONS_RU/
+  // SR_LATN покрывали только 80 стран старого SCOPUS_COUNTRIES — страна из
+  // statsStore.by_country вне этого множества (полностью реалистично на
+  // растущей коллекции) тихо откатывалась на непереведённый английский текст.
+  // 'Moldova' сюда никогда не входила — теперь переводится и в catalog-режиме.
+  it('catalog: страна вне старых 80 (Moldova) корректно переводится на RU', async () => {
+    statsState.stats = {
+      ...MOCK_STATS,
+      by_country: [{ label: 'Moldova', count: 1 }],
+    };
+    await i18n.changeLanguage('ru');
+    renderFilters();
+    expect(screen.getByTestId(/item-Moldova/)).toHaveTextContent(COUNTRY_TRANSLATIONS_RU['Moldova']);
+    expect(screen.queryByText('Moldova')).not.toBeInTheDocument();
+  });
+
+  it('catalog: страна вне старых 80 (Moldova) корректно переводится на sr-Latn', async () => {
+    statsState.stats = {
+      ...MOCK_STATS,
+      by_country: [{ label: 'Moldova', count: 1 }],
+    };
+    await i18n.changeLanguage('sr-Latn');
+    renderFilters();
+    expect(screen.getByTestId(/item-Moldova/)).toHaveTextContent(COUNTRY_TRANSLATIONS_SR_LATN['Moldova']);
+    expect(screen.queryByText('Moldova')).not.toBeInTheDocument();
   });
 });
 
@@ -561,7 +655,7 @@ describe('badge «Filters changed» — lifecycle', () => {
 
     // Scopus-поиск завершён: liveResults обновились → useEffect сбрасывает badge
     articleState.liveResults = [makeArticle(1)];
-    act(() => { rerender(<ArticleFiltersSidebar />); });
+    act(() => { rerender(<ControlledSidebar />); });
     expect(screen.queryByText(/filters changed/i)).not.toBeInTheDocument();
   });
 
@@ -570,5 +664,116 @@ describe('badge «Filters changed» — lifecycle', () => {
     fireEvent.click(screen.getByTestId('oa-checkbox'));
     expect(screen.queryByText(/filters changed/i)).not.toBeInTheDocument();
     expect(articleState.fetchArticles).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ===========================================================================
+// Блок 11: алфавитная сортировка опций (doc types / countries), все локали
+//
+// SCOPUS_DOC_TYPES упорядочен по значимости, не по алфавиту (см.
+// scopusFilters.ts) — список в дропдауне шёл вперемежку. Сортировка
+// применяется в MultiSelectCombobox по ОТОБРАЖАЕМОМУ (переведённому) лейблу
+// через localeCompare(i18n.language), поэтому проверяем все 3 локали
+// отдельно — порядок в кириллице (RU) и в переводах sr-Latn (cnr) не совпадает
+// с английским алфавитным порядком. ALL_COUNTRIES (constants/countries.ts) в
+// исходнике уже отсортирован по EN для читаемости файла — для этого списка
+// «санити»-проверка «сырой порядок ≠ алфавитный» больше не показательна для
+// EN конкретно, но RU/sr-Latn кейсы ниже всё равно надёжно доказывают, что
+// сортировка в компоненте реально работает (переводы переставляют порядок).
+// ===========================================================================
+
+// Находит корневой <div> конкретного MultiSelectCombobox по aria-label его
+// кнопки-триггера и возвращает подписи всех CommandItem внутри — только этого
+// комбобокса (doc type и country рендерятся одновременно на одной странице).
+function renderedItemLabels(triggerAriaLabelKey: 'filters.docTypeLabel' | 'filters.countryLabel'): string[] {
+  const trigger = screen.getByLabelText(i18n.t(triggerAriaLabelKey));
+  const container = trigger.closest('div');
+  if (!container) throw new Error('MultiSelectCombobox root <div> не найден');
+  return within(container)
+    .getAllByTestId(/^item-/)
+    .map((el) => el.textContent ?? '');
+}
+
+describe('MultiSelectCombobox — алфавитная сортировка опций', () => {
+  it('EN, doc types (scopus): алфавитный порядок, не порядок SCOPUS_DOC_TYPES', () => {
+    articleState.searchMode = 'scopus';
+    renderFilters();
+    const rendered = renderedItemLabels('filters.docTypeLabel');
+    const expected = [...SCOPUS_DOC_TYPES].sort((a, b) => a.localeCompare(b, 'en'));
+    expect(rendered).toEqual(expected);
+    // Санити: исходный порядок в константе — не алфавитный, фикс реально что-то меняет
+    expect([...SCOPUS_DOC_TYPES]).not.toEqual(expected);
+  });
+
+  it('EN, countries (scopus): алфавитный порядок (все 250, ALL_COUNTRIES)', () => {
+    articleState.searchMode = 'scopus';
+    renderFilters();
+    const rendered = renderedItemLabels('filters.countryLabel');
+    const expected = [...ALL_COUNTRIES].sort((a, b) => a.localeCompare(b, 'en'));
+    expect(rendered).toEqual(expected);
+    expect(rendered).toHaveLength(250);
+  });
+
+  it('RU, doc types (scopus): сортировка по переведённому (кириллица) лейблу', async () => {
+    articleState.searchMode = 'scopus';
+    await i18n.changeLanguage('ru');
+    renderFilters();
+    const rendered = renderedItemLabels('filters.docTypeLabel');
+    const expected = [...SCOPUS_DOC_TYPES]
+      .map((opt) => DOC_TYPE_TRANSLATIONS_RU[opt] ?? opt)
+      .sort((a, b) => a.localeCompare(b, 'ru'));
+    expect(rendered).toEqual(expected);
+  });
+
+  it('RU, countries (scopus): сортировка по переведённому (кириллица) лейблу', async () => {
+    articleState.searchMode = 'scopus';
+    await i18n.changeLanguage('ru');
+    renderFilters();
+    const rendered = renderedItemLabels('filters.countryLabel');
+    const expected = [...ALL_COUNTRIES]
+      .map((opt) => COUNTRY_TRANSLATIONS_RU[opt] ?? opt)
+      .sort((a, b) => a.localeCompare(b, 'ru'));
+    expect(rendered).toEqual(expected);
+  });
+
+  it('sr-Latn (cnr), doc types (scopus): сортировка по переведённому лейблу', async () => {
+    articleState.searchMode = 'scopus';
+    await i18n.changeLanguage('sr-Latn');
+    renderFilters();
+    const rendered = renderedItemLabels('filters.docTypeLabel');
+    const expected = [...SCOPUS_DOC_TYPES]
+      .map((opt) => DOC_TYPE_TRANSLATIONS_SR_LATN[opt] ?? opt)
+      .sort((a, b) => a.localeCompare(b, 'sr-Latn'));
+    expect(rendered).toEqual(expected);
+  });
+
+  it('sr-Latn (cnr), countries (scopus): сортировка по переведённому лейблу', async () => {
+    articleState.searchMode = 'scopus';
+    await i18n.changeLanguage('sr-Latn');
+    renderFilters();
+    const rendered = renderedItemLabels('filters.countryLabel');
+    const expected = [...ALL_COUNTRIES]
+      .map((opt) => COUNTRY_TRANSLATIONS_SR_LATN[opt] ?? opt)
+      .sort((a, b) => a.localeCompare(b, 'sr-Latn'));
+    expect(rendered).toEqual(expected);
+  });
+
+  it('catalog-режим: doc types/countries из statsStore тоже сортируются по алфавиту', () => {
+    // MOCK_STATS уже в алфавитном порядке (Article/Review, Russia/USA) —
+    // используем заведомо неалфавитный порядок, чтобы тест был показательным
+    statsState.stats = {
+      ...MOCK_STATS,
+      by_doc_type: [
+        { label: 'Review', count: 2 },
+        { label: 'Article', count: 8 },
+      ],
+      by_country: [
+        { label: 'USA', count: 7 },
+        { label: 'Russia', count: 3 },
+      ],
+    };
+    renderFilters();
+    expect(renderedItemLabels('filters.docTypeLabel')).toEqual(['Article', 'Review']);
+    expect(renderedItemLabels('filters.countryLabel')).toEqual(['Russia', 'USA']);
   });
 });

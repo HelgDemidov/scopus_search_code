@@ -23,7 +23,8 @@ import {
 import { useStatsStore } from '../../stores/statsStore';
 import { useHistoryStore } from '../../stores/historyStore';
 import { useArticleStore } from '../../stores/articleStore';
-import { SCOPUS_DOC_TYPES, SCOPUS_COUNTRIES } from '../../constants/scopusFilters';
+import { SCOPUS_DOC_TYPES } from '../../constants/scopusFilters';
+import { ALL_COUNTRIES } from '../../constants/countries';
 
 // ---------------------------------------------------------------------------
 // MultiSelectCombobox — переиспользуемый Popover + Command multi-select
@@ -48,9 +49,20 @@ function MultiSelectCombobox({
   'aria-label': ariaLabel,
   getDisplayLabel,
 }: MultiSelectProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const display = (opt: string) => getDisplayLabel ? getDisplayLabel(opt) : opt;
+
+  // Опции приходят из источника, не гарантирующего алфавитный порядок
+  // (SCOPUS_DOC_TYPES — вручную по значимости; catalog-режим — по count из
+  // statsStore; ALL_COUNTRIES в scopus-режиме отсортирован по EN в исходнике,
+  // но не по RU/sr-Latn), из-за чего списки могли идти вперемежку. Сортируем
+  // по отображаемому (переведённому) лейблу через localeCompare — алфавитный
+  // порядок для EN/RU/sr-Latn(cnr) в их собственном алфавите, а не по
+  // исходному английскому значению.
+  const sortedOptions = [...options].sort((a, b) =>
+    display(a).localeCompare(display(b), i18n.language),
+  );
 
   return (
     <div>
@@ -75,7 +87,7 @@ function MultiSelectCombobox({
             <CommandList>
               <CommandEmpty>{t('filters.noResults')}</CommandEmpty>
               <CommandGroup>
-                {options.map((opt) => {
+                {sortedOptions.map((opt) => {
                   const label = display(opt);
                   // value включает оригинал + перевод для двуязычного поиска
                   const searchValue = label !== opt ? `${opt} ${label}` : opt;
@@ -146,7 +158,7 @@ function FiltersContent() {
 
   const countries = searchMode === 'catalog'
     ? (stats?.by_country?.map((c) => c.label) ?? [])
-    : [...SCOPUS_COUNTRIES];
+    : [...ALL_COUNTRIES];
 
   const years = searchMode === 'catalog'
     ? (stats?.by_year?.map((y) => parseInt(y.label, 10)).filter(Boolean) ?? [])
@@ -334,15 +346,27 @@ function FiltersContent() {
 // кнопки получают одинаковый инсет: 1px border + 16px padding). gap-4 на
 // родительском flex-col (SearchPage) не зависит от высоты кнопки — вертикальный
 // отступ от строки поиска не меняется при росте кнопки.
-export function ArticleFiltersSidebar() {
+//
+// open/onToggle подняты в SearchPage (управляемый компонент, не local
+// useState): ArticleList рендерит этот компонент из 3 разных условных JSX-веток
+// (skeleton/empty/results) — при переключении между ними React размонтирует и
+// заново монтирует ArticleFiltersSidebar, и local state сбрасывался бы в false
+// при каждом поиске (isLoading меняет ветку на время запроса). SearchPage не
+// размонтируется при поиске — состояние переживает любое количество поисков,
+// сбрасываясь естественно только при уходе с /search (баг 2026-08-03).
+interface ArticleFiltersSidebarProps {
+  open: boolean;
+  onToggle: () => void;
+}
+
+export function ArticleFiltersSidebar({ open, onToggle }: ArticleFiltersSidebarProps) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
   return (
     <aside className="hidden lg:flex flex-col w-56 shrink-0">
       <Button
         variant="outline"
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        onClick={onToggle}
         className="px-4 self-start"
       >
         {t('filters.filtersButton')}

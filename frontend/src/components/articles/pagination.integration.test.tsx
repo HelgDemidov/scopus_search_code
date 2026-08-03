@@ -104,6 +104,11 @@ function makePropsFromStore() {
       onPageChange={(p: number) => { s.setPage(p); void s.fetchArticles(); }}
       onSizeChange={(sz: PageSize) => { s.setSize(sz); void s.fetchArticles(); }}
       onToggleMode={() => s.setAppendMode(!s.appendMode)}
+      // Раскрытие фильтров не относится к тому, что тестирует этот файл
+      // (пагинация) — статичное значение, реальное поведение toggle
+      // покрыто ArticleFilters.test.tsx/ArticleList.test.tsx/SearchPage.test.tsx
+      filtersOpen={false}
+      onToggleFilters={() => {}}
     />
   );
 }

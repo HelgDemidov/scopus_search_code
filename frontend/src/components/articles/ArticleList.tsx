@@ -22,6 +22,12 @@ interface ArticleListProps {
   onPageChange: (p: number) => void;
   onSizeChange: (s: PageSize) => void;
   onToggleMode: () => void;
+  // Состояние раскрытия десктопного сайдбара фильтров, поднятое в SearchPage —
+  // ArticleList рендерит ArticleFiltersSidebar из 3 разных условных веток ниже,
+  // local state в самом ArticleFiltersSidebar сбрасывался бы при переключении
+  // между ними (см. комментарий в ArticleFilters.tsx)
+  filtersOpen: boolean;
+  onToggleFilters: () => void;
 }
 
 // Article card skeleton — mirrors ArticleCard structure
@@ -51,6 +57,8 @@ export function ArticleList({
   onPageChange,
   onSizeChange,
   onToggleMode,
+  filtersOpen,
+  onToggleFilters,
 }: ArticleListProps) {
   const { t } = useTranslation();
 
@@ -58,7 +66,7 @@ export function ArticleList({
   if (isLoading && articles.length === 0) {
     return (
       <div className="flex gap-6">
-        <ArticleFiltersSidebar />
+        <ArticleFiltersSidebar open={filtersOpen} onToggle={onToggleFilters} />
         <div className="flex-1 min-w-0 flex flex-col gap-3">
           {Array.from({ length: 5 }).map((_, i) => (
             <ArticleCardSkeleton key={i} />
@@ -78,7 +86,7 @@ export function ArticleList({
     return (
       <div className="flex flex-col gap-3">
         <div className="flex gap-6">
-          <ArticleFiltersSidebar />
+          <ArticleFiltersSidebar open={filtersOpen} onToggle={onToggleFilters} />
           <div className="flex-1 min-w-0">
             <ArticleFiltersMobile />
           </div>
@@ -102,7 +110,7 @@ export function ArticleList({
 
   return (
     <div className="flex gap-6">
-      <ArticleFiltersSidebar />
+      <ArticleFiltersSidebar open={filtersOpen} onToggle={onToggleFilters} />
       <div className="flex-1 min-w-0 flex flex-col gap-3">
 
         {/* Top bar: mobile filters + sort controls */}
