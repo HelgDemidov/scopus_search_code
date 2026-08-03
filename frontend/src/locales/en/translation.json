@@ -210,8 +210,9 @@
   },
   "explore": {
     "title": "Collection Analytics",
+    "collectionName": "\"AI & Neural Network Technologies\"",
     "subtitlePersonal": "Statistics from your own live searches",
-    "subtitleCollection": "AI & Neural Network Technologies — DOI-indexed articles only",
+    "subtitleCollection": "DOI-indexed articles only",
     "modeCollection": "Collection",
     "modePersonal": "My searches",
     "modeLabel": "Analytics mode",

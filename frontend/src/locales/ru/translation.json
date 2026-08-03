@@ -218,8 +218,9 @@
   },
   "explore": {
     "title": "Аналитика коллекции",
+    "collectionName": "«Искусственный интеллект и нейросетевые технологии»",
     "subtitlePersonal": "Статистика по вашим живым поискам",
-    "subtitleCollection": "«Искусственный интеллект и нейросетевые технологии» — только статьи с DOI",
+    "subtitleCollection": "Только статьи с DOI",
     "modeCollection": "Коллекция",
     "modePersonal": "Мои поиски",
     "modeLabel": "Режим аналитики",

@@ -214,8 +214,9 @@
   },
   "explore": {
     "title": "Analitika kolekcije",
+    "collectionName": "«Vještačka inteligencija i neuronske mreže»",
     "subtitlePersonal": "Statistika vaših live pretraga",
-    "subtitleCollection": "«Vještačka inteligencija i neuronske mreže» — samo članci s DOI",
+    "subtitleCollection": "Samo članci s DOI",
     "modeCollection": "Kolekcija",
     "modePersonal": "Moje pretrage",
     "modeLabel": "Način analitike",

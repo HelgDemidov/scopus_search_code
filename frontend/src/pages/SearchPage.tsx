@@ -43,7 +43,10 @@ function sortArticles(
 function AnonIntro() {
   const { t } = useTranslation();
   return (
-    <div className="mx-auto max-w-screen-sm text-center">
+    // Выровнено по левому краю (было mx-auto max-w-screen-sm text-center) — тот же
+    // левый край, что у SearchBar/Filters ниже, оба внутри одного родительского
+    // mx-auto max-w-screen-xl px-4 (см. PR #79 в CLAUDE.md — общий контейнер).
+    <div>
       <h1 className="text-balance text-3xl font-bold text-slate-900 dark:text-slate-100">
         {t('searchPage.anonTitle')}
       </h1>

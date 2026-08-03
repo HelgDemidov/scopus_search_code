@@ -184,24 +184,41 @@ export default function ExplorePage() {
     <div className="mx-auto max-w-screen-xl px-4 py-8 flex flex-col gap-8">
       {hreflangTags}
 
-      {/* Заголовок раздела */}
+      {/* Заголовок раздела — text-3xl (было text-2xl) выравнивает с h1 /about и /main
+          (about.title/main.heroTitle: text-3xl font-bold). В режиме коллекции (всегда
+          активен для анонима — переключателя режимов у него нет) название коллекции —
+          отдельная вторая строка того же h1 (было частью подзаголовка через тире), в
+          кавычках (см. explore.collectionName per-locale); без своих text-size/font-weight
+          классов — наследует text-3xl font-bold от h1, тот же размер, что "Аналитика
+          коллекции". Подзаголовок сам по себе — text-base (было text-sm), как
+          main.heroSubtitle; mt-3 вместо mt-1 — та же пропорция h1→p, что на /about (mt-3
+          между её text-3xl h1 и text-base p). */}
       <div>
-        <h1 className="text-balance text-2xl font-bold text-slate-900 dark:text-slate-100">
+        <h1 className="text-balance text-3xl font-bold text-slate-900 dark:text-slate-100">
           {t('explore.title')}
+          {mode === 'collection' && (
+            <span className="block mt-1">
+              {t('explore.collectionName')}
+            </span>
+          )}
         </h1>
-        <p className="text-balance mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <p className="text-balance mt-3 text-base text-slate-500 dark:text-slate-400">
           {mode === 'personal'
             ? t('explore.subtitlePersonal')
             : t('explore.subtitleCollection')}
         </p>
       </div>
 
-      {/* Переключатель режимов — только для авторизованных */}
+      {/* Переключатель режимов — только для авторизованных. size="default" (было "sm")
+          выравнивает шрифт/скругление с кнопкой Filters на /search (та же h-8/text-sm/
+          rounded-lg — Filters не переопределяет radius, наследует тот же базовый класс).
+          Родительский gap-2 (между кнопками) и gap-8 (между этим блоком и соседями)
+          не меняются — рост высоты кнопки их не затрагивает. */}
       {isAuthenticated && (
         <div className="flex gap-2" role="group" aria-label={t('explore.modeLabel')}>
           <Button
             variant={mode === 'collection' ? 'default' : 'outline'}
-            size="sm"
+            size="default"
             onClick={() => switchMode('collection')}
             aria-pressed={mode === 'collection'}
           >
@@ -209,7 +226,7 @@ export default function ExplorePage() {
           </Button>
           <Button
             variant={mode === 'personal' ? 'default' : 'outline'}
-            size="sm"
+            size="default"
             onClick={() => switchMode('personal')}
             aria-pressed={mode === 'personal'}
           >
