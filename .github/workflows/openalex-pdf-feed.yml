@@ -40,6 +40,19 @@ jobs:
           OPENALEX_TERMS_YAML: ${{ secrets.OPENALEX_TERMS_YAML }}
         run: printf '%s\n' "$OPENALEX_TERMS_YAML" > openalex_pdf_feed/terms.yaml
 
+      - name: Mask individual search phrases in logs
+        # GitHub маскирует только точное совпадение ПОЛНОГО секрета целиком —
+        # отдельные фразы, которые run.py построчно печатает в прогрессе
+        # ("── Фраза: '<term>' ──"), это не покрывает. Регистрируем каждую
+        # фразу отдельной маской до запуска run.py — чистый вывод workflow
+        # command (::add-mask::), без сетевых вызовов и заметного времени.
+        run: |
+          python -c "
+          import yaml
+          for term in yaml.safe_load(open('openalex_pdf_feed/terms.yaml', encoding='utf-8')):
+              print(f'::add-mask::{term}')
+          "
+
       - name: Run openalex_pdf_feed
         # -m, не прямой путь к файлу: run.py использует пакетные импорты
         # (from openalex_pdf_feed.X import ...), нужен корень репозитория в sys.path
