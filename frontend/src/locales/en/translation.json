@@ -22,7 +22,7 @@
   },
   "searchPage": {
     "anonTitle": "Search Scopus Publications",
-    "anonNote": "Results are limited to the AI & Neural Network Technologies collection.<br/> <lnk>Sign in</lnk> for full Scopus access.",
+    "anonNote": "Results are limited to the AI & Neural Network Technologies collection<br/> <lnk>Sign in</lnk> for full Scopus access",
     "modeScopus": "Search Scopus Database",
     "modeCatalog": "Search AI & Neural Network Technologies Collection",
     "errorQuota": "Weekly search quota exceeded",

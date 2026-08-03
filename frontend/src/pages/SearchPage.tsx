@@ -33,19 +33,21 @@ function sortArticles(
 // съезжают влево отдельным блоком).
 // anonSubtitle (раньше был здесь первым абзацем, "Preview results below.
 // Sign in for full search access.") удалён 2026-08-02 — дублировал по сути
-// anonNote ниже ("Sign in for full Scopus access."), два почти одинаковых
+// anonNote ниже ("Sign in for full Scopus access"), два почти одинаковых
 // абзаца подряд читались как явная избыточность. anonNote сам раньше
 // рендерился отдельным блоком МЕЖДУ строкой поиска и Filters (см. историю
-// коммитов) — перенесён сюда, в intro, чтобы SearchBar стал прямым соседом
-// ArticleList с тем же gap-6 до Filters, что и в авторизованном виде.
+// коммитов) — перенесён сюда, в intro. Заголовок+записка+строка поиска
+// сгруппированы в SearchPage отдельным gap-8-контейнером (см. там) — до
+// ArticleList/Filters от этой группы всё тот же gap-6, что и в
+// авторизованном виде.
 function AnonIntro() {
   const { t } = useTranslation();
   return (
     <div className="mx-auto max-w-screen-sm text-center">
-      <h1 className="text-balance text-2xl font-bold text-slate-900 dark:text-slate-100">
+      <h1 className="text-balance text-3xl font-bold text-slate-900 dark:text-slate-100">
         {t('searchPage.anonTitle')}
       </h1>
-      <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+      <p className="mt-4 text-base text-slate-500 dark:text-slate-400">
         <Trans
           i18nKey="searchPage.anonNote"
           components={{
@@ -210,12 +212,15 @@ export default function SearchPage() {
         // как в авторизованном виде: Filters видны сразу, ArticleList сам решает,
         // что показать (пусто/skeleton/список) через свои isLoading/hasSearched.
         <div className="mx-auto max-w-screen-xl px-4 py-6 flex flex-col gap-6">
-          <AnonIntro />
-          {/* Прямой сосед ArticleList в общем gap-6 — та же вертикальная дистанция
-              до Filters, что и в авторизованном виде ниже (там же gap-6 от
-              строки поиска до ArticleList, без блока текста между ними). */}
-          <div className="w-full">
-            <SearchBar key={resetKey} onSearch={handleSearch} />
+          {/* Заголовок+записка и строка поиска сгруппированы отдельным gap-8
+              (крупнее шрифт AnonIntro теперь = /main, тот же просторный ритм)
+              — не задевая gap-6 от строки поиска до ArticleList/Filters ниже,
+              та же вертикальная дистанция, что и в авторизованном виде. */}
+          <div className="flex flex-col gap-8">
+            <AnonIntro />
+            <div className="w-full">
+              <SearchBar key={resetKey} onSearch={handleSearch} />
+            </div>
           </div>
           {/* Анонимный режим: ArticleList изолирован в ErrorBoundary */}
           <ErrorBoundary>
