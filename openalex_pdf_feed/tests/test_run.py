@@ -8,18 +8,26 @@ db_seeder/seeder__scripts/seed_db.py (тоже без автотестов на 
 проверена в test_openalex_client.py/test_storage.py/test_zotero_export.py.
 """
 
+from datetime import date
+
 import pytest
 
-from openalex_pdf_feed.run import _get_config, _load_terms
+from openalex_pdf_feed.run import _get_config, _load_terms, _select_todays_cluster
 
 
 class TestLoadTerms:
-    def test_reads_flat_list_from_yaml(self, tmp_path, monkeypatch):
+    def test_reads_clusters_from_yaml(self, tmp_path, monkeypatch):
         terms_file = tmp_path / "terms.yaml"
-        terms_file.write_text("- logotherapy\n- medical anthropology\n", encoding="utf-8")
+        terms_file.write_text(
+            "psychotherapy:\n  - logotherapy\nanthropology:\n  - medical anthropology\n",
+            encoding="utf-8",
+        )
         monkeypatch.setattr("openalex_pdf_feed.run.TERMS_FILE", terms_file)
 
-        assert _load_terms() == ["logotherapy", "medical anthropology"]
+        assert _load_terms() == {
+            "psychotherapy": ["logotherapy"],
+            "anthropology": ["medical anthropology"],
+        }
 
     def test_empty_file_raises(self, tmp_path, monkeypatch):
         terms_file = tmp_path / "terms.yaml"
@@ -28,6 +36,25 @@ class TestLoadTerms:
 
         with pytest.raises(ValueError):
             _load_terms()
+
+
+class TestSelectTodaysCluster:
+    _CLUSTERS = {"psychotherapy": ["a", "b"], "anthropology": ["c", "d"]}
+
+    def test_picks_one_of_the_cluster_names(self):
+        assert _select_todays_cluster(self._CLUSTERS, today=date(2026, 8, 14)) in self._CLUSTERS
+
+    def test_deterministic_for_same_day(self):
+        picked = {_select_todays_cluster(self._CLUSTERS, today=date(2026, 8, 14)) for _ in range(5)}
+        assert len(picked) == 1
+
+    def test_rotates_across_consecutive_days(self):
+        day1 = _select_todays_cluster(self._CLUSTERS, today=date(2026, 8, 14))
+        day2 = _select_todays_cluster(self._CLUSTERS, today=date(2026, 8, 15))
+        assert day1 != day2
+
+    def test_single_cluster_always_picks_it(self):
+        assert _select_todays_cluster({"only": ["a"]}, today=date(2026, 8, 14)) == "only"
 
 
 class TestGetConfig:

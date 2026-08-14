@@ -38,20 +38,43 @@ def _get_config() -> dict[str, str]:
     }
 
 
-def _load_terms() -> list[str]:
+def _load_terms() -> dict[str, list[str]]:
     with TERMS_FILE.open(encoding="utf-8") as f:
-        terms = yaml.safe_load(f)
-    if not terms:
+        clusters = yaml.safe_load(f)
+    if not clusters:
         raise ValueError(f"{TERMS_FILE} пуст или не найден — нечего искать")
-    return list(terms)
+    return clusters
+
+
+def _select_todays_cluster(clusters: dict[str, list[str]], today: date | None = None) -> str:
+    """Детерминированная ротация: ровно один кластер в сутки.
+
+    Раньше все кластеры/фразы шли одним списком каждый день — суточный бюджет
+    OpenAlex стабильно упирался в последнюю фразу (medical anthropology),
+    курсор не продвигался НИ РАЗУ за 12 дней подряд (см. память
+    project-openalex-pdf-feed, 2026-08-14). При ротации по одному кластеру в
+    день у каждого кластера свой курсор (storage.read_cursor/write_cursor) —
+    кластер, обработанный сегодня целиком, продвигает СВОЙ курсор независимо
+    от того, дошла ли очередь до второго.
+
+    `today` — параметр, не date.today() внутри: тестируется без monkeypatch.
+    Порядок кластеров — порядок ключей в terms.yaml (Python dict/YAML mapping
+    сохраняют порядок вставки), стабилен между прогонами.
+    """
+    names = list(clusters)
+    slot = (today or date.today()).toordinal() % len(names)
+    return names[slot]
 
 
 async def run() -> None:
     print(f"{Fore.CYAN}===== OpenAlex PDF Feed запущен =====")
 
     config = _get_config()
-    terms = _load_terms()
-    print(f"Фраз в словаре: {len(terms)}")
+    clusters = _load_terms()
+    cluster = _select_todays_cluster(clusters)
+    terms = clusters[cluster]
+    total_terms = sum(len(v) for v in clusters.values())
+    print(f"Кластер сегодня: {Fore.YELLOW}{cluster}{Style.RESET_ALL} ({len(terms)} фраз из {total_terms} всего)")
 
     storage = R2Storage(
         bucket=config["r2_bucket"],
@@ -60,9 +83,9 @@ async def run() -> None:
         secret_access_key=config["r2_secret_access_key"],
     )
 
-    stored_cursor = await storage.read_cursor()
+    stored_cursor = await storage.read_cursor(cluster)
     since = stored_cursor - timedelta(days=CURSOR_BUFFER_DAYS) if stored_cursor else None
-    print(f"Курсор: {since if since else 'нет (первый прогон — полная история)'}")
+    print(f"Курсор кластера: {since if since else 'нет (первый прогон — полная история)'}")
 
     stats = {"found": 0, "downloaded": 0, "skipped_dedup": 0, "failed": 0, "no_pdf_cache": 0}
     budget_exhausted = False
@@ -117,10 +140,13 @@ async def run() -> None:
         print(f"{Fore.GREEN}zotero/library.json: {len(library)} записей")
 
         if not budget_exhausted:
-            await storage.write_cursor(date.today())
-            print(f"{Fore.GREEN}Курсор обновлён: {date.today()}")
+            await storage.write_cursor(cluster, date.today())
+            print(f"{Fore.GREEN}Курсор кластера '{cluster}' обновлён: {date.today()}")
         else:
-            print(f"{Fore.YELLOW}Курсор НЕ обновлён — прогон прерван по бюджету, доберём в следующий раз")
+            print(
+                f"{Fore.YELLOW}Курсор кластера '{cluster}' НЕ обновлён — прогон прерван "
+                f"по бюджету, доберём в следующий раз (свои курсоры остальных кластеров не затронуты)"
+            )
 
     print(
         f"\n{Fore.CYAN}===== Готово: найдено {stats['found']}, "

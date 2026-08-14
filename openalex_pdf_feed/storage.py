@@ -19,7 +19,17 @@ from botocore.exceptions import ClientError
 
 PAPERS_PREFIX = "papers"
 ZOTERO_KEY = "zotero/library.json"
-CURSOR_KEY = "_state/cursor.json"
+# Курсор — отдельный файл на кластер (2026-08-14, см. память project-openalex-pdf-feed):
+# один общий курсор на все терм-кластеры означал, что кластер, не влезший в дневной
+# бюджет, никогда не давал курсору продвинуться — остальные кластеры при этом молча
+# пересканировали всю историю заново каждый день без всякой пользы.
+CURSOR_KEY_PREFIX = "_state/cursor_"
+CURSOR_KEY_SUFFIX = ".json"
+
+
+def cursor_key(cluster: str) -> str:
+    return f"{CURSOR_KEY_PREFIX}{cluster}{CURSOR_KEY_SUFFIX}"
+
 
 _NOT_FOUND_CODES = ("404", "NoSuchKey")
 
@@ -94,12 +104,13 @@ class R2Storage:
             ContentType="application/json",
         )
 
-    async def read_cursor(self) -> date | None:
-        """Дата предыдущего успешного прогона либо None при первом прогоне.
-        Буфер '-3 дня' под позднее индексирование — забота вызывающего кода
-        (run.py), не этого слоя: здесь только чистое хранение значения."""
+    async def read_cursor(self, cluster: str) -> date | None:
+        """Дата предыдущего успешного прогона ЭТОГО кластера либо None, если кластер
+        ещё ни разу не завершал полный прогон без исчерпания бюджета. Буфер '-3 дня'
+        под позднее индексирование — забота вызывающего кода (run.py), не этого слоя:
+        здесь только чистое хранение значения."""
         try:
-            body = await asyncio.to_thread(self._get_object_sync, CURSOR_KEY)
+            body = await asyncio.to_thread(self._get_object_sync, cursor_key(cluster))
         except ClientError as e:
             if e.response.get("Error", {}).get("Code") in _NOT_FOUND_CODES:
                 return None
@@ -107,11 +118,11 @@ class R2Storage:
         data = json.loads(body)
         return date.fromisoformat(data["from_publication_date"])
 
-    async def write_cursor(self, run_date: date) -> None:
+    async def write_cursor(self, cluster: str, run_date: date) -> None:
         await asyncio.to_thread(
             self._s3.put_object,
             Bucket=self._bucket,
-            Key=CURSOR_KEY,
+            Key=cursor_key(cluster),
             Body=json.dumps({"from_publication_date": run_date.isoformat()}, ensure_ascii=False).encode("utf-8"),
             ContentType="application/json",
         )

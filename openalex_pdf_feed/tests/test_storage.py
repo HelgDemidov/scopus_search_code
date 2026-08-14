@@ -6,7 +6,7 @@ from datetime import date
 import pytest
 from botocore.exceptions import ClientError
 
-from openalex_pdf_feed.storage import CURSOR_KEY, R2Storage
+from openalex_pdf_feed.storage import R2Storage, cursor_key
 
 
 class FakeS3Client:
@@ -94,14 +94,21 @@ async def test_list_paper_metadata_returns_only_json_sidecars(monkeypatch):
 @pytest.mark.asyncio
 async def test_read_cursor_returns_none_when_absent(monkeypatch):
     storage, _fake = _storage(monkeypatch)
-    assert await storage.read_cursor() is None
+    assert await storage.read_cursor("psychotherapy") is None
 
 
 @pytest.mark.asyncio
 async def test_write_then_read_cursor_roundtrips(monkeypatch):
     storage, _fake = _storage(monkeypatch)
-    await storage.write_cursor(date(2026, 7, 20))
-    assert await storage.read_cursor() == date(2026, 7, 20)
+    await storage.write_cursor("psychotherapy", date(2026, 7, 20))
+    assert await storage.read_cursor("psychotherapy") == date(2026, 7, 20)
+
+
+@pytest.mark.asyncio
+async def test_cursors_are_independent_per_cluster(monkeypatch):
+    storage, _fake = _storage(monkeypatch)
+    await storage.write_cursor("psychotherapy", date(2026, 7, 20))
+    assert await storage.read_cursor("anthropology") is None
 
 
 @pytest.mark.asyncio
@@ -116,5 +123,6 @@ async def test_upload_zotero_library_writes_csl_json_array(monkeypatch):
 @pytest.mark.asyncio
 async def test_cursor_key_matches_expected_path(monkeypatch):
     storage, fake = _storage(monkeypatch)
-    await storage.write_cursor(date(2026, 1, 1))
-    assert CURSOR_KEY in fake.objects
+    await storage.write_cursor("psychotherapy", date(2026, 1, 1))
+    assert cursor_key("psychotherapy") in fake.objects
+    assert "_state/cursor_psychotherapy.json" in fake.objects
