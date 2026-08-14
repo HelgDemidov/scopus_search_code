@@ -20,6 +20,13 @@ NEW_KW_BUDGET = 50      # Блок A: макс. новых фраз за про�
 REPAG_BUDGET = 188      # Блок B: макс. ре-пагинаций за прогон (итого ~238 Scopus-вызовов)
 REPAG_OFFSET_CAP = 5000 # Scopus free: start >= 5000 возвращает ошибку
 
+# Supabase free tier — 500MB на всю БД (см. память project_catalog_search_latency,
+# 2026-08-14: 257MB занято при ~236MB из articles+catalog_articles, ~3.9MB/день).
+# 350k статей — запас под остальные таблицы/индексы до упора в лимит. Останавливает
+# только РОСТ коллекции (Блок A/Б) — GC/vacuum/health-check продолжают работать
+# каждый прогон и после порога, разморозка не нужна.
+CATALOG_ARTICLE_CAP = 350_000
+
 
 def _get_secrets() -> tuple[str, str]:
     # os.environ[] — fail-fast: KeyError если переменная не задана
@@ -38,6 +45,10 @@ async def _open_db(db_url: str) -> asyncpg.Connection:
         db_url.replace("postgresql+asyncpg://", "postgresql://"),
         statement_cache_size=0,
     )
+
+
+async def _fetch_catalog_count(conn: asyncpg.Connection) -> int:
+    return await conn.fetchval("SELECT count(*) FROM catalog_articles")
 
 
 async def _fetch_used_keywords(conn: asyncpg.Connection) -> tuple[list[str], dict[str, str]]:
@@ -150,6 +161,17 @@ async def seed_database() -> None:
 
     conn = await _open_db(db_url)
     try:
+        catalog_count = await _fetch_catalog_count(conn)
+        collection_full = catalog_count >= CATALOG_ARTICLE_CAP
+        if collection_full:
+            print(
+                f"{Fore.YELLOW}Коллекция: {catalog_count} статей (>= {CATALOG_ARTICLE_CAP}) — "
+                f"рост остановлен, Блок A/Б пропускаются в этом и всех следующих прогонах. "
+                f"GC/vacuum/health-check продолжают работать как обычно."
+            )
+        else:
+            print(f"Коллекция: {catalog_count}/{CATALOG_ARTICLE_CAP} статей\n")
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             headers = {"X-Seeder-Secret": seeder_secret, "Accept": "application/json"}
 
@@ -172,21 +194,32 @@ async def seed_database() -> None:
             # Шаг 4: генерация новых фраз через OpenRouter
             # Сбой генерации (сеть, невалидный ответ LLM) не должен ронять весь прогон —
             # Block B/GC/health-check ниже всё равно должны выполниться в этом цикле.
-            print(f"{Fore.CYAN}Генерируем ключевые фразы через OpenRouter...")
-            try:
-                all_new_keywords = await generate_keywords(
-                    cluster_keywords=cluster_keywords,
-                    api_key=openrouter_key,
-                    cluster=cluster,
-                )
-            except Exception as e:
-                print(f"{Fore.RED}Генерация ключевых фраз не удалась: {e}")
+            # При collection_full сам вызов LLM пропускается — незачем тратить
+            # OpenRouter-квоту на фразы, которые всё равно некуда будет использовать.
+            if collection_full:
                 all_new_keywords = []
-            new_keywords = all_new_keywords[:NEW_KW_BUDGET]
-            print(
-                f"Новых фраз от LLM: {len(all_new_keywords)}, "
-                f"к обработке в Блоке A: {len(new_keywords)}\n"
-            )
+            else:
+                print(f"{Fore.CYAN}Генерируем ключевые фразы через OpenRouter...")
+                try:
+                    all_new_keywords = await generate_keywords(
+                        cluster_keywords=cluster_keywords,
+                        api_key=openrouter_key,
+                        cluster=cluster,
+                    )
+                except Exception as e:
+                    print(f"{Fore.RED}Генерация ключевых фраз не удалась: {e}")
+                    all_new_keywords = []
+            new_keywords = [] if collection_full else all_new_keywords[:NEW_KW_BUDGET]
+            if not collection_full:
+                print(
+                    f"Новых фраз от LLM: {len(all_new_keywords)}, "
+                    f"к обработке в Блоке A: {len(new_keywords)}\n"
+                )
+
+            # Блок Б тоже пропускается при переполнении коллекции — ре-пагинация
+            # существующих фраз тоже добавляет новые статьи, не только Блок A.
+            if collection_full:
+                repag_candidates = []
 
             rate_limit_hit = False
 
