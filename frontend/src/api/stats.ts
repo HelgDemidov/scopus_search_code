@@ -6,10 +6,25 @@
 
 import { apiClient } from './client';
 import type { ActiveSelection } from '../stores/dashboardStore';
-import type { JournalImpactPoint, PivotDimension, PivotMetric, PivotResponse, StatsResponse } from '../types/api';
+import type {
+  JournalImpactPoint,
+  KpiTotalsResponse,
+  PivotDimension,
+  PivotMetric,
+  PivotResponse,
+  StatsResponse,
+} from '../types/api';
 
 export async function getStats(): Promise<StatsResponse> {
   const response = await apiClient.get<StatsResponse>('/articles/stats');
+  return response.data;
+}
+
+// 6 плиток KpiRow (docs/backend-performance/explore-kpi-summary/spec.md, быстрый фикс
+// 2026-08-14) — отдельный запрос от getStats(): плитки не должны ждать 9 остальных
+// тяжёлых агрегатов get_stats(), нужных только графикам ниже KPI-ряда/DimensionDrawer.
+export async function getKpiTotals(): Promise<KpiTotalsResponse> {
+  const response = await apiClient.get<KpiTotalsResponse>('/articles/stats/summary');
   return response.data;
 }
 

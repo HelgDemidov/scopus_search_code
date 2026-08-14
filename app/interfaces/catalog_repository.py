@@ -91,6 +91,17 @@ class ICatalogRepository(ABC):
         pass
 
     @abstractmethod
+    async def get_kpi_totals(self) -> dict:
+        """
+        Возвращает 6 скаляров для плиток KpiRow на /explore — быстрый фикс 2026-08-14:
+        подмножество get_stats(), без фильтров, без остальных 9 агрегатов (кросс-табы,
+        топ-N списки), которые плиткам не нужны, но раньше блокировали их отрисовку.
+        Поля: total_articles, total_journals, total_countries, total_authors,
+        open_access_count, total_doc_types (число различных document_type).
+        """
+        pass
+
+    @abstractmethod
     async def get_journal_impact(self, max_year: int) -> list[dict]:
         """
         Топ-N журналов по объёму (count) + среднее/медианное цитирование среди статей,

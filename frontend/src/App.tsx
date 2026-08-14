@@ -42,6 +42,7 @@ export default function App() {
 
   const { setToken, fetchUser, logout, setHydrating } = useAuthStore();
   const fetchStats = useStatsStore((state) => state.fetchStats);
+  const fetchKpiTotals = useStatsStore((state) => state.fetchKpiTotals);
   const { i18n } = useTranslation();
 
   // Синхронизируем атрибут lang на <html> при смене языка — важно для скринридеров
@@ -109,6 +110,9 @@ export default function App() {
 
     // Предзагружаем статистику: она нужна и /explore, и sidebar фильтров главной
     fetchStats();
+    // Отдельно и независимо — лёгкие KPI-тайлы /explore (см. statsStore.ts) —
+    // не должны ждать fetchStats() выше или блокироваться им.
+    fetchKpiTotals();
 
     return () => {
       window.removeEventListener('auth:token-refreshed', handleTokenRefresh);

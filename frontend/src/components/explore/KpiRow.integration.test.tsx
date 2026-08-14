@@ -4,41 +4,26 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { KpiRow } from './KpiRow';
 import { useStatsStore } from '../../stores/statsStore';
 import { useDashboardStore } from '../../stores/dashboardStore';
-import type { StatsResponse } from '../../types/api';
+import type { KpiTotalsResponse } from '../../types/api';
 
 // ---------------------------------------------------------------------------
-// Заглушка statsStore
+// Заглушка statsStore — KpiRow читает kpiTotals/isKpiLoading (GET
+// /articles/stats/summary), не полный stats/isLoading (быстрый фикс
+// 2026-08-14, docs/backend-performance/explore-kpi-summary/spec.md): плитки
+// не должны ждать 9 остальных тяжёлых агрегатов get_stats(), нужных только
+// DimensionDrawer/графикам ниже KPI-ряда.
 // ---------------------------------------------------------------------------
-const MOCK_STATS: StatsResponse = {
+const MOCK_KPI_TOTALS: KpiTotalsResponse = {
   total_articles: 39800,
   total_journals: 22,
   total_countries: 146,
   total_authors: 8541,
   open_access_count: 43213,
-  by_year: [],
-  by_journal: [],
-  by_country: [],
-  by_doc_type: [
-    { label: 'Article', count: 60000 },
-    { label: 'Review', count: 15000 },
-  ],
-  top_keywords: [
-    { label: 'machine learning', count: 500 },
-    { label: 'deep learning', count: 400 },
-    { label: 'neural network', count: 300 },
-  ],
-  top_authors: [
-    { label: 'J. Smith', count: 42 },
-    { label: 'L. Wang', count: 38 },
-  ],
-  by_year_top_countries: [],
-  sunburst_country_open_access: [],
-  top_journals_by_country: [],
-  country_impact: [],
+  total_doc_types: 2,
 };
 
 beforeEach(() => {
-  useStatsStore.setState({ stats: MOCK_STATS, isLoading: false, error: null });
+  useStatsStore.setState({ kpiTotals: MOCK_KPI_TOTALS, isKpiLoading: false, kpiError: null });
   useDashboardStore.setState({ activeSelection: null, drawerDimension: null, builderCards: [] });
 });
 
@@ -102,8 +87,8 @@ describe('KpiRow', () => {
     expect(journalsButton).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('показывает skeleton при isLoading=true', () => {
-    useStatsStore.setState({ stats: null, isLoading: true, error: null });
+  it('показывает skeleton при isKpiLoading=true', () => {
+    useStatsStore.setState({ kpiTotals: null, isKpiLoading: true, kpiError: null });
     const { container } = render(<KpiRow />);
     expect(container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0);
   });

@@ -16,6 +16,7 @@ from app.schemas.article_schemas import (
     CountryImpactPoint,
     JournalCountryCount,
     JournalImpactPoint,
+    KpiTotalsResponse,
     PaginatedArticleResponse,
     PivotDimension,
     PivotMetric,
@@ -32,6 +33,7 @@ from app.infrastructure.redis_client import (
     STATS_CACHE_TTL,
     make_catalog_count_cache_key,
     make_journal_impact_cache_key,
+    make_kpi_totals_cache_key,
     make_stats_cache_key,
 )
 
@@ -183,6 +185,42 @@ class CatalogService:
             logger.warning("Redis SETEX failed, cache skipped", exc_info=True)
 
         return total, total_is_capped
+
+    # ------------------------------------------------------------------ #
+    #  get_kpi_totals                                                      #
+    # ------------------------------------------------------------------ #
+
+    async def get_kpi_totals(self) -> KpiTotalsResponse:
+        """6 скаляров для плиток KpiRow на /explore — быстрый фикс 2026-08-14.
+
+        Cache-aside, тот же паттерн/TTL что get_stats — но свой, более узкий ключ
+        (make_kpi_totals_cache_key, без хэша параметров: этот эндпоинт их не
+        принимает). Отдельный кэш-энтри специально: плитки не должны ждать 9
+        других агрегатов get_stats(), которые им не нужны, даже если оба сейчас
+        холодные одновременно.
+        """
+        if self.redis is None:
+            raw = await self.catalog_repo.get_kpi_totals()
+            return KpiTotalsResponse(**raw)
+
+        cache_key = make_kpi_totals_cache_key(db_namespace=self.db_namespace)
+
+        try:
+            cached = await self.redis.get(cache_key)
+            if cached is not None:
+                return KpiTotalsResponse.model_validate_json(cached)
+        except Exception:
+            logger.warning("Redis GET failed, falling back to DB", exc_info=True)
+
+        raw = await self.catalog_repo.get_kpi_totals()
+        result = KpiTotalsResponse(**raw)
+
+        try:
+            await self.redis.setex(cache_key, STATS_CACHE_TTL, result.model_dump_json())
+        except Exception:
+            logger.warning("Redis SETEX failed, cache skipped", exc_info=True)
+
+        return result
 
     # ------------------------------------------------------------------ #
     #  get_stats                                                           #

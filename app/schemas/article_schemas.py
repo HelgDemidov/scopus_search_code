@@ -170,6 +170,20 @@ class StatsResponse(BaseModel):
     country_impact: List[CountryImpactPoint]  # Топ-20 стран × avg(cited_by_count) — Country Impact Scatter
 
 
+class KpiTotalsResponse(BaseModel):
+    # Схема публичного эндпоинта GET /articles/stats/summary — быстрый фикс
+    # 2026-08-14 (docs/backend-performance/explore-kpi-summary/spec.md): 6 плиток
+    # KpiRow на /explore раньше ждали весь StatsResponse (10 последовательных
+    # агрегатов, ~9.7с на холодном Redis-кэше — профилировано на проде), хотя
+    # нужны им только эти 6 скаляров. Одно поле на каждую плитку KpiRow.tsx.
+    total_articles: int
+    total_journals: int
+    total_countries: int
+    total_authors: int
+    open_access_count: int
+    total_doc_types: int  # число различных document_type — тайл "N ТИПОВ ДОКУМЕНТОВ"
+
+
 class SearchStatsResponse(BaseModel):
     # Схема GET /articles/search/stats и GET /articles/stats/personal —
     # агрегаты по результатам пользовательского поиска

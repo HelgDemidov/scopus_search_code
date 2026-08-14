@@ -10,6 +10,7 @@ from app.infrastructure.redis_client import (
     STATS_CACHE_TTL,
     make_catalog_count_cache_key,
     make_journal_impact_cache_key,
+    make_kpi_totals_cache_key,
     make_stats_cache_key,
 )
 from app.interfaces.article_repository import IArticleRepository
@@ -20,6 +21,7 @@ from app.schemas.article_schemas import (
     CountryImpactPoint,
     JournalCountryCount,
     JournalImpactPoint,
+    KpiTotalsResponse,
     PaginatedArticleResponse,
     PivotResponse,
     StatsResponse,
@@ -58,6 +60,7 @@ class FakeCatalogRepository(ICatalogRepository):
         self.get_count_calls: list[dict] = []
         self.save_seeded_calls: list[dict] = []
         self.stats_call_count = 0
+        self.kpi_totals_call_count = 0
         self.journal_impact_calls: list[int] = []
         self.pivot_calls: list[dict] = []
 
@@ -148,6 +151,17 @@ class FakeCatalogRepository(ICatalogRepository):
             "sunburst_country_open_access": [{"country": "USA", "open_access": True, "count": 9}],
             "top_journals_by_country": [{"journal": "Nature", "country": "USA", "count": 6}],
             "country_impact": [{"country": "USA", "count": 30, "mean_citations": 12.5}],
+        }
+
+    async def get_kpi_totals(self) -> dict:
+        self.kpi_totals_call_count += 1
+        return {
+            "total_articles": 42,
+            "total_journals": 10,
+            "total_countries": 5,
+            "total_authors": 8,
+            "open_access_count": 7,
+            "total_doc_types": 3,
         }
 
     async def get_journal_impact(self, max_year: int) -> list[dict]:
@@ -985,3 +999,127 @@ async def test_get_stats_no_redis_goes_directly_to_db():
 
     assert cr.stats_call_count == 1
     assert isinstance(result, StatsResponse)
+
+
+# ================================================================ #
+#  Тесты get_kpi_totals — лёгкий эндпоинт для 6 плиток KpiRow      #
+#  (docs/explore-analytics/…/spec.md — быстрый фикс 2026-08-14:    #
+#  плитки раньше ждали весь /stats — 10 последовательных запросов, #
+#  ~9.7с на холодном кэше — хотя нужны им только 6 скаляров, все   #
+#  из ОДНОГО агрегата без DISTINCT-сортировок и кросс-табов)       #
+# ================================================================ #
+
+
+@pytest.mark.asyncio
+async def test_get_kpi_totals_returns_kpi_totals_response():
+    svc, _, _, _ = _mk_service()
+
+    result = await svc.get_kpi_totals()
+
+    assert isinstance(result, KpiTotalsResponse)
+    assert result.total_articles == 42
+    assert result.total_journals == 10
+    assert result.total_countries == 5
+    assert result.total_authors == 8
+    assert result.open_access_count == 7
+    assert result.total_doc_types == 3
+
+
+@pytest.mark.asyncio
+async def test_get_kpi_totals_delegates_to_catalog_repo():
+    svc, _, cr, _ = _mk_service()
+
+    await svc.get_kpi_totals()
+
+    assert cr.kpi_totals_call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_get_kpi_totals_uses_cache_on_hit():
+    """Cache hit: Redis возвращает значение → DB не вызывается."""
+    cached = KpiTotalsResponse(
+        total_articles=1,
+        total_journals=1,
+        total_countries=1,
+        total_authors=1,
+        open_access_count=1,
+        total_doc_types=1,
+    )
+    redis = FakeRedis(cached_value=cached.model_dump_json())
+    svc, _, cr, _ = _mk_service(redis=redis)
+
+    result = await svc.get_kpi_totals()
+
+    assert cr.kpi_totals_call_count == 0, "DB не должна вызываться при cache hit"
+    assert redis.get_call_count == 1
+    assert result == cached
+
+
+@pytest.mark.asyncio
+async def test_get_kpi_totals_writes_cache_on_miss():
+    """Cache miss: DB вызывается, результат записывается в Redis с правильным ключом и TTL."""
+    redis = FakeRedis(cached_value=None)
+    svc, _, cr, _ = _mk_service(redis=redis)
+
+    result = await svc.get_kpi_totals()
+
+    assert cr.kpi_totals_call_count == 1, "При cache miss DB должна вызываться"
+    assert len(redis.setex_calls) == 1
+
+    key, ttl, value = redis.setex_calls[0]
+    assert key == make_kpi_totals_cache_key(db_namespace=_TEST_DB_NAMESPACE)
+    assert ttl == STATS_CACHE_TTL
+    assert json.loads(value)["total_articles"] == 42
+    assert result.total_articles == 42
+
+
+@pytest.mark.asyncio
+async def test_get_kpi_totals_different_db_namespace_different_cache_key():
+    """prod/staging, делящие один физический Redis, не должны делить ключ (см. get_stats)."""
+    redis_a = FakeRedis(cached_value=None)
+    redis_b = FakeRedis(cached_value=None)
+    svc_a, _, _, _ = _mk_service(redis=redis_a, db_namespace="postgresql://prod-host/db")
+    svc_b, _, _, _ = _mk_service(redis=redis_b, db_namespace="postgresql://staging-host/db")
+
+    await svc_a.get_kpi_totals()
+    await svc_b.get_kpi_totals()
+
+    key_a, _, _ = redis_a.setex_calls[0]
+    key_b, _, _ = redis_b.setex_calls[0]
+    assert key_a != key_b
+
+
+@pytest.mark.asyncio
+async def test_get_kpi_totals_degrades_on_redis_error():
+    """Redis GET бросает исключение → graceful degradation: DB вызывается, результат корректен."""
+    redis = FakeRedis(raise_on_get=True)
+    svc, _, cr, _ = _mk_service(redis=redis)
+
+    result = await svc.get_kpi_totals()
+
+    assert cr.kpi_totals_call_count == 1, "При ошибке Redis должен быть fallback на DB"
+    assert result.total_articles == 42
+
+
+@pytest.mark.asyncio
+async def test_get_kpi_totals_skips_setex_on_redis_error():
+    """Redis SETEX бросает исключение → результат всё равно возвращается корректно."""
+    redis = FakeRedis(cached_value=None, raise_on_setex=True)
+    svc, _, cr, _ = _mk_service(redis=redis)
+
+    result = await svc.get_kpi_totals()
+
+    assert cr.kpi_totals_call_count == 1
+    assert len(redis.setex_calls) == 0
+    assert result.total_articles == 42
+
+
+@pytest.mark.asyncio
+async def test_get_kpi_totals_no_redis_goes_directly_to_db():
+    """redis=None → прямой вызов DB без попыток Redis."""
+    svc, _, cr, _ = _mk_service(redis=None)
+
+    result = await svc.get_kpi_totals()
+
+    assert cr.kpi_totals_call_count == 1
+    assert isinstance(result, KpiTotalsResponse)

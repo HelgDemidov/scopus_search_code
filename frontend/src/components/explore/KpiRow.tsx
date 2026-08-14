@@ -5,12 +5,16 @@ import { KpiTile } from './KpiTile';
 import { getKpiLabel } from './kpiLabels';
 import type { Dimension } from '../charts/chartColors';
 
-type Stats = NonNullable<ReturnType<typeof useStatsStore.getState>['stats']>;
+// KpiRow читает kpiTotals (GET /articles/stats/summary), не полный stats —
+// быстрый фикс 2026-08-14 (docs/backend-performance/explore-kpi-summary/spec.md):
+// плитки не должны ждать 9 остальных тяжёлых агрегатов get_stats(), нужных
+// только DimensionDrawer/стационарным графикам ниже KPI-ряда.
+type KpiTotals = NonNullable<ReturnType<typeof useStatsStore.getState>['kpiTotals']>;
 
 interface KpiConfig {
   dimension: Dimension;
   getLabel: (count: number) => string;
-  getValue: (stats: Stats) => number;
+  getValue: (totals: KpiTotals) => number;
 }
 
 // ---------------------------------------------------------------------------
@@ -62,14 +66,14 @@ export function KpiTileRow({
 // не меняется). Клик открывает Drawer с детальным видом по выбранному измерению.
 export function KpiRow() {
   const { t } = useTranslation();
-  const { stats, isLoading } = useStatsStore();
+  const { kpiTotals, isKpiLoading } = useStatsStore();
   const { drawerDimension, openDrawer, closeDrawer } = useDashboardStore();
 
   const KPI_TILES: KpiConfig[] = [
     { dimension: 'year',        getLabel: (n) => getKpiLabel('year',        n, t), getValue: (s) => s.total_articles },
     { dimension: 'country',     getLabel: (n) => getKpiLabel('country',     n, t), getValue: (s) => s.total_countries },
     { dimension: 'open_access', getLabel: (n) => getKpiLabel('open_access', n, t), getValue: (s) => s.open_access_count },
-    { dimension: 'doc_type',    getLabel: (n) => getKpiLabel('doc_type',    n, t), getValue: (s) => s.by_doc_type.length },
+    { dimension: 'doc_type',    getLabel: (n) => getKpiLabel('doc_type',    n, t), getValue: (s) => s.total_doc_types },
     { dimension: 'journal',     getLabel: (n) => getKpiLabel('journal',     n, t), getValue: (s) => s.total_journals },
     { dimension: 'author',      getLabel: (n) => getKpiLabel('author',      n, t), getValue: (s) => s.total_authors },
   ];
@@ -83,14 +87,14 @@ export function KpiRow() {
   }
 
   const tiles: KpiTileSpec[] = KPI_TILES.map(({ dimension, getLabel, getValue }) => {
-    const count = stats ? getValue(stats) : 0;
+    const count = kpiTotals ? getValue(kpiTotals) : 0;
     return { dimension, label: getLabel(count), value: count };
   });
 
   return (
     <KpiTileRow
       tiles={tiles}
-      isLoading={isLoading}
+      isLoading={isKpiLoading}
       drawerDimension={drawerDimension}
       onTileClick={handleTileClick}
     />

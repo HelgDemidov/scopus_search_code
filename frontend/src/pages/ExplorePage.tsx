@@ -104,7 +104,7 @@ function ChartErrorFallback() {
 export default function ExplorePage() {
   const { t } = useTranslation();
   const hreflangTags = useHreflangTags('/explore');
-  const { fetchStats } = useStatsStore();
+  const { fetchStats, fetchKpiTotals } = useStatsStore();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const {
     activeSelection,
@@ -134,6 +134,7 @@ export default function ExplorePage() {
   const [fingerprintLoading, setFingerprintLoading] = useState(false);
 
   useEffect(() => { fetchStats(); }, [fetchStats]);
+  useEffect(() => { fetchKpiTotals(); }, [fetchKpiTotals]);
 
   // Единственный Sheet-instance (dashboardStore.drawerDimension) используется обоими
   // режимами (docs/explore-analytics/explore-personal-redesign/spec.md §1.2 п.5) — при переключении

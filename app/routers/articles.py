@@ -21,6 +21,7 @@ from app.schemas.article_schemas import (
     ArticleResponse,
     CountByField,
     JournalImpactPoint,
+    KpiTotalsResponse,
     PaginatedArticleResponse,
     PersonalActivityResponse,
     PivotDimension,
@@ -92,6 +93,22 @@ async def get_stats(
         year_from=year_from,
         year_to=year_to,
     )
+
+
+# ------------------------------------------------------------------ #
+#  GET /stats/summary — публичный, без JWT                            #
+#  6 плиток KpiRow на /explore — быстрый фикс 2026-08-14               #
+#  (docs/backend-performance/explore-kpi-summary/spec.md): подмножество       #
+#  GET /stats без 9 остальных агрегатов, которые плиткам не нужны, но #
+#  раньше держали их в скелетоне ~9.7с на холодном Redis-кэше.         #
+# ------------------------------------------------------------------ #
+
+
+@router.get("/stats/summary", response_model=KpiTotalsResponse, tags=["Analytics"])
+async def get_kpi_totals(
+    service: CatalogService = Depends(get_catalog_service),
+) -> KpiTotalsResponse:
+    return await service.get_kpi_totals()
 
 
 # ------------------------------------------------------------------ #

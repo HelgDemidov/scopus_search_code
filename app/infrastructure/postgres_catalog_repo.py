@@ -189,6 +189,50 @@ class PostgresCatalogRepository(ICatalogRepository):
     #  get_stats                                                           #
     # ------------------------------------------------------------------ #
 
+    async def get_kpi_totals(self) -> dict:
+        """6 скаляров для плиток KpiRow — см. ICatalogRepository.get_kpi_totals.
+
+        Один агрегатный запрос вместо всех 10 из get_stats() ниже — та часть,
+        которая раньше держала плитки на /explore в скелетоне ~9.7с на холодном
+        Redis-кэше (профилировано на проде 2026-08-14, EXPLAIN ANALYZE подтвердил
+        CPU-bound: даже самый простой GROUP BY из тех 10 — 3с при 100% shared_buffers
+        hit, ни одного диска). Плиткам нужны только эти 6 чисел — не 4 DISTINCT-
+        сортировки, не 6 кросс-табов/топ-N списков, которые они физически не
+        показывают. Без фильтров — KpiRow всегда отражает всю коллекцию целиком.
+        """
+        conn = await self.session.connection()
+        if conn.dialect.name == "postgresql":
+            await self.session.execute(text("SET LOCAL work_mem = '32MB'"))
+
+        stmt = select(Article).join(CatalogArticle, CatalogArticle.article_id == Article.id)
+        catalog_articles_q = stmt.subquery()
+
+        totals = await self.session.execute(
+            select(
+                func.count().label("total_articles"),
+                func.count(catalog_articles_q.c.journal.distinct()).label("total_journals"),
+                func.count(catalog_articles_q.c.affiliation_country.distinct()).label("total_countries"),
+                func.count(catalog_articles_q.c.author.distinct()).label("total_authors"),
+                func.count(catalog_articles_q.c.document_type.distinct()).label("total_doc_types"),
+                func.sum(
+                    sa.cast(
+                        sa.case((catalog_articles_q.c.open_access.is_(True), 1), else_=0),
+                        sa.Integer,
+                    )
+                ).label("open_access_count"),
+            ).select_from(catalog_articles_q)
+        )
+        row = totals.one()
+
+        return {
+            "total_articles": row.total_articles,
+            "total_journals": row.total_journals,
+            "total_countries": row.total_countries,
+            "total_authors": row.total_authors or 0,
+            "open_access_count": row.open_access_count or 0,
+            "total_doc_types": row.total_doc_types,
+        }
+
     async def get_stats(
         self,
         countries: list[str] | None = None,

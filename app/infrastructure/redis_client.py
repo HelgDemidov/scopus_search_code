@@ -115,6 +115,18 @@ def make_catalog_count_cache_key(
     return f"catalog-count:{ns_digest}:{digest}"
 
 
+def make_kpi_totals_cache_key(*, db_namespace: str) -> str:
+    """Ключ кэша для /stats/summary: kpi-totals:{ns_digest}.
+
+    Без хэша параметров, как make_journal_impact_cache_key — у эндпоинта их вообще
+    нет (6 плиток KpiRow всегда показывают статистику по всей коллекции без
+    фильтров, см. быстрый фикс 2026-08-14 в CatalogService.get_kpi_totals).
+    db_namespace — та же изоляция prod/staging, что и в make_stats_cache_key.
+    """
+    ns_digest = hashlib.sha256(db_namespace.encode()).hexdigest()[:8]
+    return f"kpi-totals:{ns_digest}"
+
+
 def make_journal_impact_cache_key(max_year: int, *, db_namespace: str) -> str:
     """Ключ кэша для /stats/journal-impact: journal-impact:{ns_digest}:{max_year}.
 

@@ -84,6 +84,19 @@ export interface StatsResponse {
   country_impact: CountryImpactPoint[];
 }
 
+// GET /articles/stats/summary — быстрый фикс 2026-08-14: подмножество StatsResponse
+// (6 скаляров для плиток KpiRow), без 9 остальных тяжёлых агрегатов, которые
+// плиткам не нужны, но раньше держали их в скелетоне ~9.7с на холодном
+// Redis-кэше (docs/backend-performance/explore-kpi-summary/spec.md).
+export interface KpiTotalsResponse {
+  total_articles: number;
+  total_journals: number;
+  total_countries: number;
+  total_authors: number;
+  open_access_count: number;
+  total_doc_types: number;
+}
+
 // ---------------------------------------------------------------------------
 // Journal Landscape Scatter + Table Builder (docs/explore-analytics/explore-table-builder/spec.md)
 // ---------------------------------------------------------------------------

@@ -20,6 +20,7 @@ const {
   mockClearFilteredStats,
   mockFetchFilteredStats,
   mockFetchStats,
+  mockFetchKpiTotals,
   mockCloseDrawer,
   mockGetPersonalStats,
   mockGetPersonalActivity,
@@ -33,6 +34,7 @@ const {
   const mockClearFilteredStats = vi.fn();
   const mockFetchFilteredStats = vi.fn().mockResolvedValue(undefined);
   const mockFetchStats = vi.fn().mockResolvedValue(undefined);
+  const mockFetchKpiTotals = vi.fn().mockResolvedValue(undefined);
   const mockCloseDrawer = vi.fn();
   // По умолчанию — непустая личная статистика (total > 0), чтобы существующие
   // тесты personal mode не переопределяли это в каждом it()
@@ -77,6 +79,7 @@ const {
     mockClearFilteredStats,
     mockFetchFilteredStats,
     mockFetchStats,
+    mockFetchKpiTotals,
     mockCloseDrawer,
     mockGetPersonalStats,
     mockGetPersonalActivity,
@@ -102,7 +105,14 @@ vi.mock('../stores/dashboardStore', () => ({
 
 vi.mock('../stores/statsStore', () => ({
   useStatsStore: vi.fn((selector?: (s: unknown) => unknown) => {
-    const state = { stats: null, isLoading: false, fetchStats: mockFetchStats };
+    const state = {
+      stats: null,
+      isLoading: false,
+      fetchStats: mockFetchStats,
+      kpiTotals: null,
+      isKpiLoading: false,
+      fetchKpiTotals: mockFetchKpiTotals,
+    };
     return selector ? selector(state) : state;
   }),
 }));
