@@ -22,6 +22,15 @@ updates:
     labels:
       - "dependencies"
       - "javascript"
+    ignore:
+      # typescript-eslint не поддерживает TS>=7 (см. память
+      # project-typescript-eslint-ts7-incompat, инцидент 2026-08-14 — дефолтный
+      # dependabot-бамп typescript до 7.0.2 12 дней держал ESLint-джобу красной
+      # незамеченной, т.к. frontend-чеки не входят в required checks). Снять
+      # запрет, когда typescript-eslint официально анонсирует поддержку TS7
+      # (апстрим-issue typescript-eslint/typescript-eslint#10940).
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   # GitHub Actions (actions/checkout, setup-python и т.д.)
   - package-ecosystem: "github-actions"
