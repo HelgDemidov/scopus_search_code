@@ -21,4 +21,4 @@ structlog>=26.1.0
 sentry-sdk>=2.67.1
 colorama>=0.4.6  # цветной вывод db_seeder/seeder__scripts/seed_db.py
 boto3>=1.43.68  # openalex_pdf_feed/storage.py — S3-совместимый клиент для Cloudflare R2
-pyyaml>=6.0.2  # openalex_pdf_feed/run.py — парсинг terms.yaml
+pyyaml>=6.0.3  # openalex_pdf_feed/run.py — парсинг terms.yaml
