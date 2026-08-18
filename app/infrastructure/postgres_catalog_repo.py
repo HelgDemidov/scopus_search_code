@@ -1,5 +1,6 @@
 import statistics
 from datetime import date
+from types import SimpleNamespace
 from typing import Any, List
 
 import sqlalchemy as sa
@@ -268,87 +269,126 @@ class PostgresCatalogRepository(ICatalogRepository):
         # Базовый подзапрос — переиспользуем во всех агрегатах ниже
         catalog_articles_q = stmt.subquery()
 
-        # Итоговые счётчики
-        totals = await self.session.execute(
-            select(
-                func.count().label("total_articles"),
-                func.count(catalog_articles_q.c.journal.distinct()).label("total_journals"),
-                func.count(catalog_articles_q.c.affiliation_country.distinct()).label("total_countries"),
-                func.count(catalog_articles_q.c.author.distinct()).label("total_authors"),
-                func.sum(
-                    sa.cast(
-                        sa.case((catalog_articles_q.c.open_access.is_(True), 1), else_=0),
-                        sa.Integer,
+        # Фаза A (docs/backend-performance/explore-stats-consolidation/spec.md): на Postgres
+        # totals/by_year/by_journal/by_country/by_doc_type/top_authors — один запрос через
+        # GROUPING SETS вместо 6 отдельных round trip'ов по одному и тому же JOIN. SQLite
+        # (тесты) GROUPING SETS не поддерживает — прежние раздельные запросы остаются как есть,
+        # тот же dialect-branch паттерн, что SET LOCAL work_mem выше.
+        if conn.dialect.name == "postgresql":
+            (
+                total_articles,
+                total_journals,
+                total_countries,
+                total_authors,
+                open_access_count,
+                by_year_rows,
+                by_journal_rows,
+                by_country_rows,
+                by_doc_type_rows,
+                top_authors_rows,
+            ) = await self._get_stats_grouping_sets_pg(catalog_articles_q)
+        else:
+            totals = await self.session.execute(
+                select(
+                    func.count().label("total_articles"),
+                    func.count(catalog_articles_q.c.journal.distinct()).label("total_journals"),
+                    func.count(catalog_articles_q.c.affiliation_country.distinct()).label("total_countries"),
+                    func.count(catalog_articles_q.c.author.distinct()).label("total_authors"),
+                    func.sum(
+                        sa.cast(
+                            sa.case((catalog_articles_q.c.open_access.is_(True), 1), else_=0),
+                            sa.Integer,
+                        )
+                    ).label("open_access_count"),
+                ).select_from(catalog_articles_q)
+            )
+            row = totals.one()
+            total_articles = row.total_articles
+            total_journals = row.total_journals
+            total_countries = row.total_countries
+            total_authors = row.total_authors or 0
+            open_access_count = row.open_access_count or 0
+
+            # Распределение по годам
+            by_year_rows = await self.session.execute(
+                select(
+                    func.extract("year", catalog_articles_q.c.publication_date).label("year"),
+                    func.count().label("count"),
+                )
+                .select_from(catalog_articles_q)
+                .group_by(sa.text("year"))
+                .order_by(sa.text("year DESC"))
+            )
+
+            # Распределение по журналам (топ-20). Материализуем в список сразу (.all()) —
+            # ниже переиспользуем топ-10 label'ов для кросс-агрегата top_journals_by_country,
+            # а результат execute() иначе можно проитерировать только один раз.
+            by_journal_rows = (
+                await self.session.execute(
+                    select(
+                        catalog_articles_q.c.journal,
+                        func.count().label("count"),
                     )
-                ).label("open_access_count"),
-            ).select_from(catalog_articles_q)
-        )
-        row = totals.one()
-
-        # Распределение по годам
-        by_year_rows = await self.session.execute(
-            select(
-                func.extract("year", catalog_articles_q.c.publication_date).label("year"),
-                func.count().label("count"),
-            )
-            .select_from(catalog_articles_q)
-            .group_by(sa.text("year"))
-            .order_by(sa.text("year DESC"))
-        )
-
-        # Распределение по журналам (топ-20). Материализуем в список сразу (.all()) —
-        # ниже переиспользуем топ-10 label'ов для кросс-агрегата top_journals_by_country,
-        # а результат execute() иначе можно проитерировать только один раз.
-        by_journal_rows = (
-            await self.session.execute(
-                select(
-                    catalog_articles_q.c.journal,
-                    func.count().label("count"),
+                    .select_from(catalog_articles_q)
+                    .where(catalog_articles_q.c.journal.isnot(None))
+                    .group_by(catalog_articles_q.c.journal)
+                    .order_by(sa.text("count DESC"))
+                    .limit(20)
                 )
-                .select_from(catalog_articles_q)
-                .where(catalog_articles_q.c.journal.isnot(None))
-                .group_by(catalog_articles_q.c.journal)
-                .order_by(sa.text("count DESC"))
-                .limit(20)
-            )
-        ).all()
+            ).all()
 
-        # Распределение по странам — аналогично материализуем для переиспользования
-        # топ-5/топ-10 label'ов в 3 кросс-агрегатах ниже (garantируем, что топ-N
-        # везде на странице совпадает — см. docs/explore-analytics/explore-cross-analytics/spec.md §2.2)
-        # mean_citations — для Country Impact Scatter (docs/explore-analytics/impact-analytics/spec.md §2.1).
-        # Без HAVING count>=N и без медианы (в отличие от get_journal_impact) — top-20 стран
-        # по объёму на ~140k-статейной коллекции гарантированно имеют N в тысячах, риска
-        # "выброс с N=1 наверху" здесь нет.
-        by_country_rows = (
-            await self.session.execute(
-                select(
-                    catalog_articles_q.c.affiliation_country,
-                    func.count().label("count"),
-                    func.avg(catalog_articles_q.c.cited_by_count).label("mean_citations"),
+            # Распределение по странам — аналогично материализуем для переиспользования
+            # топ-5/топ-10 label'ов в 3 кросс-агрегатах ниже (garantируем, что топ-N
+            # везде на странице совпадает — см. docs/explore-analytics/explore-cross-analytics/spec.md §2.2)
+            # mean_citations — для Country Impact Scatter (docs/explore-analytics/impact-analytics/spec.md §2.1).
+            # Без HAVING count>=N и без медианы (в отличие от get_journal_impact) — top-20 стран
+            # по объёму на ~140k-статейной коллекции гарантированно имеют N в тысячах, риска
+            # "выброс с N=1 наверху" здесь нет.
+            by_country_rows = (
+                await self.session.execute(
+                    select(
+                        catalog_articles_q.c.affiliation_country,
+                        func.count().label("count"),
+                        func.avg(catalog_articles_q.c.cited_by_count).label("mean_citations"),
+                    )
+                    .select_from(catalog_articles_q)
+                    .where(catalog_articles_q.c.affiliation_country.isnot(None))
+                    .group_by(catalog_articles_q.c.affiliation_country)
+                    .order_by(sa.text("count DESC"))
+                    .limit(20)
                 )
-                .select_from(catalog_articles_q)
-                .where(catalog_articles_q.c.affiliation_country.isnot(None))
-                .group_by(catalog_articles_q.c.affiliation_country)
-                .order_by(sa.text("count DESC"))
-                .limit(20)
-            )
-        ).all()
+            ).all()
 
-        # Распределение по типам документов — материализуем для топ-5 фиксированного
-        # набора типов документа, используемого в sunburst (см. ниже)
-        by_doc_type_rows = (
-            await self.session.execute(
-                select(
-                    catalog_articles_q.c.document_type,
-                    func.count().label("count"),
+            # Распределение по типам документов — материализуем для топ-5 фиксированного
+            # набора типов документа, используемого в sunburst (см. ниже)
+            by_doc_type_rows = (
+                await self.session.execute(
+                    select(
+                        catalog_articles_q.c.document_type,
+                        func.count().label("count"),
+                    )
+                    .select_from(catalog_articles_q)
+                    .where(catalog_articles_q.c.document_type.isnot(None))
+                    .group_by(catalog_articles_q.c.document_type)
+                    .order_by(sa.text("count DESC"))
                 )
-                .select_from(catalog_articles_q)
-                .where(catalog_articles_q.c.document_type.isnot(None))
-                .group_by(catalog_articles_q.c.document_type)
-                .order_by(sa.text("count DESC"))
-            )
-        ).all()
+            ).all()
+
+            # Топ-20 авторов по числу статей в каталоге (Postgres-путь считает это
+            # внутри _get_stats_grouping_sets_pg — см. ниже)
+            top_authors_rows = (
+                await self.session.execute(
+                    select(
+                        catalog_articles_q.c.author,
+                        func.count().label("count"),
+                    )
+                    .select_from(catalog_articles_q)
+                    .where(catalog_articles_q.c.author.isnot(None))
+                    .group_by(catalog_articles_q.c.author)
+                    .order_by(sa.text("count DESC"))
+                    .limit(20)
+                )
+            ).all()
 
         # ------------------------------------------------------------------ #
         #  Кросс-агрегаты для стационарных графиков /explore                  #
@@ -420,25 +460,12 @@ class PostgresCatalogRepository(ICatalogRepository):
             .limit(20)
         )
 
-        # Топ-20 авторов по числу статей в каталоге
-        top_authors_rows = await self.session.execute(
-            select(
-                catalog_articles_q.c.author,
-                func.count().label("count"),
-            )
-            .select_from(catalog_articles_q)
-            .where(catalog_articles_q.c.author.isnot(None))
-            .group_by(catalog_articles_q.c.author)
-            .order_by(sa.text("count DESC"))
-            .limit(20)
-        )
-
         return {
-            "total_articles": row.total_articles,
-            "total_journals": row.total_journals,
-            "total_countries": row.total_countries,
-            "total_authors": row.total_authors or 0,
-            "open_access_count": row.open_access_count or 0,
+            "total_articles": total_articles,
+            "total_journals": total_journals,
+            "total_countries": total_countries,
+            "total_authors": total_authors,
+            "open_access_count": open_access_count,
             "by_year": [{"year": int(r.year), "count": r.count} for r in by_year_rows],
             "by_journal": [{"journal": r.journal, "count": r.count} for r in by_journal_rows],
             "by_country": [{"country": r.affiliation_country, "count": r.count} for r in by_country_rows],
@@ -466,6 +493,172 @@ class PostgresCatalogRepository(ICatalogRepository):
                 for r in by_country_rows
             ],
         }
+
+    async def _get_stats_grouping_sets_pg(self, catalog_articles_q: Any) -> tuple:
+        """Postgres-путь get_stats(): totals+by_year+by_journal+by_country+by_doc_type+
+        top_authors одним запросом через GROUP BY GROUPING SETS вместо 6 отдельных
+        round trip'ов по одному и тому же JOIN (docs/backend-performance/
+        explore-stats-consolidation/spec.md — Фаза A).
+
+        SQLAlchemy 2.0.51 не даёт готовых GroupingSets/Rollup/Cube-конструкций —
+        GROUP BY и дискриминаторы GROUPING(...) идут через sa.text(), тот же паттерн,
+        что уже в файле (SET LOCAL work_mem, order_by(sa.text("year DESC"))). Postgres
+        разрешает GROUP BY/GROUPING() ссылаться на алиас из SELECT-списка (расширение
+        стандарта SQL) — этим же пользуется уже существующий by_year (group_by(text("year"))).
+
+        Возвращает 10 значений одним тюплом: 5 totals-полей + 5 списков строк — те же
+        имена атрибутов (.year/.journal/.affiliation_country/.document_type/.author/
+        .count/.mean_citations), что и у прежних 6 раздельных запросов, чтобы код ниже
+        по get_stats() (кросс-агрегаты, сборка return-словаря) не менялся вообще.
+        """
+        # GROUPING(<col>) в Postgres резолвит алиас из SELECT-списка так же лояльно, как
+        # GROUP BY (та же leniency-функция) — НО только когда алиас ссылается на РЕАЛЬНУЮ
+        # колонку источника, не на выражение, вычисленное в этом же SELECT. Отдельный
+        # подзапрос материализует year как обычную колонку до агрегации — без него
+        # "GROUPING(year)" падает с UndefinedColumnError, хотя GROUP BY GROUPING SETS
+        # (year) в том же SELECT принимается без вопросов (несимметричная leniency).
+        base = (
+            select(
+                func.extract("year", catalog_articles_q.c.publication_date).label("year"),
+                catalog_articles_q.c.journal.label("journal"),
+                catalog_articles_q.c.affiliation_country.label("affiliation_country"),
+                catalog_articles_q.c.document_type.label("document_type"),
+                catalog_articles_q.c.author.label("author"),
+                catalog_articles_q.c.open_access.label("open_access"),
+                catalog_articles_q.c.cited_by_count.label("cited_by_count"),
+            )
+            .select_from(catalog_articles_q)
+            .subquery("base")
+        )
+
+        grouped = (
+            select(
+                base.c.year,
+                base.c.journal,
+                base.c.affiliation_country,
+                base.c.document_type,
+                base.c.author,
+                sa.literal_column("GROUPING(year)").label("g_year"),
+                sa.literal_column("GROUPING(journal)").label("g_journal"),
+                sa.literal_column("GROUPING(affiliation_country)").label("g_country"),
+                sa.literal_column("GROUPING(document_type)").label("g_doctype"),
+                sa.literal_column("GROUPING(author)").label("g_author"),
+                func.count().label("cnt"),
+                func.count(base.c.journal.distinct()).label("distinct_journals"),
+                func.count(base.c.affiliation_country.distinct()).label("distinct_countries"),
+                func.count(base.c.author.distinct()).label("distinct_authors"),
+                func.sum(
+                    sa.cast(
+                        sa.case((base.c.open_access.is_(True), 1), else_=0),
+                        sa.Integer,
+                    )
+                ).label("open_access_count"),
+                func.avg(base.c.cited_by_count).label("mean_citations"),
+            )
+            .select_from(base)
+            .group_by(
+                text("GROUPING SETS ((), (year), (journal), (affiliation_country), (document_type), (author))")
+            )
+            .subquery("grouped")
+        )
+
+        # NULL в journal/affiliation_country/document_type/author исключаем ТОЛЬКО из
+        # "своей" группировки (WHERE до GROUPING SETS исключил бы такие строки из totals/
+        # by_year тоже — .isnot(None) в прежних раздельных запросах фильтровал только
+        # свой собственный запрос, не соседние).
+        ranked = (
+            select(
+                grouped,
+                func.row_number()
+                .over(
+                    partition_by=(
+                        grouped.c.g_year,
+                        grouped.c.g_journal,
+                        grouped.c.g_country,
+                        grouped.c.g_doctype,
+                        grouped.c.g_author,
+                    ),
+                    order_by=grouped.c.cnt.desc(),
+                )
+                .label("rn"),
+            )
+            .select_from(grouped)
+            .where(
+                sa.not_(sa.and_(grouped.c.g_journal == 0, grouped.c.journal.is_(None))),
+                sa.not_(sa.and_(grouped.c.g_country == 0, grouped.c.affiliation_country.is_(None))),
+                sa.not_(sa.and_(grouped.c.g_doctype == 0, grouped.c.document_type.is_(None))),
+                sa.not_(sa.and_(grouped.c.g_author == 0, grouped.c.author.is_(None))),
+            )
+            .subquery("ranked")
+        )
+
+        # Топ-20 — только для journal/country/author (большая кардинальность). by_year и
+        # by_doc_type остаются без потолка, как в прежних раздельных запросах (там не было
+        # .limit()) — иначе >20 разных лет/типов документа стали бы регрессией.
+        final_stmt = select(ranked).where(
+            sa.or_(
+                sa.and_(ranked.c.g_journal == 0, ranked.c.rn <= 20),
+                sa.and_(ranked.c.g_country == 0, ranked.c.rn <= 20),
+                sa.and_(ranked.c.g_author == 0, ranked.c.rn <= 20),
+                ranked.c.g_year == 0,
+                ranked.c.g_doctype == 0,
+                sa.and_(
+                    ranked.c.g_year == 1,
+                    ranked.c.g_journal == 1,
+                    ranked.c.g_country == 1,
+                    ranked.c.g_doctype == 1,
+                    ranked.c.g_author == 1,
+                ),
+            )
+        )
+
+        rows = (await self.session.execute(final_stmt)).all()
+
+        totals_row = next(
+            r
+            for r in rows
+            if r.g_year == 1 and r.g_journal == 1 and r.g_country == 1 and r.g_doctype == 1 and r.g_author == 1
+        )
+
+        by_year_rows = sorted(
+            (SimpleNamespace(year=r.year, count=r.cnt) for r in rows if r.g_year == 0),
+            key=lambda r: -r.year,
+        )
+        by_journal_rows = sorted(
+            (SimpleNamespace(journal=r.journal, count=r.cnt) for r in rows if r.g_journal == 0),
+            key=lambda r: -r.count,
+        )
+        by_country_rows = sorted(
+            (
+                SimpleNamespace(
+                    affiliation_country=r.affiliation_country, count=r.cnt, mean_citations=r.mean_citations
+                )
+                for r in rows
+                if r.g_country == 0
+            ),
+            key=lambda r: -r.count,
+        )
+        by_doc_type_rows = sorted(
+            (SimpleNamespace(document_type=r.document_type, count=r.cnt) for r in rows if r.g_doctype == 0),
+            key=lambda r: -r.count,
+        )
+        top_authors_rows = sorted(
+            (SimpleNamespace(author=r.author, count=r.cnt) for r in rows if r.g_author == 0),
+            key=lambda r: -r.count,
+        )
+
+        return (
+            totals_row.cnt,
+            totals_row.distinct_journals,
+            totals_row.distinct_countries,
+            totals_row.distinct_authors or 0,
+            totals_row.open_access_count or 0,
+            by_year_rows,
+            by_journal_rows,
+            by_country_rows,
+            by_doc_type_rows,
+            top_authors_rows,
+        )
 
     # ------------------------------------------------------------------ #
     #  get_journal_impact — Journal Landscape Scatter                     #
