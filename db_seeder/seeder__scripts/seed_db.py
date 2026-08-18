@@ -1,6 +1,7 @@
 # db_seeder/seeder__scripts/seed_db.py
 import asyncio
 import os
+from typing import Awaitable, TypeVar
 
 import asyncpg
 import httpx
@@ -88,6 +89,25 @@ async def _save_keyword_result(
         """,
         keyword, cluster, articles_found, next_offset,
     )
+
+
+T = TypeVar("T")
+
+
+async def _safe_step(label: str, coro: Awaitable[T]) -> T | None:
+    """Единая защита внешних вызовов сидера — сбой одного шага (сеть, 5xx,
+    что угодно) не должен ронять весь прогон и не должен пропускать соседние
+    шаги. Раньше так был защищён только цикл Block A/Б (try/except на каждый
+    keyword); GC/vacuum/health-check шли без этой защиты — необработанное
+    исключение на любом из них валило весь скрипт, попутно пропуская
+    оставшиеся шаги (см. docs/seeder/seeder-vacuum-resilience/spec.md)."""
+    try:
+        return await coro
+    except httpx.RequestError as e:
+        print(f"{Fore.RED}{label}: сетевая ошибка: {e}")
+    except Exception as e:
+        print(f"{Fore.RED}{label}: непредвиденная ошибка: {e}")
+    return None
 
 
 async def _call_seed_endpoint(
@@ -231,23 +251,16 @@ async def seed_database() -> None:
                     f"[A {i}/{len(new_keywords)}] {Fore.YELLOW}'{keyword}'{Style.RESET_ALL}...",
                     end=" ",
                 )
-                try:
-                    saved, rate_remaining = await _call_seed_endpoint(
-                        client, headers, keyword, start=0
-                    )
+                result = await _safe_step("Seed", _call_seed_endpoint(client, headers, keyword, start=0))
+                if result is not None:
+                    saved, rate_remaining = result
                     print(f"{Fore.GREEN}сохранено: {saved} шт.")
                     await _save_keyword_result(conn, keyword, cluster, saved, next_offset=25)
 
                     if rate_remaining is not None and int(rate_remaining) < RATE_LIMIT_STOP_THRESHOLD:
-                        print(
-                            f"\n{Fore.RED}Алерт! Остаток Scopus: {rate_remaining}. Останавливаемся."
-                        )
+                        print(f"\n{Fore.RED}Алерт! Остаток Scopus: {rate_remaining}. Останавливаемся.")
                         rate_limit_hit = True
                         break
-                except httpx.RequestError as e:
-                    print(f"{Fore.RED}Сетевая ошибка: {e}")
-                except Exception as e:
-                    print(f"{Fore.RED}Непредвиденная ошибка: {e}")
                 await asyncio.sleep(DELAY_BETWEEN_REQUESTS)
 
             # ── Блок B: ре-пагинация ────────────────────────────────────────
@@ -266,48 +279,40 @@ async def seed_database() -> None:
                     f" (start={start})...",
                     end=" ",
                 )
-                try:
-                    saved, rate_remaining = await _call_seed_endpoint(
-                        client, headers, keyword, start=start
-                    )
+                result = await _safe_step("Seed", _call_seed_endpoint(client, headers, keyword, start=start))
+                if result is not None:
+                    saved, rate_remaining = result
                     print(f"{Fore.GREEN}сохранено: {saved} шт. → next_offset={next_offset}")
-                    await _save_keyword_result(
-                        conn, keyword, kw_cluster, saved, next_offset=next_offset
-                    )
+                    await _save_keyword_result(conn, keyword, kw_cluster, saved, next_offset=next_offset)
 
                     if rate_remaining is not None and int(rate_remaining) < RATE_LIMIT_STOP_THRESHOLD:
-                        print(
-                            f"\n{Fore.RED}Алерт! Остаток Scopus: {rate_remaining}. Останавливаемся."
-                        )
+                        print(f"\n{Fore.RED}Алерт! Остаток Scopus: {rate_remaining}. Останавливаемся.")
                         rate_limit_hit = True
                         break
-                except httpx.RequestError as e:
-                    print(f"{Fore.RED}Сетевая ошибка: {e}")
-                except Exception as e:
-                    print(f"{Fore.RED}Непредвиденная ошибка: {e}")
                 await asyncio.sleep(DELAY_BETWEEN_REQUESTS)
 
             # ── GC: статьи-сироты ────────────────────────────────────────
             print(f"\n{Fore.CYAN}── Garbage collection: чистим статьи-сироты ──")
-            deleted = await _call_gc_endpoint(client, headers)
+            deleted = await _safe_step("GC", _call_gc_endpoint(client, headers))
             if deleted is not None:
                 print(f"{Fore.GREEN}Удалено статей-сирот: {deleted}")
 
             # ── Vacuum: раз в 10 прогонов VACUUM ANALYZE articles ──────────
             print(f"\n{Fore.CYAN}── Vacuum: проверяем счётчик прогонов ──")
-            vacuum_result = await _call_vacuum_endpoint(client, headers)
+            vacuum_result = await _safe_step("Vacuum", _call_vacuum_endpoint(client, headers))
             if vacuum_result is not None:
-                if vacuum_result.get("vacuumed"):
-                    print(f"{Fore.GREEN}VACUUM ANALYZE articles выполнен (прогон #{vacuum_result['run_count']})")
+                if vacuum_result.get("vacuum_scheduled"):
+                    print(
+                        f"{Fore.GREEN}VACUUM ANALYZE articles запланирован (прогон #{vacuum_result['run_count']})"
+                    )
                 else:
                     print(
-                        f"Прогон #{vacuum_result['run_count']} — не время "
-                        f"(раз в {vacuum_result['every_n_runs']})"
+                        f"Прогон #{vacuum_result['run_count']} — не время (раз в {vacuum_result['every_n_runs']})"
                     )
 
             # ── Health-check: алерт при недоступности БД/Redis ─────────────
             print(f"\n{Fore.CYAN}── Health-check: проверяем зависимости ──")
-            health_status = await _call_health_check_endpoint(client, headers)
+            health_status = await _safe_step("Health-check", _call_health_check_endpoint(client, headers))
             if health_status == "degraded":
                 print(f"{Fore.RED}Обнаружены проблемы — письмо отправлено")
             elif health_status == "ok":
