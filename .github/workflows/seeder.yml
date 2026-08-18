@@ -1,12 +1,16 @@
 name: Scheduled DB Seeder
 
 on:
-  # Разморожено 2026-08-03 — прогон раз в 2 часа снова активен. Был заморожен 2026-08-02
-  # на время перехода GiST→GIN (docs/backend-performance/catalog-search-latency/spec.md);
-  # риск write-cost на bulk-апдейтах закрыт POST /seeder/vacuum (VACUUM ANALYZE раз в 10
-  # прогонов, см. миграцию 0019_seeder_run_state) — держать замороженным дальше не нужно.
-  schedule:
-    - cron: "0 */2 * * *"
+  # ЗАМОРОЖЕНО 2026-08-18: автозапуск по расписанию отключён (сохранено ниже для
+  # быстрого восстановления — раскомментировать schedule, чтобы вернуть прогон раз
+  # в 2 часа). Причина: лимит Actions-минут аккаунта (2000/мес) исчерпан на 96%
+  # (см. также keep_alive.yml и openalex-pdf-feed.yml в этом же коммите). Пока
+  # сидер выключен — не крутится не только сам сбор статей (Block A/B), но и
+  # orphan GC, и health-check алертинг на Brevo, которые piggyback'ались на этот
+  # же cron (см. CLAUDE.md "Orphan article GC" / "Observability without external
+  # services").
+  # schedule:
+  #   - cron: "0 */2 * * *"
   # Ручной запуск: выбор среды через input
   workflow_dispatch:
     inputs:
