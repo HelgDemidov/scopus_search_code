@@ -169,7 +169,6 @@ const MOCK_STATS: StatsResponse = {
     { label: 'Review', count: 2 },
   ],
   by_journal: [],
-  top_keywords: [],
   top_authors: [],
   by_year_top_countries: [],
   sunburst_country_open_access: [],

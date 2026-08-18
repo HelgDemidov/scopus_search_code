@@ -88,7 +88,6 @@ const MOCK_STATS: StatsResponse = {
     { label: 'Review', count: 250 },
     { label: 'Conference Paper', count: 150 },
   ],
-  top_keywords: [],
   top_authors: rankedRows('Author'),
   by_year_top_countries: [],
   sunburst_country_open_access: [],

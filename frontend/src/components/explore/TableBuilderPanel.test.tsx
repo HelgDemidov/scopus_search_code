@@ -21,7 +21,6 @@ const MOCK_STATS: StatsResponse = {
   by_journal: [{ label: 'Nature', count: 30 }],
   by_country: [{ label: 'China', count: 60 }],
   by_doc_type: [{ label: 'Article', count: 90 }],
-  top_keywords: [],
   top_authors: [],
   by_year_top_countries: [],
   sunburst_country_open_access: [],

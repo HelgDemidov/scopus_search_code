@@ -161,7 +161,6 @@ class StatsResponse(BaseModel):
     by_journal: List[CountByField]  # Топ-20 журналов по числу статей
     by_country: List[CountByField]  # Топ-20 стран по числу статей
     by_doc_type: List[CountByField]  # Распределение по типу документа
-    top_keywords: List[CountByField]  # Топ ключевых слов сидера (legacy)
     top_authors: List[CountByField]  # Топ-20 авторов по числу статей
     # Кросс-агрегаты для стационарных графиков /explore (explore-cross-analytics)
     by_year_top_countries: List[YearCountryCount]  # Топ-10 стран × год

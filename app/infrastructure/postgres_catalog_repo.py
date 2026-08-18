@@ -463,17 +463,6 @@ class PostgresCatalogRepository(ICatalogRepository):
             .group_by(catalog_articles_q.c.journal, country_bucket)
         )
 
-        # Топ ключевых слов из catalog_articles.keyword (legacy — не отображается в UI)
-        top_keywords_rows = await self.session.execute(
-            select(
-                CatalogArticle.keyword,
-                func.count().label("count"),
-            )
-            .group_by(CatalogArticle.keyword)
-            .order_by(sa.text("count DESC"))
-            .limit(20)
-        )
-
         return {
             "total_articles": total_articles,
             "total_journals": total_journals,
@@ -484,7 +473,6 @@ class PostgresCatalogRepository(ICatalogRepository):
             "by_journal": [{"journal": r.journal, "count": r.count} for r in by_journal_rows],
             "by_country": [{"country": r.affiliation_country, "count": r.count} for r in by_country_rows],
             "by_doc_type": [{"doc_type": r.document_type, "count": r.count} for r in by_doc_type_rows],
-            "top_keywords": [{"keyword": r.keyword, "count": r.count} for r in top_keywords_rows],
             "top_authors": [{"author": r.author, "count": r.count} for r in top_authors_rows],
             "by_year_top_countries": [
                 {"year": int(r.year), "country": r.affiliation_country, "count": r.count}

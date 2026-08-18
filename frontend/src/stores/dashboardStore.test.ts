@@ -163,7 +163,7 @@ describe('builderCards', () => {
 describe('fetchFilteredStats', () => {
   it('устанавливает filteredStats после успешного запроса', async () => {
     const { getFilteredStats } = await import('../api/stats');
-    const mockStats = { total_articles: 42, by_country: [], by_year: [], by_doc_type: [], by_journal: [], top_keywords: [], top_authors: [], total_journals: 1, total_countries: 1, total_authors: 5, open_access_count: 10 };
+    const mockStats = { total_articles: 42, by_country: [], by_year: [], by_doc_type: [], by_journal: [], top_authors: [], total_journals: 1, total_countries: 1, total_authors: 5, open_access_count: 10 };
     vi.mocked(getFilteredStats).mockResolvedValueOnce(mockStats as never);
 
     await useDashboardStore.getState().fetchFilteredStats({ dimension: 'country', value: 'China' });
