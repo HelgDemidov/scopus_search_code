@@ -195,3 +195,54 @@ async def test_stats_by_year_not_capped_at_20(pg_client: AsyncClient, pg_session
     data = resp.json()
 
     assert len(data["by_year"]) == 25, f"Ожидали все 25 лет, получили {len(data['by_year'])}"
+
+
+@pytest.mark.asyncio
+@pytest.mark.requires_pg
+async def test_by_year_top_countries_and_sunburst_use_different_top_n(
+    pg_client: AsyncClient, pg_session: AsyncSession
+):
+    """Фаза B объединяет графики 1 (топ-10 стран) и 2 (sunburst, топ-5 стран) в один
+    запрос с общим базовым фильтром "country IN топ-10". Страна на 6-м месте (в топ-10,
+    но не в топ-5) должна попасть в by_year_top_countries и НЕ попасть в sunburst —
+    риск конкретно этого объединения: перепутать топ-10/топ-5 или случайно применить
+    общий фильтр к обоим графикам одинаково."""
+    articles = []
+    # 6 стран, счёт по убыванию: country_0 (6 статей) ... country_5 (1 статья, 6-е место)
+    for i in range(6):
+        articles.extend({"doi": f"10.rank/{i}-{n}", "affiliation_country": f"country_{i}"} for n in range(6 - i))
+    await _seed(pg_session, articles)
+
+    resp = await pg_client.get("/articles/stats")
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+
+    year_countries = {item["country"] for item in data["by_year_top_countries"]}
+    assert "country_5" in year_countries, "6-е место всё ещё в топ-10 — должно быть в графике 1"
+
+    sunburst_countries = {item["country"] for item in data["sunburst_country_open_access"]}
+    assert "country_5" not in sunburst_countries, "6-е место вне топ-5 — не должно быть в sunburst"
+    assert sunburst_countries == {f"country_{i}" for i in range(5)}
+
+
+@pytest.mark.asyncio
+@pytest.mark.requires_pg
+async def test_sunburst_excludes_null_open_access(pg_client: AsyncClient, pg_session: AsyncSession):
+    """open_access=None не должен появляться как отдельный сегмент sunburst — общий
+    базовый запрос Фазы B (без .isnot(None) в WHERE, в отличие от прежнего раздельного
+    запроса) фильтрует NULL post-hoc в Python, не в SQL."""
+    await _seed(
+        pg_session,
+        [
+            {"doi": "10.oa/1", "affiliation_country": "Solo Country", "open_access": True},
+            {"doi": "10.oa/2", "affiliation_country": "Solo Country", "open_access": None},
+        ],
+    )
+
+    resp = await pg_client.get("/articles/stats")
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+
+    segments = [item for item in data["sunburst_country_open_access"] if item["country"] == "Solo Country"]
+    assert len(segments) == 1, f"Ожидали 1 сегмент (open_access=True), получили {segments}"
+    assert segments[0]["open_access"] is True

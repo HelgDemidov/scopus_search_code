@@ -398,35 +398,49 @@ class PostgresCatalogRepository(ICatalogRepository):
         top5_countries = [r.affiliation_country for r in by_country_rows[:5]]
         top10_journals = [r.journal for r in by_journal_rows[:10]]
 
-        # График 1 — Top Countries by Year: топ-10 стран × год
-        by_year_top_countries_rows = await self.session.execute(
-            select(
-                func.extract("year", catalog_articles_q.c.publication_date).label("year"),
-                catalog_articles_q.c.affiliation_country,
-                func.count().label("count"),
+        # Фаза B (docs/backend-performance/explore-stats-consolidation/spec.md): графики 1
+        # (Top Countries by Year) и 2 (Sunburst) объединены в один запрос на Postgres — у
+        # обоих общий базовый фильтр (топ-5 стран ⊆ топ-10 стран, WHERE не расширяется).
+        # Измерено на прод-копии: раздельно ~1.7с, вместе ~0.9с — реальный выигрыш.
+        # График 3 (top_journals_by_country) НЕ объединён — у него фильтр по journal
+        # (другое измерение), объединение потребовало бы WHERE country IN (...) OR journal
+        # IN (...), а это расширяет скан с ~37% до ~77% строк и на EXPLAIN ANALYZE дало
+        # ~4.4с вместо ~2.2с суммарно — измеримая регрессия, не мнимая (спека прямо
+        # предвидела такой исход: "отдельный запрос, если объединение не даёт выигрыша").
+        if conn.dialect.name == "postgresql":
+            by_year_top_countries_rows, sunburst_rows = await self._get_year_country_sunburst_grouping_sets_pg(
+                catalog_articles_q, top10_countries, top5_countries
             )
-            .select_from(catalog_articles_q)
-            .where(catalog_articles_q.c.affiliation_country.in_(top10_countries))
-            .group_by(sa.text("year"), catalog_articles_q.c.affiliation_country)
-            .order_by(sa.text("year DESC"))
-        )
+        else:
+            # График 1 — Top Countries by Year: топ-10 стран × год
+            by_year_top_countries_rows = await self.session.execute(
+                select(
+                    func.extract("year", catalog_articles_q.c.publication_date).label("year"),
+                    catalog_articles_q.c.affiliation_country,
+                    func.count().label("count"),
+                )
+                .select_from(catalog_articles_q)
+                .where(catalog_articles_q.c.affiliation_country.in_(top10_countries))
+                .group_by(sa.text("year"), catalog_articles_q.c.affiliation_country)
+                .order_by(sa.text("year DESC"))
+            )
 
-        # График 2 — Sunburst Country(топ-5) → OpenAccess. Изначально был 3-уровневым
-        # (+ DocType посередине), упрощён до 2 уровней по итогам визуального ревью —
-        # третий слой был нечитаем, см. docs/explore-analytics/explore-cross-analytics/spec.md §5.
-        sunburst_rows = await self.session.execute(
-            select(
-                catalog_articles_q.c.affiliation_country,
-                catalog_articles_q.c.open_access,
-                func.count().label("count"),
+            # График 2 — Sunburst Country(топ-5) → OpenAccess. Изначально был 3-уровневым
+            # (+ DocType посередине), упрощён до 2 уровней по итогам визуального ревью —
+            # третий слой был нечитаем, см. docs/explore-analytics/explore-cross-analytics/spec.md §5.
+            sunburst_rows = await self.session.execute(
+                select(
+                    catalog_articles_q.c.affiliation_country,
+                    catalog_articles_q.c.open_access,
+                    func.count().label("count"),
+                )
+                .select_from(catalog_articles_q)
+                .where(
+                    catalog_articles_q.c.affiliation_country.in_(top5_countries),
+                    catalog_articles_q.c.open_access.isnot(None),
+                )
+                .group_by(catalog_articles_q.c.affiliation_country, catalog_articles_q.c.open_access)
             )
-            .select_from(catalog_articles_q)
-            .where(
-                catalog_articles_q.c.affiliation_country.in_(top5_countries),
-                catalog_articles_q.c.open_access.isnot(None),
-            )
-            .group_by(catalog_articles_q.c.affiliation_country, catalog_articles_q.c.open_access)
-        )
 
         # График 3 — Top Journals × Country: топ-10 журналов, страны бакетированы
         # в тот же топ-5 + Other, что sunburst — единая легенда стран по дашборду.
@@ -659,6 +673,64 @@ class PostgresCatalogRepository(ICatalogRepository):
             by_doc_type_rows,
             top_authors_rows,
         )
+
+    async def _get_year_country_sunburst_grouping_sets_pg(
+        self,
+        catalog_articles_q: Any,
+        top10_countries: list,
+        top5_countries: list,
+    ) -> tuple:
+        """Postgres-путь для графиков 1 (Top Countries by Year) и 2 (Sunburst) — один
+        запрос вместо двух (docs/backend-performance/explore-stats-consolidation/spec.md —
+        Фаза B). Общий базовый WHERE (country IN топ-10) безопасен для обоих графиков,
+        т.к. топ-5 ⊆ топ-10 — расширения скана не происходит, в отличие от объединения
+        с графиком 3 (journal-фильтр, другое измерение — см. комментарий в get_stats()).
+        """
+        base = (
+            select(
+                func.extract("year", catalog_articles_q.c.publication_date).label("year"),
+                catalog_articles_q.c.affiliation_country.label("affiliation_country"),
+                catalog_articles_q.c.open_access.label("open_access"),
+            )
+            .select_from(catalog_articles_q)
+            .where(catalog_articles_q.c.affiliation_country.in_(top10_countries))
+            .subquery("year_country_base")
+        )
+
+        grouped = (
+            select(
+                base.c.year,
+                base.c.affiliation_country,
+                base.c.open_access,
+                sa.literal_column("GROUPING(year)").label("g_year"),
+                sa.literal_column("GROUPING(open_access)").label("g_oa"),
+                func.count().label("cnt"),
+            )
+            .select_from(base)
+            .group_by(text("GROUPING SETS ((year, affiliation_country), (affiliation_country, open_access))"))
+        )
+
+        rows = (await self.session.execute(grouped)).all()
+
+        by_year_top_countries_rows = sorted(
+            (
+                SimpleNamespace(year=r.year, affiliation_country=r.affiliation_country, count=r.cnt)
+                for r in rows
+                if r.g_year == 0
+            ),
+            key=lambda r: -r.year,
+        )
+        # top5_countries ⊆ top10_countries — base уже отфильтровал по топ-10, здесь
+        # дополнительно сужаем до топ-5 и убираем open_access IS NULL (как раньше
+        # делал отдельный .isnot(None) в WHERE самого sunburst-запроса).
+        top5_set = set(top5_countries)
+        sunburst_rows = [
+            SimpleNamespace(affiliation_country=r.affiliation_country, open_access=r.open_access, count=r.cnt)
+            for r in rows
+            if r.g_oa == 0 and r.affiliation_country in top5_set and r.open_access is not None
+        ]
+
+        return by_year_top_countries_rows, sunburst_rows
 
     # ------------------------------------------------------------------ #
     #  get_journal_impact — Journal Landscape Scatter                     #
