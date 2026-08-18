@@ -299,13 +299,13 @@ async def test_vacuum_not_due_before_tenth_run(client: AsyncClient, monkeypatch)
 
     for _ in range(9):
         resp = await client.post("/seeder/vacuum", headers=headers)
-        assert resp.json()["vacuumed"] is False
+        assert resp.json()["vacuum_scheduled"] is False
 
 
 @pytest.mark.asyncio
 async def test_vacuum_skipped_on_sqlite_even_when_due(client: AsyncClient, monkeypatch):
     """На 10-м прогоне порог достигнут, но SQLite (тесты) не умеет VACUUM ANALYZE
-    <table> — dialect-check должен вернуть vacuumed=False, не бросить исключение."""
+    <table> — dialect-check должен вернуть vacuum_scheduled=False, не бросить исключение."""
     monkeypatch.setattr(seeder_module, "_SEEDER_SECRET", _TEST_SECRET)
     headers = {"X-Seeder-Secret": _TEST_SECRET}
 
@@ -316,7 +316,7 @@ async def test_vacuum_skipped_on_sqlite_even_when_due(client: AsyncClient, monke
     assert tenth.status_code == 200
     data = tenth.json()
     assert data["run_count"] == 10
-    assert data["vacuumed"] is False
+    assert data["vacuum_scheduled"] is False
     assert data["every_n_runs"] == 10
 
 

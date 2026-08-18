@@ -3,10 +3,10 @@ import logging
 import os
 
 import httpx
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, status
 from sqlalchemy import func, text, update
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.config import settings
 from app.core.dependencies import get_db_session, get_email_service
@@ -93,19 +93,61 @@ async def garbage_collect_articles(
     return {"deleted": deleted}
 
 
+async def _run_vacuum_analyze(engine: AsyncEngine) -> None:
+    """VACUUM не может идти внутри транзакции (Postgres это прямо запрещает) —
+    отдельное AUTOCOMMIT-соединение. Вынесено отдельной функцией ради
+    тестируемости — _vacuum_articles_task ниже подменяется в тестах точечно,
+    без мока всего AsyncEngine."""
+    async with engine.execution_options(isolation_level="AUTOCOMMIT").connect() as vacuum_conn:
+        await vacuum_conn.execute(text("VACUUM ANALYZE articles"))
+
+
+async def _vacuum_articles_task(engine: AsyncEngine, run_count: int) -> None:
+    """Фоновая задача (BackgroundTasks) — выполняется ПОСЛЕ отправки HTTP-ответа,
+    поэтому клиент (seed_db.py) никогда не ждёт дольше времени апдейта счётчика,
+    сколько бы реально ни шёл VACUUM ANALYZE (замерено — многие минуты на
+    прод-таблице, см. docs/seeder/seeder-vacuum-resilience/spec.md §0).
+
+    Собственный, независимый от request-сессии engine — та уже закрыта к
+    моменту, когда фоновая задача реально стартует (dependency get_db_session
+    завершает `async with async_session_maker()` сразу после отправки ответа).
+
+    Сбою здесь некуда всплыть — HTTP-ответ уже ушёл. Логируем + алертим тем же
+    каналом, что и /seeder/health-check, вместо тихого проглатывания.
+    """
+    try:
+        await _run_vacuum_analyze(engine)
+    except SQLAlchemyError:
+        logger.error("VACUUM ANALYZE articles failed (run_count=%s)", run_count, exc_info=True)
+        if settings.FROM_EMAIL:
+            try:
+                await get_email_service().send_alert_email(
+                    to_email=settings.FROM_EMAIL,
+                    subject="Scopus Search — vacuum failed",
+                    message=f"VACUUM ANALYZE articles упал на прогоне #{run_count}",
+                )
+            except httpx.HTTPError:
+                logger.error("Vacuum-failure alert email failed", exc_info=True)
+        return
+
+    async with engine.connect() as conn:
+        await conn.execute(update(SeederRunState).where(SeederRunState.id == 1).values(last_vacuum_at=func.now()))
+        await conn.commit()
+
+
 @router.post("/vacuum", dependencies=[Depends(_check_secret)])
 async def maybe_vacuum_articles(
+    background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_db_session),
 ) -> dict[str, object]:
-    """Раз в VACUUM_EVERY_N_RUNS прогонов сидера — VACUUM ANALYZE articles.
+    """Раз в VACUUM_EVERY_N_RUNS прогонов сидера — планирует VACUUM ANALYZE articles.
 
     Счётчик seeder_run_state(id=1) — обычный ORM-апдейт в транзакции запроса,
-    работает на любом диалекте. Сам VACUUM не может идти внутри транзакции
-    (Postgres это прямо запрещает) — отдельное AUTOCOMMIT-соединение через
-    conn.engine (движок уже открытого session-соединения, не хардкодленный
-    модульный engine) — уважает override get_db_session в тестах, в отличие
-    от advisory lock (app/core/dependencies.py), которому отдельное соединение
-    нужно на весь guarded-блок, а не на один statement.
+    работает на любом диалекте, отвечает синхронно и быстро всегда. Сам VACUUM
+    (если пора) уходит в BackgroundTasks — см. _vacuum_articles_task выше.
+    Поле ответа "vacuum_scheduled" — честно: синхронно неизвестно, выполнился
+    ли VACUUM, только что он поставлен в очередь (тот же принцип честности,
+    что total_is_capped в PaginatedArticleResponse).
 
     Строку id=1 создаёт миграция 0019 — но тестовые фикстуры (SQLite и
     requires_pg pg_engine) строят схему через Base.metadata.create_all, не
@@ -126,21 +168,16 @@ async def maybe_vacuum_articles(
     await session.commit()
 
     if not _is_vacuum_due(run_count):
-        return {"run_count": run_count, "vacuumed": False, "every_n_runs": VACUUM_EVERY_N_RUNS}
+        return {"run_count": run_count, "vacuum_scheduled": False, "every_n_runs": VACUUM_EVERY_N_RUNS}
 
     conn = await session.connection()
     if conn.dialect.name != "postgresql":
         # SQLite (тесты) не поддерживает VACUUM ANALYZE <table> — тот же
         # dialect-check, что get_stats()/get_journal_impact() (postgres_catalog_repo.py)
-        return {"run_count": run_count, "vacuumed": False, "every_n_runs": VACUUM_EVERY_N_RUNS}
+        return {"run_count": run_count, "vacuum_scheduled": False, "every_n_runs": VACUUM_EVERY_N_RUNS}
 
-    async with conn.engine.execution_options(isolation_level="AUTOCOMMIT").connect() as vacuum_conn:
-        await vacuum_conn.execute(text("VACUUM ANALYZE articles"))
-
-    await session.execute(update(SeederRunState).where(SeederRunState.id == 1).values(last_vacuum_at=func.now()))
-    await session.commit()
-
-    return {"run_count": run_count, "vacuumed": True, "every_n_runs": VACUUM_EVERY_N_RUNS}
+    background_tasks.add_task(_vacuum_articles_task, conn.engine, run_count)
+    return {"run_count": run_count, "vacuum_scheduled": True, "every_n_runs": VACUUM_EVERY_N_RUNS}
 
 
 @router.post("/health-check", dependencies=[Depends(_check_secret)])
