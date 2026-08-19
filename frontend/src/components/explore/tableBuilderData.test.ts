@@ -79,7 +79,6 @@ const STATS = {
     { label: 'China', count: 60 },
   ],
   by_doc_type: [{ label: 'Article', count: 90 }],
-  top_keywords: [],
   top_authors: [],
   by_year_top_countries: [],
   sunburst_country_open_access: [],

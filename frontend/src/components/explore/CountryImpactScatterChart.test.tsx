@@ -57,7 +57,6 @@ const BASE_STATS: Omit<StatsResponse, 'country_impact'> = {
   by_journal: [],
   by_country: [],
   by_doc_type: [],
-  top_keywords: [],
   top_authors: [],
   by_year_top_countries: [],
   sunburst_country_open_access: [],

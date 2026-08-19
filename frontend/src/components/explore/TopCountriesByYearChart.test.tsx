@@ -43,7 +43,6 @@ const MOCK_STATS = {
   by_journal: [],
   by_country: [],
   by_doc_type: [],
-  top_keywords: [],
   top_authors: [],
   by_year_top_countries: [
     { year: 2022, country: 'China', count: 300 },

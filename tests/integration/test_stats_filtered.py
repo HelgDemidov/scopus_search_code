@@ -121,3 +121,128 @@ async def test_stats_filtered_by_doc_type(pg_client: AsyncClient, pg_session: As
     doc_labels = [item["label"] for item in data["by_doc_type"]]
     assert "Review" in doc_labels
     assert "Article" not in doc_labels
+
+
+# ---------------------------------------------------------------------------
+# Регрессия на механику GROUPING SETS (Фаза A,
+# docs/backend-performance/explore-stats-consolidation/spec.md) — не только контракт,
+# а конкретные риски объединения 6 запросов в один: NULL в одном измерении не должен
+# просачиваться в соседние, топ-20 должен работать корректно, by_year не должен
+# случайно ограничиться тем же лимитом.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.requires_pg
+async def test_stats_null_journal_counted_in_totals_but_excluded_from_by_journal(
+    pg_client: AsyncClient, pg_session: AsyncSession
+):
+    """Статья с journal=None: total_articles учитывает её, by_journal — нет.
+
+    Раньше это гарантировал отдельный .where(journal.isnot(None)) в собственном
+    запросе по журналам. В GROUPING SETS WHERE до агрегации исключил бы строку
+    из totals/by_year/by_country/by_doc_type тоже — фильтр применяется только
+    к "своей" группировке post-hoc (см. _get_stats_grouping_sets_pg)."""
+    await _seed(
+        pg_session,
+        [
+            {"doi": "10.j/1", "journal": "Known Journal"},
+            {"doi": "10.j/2", "journal": None},
+        ],
+    )
+
+    resp = await pg_client.get("/articles/stats")
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+
+    assert data["total_articles"] == 2, "статья с journal=None должна учитываться в totals"
+
+    journal_labels = [item["label"] for item in data["by_journal"]]
+    assert journal_labels == ["Known Journal"], "None не должен появляться как отдельный журнал"
+
+
+@pytest.mark.asyncio
+@pytest.mark.requires_pg
+async def test_stats_by_journal_caps_at_top20_by_count(pg_client: AsyncClient, pg_session: AsyncSession):
+    """25 разных журналов → by_journal возвращает ровно топ-20 по числу статей."""
+    articles = []
+    for i in range(25):
+        # journal_00 получает 25 статей, journal_24 — 1 статью — однозначный порядок топ-20
+        articles.extend({"doi": f"10.j25/{i}-{n}", "journal": f"journal_{i:02d}"} for n in range(25 - i))
+    await _seed(pg_session, articles)
+
+    resp = await pg_client.get("/articles/stats")
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+
+    assert len(data["by_journal"]) == 20, f"Ожидали ровно 20, получили {len(data['by_journal'])}"
+    labels = [item["label"] for item in data["by_journal"]]
+    expected = [f"journal_{i:02d}" for i in range(20)]
+    assert labels == expected, "топ-20 должны быть самые частые журналы, по убыванию"
+
+
+@pytest.mark.asyncio
+@pytest.mark.requires_pg
+async def test_stats_by_year_not_capped_at_20(pg_client: AsyncClient, pg_session: AsyncSession):
+    """25 разных лет публикации → by_year возвращает все 25, без потолка топ-20
+    (в отличие от by_journal/by_country/top_authors — у by_year в прежнем коде
+    не было .limit(), регрессия здесь означала бы случайно урезанный график)."""
+    articles = [{"doi": f"10.y25/{i}", "publication_date": datetime.date(2000 + i, 1, 1)} for i in range(25)]
+    await _seed(pg_session, articles)
+
+    resp = await pg_client.get("/articles/stats")
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+
+    assert len(data["by_year"]) == 25, f"Ожидали все 25 лет, получили {len(data['by_year'])}"
+
+
+@pytest.mark.asyncio
+@pytest.mark.requires_pg
+async def test_by_year_top_countries_and_sunburst_use_different_top_n(
+    pg_client: AsyncClient, pg_session: AsyncSession
+):
+    """Фаза B объединяет графики 1 (топ-10 стран) и 2 (sunburst, топ-5 стран) в один
+    запрос с общим базовым фильтром "country IN топ-10". Страна на 6-м месте (в топ-10,
+    но не в топ-5) должна попасть в by_year_top_countries и НЕ попасть в sunburst —
+    риск конкретно этого объединения: перепутать топ-10/топ-5 или случайно применить
+    общий фильтр к обоим графикам одинаково."""
+    articles = []
+    # 6 стран, счёт по убыванию: country_0 (6 статей) ... country_5 (1 статья, 6-е место)
+    for i in range(6):
+        articles.extend({"doi": f"10.rank/{i}-{n}", "affiliation_country": f"country_{i}"} for n in range(6 - i))
+    await _seed(pg_session, articles)
+
+    resp = await pg_client.get("/articles/stats")
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+
+    year_countries = {item["country"] for item in data["by_year_top_countries"]}
+    assert "country_5" in year_countries, "6-е место всё ещё в топ-10 — должно быть в графике 1"
+
+    sunburst_countries = {item["country"] for item in data["sunburst_country_open_access"]}
+    assert "country_5" not in sunburst_countries, "6-е место вне топ-5 — не должно быть в sunburst"
+    assert sunburst_countries == {f"country_{i}" for i in range(5)}
+
+
+@pytest.mark.asyncio
+@pytest.mark.requires_pg
+async def test_sunburst_excludes_null_open_access(pg_client: AsyncClient, pg_session: AsyncSession):
+    """open_access=None не должен появляться как отдельный сегмент sunburst — общий
+    базовый запрос Фазы B (без .isnot(None) в WHERE, в отличие от прежнего раздельного
+    запроса) фильтрует NULL post-hoc в Python, не в SQL."""
+    await _seed(
+        pg_session,
+        [
+            {"doi": "10.oa/1", "affiliation_country": "Solo Country", "open_access": True},
+            {"doi": "10.oa/2", "affiliation_country": "Solo Country", "open_access": None},
+        ],
+    )
+
+    resp = await pg_client.get("/articles/stats")
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+
+    segments = [item for item in data["sunburst_country_open_access"] if item["country"] == "Solo Country"]
+    assert len(segments) == 1, f"Ожидали 1 сегмент (open_access=True), получили {segments}"
+    assert segments[0]["open_access"] is True

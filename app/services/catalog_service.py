@@ -289,7 +289,6 @@ class CatalogService:
             by_journal=[CountByField(label=r["journal"], count=r["count"]) for r in raw["by_journal"]],
             by_country=[CountByField(label=r["country"], count=r["count"]) for r in raw["by_country"]],
             by_doc_type=[CountByField(label=r["doc_type"], count=r["count"]) for r in raw["by_doc_type"]],
-            top_keywords=[CountByField(label=r["keyword"], count=r["count"]) for r in raw["top_keywords"]],
             top_authors=[CountByField(label=r["author"], count=r["count"]) for r in raw["top_authors"]],
             by_year_top_countries=[
                 YearCountryCount(year=r["year"], country=r["country"], count=r["count"])

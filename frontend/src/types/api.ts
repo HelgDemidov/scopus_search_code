@@ -76,7 +76,6 @@ export interface StatsResponse {
   by_journal: LabelCount[];
   by_country: LabelCount[];
   by_doc_type: LabelCount[];
-  top_keywords: LabelCount[];
   top_authors: LabelCount[];
   by_year_top_countries: YearCountryCount[];
   sunburst_country_open_access: SunburstSegment[];
@@ -138,7 +137,6 @@ export interface PivotResponse {
 // Статистика поискового запроса (GET /articles/search/stats?search=...)
 // Отдельный интерфейс — не алиас StatsResponse:
 //   - нет total_articles, total_journals, total_countries, open_access_count
-//   - нет top_keywords
 //   - есть total (кол-во статей, совпавших с поисковым запросом)
 // Схема подтверждена живым тестом эндпоинта (коммит 2 + хотфикс)
 // ---------------------------------------------------------------------------

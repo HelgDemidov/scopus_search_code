@@ -145,7 +145,6 @@ class FakeCatalogRepository(ICatalogRepository):
             "by_journal": [{"journal": "Nature", "count": 15}],
             "by_country": [{"country": "USA", "count": 30}],
             "by_doc_type": [{"doc_type": "Article", "count": 40}],
-            "top_keywords": [{"keyword": "deep learning", "count": 12}],
             "top_authors": [{"author": "J. Smith", "count": 5}],
             "by_year_top_countries": [{"year": 2025, "country": "USA", "count": 18}],
             "sunburst_country_open_access": [{"country": "USA", "open_access": True, "count": 9}],
@@ -249,7 +248,6 @@ def _minimal_stats_response() -> StatsResponse:
         by_journal=[CountByField(label="Nature", count=15)],
         by_country=[CountByField(label="USA", count=30)],
         by_doc_type=[CountByField(label="Article", count=40)],
-        top_keywords=[CountByField(label="deep learning", count=12)],
         top_authors=[CountByField(label="J. Smith", count=5)],
         by_year_top_countries=[YearCountryCount(year=2025, country="USA", count=18)],
         sunburst_country_open_access=[SunburstSegment(country="USA", open_access=True, count=9)],
@@ -625,17 +623,6 @@ async def test_get_stats_maps_by_year_to_count_by_field():
     assert len(result.by_year) == 2
     assert result.by_year[0].label == "2025"
     assert result.by_year[0].count == 20
-
-
-@pytest.mark.asyncio
-async def test_get_stats_maps_top_keywords():
-    svc, _, _, _ = _mk_service()
-
-    result = await svc.get_stats()
-
-    assert len(result.top_keywords) == 1
-    assert result.top_keywords[0].label == "deep learning"
-    assert result.top_keywords[0].count == 12
 
 
 @pytest.mark.asyncio
