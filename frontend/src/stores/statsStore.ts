@@ -28,10 +28,15 @@ export const useStatsStore = create<StatsStore>((set, get) => ({
   error: null,
 
   // Загружаем статистику через GET /articles/stats (без JWT)
-  // Вызывается один раз при монтировании /explore и главной страницы
+  // Вызывается из двух мест почти одновременно на одной загрузке /explore —
+  // App.tsx (глобально, при старте) и ExplorePage.tsx (в своём useEffect)
   fetchStats: async () => {
-    // Не повторяем запрос, если данные уже загружены
-    if (get().stats !== null) return;
+    // isLoading в guard'е, а не только stats !== null — иначе App.tsx и
+    // ExplorePage, монтируясь почти одновременно, оба проходят проверку до
+    // того, как первый запрос успеет разрешиться, и дублируют вызов (тот же
+    // баг, что уже был найден и починён для fetchKpiTotals ниже — здесь его
+    // просто забыли применить заодно).
+    if (get().stats !== null || get().isLoading) return;
     set({ isLoading: true, error: null });
     try {
       const stats: StatsResponse = await getStats();
