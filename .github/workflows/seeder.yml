@@ -1,16 +1,16 @@
 name: Scheduled DB Seeder
 
 on:
-  # ЗАМОРОЖЕНО 2026-08-18: автозапуск по расписанию отключён (сохранено ниже для
-  # быстрого восстановления — раскомментировать schedule, чтобы вернуть прогон раз
-  # в 2 часа). Причина: лимит Actions-минут аккаунта (2000/мес) исчерпан на 96%
-  # (см. также keep_alive.yml и openalex-pdf-feed.yml в этом же коммите). Пока
-  # сидер выключен — не крутится не только сам сбор статей (Block A/B), но и
-  # orphan GC, и health-check алертинг на Brevo, которые piggyback'ались на этот
-  # же cron (см. CLAUDE.md "Orphan article GC" / "Observability without external
-  # services").
-  # schedule:
-  #   - cron: "0 */2 * * *"
+  # Разморожено 2026-08-19 — был заморожен 08-18 из-за (как выяснилось, ложного
+  # для этого публичного репо) опасения по лимиту Actions-минут аккаунта, см.
+  # память project-catalog-search-latency и project_dependabot_batch_merge. Раз
+  # в 4 часа, не раз в 2 — сознательно медленнее прежнего темпа. VACUUM_EVERY_N_RUNS=10
+  # (app/routers/seeder_router.py) не менялся: 10×4ч=40ч всё ещё безопасно внутри
+  # ~2-суточного окна деградации GIN pending-list (project-catalog-search-latency,
+  # 08-03) — при вдвое более редких прогонах суммарный объём новых строк за то же
+  # окно тоже вдвое меньше, риск не растёт.
+  schedule:
+    - cron: "0 */4 * * *"
   # Ручной запуск: выбор среды через input
   workflow_dispatch:
     inputs:

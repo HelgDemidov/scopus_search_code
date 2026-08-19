@@ -2,10 +2,12 @@ name: Keep Alive – Ping /health/db
 
 on:
   schedule:
-    # Reduced from */14 min to 1x/day on 2026-08-18 — account-wide Actions-minutes
-    # quota (2000/mo) at 96%. NOTE: this no longer reliably prevents Railway sleep
-    # (~15 min timeout) — that was the whole point of the original */14 cadence.
-    - cron: '11 5 * * *'  # once a day, offset from the round hour
+    # Restored 2026-08-19 to */30 min (was reduced to 1x/day on 08-18 over an
+    # account-wide Actions-minutes concern that turned out not to apply to this
+    # repo — public repos are unlimited/free, see project-catalog-search-latency
+    # memory). Note: */30 is still longer than Railway's ~15 min sleep timeout,
+    # so this does not fully guarantee anti-sleep the way the original */14 did.
+    - cron: '*/30 * * * *'
   workflow_dispatch:          # manual trigger available in GitHub Actions UI
 
 jobs:
