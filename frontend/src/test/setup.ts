@@ -5,6 +5,29 @@ import '@testing-library/jest-dom';
 // Тесты работают с реальными EN-строками — не требуется обновлять существующие тесты.
 import '../i18n';
 
+import { afterEach, beforeEach, vi } from 'vitest';
+
+// VITE_SUPPORT_EMAIL в frontend/.env.local — реальный адрес, нужный приложению
+// в обычной работе; Vite подтягивает .env.local и в тестовом режиме тоже,
+// отдельного .env.test/.env.test.local для его переопределения в проекте нет.
+// Тесты, которые ожидают "адрес не настроен" (errorReport.test.ts,
+// RouteErrorPage.test.tsx), раньше молча получали реальный локальный email
+// вместо unset — тот же класс бага, что уже был найден и починён для
+// backend (SENTRY_DSN в tests/conftest.py, память
+// feedback-pydantic-settings-env-precedence: vi.unstubAllEnvs()/os.environ.pop()
+// сами по себе НЕ маскируют значение из .env — снимают только явные стабы,
+// применённые через vi.stubEnv()). Форсируем пустое значение по умолчанию
+// глобально для каждого теста — тесты, которым нужен настоящий email,
+// переопределяют его сами через vi.stubEnv('VITE_SUPPORT_EMAIL', '...')
+// в своём теле (тот же паттерн уже используется в AboutPage.test.tsx).
+beforeEach(() => {
+  vi.stubEnv('VITE_SUPPORT_EMAIL', '');
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 // Добавляем A11y-матчеры (toHaveNoViolations)
 // color-contrast принципиально непроверяем в jsdom — не только из-за
 // getContext('2d') (см. "Not implemented: HTMLCanvasElement.prototype.

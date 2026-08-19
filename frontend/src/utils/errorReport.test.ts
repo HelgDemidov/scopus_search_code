@@ -33,7 +33,11 @@ describe('recordBreadcrumb / getBreadcrumbs', () => {
 describe('buildReportMailto', () => {
   beforeEach(() => {
     sessionStorage.clear();
-    vi.unstubAllEnvs();
+    // vi.unstubAllEnvs() здесь раньше отменял глобальный дефолт из test/setup.ts
+    // (VITE_SUPPORT_EMAIL='') — локальный beforeEach выполняется ПОСЛЕ глобального,
+    // так что unstubAllEnvs() откатывал стаб обратно к реальному .env.local.
+    // Глобальный afterEach в setup.ts уже чистит все env-стабы между тестами —
+    // здесь чистить нечего.
   });
 
   it('returns null when VITE_SUPPORT_EMAIL is not configured', () => {
