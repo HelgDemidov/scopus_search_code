@@ -143,6 +143,23 @@ async def _call_gc_endpoint(client: httpx.AsyncClient, headers: dict) -> int | N
     return response.json().get("deleted", 0)
 
 
+async def _call_refresh_stats_cache_endpoint(client: httpx.AsyncClient, headers: dict) -> int | None:
+    """POST /seeder/refresh-stats-cache — форсированно обновляет Redis-кэш /explore-агрегатов
+    (get_stats/get_kpi_totals/get_journal_impact) сразу после того, как этот прогон изменил
+    каталог (Блок A/Б и GC уже отработали к этому моменту).
+
+    Piggyback на цикл сидера, как GC/vacuum/health-check — не отдельная джоба (см.
+    docs/backend-performance/explore-cold-start-mitigation/spec.md §3.1): без этого реальные
+    посетители /explore ловили бы холодный (10-100+с) первый запрос после истечения
+    EXPLORE_STATS_CACHE_TTL, а не сам сидер.
+    """
+    response = await client.post(f"{BASE_URL}/seeder/refresh-stats-cache", headers=headers)
+    if response.status_code != 200:
+        print(f"{Fore.RED}Refresh-stats-cache ошибка {response.status_code}: {response.text[:100]}")
+        return None
+    return response.json().get("refreshed_keys")
+
+
 async def _call_vacuum_endpoint(client: httpx.AsyncClient, headers: dict) -> dict | None:
     """POST /seeder/vacuum — раз в 10 прогонов VACUUM ANALYZE articles.
 
@@ -296,6 +313,14 @@ async def seed_database() -> None:
             deleted = await _safe_step("GC", _call_gc_endpoint(client, headers))
             if deleted is not None:
                 print(f"{Fore.GREEN}Удалено статей-сирот: {deleted}")
+
+            # ── Refresh explore-stats кэша ─────────────────────────────────
+            print(f"\n{Fore.CYAN}── Refresh explore-stats кэша ──")
+            refreshed = await _safe_step(
+                "Refresh-stats-cache", _call_refresh_stats_cache_endpoint(client, headers)
+            )
+            if refreshed is not None:
+                print(f"{Fore.GREEN}Обновлено ключей кэша: {refreshed}")
 
             # ── Vacuum: раз в 10 прогонов VACUUM ANALYZE articles ──────────
             print(f"\n{Fore.CYAN}── Vacuum: проверяем счётчик прогонов ──")
