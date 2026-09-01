@@ -16,12 +16,20 @@ router = APIRouter(prefix="/health", tags=["Health"])
 async def health_check() -> dict[str, str]:
     # Проверяет только то, что процесс запущен и отвечает — без обращения к БД
     # Используется в e2e.yml как предварительный smoke-check перед запуском pytest
+    #
+    # ВАЖНО: HEAD НЕ поддерживается, вернёт 405 — вопреки распространённому
+    # предположению, FastAPI APIRoute (в отличие от голого starlette.routing.Route)
+    # не добавляет HEAD автоматически к methods=["GET"]: _populate_api_route_state()
+    # в fastapi/routing.py просто делает route.methods = {m.upper() for m in methods}
+    # без HEAD-логики Starlette. Проверено по исходникам после живого инцидента —
+    # внешний uptime-монитор, настроенный на HEAD, поймал 405 (2026-09-01). Внешние
+    # мониторы на этот URL должны использовать GET.
     return {"status": "ok"}
 
 
 @router.api_route(
     "/db",
-    methods=["GET"],  # HEAD обрабатывается Starlette автоматически для любого GET
+    methods=["GET"],  # HEAD не поддерживается — см. комментарий на /health выше
     status_code=status.HTTP_200_OK,
 )
 async def health_db(session: AsyncSession = Depends(get_db_session)) -> dict[str, str]:
