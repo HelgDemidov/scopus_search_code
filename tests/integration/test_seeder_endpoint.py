@@ -14,7 +14,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import app.routers.seeder_router as seeder_module
-from app.core.dependencies import get_email_service
+from app.core.dependencies import get_catalog_service, get_email_service
+from app.infrastructure.postgres_article_repo import PostgresArticleRepository
+from app.infrastructure.postgres_catalog_repo import PostgresCatalogRepository
+from app.infrastructure.redis_client import (
+    EXPLORE_STATS_CACHE_TTL,
+    make_journal_impact_cache_key,
+    make_kpi_totals_cache_key,
+    make_stats_cache_key,
+)
 from app.infrastructure.scopus_client import ScopusHTTPClient
 from app.interfaces.email_service import IEmailService
 from app.main import app
@@ -54,6 +62,20 @@ class _FakeRedis:
 
     async def ping(self) -> bool:
         return self._alive
+
+
+class _FakeStatsRedis:
+    """Дублёр UpstashRedisClient только для setex/get — POST /seeder/refresh-stats-cache
+    не должен трогать реальный (общий prod/staging) Upstash в тестах."""
+
+    def __init__(self) -> None:
+        self.setex_calls: list[tuple[str, int, str]] = []
+
+    async def get(self, key: str) -> str | None:
+        return None
+
+    async def setex(self, key: str, seconds: int, value: str) -> None:
+        self.setex_calls.append((key, seconds, value))
 
 
 _TEST_SECRET = "test_seeder_secret_ci"
@@ -264,6 +286,63 @@ async def test_gc_no_orphans_returns_zero(client: AsyncClient, monkeypatch):
     resp = await client.post("/seeder/gc", headers={"X-Seeder-Secret": _TEST_SECRET})
     assert resp.status_code == 200
     assert resp.json() == {"deleted": 0}
+
+
+# ================================================================ #
+#  Refresh explore-stats кэша (POST /seeder/refresh-stats-cache)   #
+# ================================================================ #
+
+
+@pytest.mark.asyncio
+async def test_refresh_stats_cache_wrong_secret_returns_403(client: AsyncClient, monkeypatch):
+    monkeypatch.setattr(seeder_module, "_SEEDER_SECRET", _TEST_SECRET)
+
+    resp = await client.post("/seeder/refresh-stats-cache", headers={"X-Seeder-Secret": "totally_wrong"})
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_refresh_stats_cache_writes_five_keys_with_explore_ttl(
+    client: AsyncClient, db_session: AsyncSession, monkeypatch
+):
+    """Проверяет реальную HTTP-цепочку (роутер → DI → CatalogService.refresh_explore_stats_cache)
+    без обращения к настоящему (общему prod/staging) Upstash — см. _FakeStatsRedis."""
+    monkeypatch.setattr(seeder_module, "_SEEDER_SECRET", _TEST_SECRET)
+
+    article = _mk_article(200)
+    db_session.add(article)
+    await db_session.flush()
+    db_session.add(CatalogArticle(article_id=article.id, keyword="refresh-test"))
+    await db_session.commit()
+
+    fake_redis = _FakeStatsRedis()
+
+    def _override() -> CatalogService:
+        return CatalogService(
+            article_repo=PostgresArticleRepository(db_session),
+            catalog_repo=PostgresCatalogRepository(db_session),
+            session=db_session,
+            redis=fake_redis,
+            db_namespace="",
+        )
+
+    app.dependency_overrides[get_catalog_service] = _override
+    try:
+        resp = await client.post("/seeder/refresh-stats-cache", headers={"X-Seeder-Secret": _TEST_SECRET})
+    finally:
+        app.dependency_overrides.pop(get_catalog_service, None)
+
+    assert resp.status_code == 200
+    assert resp.json() == {"refreshed_keys": 5}
+
+    assert len(fake_redis.setex_calls) == 5
+    assert all(ttl == EXPLORE_STATS_CACHE_TTL for _, ttl, _ in fake_redis.setex_calls)
+
+    keys = {key for key, _, _ in fake_redis.setex_calls}
+    assert make_stats_cache_key(None, None, None, None, None, db_namespace="") in keys
+    assert make_kpi_totals_cache_key(db_namespace="") in keys
+    for year in CatalogService.JOURNAL_IMPACT_WARM_YEARS:
+        assert make_journal_impact_cache_key(year, db_namespace="") in keys
 
 
 # ================================================================ #

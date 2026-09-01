@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.redis_client import (
+    EXPLORE_STATS_CACHE_TTL,
     STATS_CACHE_TTL,
     make_catalog_count_cache_key,
     make_journal_impact_cache_key,
@@ -714,7 +715,7 @@ async def test_get_journal_impact_writes_cache_on_miss():
 
     key, ttl, value = redis.setex_calls[0]
     assert key == make_journal_impact_cache_key(2022, db_namespace=_TEST_DB_NAMESPACE)
-    assert ttl == STATS_CACHE_TTL
+    assert ttl == EXPLORE_STATS_CACHE_TTL
     assert json.loads(value)[0]["journal"] == "Nature"
     assert result[0].journal == "Nature"
 
@@ -929,7 +930,7 @@ async def test_get_stats_writes_cache_on_miss():
     key, ttl, value = redis.setex_calls[0]
     expected_key = make_stats_cache_key(["USA"], None, None, None, None, db_namespace=_TEST_DB_NAMESPACE)
     assert key == expected_key
-    assert ttl == STATS_CACHE_TTL
+    assert ttl == EXPLORE_STATS_CACHE_TTL
     assert result.total_articles == 42
 
 
@@ -1055,7 +1056,7 @@ async def test_get_kpi_totals_writes_cache_on_miss():
 
     key, ttl, value = redis.setex_calls[0]
     assert key == make_kpi_totals_cache_key(db_namespace=_TEST_DB_NAMESPACE)
-    assert ttl == STATS_CACHE_TTL
+    assert ttl == EXPLORE_STATS_CACHE_TTL
     assert json.loads(value)["total_articles"] == 42
     assert result.total_articles == 42
 
@@ -1110,3 +1111,74 @@ async def test_get_kpi_totals_no_redis_goes_directly_to_db():
 
     assert cr.kpi_totals_call_count == 1
     assert isinstance(result, KpiTotalsResponse)
+
+
+# ================================================================ #
+#  Тесты refresh_explore_stats_cache — piggyback на сидере          #
+#  (docs/backend-performance/explore-cold-start-mitigation/spec.md §3.1)  #
+# ================================================================ #
+
+
+@pytest.mark.asyncio
+async def test_refresh_explore_stats_cache_bypasses_cache_read():
+    """Не должен вызывать redis.get() — иначе просто вернул бы уже закэшированное
+    (возможно устаревшее) значение вместо форсированного пересчёта."""
+    redis = FakeRedis(cached_value="some stale cached payload")
+    svc, _, _, _ = _mk_service(redis=redis)
+
+    await svc.refresh_explore_stats_cache()
+
+    assert redis.get_call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_refresh_explore_stats_cache_writes_all_five_keys():
+    """1 get_stats (без фильтров) + 1 get_kpi_totals + 3 get_journal_impact
+    (JOURNAL_IMPACT_WARM_YEARS) = 5 записей, все с EXPLORE_STATS_CACHE_TTL."""
+    redis = FakeRedis(cached_value=None)
+    svc, _, cr, _ = _mk_service(redis=redis)
+
+    refreshed = await svc.refresh_explore_stats_cache()
+
+    assert refreshed == 5
+    assert len(redis.setex_calls) == 5
+    assert all(ttl == EXPLORE_STATS_CACHE_TTL for _, ttl, _ in redis.setex_calls)
+
+    keys = {key for key, _, _ in redis.setex_calls}
+    assert make_stats_cache_key(None, None, None, None, None, db_namespace=_TEST_DB_NAMESPACE) in keys
+    assert make_kpi_totals_cache_key(db_namespace=_TEST_DB_NAMESPACE) in keys
+    for year in CatalogService.JOURNAL_IMPACT_WARM_YEARS:
+        assert make_journal_impact_cache_key(year, db_namespace=_TEST_DB_NAMESPACE) in keys
+
+    assert cr.stats_call_count == 1, "get_stats должен вызываться с дефолтными (без фильтров) параметрами"
+    assert cr.kpi_totals_call_count == 1
+    assert cr.journal_impact_calls == list(CatalogService.JOURNAL_IMPACT_WARM_YEARS)
+
+
+@pytest.mark.asyncio
+async def test_refresh_explore_stats_cache_no_redis_is_noop():
+    """redis=None → 0 без единого обращения к DB (незачем считать то, что некуда писать)."""
+    svc, _, cr, _ = _mk_service(redis=None)
+
+    refreshed = await svc.refresh_explore_stats_cache()
+
+    assert refreshed == 0
+    assert cr.stats_call_count == 0
+    assert cr.kpi_totals_call_count == 0
+    assert cr.journal_impact_calls == []
+
+
+@pytest.mark.asyncio
+async def test_refresh_explore_stats_cache_degrades_on_redis_error():
+    """Redis SETEX бросает исключение на все 5 записей → 0 успешных, без исключения наружу."""
+    redis = FakeRedis(cached_value=None, raise_on_setex=True)
+    svc, _, cr, _ = _mk_service(redis=redis)
+
+    refreshed = await svc.refresh_explore_stats_cache()
+
+    assert refreshed == 0
+    assert len(redis.setex_calls) == 0
+    # DB всё равно опрашивается — сбой Redis узнаётся только на попытке записи
+    assert cr.stats_call_count == 1
+    assert cr.kpi_totals_call_count == 1
+    assert cr.journal_impact_calls == list(CatalogService.JOURNAL_IMPACT_WARM_YEARS)

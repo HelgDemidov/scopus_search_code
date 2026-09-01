@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from app.infrastructure.redis_client import UpstashRedisClient
 
 from app.infrastructure.redis_client import (
+    EXPLORE_STATS_CACHE_TTL,
     STATS_CACHE_TTL,
     make_catalog_count_cache_key,
     make_journal_impact_cache_key,
@@ -46,6 +47,11 @@ class CatalogService:
     # широких ILIKE-фильтрах без подходящего индекса (см. docs/project-meta/project_context — root cause
     # нагрузочного прогона 2026-07-09); показываем "cap+", а не точное число.
     TOTAL_COUNT_CAP = 2000
+
+    # Значения слайдера "окно зрелости" Journal Landscape (JournalLandscapeScatterChart.tsx,
+    # MATURITY_DEFAULT_YEAR=2024) — ровно 3 фиксированных года, прогреваются целиком в
+    # refresh_explore_stats_cache(), т.к. пространство ключей крошечное (см. get_journal_impact).
+    JOURNAL_IMPACT_WARM_YEARS: tuple[int, ...] = (2022, 2023, 2024)
 
     def __init__(
         self,
@@ -193,8 +199,9 @@ class CatalogService:
     async def get_kpi_totals(self) -> KpiTotalsResponse:
         """6 скаляров для плиток KpiRow на /explore — быстрый фикс 2026-08-14.
 
-        Cache-aside, тот же паттерн/TTL что get_stats — но свой, более узкий ключ
-        (make_kpi_totals_cache_key, без хэша параметров: этот эндпоинт их не
+        Cache-aside, EXPLORE_STATS_CACHE_TTL — тот же, что get_stats/get_journal_impact
+        (не STATS_CACHE_TTL=60s у get_total_count, см. redis_client.py) — но свой, более
+        узкий ключ (make_kpi_totals_cache_key, без хэша параметров: этот эндпоинт их не
         принимает). Отдельный кэш-энтри специально: плитки не должны ждать 9
         других агрегатов get_stats(), которые им не нужны, даже если оба сейчас
         холодные одновременно.
@@ -216,7 +223,7 @@ class CatalogService:
         result = KpiTotalsResponse(**raw)
 
         try:
-            await self.redis.setex(cache_key, STATS_CACHE_TTL, result.model_dump_json())
+            await self.redis.setex(cache_key, EXPLORE_STATS_CACHE_TTL, result.model_dump_json())
         except Exception:
             logger.warning("Redis SETEX failed, cache skipped", exc_info=True)
 
@@ -236,7 +243,10 @@ class CatalogService:
     ) -> StatsResponse:
         """Агрегированная статистика по каталогу с опциональными фильтрами.
 
-        Cache-aside: Redis TTL=60s → при промахе запрос к БД → запись в кэш.
+        Cache-aside: Redis TTL=EXPLORE_STATS_CACHE_TTL (5ч, см. redis_client.py) → при
+        промахе запрос к БД → запись в кэш. На практике промах — редкость: refresh_explore_
+        stats_cache() прогревает этот ключ проактивно на каждом прогоне сидера (piggyback,
+        см. POST /seeder/refresh-stats-cache) — TTL здесь только safety net.
         Graceful degradation: если redis=None или Redis недоступен → прямой запрос к БД.
         """
         if self.redis is None:
@@ -256,7 +266,7 @@ class CatalogService:
         result = await self._fetch_stats_from_db(countries, doc_types, open_access, year_from, year_to)
 
         try:
-            await self.redis.setex(cache_key, STATS_CACHE_TTL, result.model_dump_json())
+            await self.redis.setex(cache_key, EXPLORE_STATS_CACHE_TTL, result.model_dump_json())
         except Exception:
             logger.warning("Redis SETEX failed, cache skipped", exc_info=True)
 
@@ -316,11 +326,12 @@ class CatalogService:
     async def get_journal_impact(self, max_year: int) -> list[JournalImpactPoint]:
         """Топ-N журналов (объём×импакт) для интерактивного слайдера окна зрелости.
 
-        Cache-aside, как get_stats — TTL=60s, тот же db_namespace. В отличие от
-        get_pivot (комбинаторно много пар измерений × slicer), max_year — слайдер
-        ровно на 3 значения (2022-2024), кэшировать есть смысл: пространство ключей
-        крошечное, а сам запрос — самый тяжёлый из 4 стационарных графиков /explore
-        (единственный без готового statsStore под рукой на фронте).
+        Cache-aside, как get_stats — EXPLORE_STATS_CACHE_TTL, тот же db_namespace. В
+        отличие от get_pivot (комбинаторно много пар измерений × slicer), max_year —
+        слайдер ровно на 3 значения (JOURNAL_IMPACT_WARM_YEARS), кэшировать есть смысл:
+        пространство ключей крошечное, а сам запрос — самый тяжёлый из 4 стационарных
+        графиков /explore (единственный без готового statsStore под рукой на фронте).
+        Все 3 значения прогреваются проактивно, см. refresh_explore_stats_cache().
         """
         if self.redis is None:
             return await self._fetch_journal_impact_from_db(max_year)
@@ -337,7 +348,8 @@ class CatalogService:
         result = await self._fetch_journal_impact_from_db(max_year)
 
         try:
-            await self.redis.setex(cache_key, STATS_CACHE_TTL, json.dumps([p.model_dump() for p in result]))
+            payload = json.dumps([p.model_dump() for p in result])
+            await self.redis.setex(cache_key, EXPLORE_STATS_CACHE_TTL, payload)
         except Exception:
             logger.warning("Redis SETEX failed, cache skipped", exc_info=True)
 
@@ -346,6 +358,74 @@ class CatalogService:
     async def _fetch_journal_impact_from_db(self, max_year: int) -> list[JournalImpactPoint]:
         raw = await self.catalog_repo.get_journal_impact(max_year=max_year)
         return [JournalImpactPoint(**r) for r in raw]
+
+    # ------------------------------------------------------------------ #
+    #  refresh_explore_stats_cache — piggyback на сидере                  #
+    #  (docs/backend-performance/explore-cold-start-mitigation/spec.md §3.1)              #
+    # ------------------------------------------------------------------ #
+
+    async def refresh_explore_stats_cache(self) -> int:
+        """Форсированно пересчитывает и перезаписывает Redis-кэш дефолтных (без
+        фильтров) записей get_stats/get_kpi_totals/get_journal_impact сразу после
+        того, как сидер изменил каталог — вместо ожидания истечения
+        EXPLORE_STATS_CACHE_TTL реактивным первым посетителем /explore.
+
+        Намеренно НЕ проверяет redis.get() перед записью — get_stats/get_kpi_totals/
+        get_journal_impact уже используют cache-aside, и обычный вызов вернул бы уже
+        закэшированное (возможно устаревшее) значение вместо новых данных.
+        Прогревает только дефолтные записи (без фильтров, все 3 значения
+        JOURNAL_IMPACT_WARM_YEARS) — тот же принцип, что у /stats/pivot: не
+        пытаемся прогреть комбинаторный фильтрованный хвост.
+
+        Возвращает число успешно записанных ключей (0-5) — не бросает исключение
+        при сбое отдельной записи в Redis, каждая обрабатывается независимо
+        (частичный успех лучше, чем полный откат из-за одного transient-сбоя).
+        """
+        if self.redis is None:
+            return 0
+
+        refreshed = 0
+
+        stats = await self._fetch_stats_from_db(None, None, None, None, None)
+        try:
+            await self.redis.setex(
+                make_stats_cache_key(None, None, None, None, None, db_namespace=self.db_namespace),
+                EXPLORE_STATS_CACHE_TTL,
+                stats.model_dump_json(),
+            )
+            refreshed += 1
+        except Exception:
+            logger.warning("Redis SETEX failed during explore-stats refresh (get_stats)", exc_info=True)
+
+        kpi_raw = await self.catalog_repo.get_kpi_totals()
+        kpi = KpiTotalsResponse(**kpi_raw)
+        try:
+            await self.redis.setex(
+                make_kpi_totals_cache_key(db_namespace=self.db_namespace),
+                EXPLORE_STATS_CACHE_TTL,
+                kpi.model_dump_json(),
+            )
+            refreshed += 1
+        except Exception:
+            logger.warning("Redis SETEX failed during explore-stats refresh (get_kpi_totals)", exc_info=True)
+
+        for year in self.JOURNAL_IMPACT_WARM_YEARS:
+            points = await self._fetch_journal_impact_from_db(year)
+            try:
+                await self.redis.setex(
+                    make_journal_impact_cache_key(year, db_namespace=self.db_namespace),
+                    EXPLORE_STATS_CACHE_TTL,
+                    json.dumps([p.model_dump() for p in points]),
+                )
+                refreshed += 1
+            except Exception:
+                logger.warning(
+                    "Redis SETEX failed during explore-stats refresh (get_journal_impact, year=%s)",
+                    year,
+                    exc_info=True,
+                )
+
+        return refreshed
 
     # ------------------------------------------------------------------ #
     #  get_pivot — Table Builder                                          #

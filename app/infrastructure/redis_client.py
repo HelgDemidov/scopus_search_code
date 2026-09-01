@@ -8,6 +8,17 @@ logger = logging.getLogger(__name__)
 
 STATS_CACHE_TTL = 60  # секунды
 
+# TTL для /explore-агрегатов (get_stats/get_kpi_totals/get_journal_impact) — НЕ для
+# get_total_count (тот держит STATS_CACHE_TTL, другая страница и другая семантика
+# свежести, см. docs/backend-performance/explore-cold-start-mitigation/spec.md §3.1).
+# Каталог фактически меняется только сидером (раз в ~4ч, .github/workflows/seeder.yml)
+# — TTL подобран с запасом над этим циклом на случай пропущенного/задержанного прогона,
+# а не с расчётом на секундную свежесть, которая тут никому не нужна. Актуальность
+# обеспечивает не столько этот TTL, сколько активный refresh (CatalogService.
+# refresh_explore_stats_cache, piggyback на конце seed_db.py) — TTL здесь только
+# safety net на случай, если сам refresh не отработал.
+EXPLORE_STATS_CACHE_TTL = 18000  # секунды (5ч, буфер над 4-часовым циклом сидера)
+
 
 class UpstashRedisClient:
     """Клиент Upstash Redis REST API (HTTPS, порт 443).

@@ -9,7 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.config import settings
-from app.core.dependencies import get_db_session, get_email_service
+from app.core.dependencies import get_catalog_service, get_db_session, get_email_service
 from app.infrastructure.postgres_article_repo import PostgresArticleRepository
 from app.infrastructure.postgres_catalog_repo import PostgresCatalogRepository
 from app.infrastructure.redis_client import redis_client
@@ -91,6 +91,19 @@ async def garbage_collect_articles(
     deleted = await repo.delete_orphaned()
     await session.commit()
     return {"deleted": deleted}
+
+
+@router.post("/refresh-stats-cache", dependencies=[Depends(_check_secret)])
+async def refresh_stats_cache(
+    service: CatalogService = Depends(get_catalog_service),
+) -> dict[str, int]:
+    """Piggyback на конце сидер-рана (docs/backend-performance/explore-cold-start-mitigation/spec.md
+    §3.1) — форсированно обновляет Redis-кэш /explore-агрегатов (get_stats/get_kpi_totals/
+    get_journal_impact) сразу после того, как сидер изменил каталог, вместо ожидания
+    истечения EXPLORE_STATS_CACHE_TTL реактивным первым посетителем /explore.
+    """
+    refreshed = await service.refresh_explore_stats_cache()
+    return {"refreshed_keys": refreshed}
 
 
 async def _run_vacuum_analyze(engine: AsyncEngine) -> None:

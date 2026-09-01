@@ -3,7 +3,7 @@ name: E2E — Railway Staging
 on:
   workflow_dispatch:
   push:
-    branches: [main, perf/explore-stats-consolidation]
+    branches: [main, perf/explore-cold-start-mitigation]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
