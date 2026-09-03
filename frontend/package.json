@@ -86,6 +86,8 @@
     "vitest-axe": "^0.1.0"
   },
   "overrides": {
-    "fast-uri": "^3.1.7"
+    "fast-uri": "^3.1.7",
+    "browserslist": "^4.28.7",
+    "qs": "^6.16.0"
   }
 }
