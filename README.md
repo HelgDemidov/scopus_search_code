@@ -7,7 +7,7 @@ Russian version: [README.ru.md](README.ru.md)
 
 **Scopus Search API** is a production fullstack service for searching, accumulating, and visualizing academic publications, built around integration with the global [Elsevier Scopus](https://www.scopus.com/) database. The service operates in two modes: **public search** over a self-growing thematic collection, "AI & Neural Network Technologies" (no registration required), and **live search** across the full Scopus database (requires authentication). Highlights:
 
-- **Two search modes** — browse a free ~311K-article catalog, or query all of Scopus live under a personal weekly quota
+- **Two search modes** — browse a free ~350K-article catalog, or query all of Scopus live under a personal weekly quota
 - **Interactive analytics** (`/explore`) — cross-filtered charts, a pivot Table Builder, a Journal Landscape scatter, and a personal-activity view
 - **Self-growing catalog** — an LLM-driven GitHub Actions seeder adds keywords and re-paginates every 2h, without spending user quota
 - **Production-grade engineering** — Redis cache-aside, trigram-indexed full-text search, structured logs + Sentry tracing, real documented incidents below
@@ -17,10 +17,32 @@ Russian version: [README.ru.md](README.ru.md)
 
 ## Features
 
-| Mode | Functionality |
-|---|---|
-| **Without authentication** | Browse and search the "AI & Neural Network Technologies" thematic collection (~311,000 publications); multi-criteria filtering by year, country, document type, and open-access status; article detail pages; interactive analytics dashboard (/explore) with cross-filter charts, a pivot Table Builder (count or average-citations metric), Journal Landscape scatter, and statistics on publication trends, geography, document types, top journals, authors, and keywords |
-| **With authentication** | All unauthenticated features, plus: live search across the full Scopus database (up to 25 results per query); personal search history with filtering and a personal analytics view (/explore?mode=personal); weekly API quota counter; account management (email/password · Google OAuth · password reset via email) |
+<table>
+<tr>
+<th>Without authentication</th>
+<th>With authentication</th>
+</tr>
+<tr>
+<td>
+
+- Browse and search the "AI & Neural Network Technologies" thematic collection (~350,000 publications)
+- Multi-criteria filtering by year, country, document type, and open-access status
+- Article detail pages
+- Interactive analytics dashboard (`/explore`): cross-filter charts, a pivot Table Builder (count or average-citations metric), Journal Landscape scatter
+- Statistics on publication trends, geography, document types, top journals, authors, and keywords
+
+</td>
+<td>
+
+- Everything from the left column, plus:
+- Live search across the full Scopus database (up to 25 results per query)
+- Personal search history with filtering and a personal analytics view (`/explore?mode=personal`)
+- Weekly API quota counter
+- Account management (email/password · Google OAuth · password reset via email)
+
+</td>
+</tr>
+</table>
 
 ---
 
@@ -168,8 +190,8 @@ Current migration version: `0020_seeder_run_state_rls`.
 
 | Table | Purpose | Records (prod) |
 |---|---|---|
-| `articles` | Normalized Scopus publication registry | ~311,700 |
-| `catalog_articles` | Thematic collection membership (seeder keyword) | ~311,000 |
+| `articles` | Normalized Scopus publication registry | ~350,700 |
+| `catalog_articles` | Thematic collection membership (seeder keyword) | ~350,000 |
 | `search_history` | User live-search history (JSONB `filters`) | ~110 |
 | `search_result_articles` | Junction table: search → articles with `rank` | ~2,270 |
 | `seeder_keywords` | Used seeder phrases with clusters and timestamps | ~31,600 |
