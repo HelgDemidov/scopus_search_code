@@ -5,7 +5,13 @@
 
 Russian version: [README.ru.md](README.ru.md)
 
-**Scopus Search API** is a production fullstack service for searching, accumulating, and visualizing academic publications. It is built around integration with the global [Elsevier Scopus](https://www.scopus.com/) database. The service operates in two modes: **public search** over the thematic collection "AI & Neural Network Technologies" (no registration required) and **live search** across the full Scopus database (requires authentication).
+**Scopus Search API** is a production fullstack service for searching, accumulating, and visualizing academic publications, built around integration with the global [Elsevier Scopus](https://www.scopus.com/) database. The service operates in two modes: **public search** over a self-growing thematic collection, "AI & Neural Network Technologies" (no registration required), and **live search** across the full Scopus database (requires authentication). Highlights:
+
+- **Two search modes** — browse a free ~311K-article catalog, or query all of Scopus live under a personal weekly quota
+- **Interactive analytics** (`/explore`) — cross-filtered charts, a pivot Table Builder, a Journal Landscape scatter, and a personal-activity view
+- **Self-growing catalog** — an LLM-driven GitHub Actions seeder adds keywords and re-paginates every 2h, without spending user quota
+- **Production-grade engineering** — Redis cache-aside, trigram-indexed full-text search, structured logs + Sentry tracing, real documented incidents below
+- **Full account stack** — email/password + Google OAuth, in-memory access tokens with rotated refresh cookies, email-based password reset
 
 ---
 
@@ -13,12 +19,13 @@ Russian version: [README.ru.md](README.ru.md)
 
 | Mode | Functionality |
 |---|---|
-| **Without authentication** | Browse and search the "AI & Neural Network Technologies" thematic collection (~227,400 publications); multi-criteria filtering by year, country, document type, and open-access status; article detail pages; interactive analytics dashboard (/explore) with cross-filter charts, a pivot Table Builder (count or average-citations metric), Journal Landscape scatter, and statistics on publication trends, geography, document types, top journals, authors, and keywords |
+| **Without authentication** | Browse and search the "AI & Neural Network Technologies" thematic collection (~311,000 publications); multi-criteria filtering by year, country, document type, and open-access status; article detail pages; interactive analytics dashboard (/explore) with cross-filter charts, a pivot Table Builder (count or average-citations metric), Journal Landscape scatter, and statistics on publication trends, geography, document types, top journals, authors, and keywords |
 | **With authentication** | All unauthenticated features, plus: live search across the full Scopus database (up to 25 results per query); personal search history with filtering and a personal analytics view (/explore?mode=personal); weekly API quota counter; account management (email/password · Google OAuth · password reset via email) |
 
 ---
 
-## Infrastructure and Stack
+<details>
+<summary><strong>Infrastructure and Stack</strong></summary>
 
 ```
 GitHub ──► Vercel (Frontend SPA)
@@ -40,14 +47,15 @@ GitHub Actions ──► db_seeder (cron, every 2 h)
 | **Frontend** | React 18, TypeScript, Vite, Zustand, Axios, Recharts, shadcn/ui, Tailwind CSS | Vercel |
 | **Backend** | Python 3.12, FastAPI, SQLAlchemy 2.0 async, Alembic, Pydantic v2, httpx, Authlib | Railway |
 | **Database** | PostgreSQL 17 (Supabase), Session Pooler | Supabase (eu-west-1) |
-| **Cache** | Upstash Redis (HTTPS REST, TTL 60 s) — cache-aside for `/articles/stats`, `/stats/journal-impact`, and catalog search pagination count | Upstash |
+| **Cache** | Upstash Redis (HTTPS REST) — cache-aside for `/explore` stats (`/articles/stats`, `/stats/summary`, `/stats/journal-impact`; TTL 5h, seeder-refreshed) and catalog pagination count (TTL 60s) | Upstash |
 | **CI/CD** | GitHub Actions — backend (`tests.yml`: pytest · ruff · mypy · alembic check · 80% coverage), frontend (`frontend-tests.yml`: Vitest · ESLint · tsc · 85% coverage · build), staging E2E (`e2e.yml`) | GitHub |
 | **Seeder** | Python + httpx + asyncpg + OpenRouter LLM | GitHub Actions (cron, every 2 h) |
 | **Observability** | Structured JSON logging (`structlog`) + Sentry (errors, performance tracing, source maps) — backend and frontend | Sentry (Developer, free tier) |
 
----
+</details>
 
-## Architecture
+<details>
+<summary><strong>Architecture</strong></summary>
 
 ### Backend
 
@@ -60,7 +68,7 @@ app/
 │                     #   ArticleService, SearchHistoryService, UserService
 ├── infrastructure/   # PostgreSQL repositories + ScopusHTTPClient + UpstashRedisClient
 ├── interfaces/       # ABC interfaces for repositories, clients, IEmailService
-├── models/           # SQLAlchemy ORM models (8 tables)
+├── models/           # SQLAlchemy ORM models (9 tables)
 ├── schemas/          # Pydantic v2 request/response schemas
 ├── core/             # DI, JWT, refresh-token utilities, dependencies
 ├── config.py         # Pydantic Settings — single source of configuration
@@ -85,9 +93,10 @@ frontend/src/
 └── types/            # TypeScript types and API interfaces
 ```
 
----
+</details>
 
-## API Endpoints
+<details>
+<summary><strong>API Endpoints</strong></summary>
 
 ### Public
 
@@ -95,6 +104,7 @@ frontend/src/
 |---|---|---|
 | `GET` | `/articles/` | Paginated catalog list; keyword/full-text search + multi-criteria filtering (year range, country, document type, open-access status) |
 | `GET` | `/articles/stats` | Aggregated collection statistics (by year, journal, country, type) |
+| `GET` | `/articles/stats/summary` | Lightweight KPI totals (6 scalars) for the `/explore` header tiles |
 | `GET` | `/articles/stats/journal-impact` | Journal Landscape scatter (volume × avg citations, by max-year window) |
 | `GET` | `/articles/stats/pivot` | Table Builder 2D pivot (row/col dimension pair, count or avg-citations metric) |
 | `GET` | `/articles/{id}` | Article detail page |
@@ -134,6 +144,7 @@ frontend/src/
 |---|---|---|
 | `POST` | `/seeder/seed` | Seed one keyword's Scopus results into the catalog |
 | `POST` | `/seeder/gc` | Delete orphaned `articles` rows left by retention trimming |
+| `POST` | `/seeder/refresh-stats-cache` | Force-refresh the `/explore` Redis cache (stats/KPI totals/journal-impact) right after the seeder changes the catalog |
 | `POST` | `/seeder/vacuum` | Every 10th call, `VACUUM ANALYZE articles` — keeps the `pg_trgm` GIN pending-list buffer from degrading catalog search reads |
 | `POST` | `/seeder/health-check` | DB/Redis health probe; emails an alert via Brevo on degradation |
 
@@ -148,27 +159,29 @@ Scopus rate limit headers (`X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-Rate
 
 </details>
 
----
+</details>
 
-## Database
+<details>
+<summary><strong>Database</strong></summary>
 
-Current migration version: `0019_seeder_run_state`.
+Current migration version: `0020_seeder_run_state_rls`.
 
 | Table | Purpose | Records (prod) |
 |---|---|---|
-| `articles` | Normalized Scopus publication registry | ~228,300 |
-| `catalog_articles` | Thematic collection membership (seeder keyword) | ~227,400 |
+| `articles` | Normalized Scopus publication registry | ~311,700 |
+| `catalog_articles` | Thematic collection membership (seeder keyword) | ~311,000 |
 | `search_history` | User live-search history (JSONB `filters`) | ~110 |
-| `search_result_articles` | Junction table: search → articles with `rank` | ~2,370 |
-| `seeder_keywords` | Used seeder phrases with clusters and timestamps | ~25,700 |
+| `search_result_articles` | Junction table: search → articles with `rank` | ~2,270 |
+| `seeder_keywords` | Used seeder phrases with clusters and timestamps | ~31,600 |
 | `seeder_run_state` | Single-row counter driving `POST /seeder/vacuum`'s every-10th-run trigger | 1 |
 | `users` | Service users | ~10 |
-| `refresh_tokens` | Active refresh tokens with rotation support | ~79 |
+| `refresh_tokens` | Active refresh tokens with rotation support | ~78 |
 | `password_reset_tokens` | One-time password reset tokens (short-lived) | — |
 
----
+</details>
 
-## Authentication and Security
+<details>
+<summary><strong>Authentication and Security</strong></summary>
 
 - **Access Token** — Bearer JWT, lives 30 minutes, stored **in-memory** (Zustand `tokenStore`) — never persisted to `localStorage`; hydrated on page load via `POST /auth/refresh`.
 - **Refresh Token** — `httpOnly; Secure; SameSite=None` cookie (30 days); rotated on every `/auth/refresh` call; stale and revoked tokens pruned automatically. Revocation via `/auth/logout`.
@@ -180,9 +193,10 @@ Current migration version: `0019_seeder_run_state`.
 - **Seeder** — authenticated via static `X-Seeder-Secret` header (not a user JWT).
 - Sensitive fields (`input`) are stripped from Pydantic 422 responses via a custom exception handler.
 
----
+</details>
 
-## Automated Seeder
+<details>
+<summary><strong>Automated Seeder</strong></summary>
 
 A GitHub Actions workflow (runs every 2 hours) populates the thematic collection without consuming user quota.
 
@@ -193,7 +207,7 @@ A GitHub Actions workflow (runs every 2 hours) populates the thematic collection
 4. **Block B — re-pagination (up to 188):** for each candidate with a saved offset, call `POST /seeder/seed` at the next page to retrieve additional Scopus results for already-indexed keywords.
 5. The backend queries Scopus, atomically upserts into `articles` + `catalog_articles`, returns `rate_remaining`.
 6. Stop either block when `rate_remaining < 500`.
-7. Garbage-collect orphaned `articles` (`POST /seeder/gc`), then check the run counter (`POST /seeder/vacuum`) — every 10th run, `VACUUM ANALYZE articles`.
+7. Garbage-collect orphaned `articles` (`POST /seeder/gc`), force-refresh the `/explore` stats cache (`POST /seeder/refresh-stats-cache`), then check the run counter (`POST /seeder/vacuum`) — every 10th run, `VACUUM ANALYZE articles`.
 
 <details>
 <summary>Seeder configuration</summary>
@@ -206,20 +220,21 @@ Supabase connection via `asyncpg` with `statement_cache_size=0` (required for Pg
 
 </details>
 
----
+</details>
 
-## Testing
+<details>
+<summary><strong>Testing</strong></summary>
 
-**Backend:** 332 tests (`pytest` + `pytest-asyncio`), all green, across three layers:
+**Backend:** 356 tests (`pytest` + `pytest-asyncio`), all green, across three layers:
 
 | Layer | Tests | What it covers |
 |---|---|---|
-| Unit (SQLite, mocked) | 145 | Services (article, catalog, search, user), Scopus client, interface contracts, seeder router/keyword generator, Redis cache, Sentry config |
-| Integration (SQLite) | 159 | Full HTTP stack: auth, articles, search history, password reset, RT lifecycle, seeder endpoint, observability/Sentry capture |
-| Integration (PG) | 28 | `pg_advisory_xact_lock` concurrency, catalog `search=` filtering, `VACUUM ANALYZE` via `POST /seeder/vacuum`; requires `DATABASE_TEST_URL` (throwaway PG, never Supabase) |
+| Unit (SQLite, mocked) | 156 | Services (article, catalog, search, user), Scopus client, interface contracts, seeder router/keyword generator, Redis cache, Sentry config |
+| Integration (SQLite) | 166 | Full HTTP stack: auth, articles, search history, password reset, RT lifecycle, seeder endpoint, observability/Sentry capture |
+| Integration (PG) | 34 | `pg_advisory_xact_lock` concurrency, catalog `search=` filtering, `VACUUM ANALYZE` via `POST /seeder/vacuum`; requires `DATABASE_TEST_URL` (throwaway PG, never Supabase) |
 | E2E (Staging) | — | Real Railway + Supabase staging; auto-skipped without `E2E_BASE_URL` |
 
-**Frontend:** 832 tests (`Vitest` + Testing Library), all green; statements coverage 86.8% (threshold: 85%).
+**Frontend:** 837 tests (`Vitest` + Testing Library), all green; statements coverage 86.7% (threshold: 85%).
 
 <details>
 <summary>Running the tests</summary>
@@ -237,51 +252,47 @@ cd frontend && npm run test
 
 </details>
 
----
+</details>
 
-## Performance
+<details>
+<summary><strong>Performance</strong></summary>
 
 We use [k6](https://k6.io/) for load testing critical read-only endpoints (full-text search, journal-impact stats).
 
 <details>
 <summary><strong>Methodology and baseline — 11.89s → 632ms P95 in 3 measured steps</strong></summary>
 
-**Methodology.** Run against an isolated, disposable Postgres — never the shared Supabase instance
-(a load test has no business generating synthetic traffic there). Seeded at production scale via a
-one-time read-only copy of `articles` + `catalog_articles` from production (no user/auth tables —
-those carry real PII and were never touched). `DB_ECHO=false` and `DB_POOL_SIZE`/`DB_MAX_OVERFLOW`
-sized for the target concurrency (both configurable via `.env`, see `.env.example`) — otherwise the
-measurement drowns in its own SQL-echo logging and connection-pool queueing instead of reflecting
-the app.
+**Methodology.** Run against an isolated, disposable Postgres — never shared Supabase (a load test
+has no business generating synthetic traffic there). Seeded at production scale via a one-time
+read-only copy of `articles` + `catalog_articles` (no user/auth tables — those carry real PII).
+`DB_ECHO=false` and `DB_POOL_SIZE`/`DB_MAX_OVERFLOW` sized for the target concurrency (configurable
+via `.env`) — otherwise the measurement drowns in its own SQL-echo logging and pool queueing instead
+of reflecting the app.
 
 **Baseline (142,658 articles, 20 VUs, isolated Postgres, 2026-07-09):**
 *   **Target:** `P(95) < 500ms`, `P(99) < 1000ms`, `rate(errors) < 1%`.
 *   **First honest measurement:** thresholds failed — `P(95) = 11.89s`, `P(99) = 13.39s`, but
-    **0% errors** (no timeouts, no failed requests — pure queueing, not the connection-pool/network
-    artifacts of an earlier, buggy attempt). Root-caused via `EXPLAIN ANALYZE`: both endpoints fell
-    back to a full parallel sequential scan because no index matched their actual query shape —
-    `title ILIKE '%term%' OR author ILIKE '%term%'` (leading wildcard defeats every btree, including
-    the existing `ix_articles_lower_*`) and `EXTRACT(year FROM publication_date) <= max_year`
-    (a function over the column also defeats indexing). Individually both were sub-300ms and
-    invisible in the browser; at 20 concurrent VUs the full sequential scans queued for the
-    container's shared CPU — see Lessons learned #3 for why an initial "parallel workers" theory
-    for this queueing didn't hold up under direct verification.
-*   **Fixed in 3 measured steps, cheapest first** (see `docs/project-meta/project_context` for the full trade-off
-    discussion — GiST over GIN, sargable predicates over functional indexes):
-    1. Cap the pagination `COUNT(*)` at 2000 (`SELECT count(*) FROM (... LIMIT 2001) t` — the planner
-       stops scanning once it finds the cap, regardless of a term's real selectivity) and show an
-       honest "2000+" instead of a false-precision exact number. → `P(95) = 10.03s`, `P(99) = 12.36s`
-       — real but modest; the search scan itself was still the bottleneck, capping only removed the
-       uncapped-`COUNT`'s own extra cost.
-    2. `pg_trgm` **GiST** index on `title`/`author` (not GIN — cheaper to write given the seeder's
-       bulk-update pattern, no pending-buffer/autovacuum overhead to manage; costs a bit more on read
-       and needs an index recheck). → `P(95) = 1.74s`, `P(99) = 2.37s`.
-    3. Sargable rewrite of the year filter (`publication_date < make_date(max_year+1,1,1)` instead of
-       `EXTRACT(year FROM ...)`) + a plain btree index on `publication_date`. → **`P(95) = 632ms`,
-       `P(99) = 1.06s`.**
-*   **Net result:** ~19x on P95, ~13x on P99 versus the first honest measurement. Thresholds are not
-    fully met yet — P99 misses by 60ms — but the app now visibly scales, and every step's cost/benefit
-    is measured and documented, not assumed.
+    **0% errors** (pure queueing, not connection-pool/network artifacts of an earlier, buggy
+    attempt). Root-caused via `EXPLAIN ANALYZE`: both endpoints fell back to a full sequential scan
+    because no index matched their query shape — `title ILIKE '%term%' OR author ILIKE '%term%'`
+    (a leading wildcard defeats every btree) and `EXTRACT(year FROM publication_date) <= max_year`
+    (a function over the column also defeats indexing). Individually each was sub-300ms and
+    invisible in the browser; queued for shared CPU only under 20 concurrent VUs — see Lessons
+    learned #3 for why an initial "parallel workers" theory for this queueing didn't hold up under
+    direct verification.
+*   **Fixed in 3 measured steps, cheapest first** (full trade-off discussion — GiST over GIN,
+    sargable predicates over functional indexes — in `docs/project-meta/project_context`):
+    1. Cap the pagination `COUNT(*)` at 2000 (planner stops once it finds the cap, regardless of a
+       term's real selectivity) and show an honest "2000+" instead of a false-precision exact number.
+       → `P(95) = 10.03s`, `P(99) = 12.36s` — real but modest; the search scan itself was still the
+       bottleneck.
+    2. `pg_trgm` **GiST** index on `title`/`author` (cheaper to write given the seeder's bulk-update
+       pattern at the time). → `P(95) = 1.74s`, `P(99) = 2.37s`.
+    3. Sargable rewrite of the year filter (`publication_date < make_date(max_year+1,1,1)`) + a plain
+       btree index on `publication_date`. → **`P(95) = 632ms`, `P(99) = 1.06s`.**
+*   **Net result:** ~19x on P95, ~13x on P99 versus the first honest measurement, with P99 still 60ms
+    over target on this synthetic baseline. The same GiST-index cost resurfaced later at production
+    scale — see the GiST→GIN fix in Engineering decisions below.
 *   **Command to run baseline:**
     ```bash
     docker run --rm --network host -i grafana/k6 run - < tests/load/baseline.js
@@ -290,9 +301,10 @@ the app.
 
 </details>
 
----
+</details>
 
-## Engineering decisions / Lessons learned
+<details>
+<summary><strong>Engineering decisions / Lessons learned</strong></summary>
 
 Real production incidents from this project's history — not sanitized case studies — each with the concrete fix and the general lesson it left behind.
 
@@ -314,7 +326,7 @@ Fixed by folding a `db_namespace` (sha256 of `DATABASE_URL`) into every cache ke
 
 Every logged-in user hit a 500 opening any of their own past articles, from the moment this code shipped — not intermittent, not data-dependent. The only test covering it mocked the repository entirely and asserted just that `user_id` was passed through, so the actual SQL never ran in CI.
 
-Found by writing a one-off script that called the repo directly against the production database (the project's usual outlet, since Railway's log tooling was itself broken that day) and reproducing the exact traceback from the browser. Fixed with an explicit `.select_from(SearchResultArticle)`.
+Found by writing a one-off script that called the repo directly against the production database and reproducing the exact traceback from the browser. Fixed with an explicit `.select_from(SearchResultArticle)`.
 
 **Lesson:** a mocked unit test can certify code that has never actually executed a single real query — join correctness needs an integration test against a real engine, even SQLite.
 
@@ -323,36 +335,35 @@ Found by writing a one-off script that called the repo directly against the prod
 <details>
 <summary><strong>A 20-minute check that saved a wasted GUC-tuning ticket</strong></summary>
 
-The original load-test writeup blamed the Performance section's multi-second P95 tail on "each request's own parallel workers competing for CPU cores" under 20 concurrent VUs — a plausible-sounding theory that was never actually checked against production.
+The original load-test writeup blamed the P95 tail on "parallel workers competing for CPU cores" under 20 concurrent VUs — plausible, but never checked against production.
 
-A read-only pass against the real Supabase instance found `max_parallel_workers_per_gather=1` — Supabase had already capped intra-query parallelism below Postgres's own default, so there was essentially nothing for workers to compete over. Running the identical `EXPLAIN (ANALYZE, BUFFERS)` twice in a row, with identical buffer hits and zero other sessions, still swung from 1.95s to 9.24s — the real culprit is CPU-time instability inherent to a burstable/shared compute tier, not intra-query contention.
+A read-only pass against the real Supabase instance found `max_parallel_workers_per_gather=1` — parallelism was already capped below Postgres's default, so there was nothing for workers to compete over. Running the identical `EXPLAIN (ANALYZE, BUFFERS)` twice, same buffer hits, zero other sessions, still swung from 1.95s to 9.24s — the real culprit is CPU-time instability inherent to a burstable/shared compute tier, not intra-query contention.
 
-No code changed; the theory was simply wrong as stated, and the Performance section above has been corrected to match.
+No code changed; the theory was simply wrong, and the Performance section above was corrected to match.
 
-**Lesson:** 20 minutes of read-only verification against the real infrastructure is cheaper than a ticket to tune a GUC based on an untested theory.
-
-*(Real prod P95/P99 from live traffic wasn't pulled for this note — Railway's log-query tooling needs an account-level token this session didn't have; the honest baseline above remains the one measured on a dedicated, production-scale instance.)*
+**Lesson:** 20 minutes of read-only verification against real infrastructure is cheaper than a ticket to tune a GUC based on an untested theory.
 
 </details>
 
 <details>
 <summary><strong>Indices heavier than the data itself — and the "dead weight" index that wasn't</strong> (PR #81)</summary>
 
-`GET /articles/?search=` took 0.5–9.8s depending on the moment. `VACUUM ANALYZE` — the obvious first fix after a 60% table-size increase — changed nothing: `EXPLAIN (ANALYZE, BUFFERS)` showed the worst-case query was already 100% buffer-cache hits, zero disk reads. The cost wasn't a cache miss or stale statistics; it was CPU time spent walking a genuinely oversized `pg_trgm` GiST index (145MB combined, on a 65MB table).
+`GET /articles/?search=` took 0.5–9.8s depending on the moment. `VACUUM ANALYZE` — the obvious first fix — changed nothing: `EXPLAIN (ANALYZE, BUFFERS)` showed the worst-case query was already 100% buffer-cache hits, zero disk reads. The cost wasn't a cache miss or stale statistics; it was CPU time spent walking a genuinely oversized `pg_trgm` GiST index (145MB combined, on a 65MB table).
 
-The real fix: switching those two GiST indices to GIN — same ILIKE-substring semantics, 65% and 53% smaller respectively, ~30x faster on the worst-case query once warm (measured on prod after deploy). This reverses an earlier, deliberate decision from PR #58 ("GiST, not GIN — cheaper writes for the seeder's bulk updates") — valid at the time only because the seeder was frozen during the migration; see the follow-up below for how the write-cost trade-off was actually re-checked before unfreezing it, not just assumed safe.
+The real fix: switching those two GiST indices to GIN — same ILIKE-substring semantics, 65% and 53% smaller respectively, ~30x faster on the worst-case query once warm (measured on prod after deploy). This reverses an earlier, deliberate decision ("GiST, not GIN — cheaper writes for the seeder's bulk updates") — valid only while the seeder was frozen during the migration; the write-cost trade-off was then re-checked before unfreezing it, not just assumed safe (below).
 
-One of the two indices looked like dead weight from a single test term (`rows=0`). Testing 20 real terms instead of 1 flipped the conclusion: for common author surnames ("wang", "zhang", "chen"...) it returns thousands of matches that title search alone would never find — the single-term sample was a false negative, not a real signal.
+One of the two indices looked like dead weight from a single test term (`rows=0`). Testing 20 real terms instead of 1 flipped the conclusion: for common author surnames ("wang", "zhang", "chen"...) it returns thousands of matches that title search alone would never find.
 
-**Lesson:** a query that's already all cache hits won't be fixed by `VACUUM`/`ANALYZE` — check `Buffers: shared hit` vs `read` before reaching for statistics-refresh fixes. And never decide "this index adds no value" from one test term — sample broadly, especially for anything matching free-text names.
+**Lesson:** a query that's already all cache hits won't be fixed by `VACUUM`/`ANALYZE` — check `Buffers: shared hit` vs `read` first. And never decide "this index adds no value" from one test term — sample broadly, especially for anything matching free-text names.
 
-**Follow-up — re-checking the write-cost trade-off before unfreezing the seeder:** production's own `pg_stat_user_tables` showed 92.3% of the seeder's lifetime updates on `articles` were HOT updates — re-discovering an already-known article rewrites byte-identical title/author values, so Postgres skips index maintenance entirely regardless of index type. The real risk was narrower and measured on an isolated, disposable Neon branch (same data, converted to GIN, deleted after the experiment): GIN's `fastupdate` pending-list buffer (`gin_pending_list_limit`, 4MB by default — confirmed identical on Supabase) makes catalog search reads progressively slower as new rows accumulate, roughly 2x by ~2 days' worth of inserts at the seeder's historical growth rate, and the planner can abandon the trgm index for a full sequential scan (~20x slower) before the next `VACUUM` cleans it. Fix: `POST /seeder/vacuum` now runs `VACUUM ANALYZE articles` every 10 seeder runs (~20h at the resumed 2-hour cadence) — comfortably inside that window; Postgres's own `autovacuum_vacuum_insert_threshold` would only have triggered on its own after ~13 days at this growth rate, too slow to rely on alone. The seeder is back on its 2-hour schedule.
+**Follow-up — re-checking the write-cost trade-off before unfreezing the seeder:** production's own `pg_stat_user_tables` showed 92.3% of the seeder's lifetime updates on `articles` were HOT updates — rediscovering an already-known article rewrites byte-identical values, so Postgres skips index maintenance regardless of index type. The real risk was measured on an isolated, disposable Neon branch (converted to GIN, deleted after): GIN's `fastupdate` pending-list buffer (`gin_pending_list_limit`, 4MB by default, confirmed identical on Supabase) makes reads progressively slower as rows accumulate — roughly 2x by ~2 days' worth of inserts at the seeder's growth rate, and the planner can abandon the index for a full sequential scan (~20x slower) before the next `VACUUM`. Fix: `POST /seeder/vacuum` now runs `VACUUM ANALYZE articles` every 10 seeder runs (~20h at the 2-hour cadence) — comfortably inside that window. The seeder is back on its 2-hour schedule.
 
 </details>
 
----
+</details>
 
-## Local Launch
+<details>
+<summary><strong>Local Launch</strong></summary>
 
 <details>
 <summary>Backend via Docker Compose</summary>
@@ -428,5 +439,7 @@ VITE_SUPPORT_EMAIL=support@example.com
 | `SENTRY_TRACES_SAMPLE_RATE` | Sentry performance tracing sample rate, 0.0-1.0 (default 1.0) |
 
 > **Before publishing:** scan the README and `.env.example` for real domains, email addresses, tokens, and any secret-like strings — replace all such values with neutral placeholders.
+
+</details>
 
 </details>
