@@ -43,7 +43,7 @@ export function ActiveFilterBanner() {
     >
       {/* Цветная точка измерения */}
       <span
-        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+        className="w-2.5 h-2.5 rounded-full shrink-0"
         style={{ backgroundColor: colors.base }}
         aria-hidden="true"
       />
@@ -75,7 +75,7 @@ export function ActiveFilterBanner() {
       {/* Кнопка сброса */}
       <button
         onClick={handleClear}
-        className="flex-shrink-0 flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-white/60 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-700/40 transition-colors"
+        className="shrink-0 flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-white/60 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-700/40 transition-colors"
         aria-label={t('a11y.clearFilter')}
       >
         <span aria-hidden="true">×</span>

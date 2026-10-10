@@ -62,17 +62,17 @@ function ActivityTooltip({ active, payload, label }: ActivityTooltipProps) {
       <p className="font-medium text-slate-900 dark:text-slate-100 mb-1">{label}</p>
       <div className="flex flex-col gap-0.5">
         <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: SUCCESSFUL_COLOR }} />
+          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: SUCCESSFUL_COLOR }} />
           <span className="text-slate-500 dark:text-slate-400">{t('explore.personal.activity.legendSuccessful')}:</span>
           <span className="font-semibold text-slate-900 dark:text-slate-100">{formatCount(row.successful_searches)}</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: ZERO_RESULT_COLOR }} />
+          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: ZERO_RESULT_COLOR }} />
           <span className="text-slate-500 dark:text-slate-400">{t('explore.personal.activity.legendZeroResult')}:</span>
           <span className="font-semibold text-slate-900 dark:text-slate-100">{formatCount(row.zero_result_searches)}</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: CUMULATIVE_LINE_COLOR }} />
+          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: CUMULATIVE_LINE_COLOR }} />
           <span className="text-slate-500 dark:text-slate-400">{t('explore.personal.activity.legendCumulative')}:</span>
           <span className="font-semibold text-slate-900 dark:text-slate-100">{formatCount(row.cumulative_unique_articles)}</span>
         </div>
@@ -98,7 +98,7 @@ function ActivityLegend({ payload }: { payload?: Payload[] }) {
     <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1.5 text-xs text-slate-600 dark:text-slate-300 pt-2">
       {payload.map((entry) => (
         <span key={String(entry.value)} className="flex items-center gap-1.5 whitespace-nowrap">
-          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: entry.color }} />
+          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
           {labelFor(String(entry.value))}
         </span>
       ))}

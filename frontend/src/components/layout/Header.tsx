@@ -46,9 +46,9 @@ export function Header() {
       // ТЗ, docs/frontend-ui/layout-overhaul/spec.md); без этого паддинга шапка на notched-
       // устройствах (особенно landscape) уходит под жестовую зону/чёлку. На
       // не-notched устройствах env(...) резолвится в 0 — поведение не меняется.
-      className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] backdrop-blur dark:border-slate-700 dark:bg-[#0c1927]/95"
+      className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] backdrop-blur-sm dark:border-slate-700 dark:bg-[#0c1927]/95"
     >
-      <div className="mx-auto flex h-14 max-w-screen-xl items-center justify-between px-4">
+      <div className="mx-auto flex h-14 max-w-(--breakpoint-xl) items-center justify-between px-4">
         {/* Logo — aria-label kept in English per spec §1.6.
             Всегда ведёт на /main, вне зависимости от auth-статуса (баг
             2026-08-02: раньше был role-based через useDefaultLandingPath —
@@ -144,7 +144,7 @@ export function Header() {
                 <DropdownMenuTrigger asChild>
                   <button
                     aria-label={t('a11y.userMenu', { name: displayName })}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-800 text-xs font-semibold text-white hover:bg-blue-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-800 dark:bg-blue-500 dark:hover:bg-blue-400"
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-800 text-xs font-semibold text-white hover:bg-blue-900 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-blue-800 dark:bg-blue-500 dark:hover:bg-blue-400"
                   >
                     {getInitials(displayName)}
                   </button>

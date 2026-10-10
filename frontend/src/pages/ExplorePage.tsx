@@ -182,7 +182,7 @@ export default function ExplorePage() {
   }
 
   return (
-    <div className="mx-auto max-w-screen-xl px-4 py-8 flex flex-col gap-8">
+    <div className="mx-auto max-w-(--breakpoint-xl) px-4 py-8 flex flex-col gap-8">
       {hreflangTags}
 
       {/* Заголовок раздела — text-3xl (было text-2xl) выравнивает с h1 /about и /main
@@ -320,7 +320,7 @@ export default function ExplorePage() {
           </p>
           <LocalizedLink
             to="/auth"
-            className="flex-shrink-0 rounded-md bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400 text-white text-sm font-medium px-4 py-2 transition-colors"
+            className="shrink-0 rounded-md bg-blue-800 hover:bg-blue-900 dark:bg-blue-500 dark:hover:bg-blue-400 text-white text-sm font-medium px-4 py-2 transition-colors"
           >
             {t('nav.signIn')}
           </LocalizedLink>

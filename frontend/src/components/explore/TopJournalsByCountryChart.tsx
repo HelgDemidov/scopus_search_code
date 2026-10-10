@@ -58,11 +58,11 @@ function JournalCountryTooltip({ active, payload, label }: TooltipProps<ValueTyp
   // вариант, sm: — прежний десктопный размер).
   return (
     <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#152236] px-2 py-1.5 sm:px-3 sm:py-2 shadow-lg text-xs sm:text-sm max-w-[170px] sm:max-w-[260px]">
-      <p className="font-medium text-slate-900 dark:text-slate-100 mb-1 sm:mb-1.5 break-words">{label}</p>
+      <p className="font-medium text-slate-900 dark:text-slate-100 mb-1 sm:mb-1.5 wrap-break-word">{label}</p>
       <div className="flex flex-col gap-0.5 sm:gap-1">
         {rows.map((p) => (
           <div key={String(p.dataKey)} className="flex items-center gap-1.5 sm:gap-2">
-            <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+            <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
             <span className="text-slate-500 dark:text-slate-400 flex-1">
               {translateCountry(String(p.dataKey), i18n.language, t)}
             </span>
@@ -135,7 +135,7 @@ function JournalCountryLegend({ payload }: { payload?: Payload[] }) {
           {row.map((entry) => (
             <span key={String(entry.value)} className="flex items-center gap-1 whitespace-nowrap">
               <span
-                className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                className="w-2.5 h-2.5 rounded-full shrink-0"
                 style={{ backgroundColor: entry.color }}
               />
               <span style={{ color: entry.value === 'Other' && theme === 'dark' ? AXIS_COLORS.dark.tick : entry.color }}>

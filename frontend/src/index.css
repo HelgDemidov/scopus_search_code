@@ -1,9 +1,112 @@
+@import "tailwindcss";
 @import "tw-animate-css";
 @import "@fontsource-variable/geist";
-/* Tailwind v3 директивы — обязательны для генерации утилитарных классов */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+
+/* Tailwind v4: конфигурация живёт в CSS (@theme), а не в tailwind.config.ts.
+   dark: срабатывает на потомках элемента с классом .dark (<html class="dark">) —
+   тот же смысл, что был у darkMode: 'class' в v3-конфиге. */
+@custom-variant dark (&:is(.dark *));
+
+/* Токены, ссылающиеся на CSS-переменные ниже (:root / .dark). inline — утилита
+   подставляет var(--x) напрямую, а не через промежуточную --color-x, поэтому
+   значение корректно переопределяется классом .dark. Переменные объявлены как
+   oklch(…) / hex — полные значения, без дополнительных обёрток. */
+@theme inline {
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Скругления — переопределяем под shadcn Nova пресет (--radius ниже) */
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+@theme {
+  /* Шрифты проекта */
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Mobile-first шкала брейкпоинтов зафиксирована явно в px (значения совпадают
+     с дефолтом Tailwind) — вся верстка (шапка/бургер, дашборд-гриды) считает
+     именно эти пороги; явная запись защищает от молчаливого сдвига при апдейте
+     Tailwind (docs/frontend-ui/layout-overhaul/spec.md §4.2). */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+
+  /* Кастомные брендовые и UI-цвета (не конфликтуют с shadcn-токенами выше) */
+  --color-brand: #2563eb; /* синий акцент */
+  --color-brand-hover: #1d4ed8;
+  --color-brand-light: #eff6ff;
+  --color-brand-dark: #1e40af;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f8fafc; /* slate-50 */
+  --color-surface-border: #e2e8f0; /* slate-200 */
+  --color-chart-1: #3b82f6; /* blue-500 */
+  --color-chart-2: #14b8a6; /* teal-500 */
+  --color-chart-3: #f59e0b; /* amber-500 */
+  --color-chart-4: #8b5cf6; /* violet-500 */
+  --color-chart-5: #10b981; /* emerald-500 */
+  --color-chart-6: #f43f5e; /* rose-500 */
+}
+
+/* В v4 «голого» rounded нет (rounded → rounded-sm), а наш rounded-sm переопределён
+   под --radius (Nova). Чтобы 14 использований голого rounded остались 0.25rem
+   как в v3, объявляем его явно. */
+@utility rounded {
+  border-radius: 0.25rem;
+}
+
+/* Совместимость с v3-поведением (https://tailwindcss.com/docs/upgrade-guide):
+   — цвет границы по умолчанию в v4 стал currentcolor, в v3 был gray-200;
+   — кнопки в v4 получили cursor: default, в v3 был pointer;
+   — placeholder в v4 — currentcolor 50%, в v3 был gray-400. */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-gray-400);
+  }
+}
 
 /* Anti-overflow guard (docs/frontend-ui/layout-overhaul/spec.md §4.6). "clip" — не "hidden":
    overflow-x:hidden на предке создаёт новый scroll-container и ломает
@@ -19,7 +122,10 @@
    Корневой div НЕ несёт свой bg-background — иначе его непрозрачная заливка,
    однажды попав в тот же (или более поздний) stacking-order, что и канвас,
    перекрыла бы канвас целиком (см. [[project-dark-mode]], баг 2026-07-10:
-   isolate на div с bg-background стёр звёзды со всей страницы). */
+   isolate на div с bg-background стёр звёзды со всей страницы).
+
+   Tailwind v4: purge кастомного CSS больше нет, но правило остаётся вне @layer ради
+   приоритета — unlayered-стили выигрывают у любых слоёв (в т.ч. у preflight). */
 html, body {
   overflow-x: clip;
   background-color: var(--background);
@@ -133,7 +239,9 @@ html, body {
      outline-color задаётся нативным color-mix() вместо @apply outline-ring/50:
      Tailwind v3 не умеет применять opacity modifier (/50) к значениям вида
      var(--css-variable), так как не может статически разобрать их во время
-     компиляции PostCSS. color-mix() решает это на уровне браузера в runtime. */
+     компиляции PostCSS. color-mix() решает это на уровне браузера в runtime.
+     Tailwind v4: /50 на var()-цвете уже работает (color-mix генерирует сам Tailwind), но
+     правило оставлено как есть — поведение апгрейдом не меняем. */
   * {
     @apply border-border;
     outline-color: color-mix(in oklch, var(--ring) 50%, transparent);
@@ -169,7 +277,9 @@ html, body {
    это правило молча выпиливалось при продакшен-сборке (проверено:
    dist/assets/index-*.css не содержал ни строки "recharts-sector", ни
    "outline:none" рядом с ней), хотя в dev-режиме (без tree-shaking) всё
-   работало. Вне @layer действие content-purge не распространяется. */
+   работало. Вне @layer действие content-purge не распространяется.
+   Tailwind v4: purge кастомного CSS больше нет — правило остаётся вне @layer только ради
+   приоритета и истории (см. комментарий выше про html/body). */
 .recharts-sector:focus {
   outline: none;
 }

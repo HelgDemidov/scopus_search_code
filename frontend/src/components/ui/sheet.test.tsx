@@ -5,7 +5,7 @@ import { Sheet, SheetContent } from './sheet';
 // ---------------------------------------------------------------------------
 // Regression-тест на docs/explore-analytics/explore-charts-refactor/spec.md §2: базовый
 // SheetContent раньше хардкодил per-side размеры (data-[side=right]:w-3/4,
-// data-[side=right]:h-full, data-[side=right]:sm:max-w-sm и т.д.) прямо в
+// data-[side=right]:h-full, sm:data-[side=right]:max-w-sm и т.д.) прямо в
 // className. Атрибутный селектор data-[side=X] имеет более высокую
 // CSS-специфичность, чем обычный/responsive-класс потребителя — поэтому
 // оверрайды DimensionDrawer/ArticleFilters физически проигрывали браузерному
@@ -66,7 +66,8 @@ describe('SheetContent — базовый className не задаёт разме
   it('анимации используют data-[state=open]/data-[state=closed], а не v4-синтаксис data-open:/data-closed:', () => {
     // Radix (radix-ui пакет, Dialog.Content) выставляет атрибут data-state="open"|"closed",
     // а не булевый data-open/data-closed — бывший v4-only bare-синтаксис в этом
-    // Tailwind v3-проекте молча не срабатывал (см. память feedback-tailwind-v3-data-variants)
+    // проекте молча не срабатывал: v3 не знал variant data-open:, а в v4 он целится в атрибут
+    // data-open, которого у Radix нет (см. память feedback-tailwind-v3-data-variants)
     const className = getContentClassName('right');
     expect(className).toMatch(/data-\[state=open\]:animate-in/);
     expect(className).toMatch(/data-\[state=closed\]:animate-out/);

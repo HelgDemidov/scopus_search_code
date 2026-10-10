@@ -27,7 +27,7 @@ function sortArticles(
 
 // Анонимный intro-блок — заголовок + пояснительный абзац (текстовая,
 // центрированная часть). Строка поиска вынесена в SearchPage — делит одну
-// ширину с Filters/результатами ниже (было отдельным узким max-w-screen-sm
+// ширину с Filters/результатами ниже (было отдельным узким max-w-(--breakpoint-sm)
 // контейнером, из-за чего после поиска Filters оказывался оторван от строки
 // поиска, см. баг 2026-08-02: филды не видны до поиска + после поиска
 // съезжают влево отдельным блоком).
@@ -43,9 +43,9 @@ function sortArticles(
 function AnonIntro() {
   const { t } = useTranslation();
   return (
-    // Выровнено по левому краю (было mx-auto max-w-screen-sm text-center) — тот же
+    // Выровнено по левому краю (было mx-auto max-w-(--breakpoint-sm) text-center) — тот же
     // левый край, что у SearchBar/Filters ниже, оба внутри одного родительского
-    // mx-auto max-w-screen-xl px-4 (см. PR #79 в CLAUDE.md — общий контейнер).
+    // mx-auto max-w-(--breakpoint-xl) px-4 (см. PR #79 в CLAUDE.md — общий контейнер).
     <div>
       <h1 className="text-balance text-3xl font-bold text-slate-900 dark:text-slate-100">
         {t('searchPage.anonTitle')}
@@ -208,13 +208,13 @@ export default function SearchPage() {
     <div className="min-h-full">
       {hreflangTags}
       {!isAuthenticated ? (
-        // Одна общая ширина на весь анонимный вид (mx-auto max-w-screen-xl px-4),
+        // Одна общая ширина на весь анонимный вид (mx-auto max-w-(--breakpoint-xl) px-4),
         // та же, что у авторизованного вида ниже — Filters/результаты делят левый
         // край со строкой поиска вместо отдельного узкого mx-auto-блока (баг
         // 2026-08-02). ArticleList рендерится без условия hasSearched — так же,
         // как в авторизованном виде: Filters видны сразу, ArticleList сам решает,
         // что показать (пусто/skeleton/список) через свои isLoading/hasSearched.
-        <div className="mx-auto max-w-screen-xl px-4 py-6 flex flex-col gap-6">
+        <div className="mx-auto max-w-(--breakpoint-xl) px-4 py-6 flex flex-col gap-6">
           {/* Заголовок+записка и строка поиска сгруппированы отдельным gap-8
               (крупнее шрифт AnonIntro теперь = /main, тот же просторный ритм)
               — не задевая gap-6 от строки поиска до ArticleList/Filters ниже,
@@ -247,7 +247,7 @@ export default function SearchPage() {
           </ErrorBoundary>
         </div>
       ) : (
-        <div className="mx-auto max-w-screen-xl px-4 py-6 flex flex-col gap-6">
+        <div className="mx-auto max-w-(--breakpoint-xl) px-4 py-6 flex flex-col gap-6">
 
           {/* Переключатель режима поиска */}
           <div

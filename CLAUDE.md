@@ -1,7 +1,7 @@
 # Scopus Search — Claude Code memory
 
 ## Project overview
-REST API (FastAPI + asyncpg + SQLAlchemy 2.x async) + React 18/TS SPA (Vite + shadcn/ui + Tailwind 3). Layered SOLID: `app/interfaces` → `app/services` → `app/infrastructure` → `app/routers`. Backend on Railway (Docker), frontend on Vercel. DB: PostgreSQL (Supabase in prod). Config: `app/config.py` (Pydantic Settings).
+REST API (FastAPI + asyncpg + SQLAlchemy 2.x async) + React 18/TS SPA (Vite + shadcn/ui + Tailwind 4). Layered SOLID: `app/interfaces` → `app/services` → `app/infrastructure` → `app/routers`. Backend on Railway (Docker), frontend on Vercel. DB: PostgreSQL (Supabase in prod). Config: `app/config.py` (Pydantic Settings).
 
 ## Backend layers & key files
 `app/interfaces/` — ABCs: article/catalog/search_history/search_result/user repositories + search_client + `email_service.py` (IEmailService)

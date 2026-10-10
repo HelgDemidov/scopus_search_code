@@ -35,7 +35,7 @@ export function ChartCard({
   return (
     <div
       className={cn(
-        'relative rounded-xl border border-slate-200 bg-white p-5 flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow',
+        'relative rounded-xl border border-slate-200 bg-white p-5 flex flex-col gap-3 shadow-xs hover:shadow-md transition-shadow',
         // БЕЗ backdrop-blur (было в предыдущих итерациях, убрано 2026-07-11):
         // разреженные тусклые звёзды после ЛЮБОГО блюра размывались в
         // неразличимое пятно — это свойство самого контента (редкие тусклые
@@ -59,7 +59,7 @@ export function ChartCard({
       <div className="flex items-center gap-2">
         {accentColor && (
           <span
-            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+            className="w-2.5 h-2.5 rounded-full shrink-0"
             style={{ backgroundColor: accentColor }}
           />
         )}
@@ -68,7 +68,7 @@ export function ChartCard({
             <button
               type="button"
               onClick={onTitleClick}
-              className="text-left cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+              className="text-left cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
             >
               {title}
             </button>
@@ -76,7 +76,7 @@ export function ChartCard({
             title
           )}
         </h3>
-        {headerAction && <div className="ml-auto flex-shrink-0">{headerAction}</div>}
+        {headerAction && <div className="ml-auto shrink-0">{headerAction}</div>}
       </div>
 
       {isLoading ? (

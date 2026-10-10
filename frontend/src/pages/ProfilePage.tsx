@@ -29,7 +29,7 @@ function getInitials(name: string): string {
 // Page skeleton — mirrors the identity block structure
 function ProfilePageSkeleton() {
   return (
-    <div className="mx-auto max-w-screen-sm px-4 py-10">
+    <div className="mx-auto max-w-(--breakpoint-sm) px-4 py-10">
       <Skeleton className="h-7 w-24 mb-6" />
       <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6">
         <div className="flex items-center gap-4 mb-6">
@@ -85,7 +85,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="mx-auto max-w-screen-sm px-4 py-10">
+    <div className="mx-auto max-w-(--breakpoint-sm) px-4 py-10">
       <h1 className="mb-6 text-xl font-semibold text-slate-900 dark:text-slate-100">{t('profile.title')}</h1>
 
       {/* Identity block */}

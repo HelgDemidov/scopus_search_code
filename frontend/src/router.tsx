@@ -110,7 +110,7 @@ export function RootLayout() {
     // [[project-dark-mode]]). Перенос канваса внутрь возвращает его в тот
     // же backdrop root, что и карточки — порядок отрисовки не меняется,
     // канвас всё так же первый в DOM внутри блока.
-    <div className="min-h-[100dvh] isolate flex flex-col text-foreground">
+    <div className="min-h-dvh isolate flex flex-col text-foreground">
       <StarFieldCanvas />
       {/* Дефолтный Helmet — постоянно смонтирован (RootLayout не размонтируется между
           роутами), фолбэк title/description/canonical для страниц БЕЗ своего useHreflangTags

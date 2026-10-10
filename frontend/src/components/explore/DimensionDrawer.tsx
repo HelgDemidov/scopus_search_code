@@ -497,7 +497,7 @@ function DrawerTable({ data, totalArticles }: { data: LabelCount[]; totalArticle
                 className="border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
               >
                 <td className="px-3 py-2 text-xs text-slate-400 tabular-nums">{i + 1}</td>
-                <td className="px-3 py-2 text-slate-700 dark:text-slate-300 max-w-[280px] break-words">{row.label}</td>
+                <td className="px-3 py-2 text-slate-700 dark:text-slate-300 max-w-[280px] wrap-break-word">{row.label}</td>
                 <td className="px-3 py-2 text-right font-medium tabular-nums text-slate-900 dark:text-slate-100">{formatCount(row.count)}</td>
                 <td className="px-3 py-2 text-right tabular-nums text-slate-500 dark:text-slate-400">{pct.toFixed(1)}%</td>
               </tr>
@@ -564,7 +564,7 @@ function DimensionDrawerCore({ source }: { source: DimensionStatsSource | null }
             // viewport'ах (напр. 810px высотой — зазор между низом заголовка и
             // верхом drawer'а был 0.6px). min(85dvh, 100dvh-140px) гарантирует
             // от шапки минимум 140px, не срезая высоту drawer'а на высоких экранах.
-            ? 'h-[min(85dvh,calc(100dvh_-_140px))] w-full flex flex-col p-0 gap-0 rounded-t-xl overflow-hidden'
+            ? 'h-[min(85dvh,calc(100dvh-140px))] w-full flex flex-col p-0 gap-0 rounded-t-xl overflow-hidden'
             : 'sm:max-w-2xl lg:max-w-3xl w-full h-full flex flex-col overflow-hidden p-0 gap-0'
         }
       >
@@ -572,15 +572,15 @@ function DimensionDrawerCore({ source }: { source: DimensionStatsSource | null }
           <>
             {/* Drag handle — только на мобильных */}
             {isMobile && (
-              <div className="flex-shrink-0 flex justify-center pt-3 pb-1">
+              <div className="shrink-0 flex justify-center pt-3 pb-1">
                 <div className="w-10 h-1 rounded-full bg-slate-300 dark:bg-slate-600" />
               </div>
             )}
 
-            <SheetHeader className="px-6 pt-4 pb-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
+            <SheetHeader className="px-6 pt-4 pb-4 border-b border-slate-200 dark:border-slate-700 shrink-0">
               <SheetTitle className="flex items-center gap-2 text-base font-semibold">
                 <span
-                  className="w-3 h-3 rounded-full flex-shrink-0"
+                  className="w-3 h-3 rounded-full shrink-0"
                   style={{ backgroundColor: colors.base }}
                 />
                 {config.title}
@@ -616,7 +616,7 @@ function DimensionDrawerCore({ source }: { source: DimensionStatsSource | null }
                 </>
               ) : (
                 <>
-                  <div className="flex-shrink-0 px-6 pt-6">
+                  <div className="shrink-0 px-6 pt-6">
                     {drawerDimension === 'year' ? (
                       <DrawerAreaChart data={config.data} height={chartHeight} />
                     ) : drawerDimension === 'country' ? (

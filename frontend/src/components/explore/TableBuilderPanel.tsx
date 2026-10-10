@@ -155,7 +155,7 @@ function AddTableForm({
       role="region"
       aria-label={t('explore.tableBuilder.heading')}
       // relative — то же обоснование, что в ChartCard.tsx (star-bleed фикс)
-      className="relative rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#152236] p-5 flex flex-col gap-4 shadow-sm"
+      className="relative rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#152236] p-5 flex flex-col gap-4 shadow-xs"
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <label className="flex flex-col gap-1.5 text-sm">
@@ -328,7 +328,7 @@ export function TableBuilderPanel() {
           // "Table Builder" в открытом состоянии (тот же h2 ниже) — тот же
           // размер и цвет в обеих темах. justify-start (не center) — текст
           // прижат к левому краю с тем же px-5, что и у карточек рядом.
-          className="flex items-center justify-start gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-violet-800/20 dark:bg-violet-500/20 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-violet-800/25 dark:hover:bg-violet-500/25 hover:shadow-sm px-5 py-3 text-lg font-semibold text-slate-900 dark:text-slate-100 transition-all w-full"
+          className="flex items-center justify-start gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-violet-800/20 dark:bg-violet-500/20 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-violet-800/25 dark:hover:bg-violet-500/25 hover:shadow-xs px-5 py-3 text-lg font-semibold text-slate-900 dark:text-slate-100 transition-all w-full"
         >
           <Plus className="size-4" aria-hidden />
           {builderCards.length > 0 ? t('explore.tableBuilder.addButton') : t('explore.tableBuilder.heading')}
