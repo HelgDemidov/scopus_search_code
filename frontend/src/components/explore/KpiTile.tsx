@@ -29,7 +29,7 @@ export function KpiTile({ label, value, dimension, isActive, isLoading = false, 
   return (
     <button
       onClick={onClick}
-      className="rounded-xl border border-slate-200 dark:border-slate-700 p-5 flex flex-col gap-1 cursor-pointer text-left w-full transition-all hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm"
+      className="rounded-xl border border-slate-200 dark:border-slate-700 p-5 flex flex-col gap-1 cursor-pointer text-left w-full transition-all hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-xs"
       style={tileStyle}
       aria-pressed={isActive}
     >

@@ -125,11 +125,11 @@ function SunburstTooltip({ active, payload }: TooltipProps<ValueType, NameType>)
 
   return (
     <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#152236] px-3 py-2 shadow-lg text-sm max-w-[240px]">
-      <p className="font-medium text-slate-900 dark:text-slate-100 mb-1 break-words">
+      <p className="font-medium text-slate-900 dark:text-slate-100 mb-1 wrap-break-word">
         {d.levelLabel}: {d.displayLabel}
       </p>
       <div className="flex items-center gap-2">
-        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
+        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
         <span className="font-semibold text-slate-900 dark:text-slate-100">{formatCount(d.value)}</span>
         <span className="text-slate-500 dark:text-slate-400">
           ({pct}% {t('explore.crossCharts.ofParent', { parent: d.parentLabel })})
@@ -142,7 +142,7 @@ function SunburstTooltip({ active, payload }: TooltipProps<ValueType, NameType>)
         <div className="mt-1.5 pt-1.5 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-1">
           {d.children.map((c) => (
             <div key={c.label} className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: c.color }} />
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
               <span className="text-slate-500 dark:text-slate-400 flex-1">{c.label}</span>
               <span className="font-medium tabular-nums text-slate-900 dark:text-slate-100">{c.value}</span>
             </div>

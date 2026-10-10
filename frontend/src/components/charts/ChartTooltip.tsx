@@ -56,13 +56,13 @@ export function ChartTooltip({
   return (
     <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#152236] px-3 py-2 shadow-lg text-sm">
       {displayLabel && (
-        <p className="font-medium text-slate-900 dark:text-slate-100 mb-1 max-w-[220px] break-words">
+        <p className="font-medium text-slate-900 dark:text-slate-100 mb-1 max-w-[220px] wrap-break-word">
           {displayLabel}
         </p>
       )}
       <div className="flex items-center gap-2">
         <span
-          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+          className="w-2.5 h-2.5 rounded-full shrink-0"
           style={{ backgroundColor: accentColor }}
         />
         <span className="text-slate-500 dark:text-slate-400">{effectiveLabel}:</span>

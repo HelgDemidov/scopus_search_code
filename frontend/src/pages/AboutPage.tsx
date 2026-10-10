@@ -15,7 +15,7 @@ export default function AboutPage() {
   const hreflangTags = useHreflangTags('/about');
 
   return (
-    <div className="mx-auto max-w-screen-md px-4 py-16 flex flex-col gap-10">
+    <div className="mx-auto max-w-(--breakpoint-md) px-4 py-16 flex flex-col gap-10">
       {hreflangTags}
       <div>
         <h1 className="text-balance text-3xl font-bold text-slate-900 dark:text-slate-100">

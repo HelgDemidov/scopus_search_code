@@ -8,7 +8,7 @@ export default function PrivacyPage() {
   const hreflangTags = useHreflangTags('/privacy');
 
   return (
-    <div className="mx-auto max-w-screen-sm px-4 py-16">
+    <div className="mx-auto max-w-(--breakpoint-sm) px-4 py-16">
       {hreflangTags}
       <h1 className="text-balance text-3xl font-bold text-slate-900 dark:text-slate-100">
         {t('privacy.title')}

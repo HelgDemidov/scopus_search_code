@@ -66,7 +66,7 @@ function SortableHeader({
       <button
         type="button"
         onClick={() => onSort(sortKey)}
-        className={`inline-flex items-center gap-1 w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded cursor-pointer ${align === 'right' ? 'flex-row-reverse justify-start' : 'justify-start'}`}
+        className={`inline-flex items-center gap-1 w-full focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 rounded cursor-pointer ${align === 'right' ? 'flex-row-reverse justify-start' : 'justify-start'}`}
       >
         {label}
         {active &&
@@ -226,7 +226,7 @@ export function PivotTable({ data, rowDim, colDim }: PivotTableProps) {
                 key={row.raw}
                 className="border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
               >
-                <td className="px-3 py-2 text-slate-700 dark:text-slate-300 max-w-[220px] break-words">{row.display}</td>
+                <td className="px-3 py-2 text-slate-700 dark:text-slate-300 max-w-[220px] wrap-break-word">{row.display}</td>
                 {row.cells.map((c, ci) => (
                   <td key={ci} className="px-3 py-2 text-right tabular-nums text-slate-600 dark:text-slate-400">
                     {row.counts[ci] > 0 ? formatMetricValue(data.metric, c) : '–'}

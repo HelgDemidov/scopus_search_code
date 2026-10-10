@@ -55,7 +55,7 @@ export function LanguageSwitcher() {
           // тот же паттерн, что уже везде в проекте (Button, SearchBar,
           // ChartCard, PivotTable) — показывает рамку только при реальной
           // клавиатурной навигации (Tab), не при клике мышью.
-          'focus:outline-none focus-visible:ring-1 focus-visible:ring-slate-300 dark:focus-visible:ring-slate-600',
+          'focus:outline-hidden focus-visible:ring-1 focus-visible:ring-slate-300 dark:focus-visible:ring-slate-600',
           'min-h-11 min-w-11 justify-center px-3 text-sm',
           'sm:min-h-0 sm:min-w-0 sm:justify-start sm:px-2 sm:py-1.5 sm:text-xs',
         )}
@@ -63,7 +63,7 @@ export function LanguageSwitcher() {
         {current.label}
         <ChevronDown className="h-3 w-3 opacity-60" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-[4rem]">
+      <DropdownMenuContent align="end" className="min-w-16">
         {LANGS.map(({ code, urlLang, label }) => (
           <DropdownMenuItem
             key={code}

@@ -14,7 +14,7 @@ export default function MainPage() {
   const hreflangTags = useHreflangTags('/main');
 
   return (
-    <div className="mx-auto max-w-screen-sm px-4 py-16 flex flex-col items-center gap-8 text-center">
+    <div className="mx-auto max-w-(--breakpoint-sm) px-4 py-16 flex flex-col items-center gap-8 text-center">
       {hreflangTags}
       <div>
         <h1 className="text-balance text-3xl font-bold text-slate-900 dark:text-slate-100">

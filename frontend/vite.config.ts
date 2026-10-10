@@ -11,8 +11,8 @@ import path from 'path'
 // незапрошенных .map в dist/.
 const sentryEnabled = Boolean(process.env.SENTRY_AUTH_TOKEN)
 
-// НЕ импортируем @tailwindcss/vite — это плагин только для Tailwind v4;
-// в нашем проекте используется Tailwind v3 через PostCSS-пайплайн
+// НЕ импортируем @tailwindcss/vite — Tailwind v4 подключён через PostCSS-плагин
+// @tailwindcss/postcss (см. postcss.config.js)
 export default defineConfig({
   plugins: [
     react(),

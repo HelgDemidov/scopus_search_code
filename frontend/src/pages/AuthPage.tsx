@@ -306,7 +306,7 @@ export default function AuthPage() {
     // min-h-full — см. router.tsx (flex-1 <main>) и SearchPage.tsx
     <div className="flex min-h-full items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
-        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#152236] px-6 py-8 shadow-sm">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#152236] px-6 py-8 shadow-xs">
         {/* Page heading */}
         <div className="mb-6 text-center">
           <h1 className="text-balance text-xl font-semibold text-slate-900 dark:text-slate-100">
