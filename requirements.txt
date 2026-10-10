@@ -4,13 +4,13 @@ asyncpg>=0.31.0
 alembic>=1.20.0
 pydantic>=2.13.5
 pydantic-settings>=2.15.0
-python-dotenv>=1.2.3
+python-dotenv>=1.2.4
 httpx>=0.28.1
 pwdlib[argon2,bcrypt]>=0.3.1
 PyJWT>=2.14.0
 pytest
 pytest-asyncio
-ruff
+ruff~=0.17.0  # стиль форматирования меняется между минорными версиями — без пина CI дрейфует (0.16.9 → 0.17.0, 2026-10-09)
 mypy
 pytest-cov
 # Google OAuth 2.0
@@ -18,7 +18,7 @@ authlib>=1.8.0,<2.0.0  # Google OAuth 2.0; authlib.jose deprecated в 1.7+, brea
 itsdangerous>=2.2.0
 pytest-timeout>=2.4.0
 structlog>=26.1.0
-sentry-sdk>=2.70.0
+sentry-sdk>=2.71.0
 colorama>=0.4.6  # цветной вывод db_seeder/seeder__scripts/seed_db.py
 boto3>=1.43.107  # openalex_pdf_feed/storage.py — S3-совместимый клиент для Cloudflare R2
 pyyaml>=6.0.3  # openalex_pdf_feed/run.py — парсинг terms.yaml
