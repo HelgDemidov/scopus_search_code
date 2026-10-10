@@ -10,7 +10,7 @@ pwdlib[argon2,bcrypt]>=0.3.1
 PyJWT>=2.14.0
 pytest
 pytest-asyncio
-ruff
+ruff~=0.17.0  # стиль форматирования меняется между минорными версиями — без пина CI дрейфует (0.16.9 → 0.17.0, 2026-10-09)
 mypy
 pytest-cov
 # Google OAuth 2.0
