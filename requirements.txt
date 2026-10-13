@@ -7,7 +7,7 @@ pydantic-settings>=2.15.0
 python-dotenv>=1.2.4
 httpx>=0.28.1
 pwdlib[argon2,bcrypt]>=0.3.1
-PyJWT>=2.14.0
+PyJWT>=2.15.1
 pytest
 pytest-asyncio
 ruff~=0.17.0  # стиль форматирования меняется между минорными версиями — без пина CI дрейфует (0.16.9 → 0.17.0, 2026-10-09)
